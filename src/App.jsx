@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 // Mástil interactivo
 // - Escalas: pentatónicas (mayor/menor), mayor/menor natural, modos
@@ -2869,42 +2870,19 @@ export default function FretboardScalesPage() {
     [nearComputed.selected]
   );
 
-  const nearConfigSig = useMemo(
-    () =>
-      JSON.stringify({
-        from: nearFrom,
-        to: nearTo,
-        maxFret,
-        slots: nearSlots.map((s) => ({
-          enabled: !!s?.enabled,
-          rootPc: s?.rootPc,
-          quality: s?.quality,
-          suspension: s?.suspension,
-          structure: s?.structure,
-          inversion: s?.inversion,
-          ext7: !!s?.ext7,
-          ext6: !!s?.ext6,
-          ext9: !!s?.ext9,
-          ext11: !!s?.ext11,
-          ext13: !!s?.ext13,
-          selFrets: s?.selFrets || null,
-        })),
-      }),
-    [nearFrom, nearTo, maxFret, nearSlots]
-  );
-
-  // Igual que en el acorde principal: conserva el voicing anterior REAL antes del recálculo.
+  // Guarda la selección ya estabilizada para poder buscar el voicing más cercano
+  // tras un cambio de configuración, sin entrar en bucles.
   useEffect(() => {
-    return () => {
-      lastNearVoicingsRef.current = nearComputed.selected.map((v, i) => v || lastNearVoicingsRef.current[i] || null);
-    };
-  }, [nearSelectedSig, nearConfigSig]);
+    if (!nearSelectedSig) return;
+    lastNearVoicingsRef.current = nearComputed.selected.map((v, i) => v || lastNearVoicingsRef.current[i] || null);
+  }, [nearSelectedSig]);
 
   useEffect(() => {
     setNearSlots((prev) => {
       let changed = false;
       const next = prev.map((slot, idx) => {
         if (!slot?.enabled) return slot;
+
         const options = nearComputed.ranked[idx]?.ranked || [];
         if (!options.length) {
           if (slot.selFrets != null) {
@@ -2914,14 +2892,29 @@ export default function FretboardScalesPage() {
           return slot;
         }
 
-        const nextIdx = nearestVoicingIndex(lastNearVoicingsRef.current[idx], options);
-        const nextFrets = options[nextIdx]?.frets ?? null;
-        if (slot.selFrets !== nextFrets) {
+        let nextFrets = slot.selFrets ?? null;
+
+        if (idx === 0) {
+          // En el acorde base, si el usuario ha elegido manualmente una digitación
+          // y sigue existiendo, se respeta.
+          const keepCurrent = !!slot.selFrets && options.some((v) => v.frets === slot.selFrets);
+          if (!keepCurrent) {
+            const ref = lastNearVoicingsRef.current[idx] || null;
+            nextFrets = options[nearestVoicingIndex(ref, options)]?.frets ?? options[0]?.frets ?? null;
+          }
+        } else {
+          // En los acordes 2-4 sí reubicamos al voicing más cercano al anterior.
+          const ref = lastNearVoicingsRef.current[idx] || null;
+          nextFrets = options[nearestVoicingIndex(ref, options)]?.frets ?? options[0]?.frets ?? null;
+        }
+
+        if ((slot.selFrets ?? null) !== (nextFrets ?? null)) {
           changed = true;
           return { ...slot, selFrets: nextFrets };
         }
         return slot;
       });
+
       return changed ? next : prev;
     });
   }, [nearRankSig]);
@@ -3663,8 +3656,8 @@ export default function FretboardScalesPage() {
                 title="Mover rango 1 traste a la izquierda"
                 onClick={() => setNearWindowStart((s) => Math.max(0, s - 1))}
               >
-                ◀
-              </button>
+                              <ChevronLeft className="h-4 w-4" />
+                            </button>
 
               <div className="flex items-end gap-1.5">
                 <div>
@@ -3691,8 +3684,8 @@ export default function FretboardScalesPage() {
                 title="Mover rango 1 traste a la derecha"
                 onClick={() => setNearWindowStart((s) => Math.min(nearStartMax, s + 1))}
               >
-                ▶
-              </button>
+                              <ChevronRight className="h-4 w-4" />
+                            </button>
 
               <div className="ml-1 text-xs text-slate-600 tabular-nums">
                 {nearFrom}–{nearTo}
@@ -3731,17 +3724,6 @@ export default function FretboardScalesPage() {
                     const role = slotRoleOfPc(n.pc, nearSlots[slotIdx]);
                     items.push({ slotIdx, pc: n.pc, isBass: n.isBass, role });
                   }
-
-                  const muteItems = [];
-                  if (fret === 0) {
-                    for (let slotIdx = 0; slotIdx < 4; slotIdx++) {
-                      if (!nearSlots[slotIdx]?.enabled) continue;
-                      if (slotDataMaps[slotIdx].mutedSet.has(sIdx) && !slotDataMaps[slotIdx].notesMap.has(cellKey)) {
-                        muteItems.push({ slotIdx });
-                      }
-                    }
-                  }
-
                   return (
                     <div
                       key={`${sIdx}-${fret}`}
@@ -3782,23 +3764,7 @@ export default function FretboardScalesPage() {
                             })}
                         </div>
                       ) : null}
-                      {!items.length && muteItems.length === 1 ? (
-                        <div className="pointer-events-none">
-                          <MuteMark title={`A${muteItems[0].slotIdx + 1}: cuerda ${sIdx + 1} muteada`} />
-                        </div>
-                      ) : null}
-                      {!items.length && muteItems.length > 1 ? (
-                        <div className="absolute inset-0 pointer-events-none">
-                          {muteItems.slice(0, 4).map((it, i2) => {
-                            const pos = cornerStyle(muteItems.length, i2);
-                            return (
-                              <div key={`mute-${it.slotIdx}-${i2}`} className="absolute" style={pos}>
-                                <MuteMark small title={`A${it.slotIdx + 1}: cuerda ${sIdx + 1} muteada`} />
-                              </div>
-                            );
-                          })}
-                        </div>
-                      ) : null}
+                      
                     </div>
                   );
                 })}
@@ -4515,7 +4481,7 @@ export default function FretboardScalesPage() {
                               onClick={() => setChordVoicingIdx((i) => (chordVoicings.length ? (i - 1 + chordVoicings.length) % chordVoicings.length : 0))}
                               disabled={!chordVoicings.length}
                             >
-                              ◀
+                              <ChevronLeft className="h-4 w-4" />
                             </button>
 
                             <select
@@ -4542,7 +4508,7 @@ export default function FretboardScalesPage() {
                               onClick={() => setChordVoicingIdx((i) => (chordVoicings.length ? (i + 1) % chordVoicings.length : 0))}
                               disabled={!chordVoicings.length}
                             >
-                              ▶
+                              <ChevronRight className="h-4 w-4" />
                             </button>
                           </div>
 
@@ -4789,8 +4755,8 @@ export default function FretboardScalesPage() {
                                     }}
                                     disabled={disableAll || !options.length}
                                   >
-                                    ◀
-                                  </button>
+                              <ChevronLeft className="h-4 w-4" />
+                            </button>
 
                                   <select
                                     className={UI_SELECT_SM + " flex-1"}
@@ -4823,8 +4789,8 @@ export default function FretboardScalesPage() {
                                     }}
                                     disabled={disableAll || !options.length}
                                   >
-                                    ▶
-                                  </button>
+                              <ChevronRight className="h-4 w-4" />
+                            </button>
                                 </div>
                                 <div className="mt-1 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-600">
                                   
