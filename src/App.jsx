@@ -258,25 +258,40 @@ function chordSuffixFromUI({ quality, suspension = "none", structure, ext7, ext6
 
   // Dominantes
   if (q2 === "dom") {
+    // Sin 7ª, un “dominante” deja de ser dominante: lo nombramos como mayor/add*.
+    if (!ext7) {
+      if (ext13) return "add13";
+      if (ext11) return "add11";
+      if (ext9) return "add9";
+      if (ext6) return "6";
+      return "major";
+    }
     if (ext13) return "13";
     if (ext11) return "11";
-    if (ext9) return ext7 ? "9" : "add9";
-    if (ext7) return "7";
+    if (ext9) return "9";
+    return "7";
+  }
+
+  // Maj / min
+  if (q2 === "maj") {
+    if (ext13) return ext7 ? "maj13" : "add13";
+    if (ext11) return ext7 ? "maj11" : "add11";
+    if (ext9) return ext7 ? "maj9" : "add9";
+    if (ext7) return "maj7";
     if (ext6) return "6";
     return "major";
   }
 
-  // Maj / min
-  if (ext13) return q2 === "maj" ? "maj13" : "m13";
-  if (ext11) return q2 === "maj" ? "maj11" : "m11";
-  if (ext9) {
-    if (q2 === "maj") return ext7 ? "maj9" : "add9";
-    return ext7 ? "m9" : null;
+  if (q2 === "min") {
+    if (ext13) return ext7 ? "m13" : "m(add13)";
+    if (ext11) return ext7 ? "m11" : "m(add11)";
+    if (ext9) return ext7 ? "m9" : "m(add9)";
+    if (ext7) return "m7";
+    if (ext6) return "m6";
+    return "minor";
   }
 
-  if (ext7) return q2 === "maj" ? "maj7" : "m7";
-  if (ext6) return q2 === "maj" ? "6" : "m6";
-  return q2 === "maj" ? "major" : "minor";
+  return "major";
 }
 
 // Nombre legible del acorde a partir de la selección actual (sin inventar digitaciones).
@@ -310,6 +325,9 @@ const CHORD_SUFFIX_DISPLAY = {
   add9: "add9",
   add11: "add11",
   add13: "add13",
+  "m(add9)": "m(add9)",
+  "m(add11)": "m(add11)",
+  "m(add13)": "m(add13)",
   sus2add9: "sus2add9",
   sus4add9: "sus4add9",
   sus2add11: "sus2add11",
@@ -344,6 +362,10 @@ function chordDisplayNameFromUI({ rootPc, preferSharps, quality, suspension = "n
   const rootName = pcToName(mod12(rootPc), !!preferSharps);
   const effStructure = chordEffectiveStructureForName(structure, !!ext7, !!ext6, suspension);
 
+  if (isMultiAddChordSelection({ ext7: !!ext7, ext6: !!ext6, ext9: !!ext9, ext11: !!ext11, ext13: !!ext13 })) {
+    return `${rootName}${buildMultiAddDisplaySuffix({ quality, suspension, ext6: !!ext6, ext9: !!ext9, ext11: !!ext11, ext13: !!ext13 })}`;
+  }
+
   let suf = chordSuffixFromUI({
     quality,
     suspension,
@@ -355,7 +377,6 @@ function chordDisplayNameFromUI({ rootPc, preferSharps, quality, suspension = "n
     ext13: !!ext13,
   });
 
-  // Caso especial: calidad dom en triada (sin 7) se muestra como mayor.
   if (effStructure === "triad" && quality === "dom" && !ext7) suf = "major";
 
   let disp = "";
@@ -364,6 +385,96 @@ function chordDisplayNameFromUI({ rootPc, preferSharps, quality, suspension = "n
   else if (typeof suf === "string") disp = suf;
 
   return `${rootName}${disp}`;
+}
+
+function chordDisplaySuffixOnly({ quality, suspension = "none", structure, ext7, ext6, ext9, ext11, ext13 }) {
+  const effStructure = chordEffectiveStructureForName(structure, !!ext7, !!ext6, suspension);
+
+  if (isMultiAddChordSelection({ ext7: !!ext7, ext6: !!ext6, ext9: !!ext9, ext11: !!ext11, ext13: !!ext13 })) {
+    return buildMultiAddDisplaySuffix({ quality, suspension, ext6: !!ext6, ext9: !!ext9, ext11: !!ext11, ext13: !!ext13 });
+  }
+
+  let suf = chordSuffixFromUI({
+    quality,
+    suspension,
+    structure: effStructure,
+    ext7: !!ext7,
+    ext6: !!ext6,
+    ext9: !!ext9,
+    ext11: !!ext11,
+    ext13: !!ext13,
+  });
+
+  if (effStructure === "triad" && quality === "dom" && !ext7) suf = "major";
+
+  if (suf && CHORD_SUFFIX_DISPLAY[suf] != null) return CHORD_SUFFIX_DISPLAY[suf];
+  if (typeof suf === "string") return suf;
+  return "";
+}
+
+function detectSupportedTriadQuality(thirdOffset, fifthOffset) {
+  const t = mod12(thirdOffset);
+  const f = mod12(fifthOffset);
+  if (t === 4 && f === 7) return "maj";
+  if (t === 3 && f === 7) return "min";
+  if (t === 3 && f === 6) return "dim";
+  return null;
+}
+
+function detectSupportedTetradQuality(thirdOffset, fifthOffset, seventhOffset) {
+  const t = mod12(thirdOffset);
+  const f = mod12(fifthOffset);
+  const s = mod12(seventhOffset);
+  if (t === 4 && f === 7 && s === 11) return "maj";
+  if (t === 4 && f === 7 && s === 10) return "dom";
+  if (t === 3 && f === 7 && s === 10) return "min";
+  if (t === 3 && f === 6 && s === 10) return "hdim";
+  if (t === 3 && f === 6 && s === 9) return "dim";
+  return null;
+}
+
+function buildScaleDegreeChord({ scaleIntervals, degreeIndex, withSeventh = false }) {
+  const n = scaleIntervals.length;
+  if (n < (withSeventh ? 4 : 3)) return null;
+
+  const rootOffset = mod12(scaleIntervals[degreeIndex % n]);
+  const thirdOffset = mod12(scaleIntervals[(degreeIndex + 2) % n] - rootOffset);
+  const fifthOffset = mod12(scaleIntervals[(degreeIndex + 4) % n] - rootOffset);
+
+  if (withSeventh) {
+    const seventhOffset = mod12(scaleIntervals[(degreeIndex + 6) % n] - rootOffset);
+    const quality = detectSupportedTetradQuality(thirdOffset, fifthOffset, seventhOffset);
+    if (!quality) return null;
+    return {
+      rootOffset,
+      quality,
+      suspension: "none",
+      structure: "tetrad",
+      inversion: "root",
+      form: "closed",
+      ext7: true,
+      ext6: false,
+      ext9: false,
+      ext11: false,
+      ext13: false,
+    };
+  }
+
+  const quality = detectSupportedTriadQuality(thirdOffset, fifthOffset);
+  if (!quality) return null;
+  return {
+    rootOffset,
+    quality,
+    suspension: "none",
+    structure: "triad",
+    inversion: "root",
+    form: "closed",
+    ext7: false,
+    ext6: false,
+    ext9: false,
+    ext11: false,
+    ext13: false,
+  };
 }
 
 // Base del sitio (Vite) para que fetch a /public funcione en localhost y GitHub Pages.
@@ -458,6 +569,7 @@ function buildVoicingFromFretsLH({ fretsLH, rootPc, maxFret }) {
   const minFret = Math.min(...notes.map((n) => n.fret));
   const maxF = Math.max(...notes.map((n) => n.fret));
   const span = maxF - minFret;
+  const reach = maxF - minFret + 1;
 
   return {
     frets: fretsToChordDbString(fretsLH),
@@ -468,8 +580,27 @@ function buildVoicingFromFretsLH({ fretsLH, rootPc, maxFret }) {
     minFret,
     maxFret: maxF,
     span,
+    reach,
     relIntervals: new Set(notes.map((n) => mod12(n.pc - rootPc))),
   };
+}
+
+function isErgonomicVoicing(v, maxReachLimit = 4) {
+  if (!v?.notes?.length) return false;
+
+  const fretted = v.notes.filter((n) => n.fret > 0);
+  const reach = v.reach ?? ((v.maxFret - v.minFret) + 1);
+  const frets = fretted.map((n) => n.fret).sort((a, b) => a - b);
+
+  // Distancia/alcance real entre el primer y el último traste, contando ambos.
+  if (reach > maxReachLimit) return false;
+
+  // Evita huecos muy grandes entre dedos.
+  for (let i = 1; i < frets.length; i++) {
+    if (frets[i] - frets[i - 1] > 3) return false;
+  }
+
+  return true;
 }
 
 function generateTriadVoicings({ rootPc, thirdOffset, fifthOffset, inversion, maxFret, maxSpan = 4 }) {
@@ -532,7 +663,7 @@ function generateTriadVoicings({ rootPc, thirdOffset, fifthOffset, inversion, ma
             fretsLH[5 - sC] = f3;
 
             const v = buildVoicingFromFretsLH({ fretsLH, rootPc, maxFret });
-            if (!v) continue;
+            if (!v || !isErgonomicVoicing(v, maxSpan)) continue;
 
             // Exactamente 3 notas y exactamente {1,3,5}
             if (v.notes.length !== 3) continue;
@@ -613,7 +744,7 @@ function generateTetradVoicings({ rootPc, thirdOffset, fifthOffset, seventhOffse
               fretsLH[5 - s[3]] = f4;
 
               const v = buildVoicingFromFretsLH({ fretsLH, rootPc, maxFret });
-              if (!v) continue;
+              if (!v || !isErgonomicVoicing(v, maxSpan)) continue;
               if (v.notes.length !== 4) continue;
               const rel = v.relIntervals;
               if (rel.size !== 4) continue;
@@ -638,6 +769,93 @@ function generateTetradVoicings({ rootPc, thirdOffset, fifthOffset, seventhOffse
   return out;
 }
 
+function buildStringSetsForNoteCount(noteCount) {
+  const out = [];
+  const rec = (start, acc) => {
+    if (acc.length === noteCount) {
+      if (acc[acc.length - 1] - acc[0] <= noteCount) out.push([...acc]);
+      return;
+    }
+    for (let s = start; s < 6; s++) {
+      acc.push(s);
+      rec(s + 1, acc);
+      acc.pop();
+    }
+  };
+  rec(0, []);
+  return out;
+}
+
+function buildPermutations(list) {
+  const out = [];
+  const a = [...list];
+  const rec = (l) => {
+    if (l === a.length) {
+      out.push([...a]);
+      return;
+    }
+    for (let i = l; i < a.length; i++) {
+      [a[l], a[i]] = [a[i], a[l]];
+      rec(l + 1);
+      [a[l], a[i]] = [a[i], a[l]];
+    }
+  };
+  rec(0);
+  return out;
+}
+
+function generateExactIntervalChordVoicings({ rootPc, intervals, bassInterval = 0, maxFret, maxSpan = 5 }) {
+  const wanted = Array.from(new Set((intervals || []).map(mod12)));
+  const noteCount = wanted.length;
+  if (noteCount < 3 || noteCount > 6) return [];
+
+  const stringSets = buildStringSetsForNoteCount(noteCount);
+  const perms = buildPermutations(wanted);
+  const out = [];
+  const seen = new Set();
+  const wantedBass = mod12(bassInterval);
+
+  for (const set of stringSets) {
+    for (const perm of perms) {
+      const fretLists = perm.map((intv, idx) => fretsForPcOnString(set[idx], mod12(rootPc + intv), maxFret));
+      const fretsLH = [null, null, null, null, null, null];
+
+      const rec = (idx, minF, maxF2) => {
+        if (idx === noteCount) {
+          const v = buildVoicingFromFretsLH({ fretsLH, rootPc, maxFret });
+          if (!v || !isErgonomicVoicing(v, maxSpan)) return;
+          if (v.notes.length !== noteCount) return;
+          if (v.relIntervals.size !== wanted.length) return;
+          if (!wanted.every((x) => v.relIntervals.has(x))) return;
+
+          const bassInt = mod12(v.bassPc - rootPc);
+          if (bassInt !== wantedBass) return;
+
+          const key = `${v.frets}|${wantedBass}`;
+          if (seen.has(key)) return;
+          seen.add(key);
+          out.push({ ...v, span: v.span });
+          return;
+        }
+
+        for (const fret of fretLists[idx]) {
+          const nextMin = minF == null ? fret : Math.min(minF, fret);
+          const nextMax = maxF2 == null ? fret : Math.max(maxF2, fret);
+          if (nextMax - nextMin > maxSpan) continue;
+          fretsLH[5 - set[idx]] = fret;
+          rec(idx + 1, nextMin, nextMax);
+          fretsLH[5 - set[idx]] = null;
+        }
+      };
+
+      rec(0, null, null);
+    }
+  }
+
+  out.sort((a, b) => (a.minFret - b.minFret) || (a.span - b.span) || (a.maxFret - b.maxFret));
+  return out;
+}
+
 
 function isDropForm(form) {
   return String(form || "").startsWith("drop");
@@ -648,28 +866,66 @@ function normalizeChordFormToInversion(form) {
 }
 
 function isStrictFourNoteDropEligible({ structure, ext7, ext6, ext9, ext11, ext13 }) {
-  return structure === "tetrad" && !!ext7 && !ext6 && !ext9 && !ext11 && !ext13;
+  return structure === "tetrad" && hasEffectiveSeventh({ structure, ext7, ext6, ext9, ext11, ext13 }) && !ext6 && !ext9 && !ext11 && !ext13;
+}
+
+function addSelectionCount({ ext6, ext9, ext11, ext13 }) {
+  return (ext6 ? 1 : 0) + (ext9 ? 1 : 0) + (ext11 ? 1 : 0) + (ext13 ? 1 : 0);
+}
+
+function isSingleAddChordSelection({ ext7, ext6, ext9, ext11, ext13 }) {
+  return !ext7 && addSelectionCount({ ext6, ext9, ext11, ext13 }) === 1;
+}
+
+function isMultiAddChordSelection({ ext7, ext6, ext9, ext11, ext13 }) {
+  return !ext7 && addSelectionCount({ ext6, ext9, ext11, ext13 }) >= 2;
+}
+
+function buildMultiAddDisplaySuffix({ quality, suspension = "none", ext6, ext9, ext11, ext13 }) {
+  const parts = [];
+  if (ext6) parts.push("6");
+  if (ext9) parts.push("9");
+  if (ext11) parts.push("11");
+  if (ext13) parts.push("13");
+  if (!parts.length) return "";
+
+  const sus = suspension || "none";
+  if (sus === "sus2" || sus === "sus4") {
+    return `${sus}(add${parts.join(",")})`;
+  }
+  if (quality === "min") {
+    return `m(add${parts.join(",")})`;
+  }
+  return `add${parts.join(",")}`;
+}
+
+function hasEffectiveSeventh({ structure, ext7, ext6, ext9, ext11, ext13 }) {
+  if (structure === "tetrad") {
+    const addOnly = ((ext6 ? 1 : 0) + (ext9 ? 1 : 0) + (ext11 ? 1 : 0) + (ext13 ? 1 : 0)) > 0;
+    return !addOnly;
+  }
+  return !!ext7;
 }
 
 function buildCloseTetradAbsoluteOrders(thirdOffset, fifthOffset, seventhOffset) {
   const t = mod12(thirdOffset);
   const f = mod12(fifthOffset);
   const s = mod12(seventhOffset);
-  return [
-    [0, t, f, s],
-    [t, f, s, 12],
-    [f, s, 12, 12 + t],
-    [s, 12, 12 + t, 12 + f],
-  ];
+  return {
+    root: [0, t, f, s],
+    "1": [t, f, s, 12],
+    "2": [f, s, 12, 12 + t],
+    "3": [s, 12, 12 + t, 12 + f],
+  };
 }
 
 function applyDropToAbsoluteOrder(absOrder, dropKind) {
   const arr = [...absOrder];
-  if (dropKind === "drop2") arr[2] -= 12;       // 2ª voz desde arriba
-  else if (dropKind === "drop3") arr[1] -= 12;  // 3ª voz desde arriba
+  if (dropKind === "drop2") arr[2] -= 12;
+  else if (dropKind === "drop3") arr[1] -= 12;
   else if (dropKind === "drop24") {
-    arr[2] -= 12; // 2ª desde arriba
-    arr[0] -= 12; // 4ª desde arriba (la más grave en close)
+    arr[2] -= 12;
+    arr[0] -= 12;
   }
   return arr.sort((a, b) => a - b);
 }
@@ -689,87 +945,141 @@ function dropKindFromForm(form) {
   return "drop2";
 }
 
-function generateDropTetradVoicings({ rootPc, thirdOffset, fifthOffset, seventhOffset, form, maxFret, maxSpan = 6 }) {
+function getDropAbsoluteOrder({ thirdOffset, fifthOffset, seventhOffset, dropKind, inversion }) {
+  const t = mod12(thirdOffset);
+  const f = mod12(fifthOffset);
+  const s = mod12(seventhOffset);
+  const inv = ["root", "1", "2", "3"].includes(inversion) ? inversion : "root";
+
+  // Convenio de esta app: la inversión se nombra por el BAJO REAL del drop resultante.
+  // Drop 2:
+  // Fundamental = 1-5-7-3
+  // 1ª inv.    = 3-7-1-5
+  // 2ª inv.    = 5-1-3-7
+  // 3ª inv.    = 7-3-5-1
+  if (dropKind === "drop2") {
+    if (inv === "root") return [0, f, s, 12 + t];
+    if (inv === "1") return [t, s, 12, 12 + f];
+    if (inv === "2") return [f, 12, 12 + t, 12 + s];
+    return [s, 12 + t, 12 + f, 24];
+  }
+
+  // Drop 3:
+  // Fundamental = 1-7-3-5
+  // 1ª inv.    = 3-1-5-7
+  // 2ª inv.    = 5-3-7-1
+  // 3ª inv.    = 7-5-1-3
+  if (dropKind === "drop3") {
+    if (inv === "root") return [0, s, 12 + t, 12 + f];
+    if (inv === "1") return [t, 12, 12 + f, 12 + s];
+    if (inv === "2") return [f, 12 + t, 12 + s, 24];
+    return [s, 12 + f, 24, 24 + t];
+  }
+
+  // Drop 2+4:
+  // Fundamental = 1-5-3-7
+  // 1ª inv.    = 3-7-5-1
+  // 2ª inv.    = 5-1-7-3
+  // 3ª inv.    = 7-3-1-5
+  if (dropKind === "drop24") {
+    if (inv === "root") return [0, f, 12 + t, 12 + s];
+    if (inv === "1") return [t, s, 12 + f, 24];
+    if (inv === "2") return [f, 12, 12 + s, 24 + t];
+    return [s, 12 + t, 24, 24 + f];
+  }
+
+  const closeMap = buildCloseTetradAbsoluteOrders(thirdOffset, fifthOffset, seventhOffset);
+  return applyDropToAbsoluteOrder(closeMap[inv], dropKind);
+}
+
+function generateDropTetradVoicings({ rootPc, thirdOffset, fifthOffset, seventhOffset, form, inversion = "root", maxFret, maxSpan = 6 }) {
   const setDefs = DROP_FORM_STRING_SETS[form] || [];
   if (!setDefs.length) return [];
 
   const dropKind = dropKindFromForm(form);
-  const closeOrders = buildCloseTetradAbsoluteOrders(thirdOffset, fifthOffset, seventhOffset);
+  const invMap = { root: 0, "1": 1, "2": 2, "3": 3 };
+  const wantedInvIdx = invMap[inversion] ?? 0;
+  const absOrderBase = getDropAbsoluteOrder({
+    thirdOffset,
+    fifthOffset,
+    seventhOffset,
+    dropKind,
+    inversion,
+  });
+
   const out = [];
   const seen = new Set();
 
   for (const set of setDefs) {
     const stringsLowToHigh = [...set].sort((a, b) => b - a);
+    const pcsLowToHigh = absOrderBase.map((x) => mod12(rootPc + x));
 
-    for (let invIdx = 0; invIdx < 4; invIdx++) {
-      const absOrder = applyDropToAbsoluteOrder(closeOrders[invIdx], dropKind);
-      const pcsLowToHigh = absOrder.map((x) => mod12(rootPc + x));
+    const lowerK = Math.max(...stringsLowToHigh.map((sIdx, i) => OPEN_MIDI[sIdx] - absOrderBase[i]));
+    const upperK = Math.min(...stringsLowToHigh.map((sIdx, i) => OPEN_MIDI[sIdx] + maxFret - absOrderBase[i]));
 
-      const lowerK = Math.max(...stringsLowToHigh.map((sIdx, i) => OPEN_MIDI[sIdx] - absOrder[i]));
-      const upperK = Math.min(...stringsLowToHigh.map((sIdx, i) => OPEN_MIDI[sIdx] + maxFret - absOrder[i]));
+    for (let K = lowerK; K <= upperK; K++) {
+      const fretsPerLowToHigh = [];
+      const pitches = [];
+      let ok = true;
 
-      for (let K = lowerK; K <= upperK; K++) {
-        const fretsPerLowToHigh = [];
-        const pitches = [];
-        let ok = true;
-
-        for (let i = 0; i < 4; i++) {
-          const targetPitch = K + absOrder[i];
-          const sIdx = stringsLowToHigh[i];
-          const fret = targetPitch - OPEN_MIDI[sIdx];
-          if (!Number.isInteger(fret) || fret < 0 || fret > maxFret) {
-            ok = false;
-            break;
-          }
-          fretsPerLowToHigh.push({ sIdx, fret, targetPitch, pc: pcsLowToHigh[i] });
-          pitches.push(targetPitch);
+      for (let i = 0; i < 4; i++) {
+        const targetPitch = K + absOrderBase[i];
+        const sIdx = stringsLowToHigh[i];
+        const fret = targetPitch - OPEN_MIDI[sIdx];
+        if (!Number.isInteger(fret) || fret < 0 || fret > maxFret) {
+          ok = false;
+          break;
         }
-        if (!ok) continue;
-
-        for (let i = 1; i < pitches.length; i++) {
-          if (pitches[i] <= pitches[i - 1]) {
-            ok = false;
-            break;
-          }
-        }
-        if (!ok) continue;
-
-        const span = Math.max(...fretsPerLowToHigh.map((x) => x.fret)) - Math.min(...fretsPerLowToHigh.map((x) => x.fret));
-        if (span > maxSpan) continue;
-
-        const fretsLH = [null, null, null, null, null, null];
-        for (const n of fretsPerLowToHigh) fretsLH[5 - n.sIdx] = n.fret;
-
-        const v = buildVoicingFromFretsLH({ fretsLH, rootPc, maxFret });
-        if (!v) continue;
-        if (v.notes.length !== 4) continue;
-
-        const rel = new Set(v.notes.map((n) => mod12(n.pc - rootPc)));
-        if (![0, mod12(thirdOffset), mod12(fifthOffset), mod12(seventhOffset)].every((x) => rel.has(x))) continue;
-
-        const lowToHighActual = [...v.notes]
-          .sort((a, b) => pitchAt(a.sIdx, a.fret) - pitchAt(b.sIdx, b.fret))
-          .map((n) => mod12(n.pc - rootPc));
-
-        const expected = absOrder.map((x) => mod12(x));
-        if (lowToHighActual.join(",") !== expected.join(",")) continue;
-
-        const key = `${form}|${invIdx}|${v.frets}`;
-        if (seen.has(key)) continue;
-        seen.add(key);
-
-        out.push({
-          ...v,
-          span,
-          _form: form,
-          _dropInvIdx: invIdx,
-          _dropInvLabel: dropInversionLabelFromBassInt(mod12(v.bassPc - rootPc), thirdOffset, fifthOffset, seventhOffset),
-        });
+        fretsPerLowToHigh.push({ sIdx, fret, targetPitch, pc: pcsLowToHigh[i] });
+        pitches.push(targetPitch);
       }
+      if (!ok) continue;
+
+      for (let i = 1; i < pitches.length; i++) {
+        if (pitches[i] <= pitches[i - 1]) {
+          ok = false;
+          break;
+        }
+      }
+      if (!ok) continue;
+
+      const span = Math.max(...fretsPerLowToHigh.map((x) => x.fret)) - Math.min(...fretsPerLowToHigh.map((x) => x.fret));
+      if (span > maxSpan) continue;
+
+      const fretsLH = [null, null, null, null, null, null];
+      for (const n of fretsPerLowToHigh) fretsLH[5 - n.sIdx] = n.fret;
+
+      const v = buildVoicingFromFretsLH({ fretsLH, rootPc, maxFret });
+      if (!v || !isErgonomicVoicing(v, maxSpan)) continue;
+      if (v.notes.length !== 4) continue;
+
+      const rel = new Set(v.notes.map((n) => mod12(n.pc - rootPc)));
+      if (![0, mod12(thirdOffset), mod12(fifthOffset), mod12(seventhOffset)].every((x) => rel.has(x))) continue;
+
+      const lowToHighActual = [...v.notes]
+        .sort((a, b) => pitchAt(a.sIdx, a.fret) - pitchAt(b.sIdx, b.fret))
+        .map((n) => mod12(n.pc - rootPc));
+
+      const expected = absOrderBase.map((x) => mod12(x));
+      if (lowToHighActual.join(",") !== expected.join(",")) continue;
+
+      const bassInt = mod12(v.bassPc - rootPc);
+      const invLabel = dropInversionLabelFromBassInt(bassInt, thirdOffset, fifthOffset, seventhOffset);
+      const key = `${form}|${inversion}|${v.frets}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+
+      out.push({
+        ...v,
+        span,
+        _form: form,
+        _dropInvIdx: wantedInvIdx,
+        _dropInvLabel: invLabel,
+      });
     }
   }
 
-  out.sort((a, b) => (a._dropInvIdx - b._dropInvIdx) || (a.minFret - b.minFret) || (a.span - b.span) || (a.maxFret - b.maxFret));
+  out.sort((a, b) => (a.minFret - b.minFret) || (a.maxFret - b.maxFret) || (a.span - b.span));
   return out;
 }
 
@@ -787,11 +1097,15 @@ const CHORD_STRUCTURES = [
   { value: "chord", label: "Acorde" },
 ];
 
-const CHORD_FORMS = [
-  { value: "root", label: "Posición fundamental" },
+const CHORD_INVERSIONS = [
+  { value: "root", label: "Fundamental" },
   { value: "1", label: "1ª inversión" },
   { value: "2", label: "2ª inversión" },
   { value: "3", label: "3ª inversión" },
+];
+
+const CHORD_FORMS = [
+  { value: "closed", label: "Cerrado" },
   { value: "drop2_set1", label: "Drop 2 Set 1" },
   { value: "drop2_set2", label: "Drop 2 Set 2" },
   { value: "drop2_set3", label: "Drop 2 Set 3" },
@@ -2060,6 +2374,7 @@ export default function FretboardScalesPage() {
   const [chordSuspension, setChordSuspension] = useState("none"); // none | sus2 | sus4
   const [chordStructure, setChordStructure] = useState("triad"); // triad|tetrad|chord
   const [chordInversion, setChordInversion] = useState("root"); // root|1|2|3
+  const [chordForm, setChordForm] = useState("closed"); // closed|drop*
   const [chordExt7, setChordExt7] = useState(false);
   const [chordExt6, setChordExt6] = useState(false);
   const [chordExt9, setChordExt9] = useState(false);
@@ -2067,7 +2382,18 @@ export default function FretboardScalesPage() {
   const [chordExt13, setChordExt13] = useState(false);
 
   useEffect(() => {
-    if (!isDropForm(chordInversion)) return;
+    // m7(b5) sin 7ª no existe como triada: se degrada a disminuido.
+    if (chordQuality === "hdim" && chordStructure === "triad" && !chordExt7) {
+      setChordQuality("dim");
+    }
+    // Dominante sin 7ª no es dominante: se degrada a mayor.
+    if (chordQuality === "dom" && chordStructure === "triad" && !chordExt7) {
+      setChordQuality("maj");
+    }
+  }, [chordQuality, chordStructure, chordExt7]);
+
+  useEffect(() => {
+    if (!isDropForm(chordForm)) return;
     if (isStrictFourNoteDropEligible({
       structure: chordStructure,
       ext7: chordExt7,
@@ -2077,7 +2403,7 @@ export default function FretboardScalesPage() {
       ext13: chordExt13,
     })) return;
     setChordInversion("root");
-  }, [chordInversion, chordStructure, chordExt7, chordExt6, chordExt9, chordExt11, chordExt13]);
+  }, [chordForm, chordStructure, chordExt7, chordExt6, chordExt9, chordExt11, chordExt13]);
 
   // Regla (cuatriada):
   // - Por defecto incluye 7ª.
@@ -2085,7 +2411,6 @@ export default function FretboardScalesPage() {
   useEffect(() => {
     if (chordStructure !== "tetrad") return;
 
-    // Mantén solo UNA extensión (prioridad: 13 > 11 > 9 > 6)
     if (chordExt13) {
       if (chordExt11) setChordExt11(false);
       if (chordExt9) setChordExt9(false);
@@ -2106,13 +2431,18 @@ export default function FretboardScalesPage() {
     const addCount = (chordExt6 ? 1 : 0) + (chordExt9 ? 1 : 0) + (chordExt11 ? 1 : 0) + (chordExt13 ? 1 : 0);
     setChordExt7(addCount === 0);
   }, [chordStructure, chordExt6, chordExt9, chordExt11, chordExt13]);
+
+
   // Voicings de acordes (digitaciones tocables) desde dataset externo
   const [chordDb, setChordDb] = useState(null);
   const [chordDbError, setChordDbError] = useState(null);
   const [chordDbLastUrl, setChordDbLastUrl] = useState(null);
   const [chordVoicingIdx, setChordVoicingIdx] = useState(0);
+  const [chordMaxDist, setChordMaxDist] = useState(4);
   const lastChordVoicingRef = useRef(null);
+  const skipChordVoicingRefSyncRef = useRef(false);
   const lastNearVoicingsRef = useRef([null, null, null, null]);
+  const skipNearVoicingRefSyncRef = useRef([false, false, false, false]);
 
   // ------------------------
   // Acordes (2): acordes cercanos por rango de trastes
@@ -2134,39 +2464,104 @@ export default function FretboardScalesPage() {
   }, [nearWindowSize, maxFret]);
 
     const [nearSlots, setNearSlots] = useState(() => {
-    // slot 0: base (por defecto, el mismo tono/calidad del panel principal)
     const base = {
       enabled: true,
-      spellPreferSharps: true, // C# vs Db (solo para mostrar/nombrar)
-      rootPc: 0, // C
-      quality: "maj",
-      suspension: "none",
-      structure: "triad",
+      rootPc: chordRootPc,
+      quality: chordQuality,
+      suspension: chordSuspension,
+      structure: chordStructure,
       inversion: "root",
+      form: "closed",
       ext7: false,
       ext6: false,
       ext9: false,
       ext11: false,
       ext13: false,
+      spellPreferSharps: chordSpellPreferSharps,
+      maxDist: 4,
       selFrets: null,
     };
+
     const mkEmpty = () => ({
       enabled: false,
-      spellPreferSharps: true, // C# vs Db (solo para mostrar/nombrar)
-      rootPc: 7, // G
+      rootPc: chordRootPc,
       quality: "maj",
       suspension: "none",
       structure: "triad",
       inversion: "root",
+      form: "closed",
       ext7: false,
       ext6: false,
       ext9: false,
       ext11: false,
       ext13: false,
+      spellPreferSharps: chordSpellPreferSharps,
+      maxDist: 4,
       selFrets: null,
     });
+
     return [base, mkEmpty(), mkEmpty(), mkEmpty()];
   });
+
+  useEffect(() => {
+    setNearSlots((prev) => {
+      let changed = false;
+      const next = prev.map((slot) => {
+        if (!slot) return slot;
+        if (slot.structure !== "tetrad") return slot;
+
+        let ext6 = !!slot.ext6;
+        let ext9 = !!slot.ext9;
+        let ext11 = !!slot.ext11;
+        let ext13 = !!slot.ext13;
+
+        if (ext13) {
+          ext11 = false;
+          ext9 = false;
+          ext6 = false;
+        } else if (ext11) {
+          ext9 = false;
+          ext6 = false;
+        } else if (ext9) {
+          ext6 = false;
+        }
+
+        if (ext6) {
+          ext9 = false;
+          ext11 = false;
+          ext13 = false;
+        }
+
+        const addCount = (ext6 ? 1 : 0) + (ext9 ? 1 : 0) + (ext11 ? 1 : 0) + (ext13 ? 1 : 0);
+        const ext7 = addCount === 0;
+
+        if (ext6 !== !!slot.ext6 || ext9 !== !!slot.ext9 || ext11 !== !!slot.ext11 || ext13 !== !!slot.ext13 || ext7 !== !!slot.ext7) {
+          changed = true;
+          return { ...slot, ext6, ext7, ext9, ext11, ext13, selFrets: null };
+        }
+        return slot;
+      });
+      return changed ? next : prev;
+    });
+  }, [nearSlots.map((s) => `${s?.structure}|${s?.ext6 ? 1 : 0}|${s?.ext7 ? 1 : 0}|${s?.ext9 ? 1 : 0}|${s?.ext11 ? 1 : 0}|${s?.ext13 ? 1 : 0}`).join(";")]);
+
+  useEffect(() => {
+    setNearSlots((prev) => {
+      let changed = false;
+      const next = prev.map((slot) => {
+        if (!slot) return slot;
+        let quality = slot.quality;
+        if (quality === "hdim" && slot.structure === "triad" && !slot.ext7) quality = "dim";
+        if (quality === "dom" && slot.structure === "triad" && !slot.ext7) quality = "maj";
+        if (quality !== slot.quality) {
+          changed = true;
+          return { ...slot, quality, selFrets: null };
+        }
+        return slot;
+      });
+      return changed ? next : prev;
+    });
+  }, [nearSlots.map((s) => `${s?.quality}|${s?.structure}|${s?.ext7 ? 1 : 0}`).join(";")]);
 
   const [nearBgColors, setNearBgColors] = useState([
     "#8ACAF4", // Acorde 1 (base)  RGB(138,202,244)
@@ -2330,9 +2725,21 @@ export default function FretboardScalesPage() {
     }
 
     // Para acordes tipo add6/add9/add11/add13 (sin 7ª) usamos el generador (4 notas) y evitamos ruido de JSON.
-    const addOnly =
-      !chordExt7 && ((chordExt6 ? 1 : 0) + (chordExt9 ? 1 : 0) + (chordExt11 ? 1 : 0) + (chordExt13 ? 1 : 0) === 1);
-    if (addOnly) {
+    const addOnly = isSingleAddChordSelection({
+      ext7: chordExt7,
+      ext6: chordExt6,
+      ext9: chordExt9,
+      ext11: chordExt11,
+      ext13: chordExt13,
+    });
+    const multiAdd = isMultiAddChordSelection({
+      ext7: chordExt7,
+      ext6: chordExt6,
+      ext9: chordExt9,
+      ext11: chordExt11,
+      ext13: chordExt13,
+    });
+    if (addOnly || multiAdd) {
       setChordDb(null);
       setChordDbError(null);
       setChordDbLastUrl(null);
@@ -2406,19 +2813,21 @@ export default function FretboardScalesPage() {
       if (!s?.enabled) continue;
       if (s.structure !== "chord") continue;
 
-      const addOnly = !s.ext7 && ((s.ext6 ? 1 : 0) + (s.ext9 ? 1 : 0) + (s.ext11 ? 1 : 0) + (s.ext13 ? 1 : 0) === 1);
-      if (addOnly) continue;
-
-      const intervals = buildChordIntervals({
-        quality: s.quality,
-        suspension: s.suspension || "none",
-        structure: s.structure,
+      const addOnly = isSingleAddChordSelection({
         ext7: s.ext7,
         ext6: s.ext6,
         ext9: s.ext9,
         ext11: s.ext11,
         ext13: s.ext13,
       });
+      const multiAdd = isMultiAddChordSelection({
+        ext7: s.ext7,
+        ext6: s.ext6,
+        ext9: s.ext9,
+        ext11: s.ext11,
+        ext13: s.ext13,
+      });
+      if (addOnly || multiAdd) continue;
 
       const suffix = chordSuffixFromUI({
         quality: s.quality,
@@ -2480,21 +2889,26 @@ export default function FretboardScalesPage() {
         fifthOffset: chordFifthOffset,
         inversion: normalizeChordFormToInversion(chordInversion),
         maxFret,
-        maxSpan: 4,
+        maxSpan: chordMaxDist,
       });
       return tri.slice(0, 60);
     }
 
     // 2) CUATRIADAS “reales” = 4 notas
-    const seventh = chordExt7 ? seventhOffsetForQuality(chordQuality) : null;
+    const seventh = hasEffectiveSeventh({ structure: chordStructure, ext7: chordExt7, ext6: chordExt6, ext9: chordExt9, ext11: chordExt11, ext13: chordExt13 }) ? seventhOffsetForQuality(chordQuality) : null;
     const wantsTetrad = chordStructure === "tetrad" || (chordStructure === "triad" && (chordExt7 || chordExt6));
     if (wantsTetrad) {
       const addOnly =
         (chordStructure === "tetrad" || chordStructure === "triad") &&
-        !chordExt7 &&
-        ((chordExt6 ? 1 : 0) + (chordExt9 ? 1 : 0) + (chordExt11 ? 1 : 0) + (chordExt13 ? 1 : 0) === 1);
+        isSingleAddChordSelection({
+          ext7: chordExt7,
+          ext6: chordExt6,
+          ext9: chordExt9,
+          ext11: chordExt11,
+          ext13: chordExt13,
+        });
 
-      if (isDropForm(chordInversion)) {
+      if (isDropForm(chordForm)) {
         if (!isStrictFourNoteDropEligible({
           structure: chordStructure,
           ext7: chordExt7,
@@ -2511,9 +2925,10 @@ export default function FretboardScalesPage() {
           thirdOffset: chordThirdOffset,
           fifthOffset: chordFifthOffset,
           seventhOffset: seventh,
-          form: chordInversion,
+          form: chordForm,
+          inversion: chordInversion,
           maxFret,
-          maxSpan: 6,
+          maxSpan: chordMaxDist,
         });
         return tet.slice(0, 60);
       }
@@ -2527,7 +2942,7 @@ export default function FretboardScalesPage() {
           seventhOffset: addInt,
           inversion: normalizeChordFormToInversion(chordInversion),
           maxFret,
-          maxSpan: 5,
+          maxSpan: chordMaxDist,
         });
         return tet.slice(0, 60);
       }
@@ -2540,16 +2955,27 @@ export default function FretboardScalesPage() {
         seventhOffset: seventh,
         inversion: normalizeChordFormToInversion(chordInversion),
         maxFret,
-        maxSpan: 5,
+        maxSpan: chordMaxDist,
       });
       return tet.slice(0, 60);
     }
 
     // 3) ACORDE (JSON) o add* de 4 notas
     if (chordStructure === "chord") {
-      const onlyAdd =
-        !chordExt7 &&
-        ((chordExt6 ? 1 : 0) + (chordExt9 ? 1 : 0) + (chordExt11 ? 1 : 0) + (chordExt13 ? 1 : 0) === 1);
+      const onlyAdd = isSingleAddChordSelection({
+        ext7: chordExt7,
+        ext6: chordExt6,
+        ext9: chordExt9,
+        ext11: chordExt11,
+        ext13: chordExt13,
+      });
+      const multiAdd = isMultiAddChordSelection({
+        ext7: chordExt7,
+        ext6: chordExt6,
+        ext9: chordExt9,
+        ext11: chordExt11,
+        ext13: chordExt13,
+      });
 
       if (onlyAdd) {
         const addInt = chordExt13 ? 9 : chordExt11 ? 5 : chordExt9 ? 2 : 9;
@@ -2560,9 +2986,20 @@ export default function FretboardScalesPage() {
           seventhOffset: addInt,
           inversion: normalizeChordFormToInversion(chordInversion),
           maxFret,
-          maxSpan: 5,
+          maxSpan: chordMaxDist,
         });
         return quad.slice(0, 60);
+      }
+
+      if (multiAdd) {
+        const multi = generateExactIntervalChordVoicings({
+          rootPc: chordRootPc,
+          intervals: chordIntervals,
+          bassInterval: chordBassInt,
+          maxFret,
+          maxSpan: chordMaxDist,
+        });
+        return multi.slice(0, 60);
       }
 
       if (!chordDb?.positions?.length) return [];
@@ -2591,7 +3028,7 @@ export default function FretboardScalesPage() {
         const fretsLH = parseChordDbFretsString(p?.frets);
         if (!fretsLH) continue;
         const v = buildVoicingFromFretsLH({ fretsLH, rootPc: chordRootPc, maxFret });
-        if (!v) continue;
+        if (!v || !isErgonomicVoicing(v, chordMaxDist)) continue;
 
         const extraOk = new Set([2, 5, 9, 10, 11]);
         let invalid = false;
@@ -2631,6 +3068,7 @@ export default function FretboardScalesPage() {
 
     return [];
   }, [
+    chordForm,
     chordStructure,
     chordExt7,
     chordExt6,
@@ -2646,8 +3084,33 @@ export default function FretboardScalesPage() {
     chordIntervals,
     chordBassInt,
     chordDb,
+    chordMaxDist,
     maxFret,
   ]);
+
+  const chordVoicingsSig = useMemo(() => chordVoicings.map((v) => v.frets).join("|"), [chordVoicings]);
+
+  useEffect(() => {
+    if (!chordVoicings.length) {
+      if (chordVoicingIdx !== 0) setChordVoicingIdx(0);
+      return;
+    }
+    const ref = lastChordVoicingRef.current;
+    const idx = nearestVoicingIndex(ref, chordVoicings);
+    if (idx !== chordVoicingIdx) {
+      skipChordVoicingRefSyncRef.current = true;
+      setChordVoicingIdx(idx);
+    }
+  }, [chordVoicingsSig]);
+
+  useEffect(() => {
+    const current = chordVoicings[chordVoicingIdx] || chordVoicings[0] || null;
+    if (skipChordVoicingRefSyncRef.current) {
+      skipChordVoicingRefSyncRef.current = false;
+      return;
+    }
+    if (current) lastChordVoicingRef.current = current;
+  }, [chordVoicingIdx, chordVoicingsSig]);
 
   const activeChordVoicing = chordVoicings[chordVoicingIdx] || chordVoicings[0] || null;
 
@@ -2716,8 +3179,9 @@ export default function FretboardScalesPage() {
 
     const rootPc2 = mod12(slot.rootPc);
     const third = slotThirdOffset(slot.quality, slot.suspension || "none");
+    const slotMaxDist = Math.max(1, Math.min(8, Number(slot.maxDist || 4)));
     const fifth = slotFifthOffset(slot.quality, slot.suspension || "none");
-    const seventh = slot.ext7 ? seventhOffsetForQuality(slot.quality) : null;
+    const seventh = hasEffectiveSeventh({ structure: slot.structure, ext7: slot.ext7, ext6: slot.ext6, ext9: slot.ext9, ext11: slot.ext11, ext13: slot.ext13 }) ? seventhOffsetForQuality(slot.quality) : null;
     const intervals = buildChordIntervals({
       quality: slot.quality,
       suspension: slot.suspension || "none",
@@ -2729,7 +3193,7 @@ export default function FretboardScalesPage() {
       ext13: slot.ext13,
     });
 
-    const inRange = (v) => v && v.notes.every((n) => n.fret >= nearFrom && n.fret <= nearTo);
+    const inRange = (v) => v && v.notes.every((n) => n.fret === 0 || (n.fret >= nearFrom && n.fret <= nearTo));
 
     if (slot.structure === "triad" && !slot.ext7 && !slot.ext6) {
       const tri = generateTriadVoicings({
@@ -2738,7 +3202,7 @@ export default function FretboardScalesPage() {
         fifthOffset: fifth,
         inversion: normalizeChordFormToInversion(slot.inversion),
         maxFret: nearTo,
-        maxSpan: 4,
+        maxSpan: slotMaxDist,
       }).filter(inRange);
       return { voicings: tri, err: tri.length ? null : "No encontré triadas en ese rango" };
     }
@@ -2747,10 +3211,15 @@ export default function FretboardScalesPage() {
     if (wantsTetrad) {
       const addOnly =
         (slot.structure === "tetrad" || slot.structure === "triad") &&
-        !slot.ext7 &&
-        ((slot.ext6 ? 1 : 0) + (slot.ext9 ? 1 : 0) + (slot.ext11 ? 1 : 0) + (slot.ext13 ? 1 : 0) === 1);
+        isSingleAddChordSelection({
+          ext7: slot.ext7,
+          ext6: slot.ext6,
+          ext9: slot.ext9,
+          ext11: slot.ext11,
+          ext13: slot.ext13,
+        });
 
-      if (isDropForm(slot.inversion)) {
+      if (isDropForm(slot.form)) {
         if (!isStrictFourNoteDropEligible({
           structure: slot.structure,
           ext7: slot.ext7,
@@ -2767,9 +3236,10 @@ export default function FretboardScalesPage() {
           thirdOffset: third,
           fifthOffset: fifth,
           seventhOffset: seventh,
-          form: slot.inversion,
+          form: slot.form,
+          inversion: slot.inversion,
           maxFret: nearTo,
-          maxSpan: 6,
+          maxSpan: slotMaxDist,
         }).filter(inRange);
         return { voicings: tet, err: tet.length ? null : "No encontré drops en ese rango" };
       }
@@ -2783,7 +3253,7 @@ export default function FretboardScalesPage() {
           seventhOffset: addInt,
           inversion: normalizeChordFormToInversion(slot.inversion),
           maxFret: nearTo,
-          maxSpan: 5,
+          maxSpan: slotMaxDist,
         }).filter(inRange);
         return { voicings: tet, err: tet.length ? null : "No encontré add* en ese rango" };
       }
@@ -2796,15 +3266,48 @@ export default function FretboardScalesPage() {
         seventhOffset: seventh,
         inversion: normalizeChordFormToInversion(slot.inversion),
         maxFret: nearTo,
-        maxSpan: 5,
+        maxSpan: slotMaxDist,
       }).filter(inRange);
       return { voicings: tet, err: tet.length ? null : "No encontré cuatriadas en ese rango" };
     }
 
     if (slot.structure === "chord") {
-      const onlyAdd =
-        !slot.ext7 &&
-        ((slot.ext6 ? 1 : 0) + (slot.ext9 ? 1 : 0) + (slot.ext11 ? 1 : 0) + (slot.ext13 ? 1 : 0) === 1);
+      const onlyAdd = isSingleAddChordSelection({
+        ext7: slot.ext7,
+        ext6: slot.ext6,
+        ext9: slot.ext9,
+        ext11: slot.ext11,
+        ext13: slot.ext13,
+      });
+      const multiAdd = isMultiAddChordSelection({
+        ext7: slot.ext7,
+        ext6: slot.ext6,
+        ext9: slot.ext9,
+        ext11: slot.ext11,
+        ext13: slot.ext13,
+      });
+      if (multiAdd) {
+        const bassInt = chordBassInterval({
+          quality: slot.quality,
+          suspension: slot.suspension || "none",
+          structure: slot.structure,
+          inversion: normalizeChordFormToInversion(slot.inversion),
+          chordIntervals: intervals,
+          ext7: slot.ext7,
+          ext6: slot.ext6,
+          ext9: slot.ext9,
+          ext11: slot.ext11,
+          ext13: slot.ext13,
+        });
+        const multi = generateExactIntervalChordVoicings({
+          rootPc: rootPc2,
+          intervals,
+          bassInterval: bassInt,
+          maxFret: nearTo,
+          maxSpan: slotMaxDist,
+        }).filter(inRange);
+        return { voicings: multi, err: multi.length ? null : "No hay add múltiples en rango" };
+      }
       if (onlyAdd) {
         const addInt = slot.ext13 ? 9 : slot.ext11 ? 5 : slot.ext9 ? 2 : 9;
         const quad = generateTetradVoicings({
@@ -2814,7 +3317,7 @@ export default function FretboardScalesPage() {
           seventhOffset: addInt,
           inversion: normalizeChordFormToInversion(slot.inversion),
           maxFret: nearTo,
-          maxSpan: 5,
+          maxSpan: slotMaxDist,
         }).filter(inRange);
         return { voicings: quad, err: quad.length ? null : "No hay add* en rango" };
       }
@@ -2875,7 +3378,7 @@ export default function FretboardScalesPage() {
         const fretsLH = parseChordDbFretsString(p?.frets);
         if (!fretsLH) continue;
         const v = buildVoicingFromFretsLH({ fretsLH, rootPc: rootPc2, maxFret: nearTo });
-        if (!v) continue;
+        if (!v || !isErgonomicVoicing(v, slotMaxDist)) continue;
         if (!inRange(v)) continue;
 
         const extraOk = new Set([2, 5, 9, 10, 11]);
@@ -2955,12 +3458,6 @@ export default function FretboardScalesPage() {
     [nearComputed.selected]
   );
 
-  // Guarda la selección ya estabilizada para poder buscar el voicing más cercano
-  // tras un cambio de configuración, sin entrar en bucles.
-  useEffect(() => {
-    if (!nearSelectedSig) return;
-    lastNearVoicingsRef.current = nearComputed.selected.map((v, i) => v || lastNearVoicingsRef.current[i] || null);
-  }, [nearSelectedSig]);
 
   useEffect(() => {
     setNearSlots((prev) => {
@@ -2972,6 +3469,7 @@ export default function FretboardScalesPage() {
         if (!options.length) {
           if (slot.selFrets != null) {
             changed = true;
+            skipNearVoicingRefSyncRef.current[idx] = true;
             return { ...slot, selFrets: null };
           }
           return slot;
@@ -2980,21 +3478,19 @@ export default function FretboardScalesPage() {
         let nextFrets = slot.selFrets ?? null;
 
         if (idx === 0) {
-          // En el acorde base, si el usuario ha elegido manualmente una digitación
-          // y sigue existiendo, se respeta.
           const keepCurrent = !!slot.selFrets && options.some((v) => v.frets === slot.selFrets);
           if (!keepCurrent) {
             const ref = lastNearVoicingsRef.current[idx] || null;
             nextFrets = options[nearestVoicingIndex(ref, options)]?.frets ?? options[0]?.frets ?? null;
           }
         } else {
-          // En los acordes 2-4 sí reubicamos al voicing más cercano al anterior.
           const ref = lastNearVoicingsRef.current[idx] || null;
           nextFrets = options[nearestVoicingIndex(ref, options)]?.frets ?? options[0]?.frets ?? null;
         }
 
         if ((slot.selFrets ?? null) !== (nextFrets ?? null)) {
           changed = true;
+          skipNearVoicingRefSyncRef.current[idx] = true;
           return { ...slot, selFrets: nextFrets };
         }
         return slot;
@@ -3004,173 +3500,168 @@ export default function FretboardScalesPage() {
     });
   }, [nearRankSig]);
 
-  // Acordes de la escala (armonización) a partir del Acorde 1 (base)
-  // Regla “teórica”:
-  // - Si el acorde base NO lleva 7ª -> armonización por TRIADAS.
-  // - Si el acorde base lleva 7ª -> armonización por CUATRIADAS (7ªs diatónicas).
-  // - Mayor: jónica
-  // - Menor: menor natural (eólica)
-  const harmonizedMajor = useMemo(() => {
+  useEffect(() => {
+    if (!nearSelectedSig) return;
+    nearComputed.selected.forEach((v, i) => {
+      if (skipNearVoicingRefSyncRef.current[i]) {
+        skipNearVoicingRefSyncRef.current[i] = false;
+        return;
+      }
+      if (v) lastNearVoicingsRef.current[i] = v;
+    });
+  }, [nearSelectedSig]);
+
+
+  const spelledScaleNotes = useMemo(() => spellScaleNotes({ rootPc, scaleIntervals, preferSharps }), [rootPc, scaleIntervals, preferSharps]);
+  const spelledExtraNotes = useMemo(() => spellScaleNotes({ rootPc, scaleIntervals: extraIntervals, preferSharps }), [rootPc, extraIntervals, preferSharps]);
+
+  // Acordes de la escala activa (armonización real según la escala seleccionada arriba)
+  const harmonizedScale = useMemo(() => {
     const base = nearSlots?.[0] || {};
-    const tonicPc = mod12(base.rootPc ?? 0);
+    const withSeventh = base.structure === "tetrad" || !!base.ext7;
 
-    const isMinor = base.quality === "min";
-    const has7 = base.structure === "tetrad" || !!base.ext7; // triad+7 o tetrad
-    const mode = isMinor ? "minor" : "major";
+    const degrees = scaleIntervals.map((interval, i) => {
+      const built = buildScaleDegreeChord({ scaleIntervals, degreeIndex: i, withSeventh });
+      const noteName = spelledScaleNotes[i] || pcToName(mod12(rootPc + interval), preferSharps);
+      const chordRootPc2 = mod12(rootPc + interval);
 
-    // Armadura esperada para deletreo:
-    // - mayor: tónica
-    // - menor natural: relativa mayor (tónica + 3)
-    const tonicIsAcc = !NATURAL_PCS.has(tonicPc);
-    const keySigPc = mode === "minor" ? mod12(tonicPc + 3) : tonicPc;
-    const prefer = tonicIsAcc ? !!base.spellPreferSharps : preferSharpsFromMajorTonicPc(keySigPc);
-
-    const keyScale = mode === "minor" ? [0, 2, 3, 5, 7, 8, 10] : [0, 2, 4, 5, 7, 9, 11];
-    const spelled = spellScaleNotes({ rootPc: tonicPc, scaleIntervals: keyScale, preferSharps: prefer });
-
-    const names = spelled.map((n, i) => {
-      if (mode === "major") {
-        if (has7) {
-          if (i === 0) return `${n}maj7`;
-          if (i === 1) return `${n}m7`;
-          if (i === 2) return `${n}m7`;
-          if (i === 3) return `${n}maj7`;
-          if (i === 4) return `${n}7`;
-          if (i === 5) return `${n}m7`;
-          return `${n}m7(b5)`;
-        }
-        // Triadas diatónicas (mayor)
-        if (i === 0) return `${n}`;
-        if (i === 1) return `${n}m`;
-        if (i === 2) return `${n}m`;
-        if (i === 3) return `${n}`;
-        if (i === 4) return `${n}`;
-        if (i === 5) return `${n}m`;
-        return `${n}dim`;
+      if (!built) {
+        return {
+          rootPc: chordRootPc2,
+          supported: false,
+          name: `${noteName}?`,
+          noteName,
+        };
       }
 
-      // Menor natural (eólica)
-      if (has7) {
-        if (i === 0) return `${n}m7`;
-        if (i === 1) return `${n}m7(b5)`;
-        if (i === 2) return `${n}maj7`;
-        if (i === 3) return `${n}m7`;
-        if (i === 4) return `${n}m7`;
-        if (i === 5) return `${n}maj7`;
-        return `${n}7`;
-      }
-      // Triadas diatónicas (menor natural)
-      if (i === 0) return `${n}m`;
-      if (i === 1) return `${n}dim`;
-      if (i === 2) return `${n}`;
-      if (i === 3) return `${n}m`;
-      if (i === 4) return `${n}m`;
-      if (i === 5) return `${n}`;
-      return `${n}`;
+      const suffix = chordDisplaySuffixOnly({
+        quality: built.quality,
+        suspension: built.suspension,
+        structure: built.structure,
+        ext7: built.ext7,
+        ext6: built.ext6,
+        ext9: built.ext9,
+        ext11: built.ext11,
+        ext13: built.ext13,
+      });
+
+      return {
+        ...built,
+        rootPc: chordRootPc2,
+        spellPreferSharps: preferSharps,
+        supported: true,
+        noteName,
+        name: `${noteName}${suffix}`,
+      };
     });
 
-    const tonicName = spelled[0] || pcToName(tonicPc, prefer);
-    const modeLabel = mode === "minor" ? " (menor natural)" : "";
-
-    return { tonicPc, tonicName, modeLabel, prefer, mode, has7, keyScale, spelled, names };
+    return {
+      tonicName: spelledScaleNotes[0] || pcToName(rootPc, preferSharps),
+      scaleLabel: scaleName,
+      withSeventh,
+      degrees,
+      names: degrees.map((d) => d.name),
+    };
   }, [
-    nearSlots?.[0]?.rootPc,
-    nearSlots?.[0]?.quality,
     nearSlots?.[0]?.structure,
     nearSlots?.[0]?.ext7,
-    nearSlots?.[0]?.spellPreferSharps,
+    scaleIntervals,
+    spelledScaleNotes,
+    rootPc,
+    preferSharps,
+    scaleName,
   ]);
 
-  // Auto-propuesta: si un slot NO está activo, lo ajustamos a acordes diatónicos
-  // - Mayor: slot2=ii, slot3=IV, slot4=V
-  // - Menor natural: slot2=ii°, slot3=iv, slot4=v
-  // - Si el acorde base tiene 7ª => propone cuatriadas (7ªs). Si no => triadas.
   useEffect(() => {
     setNearSlots((prev) => {
       if (!prev?.length) return prev;
 
-      const base = prev[0] || {};
-      const tonicPc = mod12(base.rootPc ?? 0);
-      const isMinor = base.quality === "min";
-      const has7 = base.structure === "tetrad" || !!base.ext7;
-      const mode = isMinor ? "minor" : "major";
+      const s0 = prev[0] || {};
+      const withSeventh = s0.structure === "tetrad" || !!s0.ext7;
+      const built = buildScaleDegreeChord({ scaleIntervals, degreeIndex: 0, withSeventh });
+      if (!built) return prev;
 
-      const tonicIsAcc = !NATURAL_PCS.has(tonicPc);
-      const keySigPc = mode === "minor" ? mod12(tonicPc + 3) : tonicPc;
-      const prefer = tonicIsAcc ? !!base.spellPreferSharps : preferSharpsFromMajorTonicPc(keySigPc);
-
-      const make = (rootOffset, quality, structure, ext7) => ({
-        rootPc: mod12(tonicPc + rootOffset),
-        quality,
+      const patch = {
+        rootPc: mod12(rootPc + built.rootOffset),
+        quality: built.quality,
         suspension: "none",
-        structure,
+        structure: built.structure,
         inversion: "root",
-        ext7: !!ext7,
+        form: "closed",
+        ext7: built.ext7,
         ext6: false,
         ext9: false,
         ext11: false,
         ext13: false,
-        spellPreferSharps: prefer,
+        spellPreferSharps: preferSharps,
         selFrets: null,
-      });
-
-      const desired = {};
-      if (mode === "major") {
-        if (has7) {
-          desired[1] = make(2, "min", "tetrad", true); // ii m7
-          desired[2] = make(5, "maj", "tetrad", true); // IV maj7
-          desired[3] = make(7, "dom", "tetrad", true); // V7
-        } else {
-          desired[1] = make(2, "min", "triad", false); // ii m
-          desired[2] = make(5, "maj", "triad", false); // IV
-          desired[3] = make(7, "maj", "triad", false); // V
-        }
-      } else {
-        if (has7) {
-          desired[1] = make(2, "hdim", "tetrad", true); // ii ø7
-          desired[2] = make(5, "min", "tetrad", true); // iv m7
-          desired[3] = make(7, "min", "tetrad", true); // v m7
-        } else {
-          desired[1] = make(2, "dim", "triad", false); // ii°
-          desired[2] = make(5, "min", "triad", false); // iv
-          desired[3] = make(7, "min", "triad", false); // v
-        }
-      }
+      };
 
       let changed = false;
+      for (const k of Object.keys(patch)) {
+        if (s0?.[k] !== patch[k]) {
+          changed = true;
+          break;
+        }
+      }
+      if (!changed) return prev;
+
+      const next = [...prev];
+      next[0] = { ...s0, ...patch };
+      return next;
+    });
+  }, [rootPc, scaleIntervals, preferSharps]);
+
+  // Auto-propuesta: si un slot NO está activo, lo ajustamos a grados diatónicos de la escala activa.
+  // Se mantienen ii / IV / V como propuesta por defecto cuando existan en la escala.
+  useEffect(() => {
+    setNearSlots((prev) => {
+      if (!prev?.length) return prev;
+
+      const preferredDegreeIdx = [1, 3, 4].filter((i) => i < harmonizedScale.degrees.length);
+      let changed = false;
+
       const next = prev.map((s, i) => {
         if (i === 0) return s;
         if (s?.enabled) return s;
-        const d = desired[i];
-        if (!d) return s;
 
-        for (const k of Object.keys(d)) {
-          if (s?.[k] !== d[k]) {
+        const degree = harmonizedScale.degrees[preferredDegreeIdx[i - 1]];
+        if (!degree?.supported) return s;
+
+        const patch = {
+          rootPc: degree.rootPc,
+          quality: degree.quality,
+          suspension: degree.suspension,
+          structure: degree.structure,
+          inversion: "root",
+          form: "closed",
+          ext7: degree.ext7,
+          ext6: false,
+          ext9: false,
+          ext11: false,
+          ext13: false,
+          spellPreferSharps: degree.spellPreferSharps,
+          selFrets: null,
+        };
+
+        for (const k of Object.keys(patch)) {
+          if (s?.[k] !== patch[k]) {
             changed = true;
-            break;
+            return { ...s, ...patch };
           }
         }
-        return changed ? { ...s, ...d } : s;
+        return s;
       });
 
       return changed ? next : prev;
     });
-  }, [
-    nearSlots?.[0]?.rootPc,
-    nearSlots?.[0]?.quality,
-    nearSlots?.[0]?.structure,
-    nearSlots?.[0]?.ext7,
-    nearSlots?.[0]?.spellPreferSharps,
-  ]);
+  }, [harmonizedScale]);
 
 
   const spelledChordNotes = useMemo(
     () => spellChordNotes({ rootPc: chordRootPc, chordIntervals, preferSharps: chordPreferSharps }),
     [chordRootPc, chordIntervals, chordPreferSharps]
   );
-
-  const spelledScaleNotes = useMemo(() => spellScaleNotes({ rootPc, scaleIntervals, preferSharps }), [rootPc, scaleIntervals, preferSharps]);
-  const spelledExtraNotes = useMemo(() => spellScaleNotes({ rootPc, scaleIntervals: extraIntervals, preferSharps }), [rootPc, extraIntervals, preferSharps]);
 
   const legend = useMemo(() => {
     const thirds = thirdOffsets.map((o) => (o === 3 ? "m3" : "M3")).join(" / ");
@@ -3205,7 +3696,7 @@ export default function FretboardScalesPage() {
     if (interval === 0) return "root";
     if (interval === chordThirdOffset) return "third";
     if (interval === chordFifthOffset) return "fifth";
-    if (chordExt7 && seventh != null && interval === mod12(seventh)) return "seventh";
+    if (hasEffectiveSeventh({ structure: chordStructure, ext7: chordExt7, ext6: chordExt6, ext9: chordExt9, ext11: chordExt11, ext13: chordExt13 }) && seventh != null && interval === mod12(seventh)) return "seventh";
     if (chordExt13 && interval === 9) return "thirteenth";
     if (chordExt11 && interval === 5) return "eleventh";
     if (chordExt9 && interval === 2) return "ninth";
@@ -3729,7 +4220,7 @@ export default function FretboardScalesPage() {
         <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
           <div>
             <div className="text-sm font-semibold text-slate-800">Mástil: acordes cercanos</div>
-            <div className="text-xs text-slate-600">Acordes de la escala de {harmonizedMajor.tonicName}{harmonizedMajor.modeLabel}: {harmonizedMajor.names.join(" · ")}</div>
+            <div className="text-xs text-slate-600">Acordes de la escala de {harmonizedScale.tonicName} · {harmonizedScale.scaleLabel}: {harmonizedScale.names.join(" · ")}</div>
             <div className="text-xs text-slate-600">Fondo = color por acorde · círculos: colores por función (1/3/5/otras) · texto = nota/intervalo · anillo = bajo.</div>
           </div>
           <div className="flex flex-wrap items-end justify-end gap-3">
@@ -4048,7 +4539,7 @@ export default function FretboardScalesPage() {
           </p>
         </header>
 
-        <div className="grid gap-3 grid-cols-[1fr_380px]">
+        <div className="grid gap-3 grid-cols-[1fr_150px]">
           {/* IZQUIERDA */}
           <div className="space-y-4">
             {/* CONFIG ESCALAS */}
@@ -4327,28 +4818,29 @@ export default function FretboardScalesPage() {
                 <div className="space-y-3">
                   {/* ACORDES (principal) */}
                   <section className="rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-200">
-                    <div className="flex flex-wrap items-end justify-between gap-2">
-                      <div className="text-sm font-semibold text-slate-800">
-                        Acordes
-                        <span className="ml-2 text-sm font-semibold text-slate-800">
-                          {chordDisplayNameFromUI({
-                            rootPc: chordRootPc,
-                            preferSharps: chordPreferSharps,
-                            quality: chordQuality,
-                            suspension: chordSuspension,
-                            structure: chordStructure,
-                            ext7: chordExt7,
-                            ext6: chordExt6,
-                            ext9: chordExt9,
-                            ext11: chordExt11,
-                            ext13: chordExt13,
-                          })}
-                        </span>
-                        <span className="ml-2 text-xs font-normal text-slate-600">(Notas: {spelledChordNotes.join(", ")})</span>
-                      </div>
-                    </div>
+                    <div className="text-sm font-semibold text-slate-800">Acordes</div>
                     <div className="mt-2 rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                      <div className="grid items-end gap-2 grid-cols-[96px_210px_90px_200px_130px_280px]">
+                      <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
+                        <div className="text-sm font-semibold text-slate-800">
+                          Acorde
+                          <span className="ml-2 text-xs font-semibold text-slate-800">
+                            {chordDisplayNameFromUI({
+                              rootPc: chordRootPc,
+                              preferSharps: chordPreferSharps,
+                              quality: chordQuality,
+                              suspension: chordSuspension,
+                              structure: chordStructure,
+                              ext7: chordExt7,
+                              ext6: chordExt6,
+                              ext9: chordExt9,
+                              ext11: chordExt11,
+                              ext13: chordExt13,
+                            })}
+                          </span>
+                          <span className="ml-2 text-xs font-normal text-slate-600">(Notas: {spelledChordNotes.join(", ")})</span>
+                        </div>
+                      </div>
+                      <div className="grid items-end gap-2 grid-cols-[96px_210px_90px_200px_200px_130px_290px]">
                         <div className="min-w-0">
                           <label className={UI_LABEL_SM}>Tono</label>
                           <div className="mt-1 flex items-center gap-1.5">
@@ -4417,7 +4909,12 @@ export default function FretboardScalesPage() {
                           <div className="mt-1 grid grid-cols-2 gap-1.5">
                             <select className={UI_SELECT_SM} value={chordQuality} onChange={(e) => setChordQuality(e.target.value)}>
                               {CHORD_QUALITIES.map((q) => (
-                                <option key={q.value} value={q.value}>
+                                <option key={q.value} value={q.value}
+                                  disabled={
+                                    (q.value === "hdim" && chordStructure === "triad" && !chordExt7) ||
+                                    (q.value === "dom" && chordStructure === "triad" && !chordExt7)
+                                  }
+                                >
                                   {q.label}
                                 </option>
                               ))}
@@ -4448,6 +4945,8 @@ export default function FretboardScalesPage() {
                               const val = e.target.value;
                               setChordStructure(val);
                               if (val === "triad") {
+                                setChordExt6(false);
+                                setChordExt7(false);
                                 setChordExt9(false);
                                 setChordExt11(false);
                                 setChordExt13(false);
@@ -4464,23 +4963,31 @@ export default function FretboardScalesPage() {
 
                         <div className="min-w-0">
                           <label className={UI_LABEL_SM}>Forma</label>
-                          <select className={UI_SELECT_SM} value={chordInversion} onChange={(e) => setChordInversion(e.target.value)}>
-                            {CHORD_FORMS.map((inv) => (
+                          <select className={UI_SELECT_SM} value={chordForm} onChange={(e) => setChordForm(e.target.value)}>
+                            {CHORD_FORMS.map((form) => (
                               <option
-                                key={inv.value}
-                                value={inv.value}
-                                disabled={
-                                  (chordStructure === "triad" && inv.value === "3") ||
-                                  (isDropForm(inv.value) && !isStrictFourNoteDropEligible({
-                                    structure: chordStructure,
-                                    ext7: chordExt7,
-                                    ext6: chordExt6,
-                                    ext9: chordExt9,
-                                    ext11: chordExt11,
-                                    ext13: chordExt13,
-                                  }))
-                                }
+                                key={form.value}
+                                value={form.value}
+                                disabled={isDropForm(form.value) && !isStrictFourNoteDropEligible({
+                                  structure: chordStructure,
+                                  ext7: chordExt7,
+                                  ext6: chordExt6,
+                                  ext9: chordExt9,
+                                  ext11: chordExt11,
+                                  ext13: chordExt13,
+                                })}
                               >
+                                {form.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div className="min-w-0">
+                          <label className={UI_LABEL_SM}>Inversión</label>
+                          <select className={UI_SELECT_SM} value={chordInversion} onChange={(e) => setChordInversion(e.target.value)}>
+                            {CHORD_INVERSIONS.map((inv) => (
+                              <option key={inv.value} value={inv.value} disabled={chordStructure === "triad" && inv.value === "3"}>
                                 {inv.label}
                               </option>
                             ))}
@@ -4491,7 +4998,7 @@ export default function FretboardScalesPage() {
                           <label className={UI_LABEL_SM}>Extensiones</label>
                           <div className={UI_EXT_GRID}>
                             <label className="inline-flex items-center gap-2">
-                              <input type="checkbox" checked={chordExt7} onChange={(e) => setChordExt7(e.target.checked)} disabled={chordStructure === "tetrad"} /> 7
+                              <input type="checkbox" checked={hasEffectiveSeventh({ structure: chordStructure, ext7: chordExt7, ext6: chordExt6, ext9: chordExt9, ext11: chordExt11, ext13: chordExt13 })} onChange={(e) => setChordExt7(e.target.checked)} disabled={chordStructure === "tetrad" || chordStructure === "triad"} /> 7
                             </label>
                             <label className="inline-flex items-center gap-2">
                               <input
@@ -4507,6 +5014,7 @@ export default function FretboardScalesPage() {
                                     setChordExt13(false);
                                   }
                                 }}
+                                disabled={chordStructure === "triad"}
                               />{" "}
                               6
                             </label>
@@ -4562,8 +5070,8 @@ export default function FretboardScalesPage() {
                           </div>
                         </div>
 
-                        <div className="min-w-0">
-                          <div className="flex items-baseline justify-between gap-2">
+                        <div className="min-w-0 pt-[8px]">
+                          <div className="flex items-center justify-between gap-2">
                             <label className={UI_LABEL_SM}>Voicing ({chordVoicings.length} opciones)</label>
                             {chordDbLastUrl ? (
                               <a className="text-[11px] text-slate-600 underline" href={chordDbLastUrl} target="_blank" rel="noreferrer">
@@ -4572,48 +5080,58 @@ export default function FretboardScalesPage() {
                             ) : null}
                           </div>
 
-                          <div className="mt-1 flex items-center gap-1.5">
-                            <button
-                              type="button"
-                              className={UI_BTN_SM}
-                              title="Anterior"
-                              onClick={() => setChordVoicingIdx((i) => (chordVoicings.length ? (i - 1 + chordVoicings.length) % chordVoicings.length : 0))}
-                              disabled={!chordVoicings.length}
-                            >
-                              <ChevronLeft className="h-4 w-4" />
-                            </button>
+                          <div className="mt-1 flex items-end gap-1.5">
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                className={UI_BTN_SM}
+                                title="Anterior"
+                                onClick={() => setChordVoicingIdx((i) => (chordVoicings.length ? (i - 1 + chordVoicings.length) % chordVoicings.length : 0))}
+                                disabled={!chordVoicings.length}
+                              >
+                                <ChevronLeft className="h-4 w-4" />
+                              </button>
 
-                            <select
-                              className={UI_SELECT_SM + " flex-1"}
-                              value={chordVoicings[chordVoicingIdx]?.frets || ""}
-                              onChange={(e) => {
-                                const f = e.target.value;
-                                const idx = chordVoicings.findIndex((v) => v.frets === f);
-                                if (idx >= 0) setChordVoicingIdx(idx);
-                              }}
-                              disabled={!chordVoicings.length}
-                            >
-                              {chordVoicings.map((v, i) => (
-                                <option key={v.frets} value={v.frets}>
-                                  {isDropForm(chordInversion)
-                                    ? `${i + 1}. ${v._dropInvLabel || "Drop"} · ${v.frets} (span ${v.span})`
-                                    : `${i + 1}. ${v.frets} (span ${v.span})`}
-                                </option>
-                              ))}
-                            </select>
+                              <select
+                                className={UI_SELECT_SM + " min-w-0 flex-1 max-w-[152px]"}
+                                value={chordVoicings[chordVoicingIdx]?.frets || ""}
+                                onChange={(e) => {
+                                  const f = e.target.value;
+                                  const idx = chordVoicings.findIndex((v) => v.frets === f);
+                                  if (idx >= 0) setChordVoicingIdx(idx);
+                                }}
+                                disabled={!chordVoicings.length}
+                              >
+                                {chordVoicings.map((v, i) => (
+                                  <option key={v.frets} value={v.frets}>
+                                    {`${i + 1}. ${v.frets} (dist ${v.reach ?? (v.span + 1)})`}
+                                  </option>
+                                ))}
+                              </select>
 
-                            <button
-                              type="button"
-                              className={UI_BTN_SM}
-                              title="Siguiente"
-                              onClick={() => setChordVoicingIdx((i) => (chordVoicings.length ? (i + 1) % chordVoicings.length : 0))}
-                              disabled={!chordVoicings.length}
-                            >
-                              <ChevronRight className="h-4 w-4" />
-                            </button>
+                              <button
+                                type="button"
+                                className={UI_BTN_SM}
+                                title="Siguiente"
+                                onClick={() => setChordVoicingIdx((i) => (chordVoicings.length ? (i + 1) % chordVoicings.length : 0))}
+                                disabled={!chordVoicings.length}
+                              >
+                                <ChevronRight className="h-4 w-4" />
+                              </button>
+                            </div>
+
+                            <div className="w-[56px]">
+                              <label className={UI_LABEL_SM}>Dist.</label>
+                              <select className={UI_SELECT_SM + " w-full"} value={chordMaxDist} onChange={(e) => setChordMaxDist(parseInt(e.target.value, 10))}>
+                                {[4, 5, 6].map((n) => (
+                                  <option key={n} value={n}>{n}</option>
+                                ))}
+                              </select>
+                            </div>
                           </div>
 
                           {chordDbError ? <div className="mt-1 text-[11px] font-semibold text-rose-600">{chordDbError}</div> : null}
+                          
                         </div>
                       </div>
                     </div>
@@ -4654,31 +5172,31 @@ export default function FretboardScalesPage() {
 
                         return (
                           <div key={idx} className={`rounded-2xl border border-slate-200 p-3 ${disableAll ? "bg-slate-50" : "bg-white"}`}>
-                            <div className="flex flex-wrap items-start justify-between gap-2">
-                              <div className="text-sm font-semibold text-slate-800">
+                            <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
+                              <div className="flex items-center gap-2 text-sm font-semibold text-slate-800">
                                 Acorde {idx + 1}
                                 {idx === 0 ? " (base)" : ""}
                                 <span className="ml-2 text-xs font-semibold text-slate-800">{chordName}</span>
                                 <span className="ml-2 text-xs font-normal text-slate-600">(Notas: {notes})</span>
                               </div>
 
-                              <div className="flex items-center gap-3">
-                                <div className="flex items-center gap-2">
-                                  <span className="text-xs font-semibold text-slate-700">Fondo</span>
-                                  <input
-                                    type="color"
-                                    value={nearBgColors[idx]}
-                                    onChange={(e) => setNearBgColor(idx, e.target.value)}
-                                    className="h-7 w-10 cursor-pointer rounded-md border border-slate-200 bg-white"
-                                  />
-                                </div>
-
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-semibold text-slate-700">Fondo</span>
+                                <input
+                                  type="color"
+                                  value={nearBgColors[idx]}
+                                  onChange={(e) => setNearBgColor(idx, e.target.value)}
+                                  className="h-6 w-10 cursor-pointer rounded-md border border-slate-200 bg-white"
+                                  disabled={disableAll}
+                                />
                                 {idx > 0 ? (
                                   <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-700">
                                     <input
                                       type="checkbox"
                                       checked={!!slot.enabled}
                                       onChange={(e) => updateNearSlot(idx, { enabled: e.target.checked, selFrets: null })}
+                                      className="h-4 w-4 rounded border-slate-300"
+                                      title={`Activar/desactivar Acorde ${idx + 1}`}
                                     />
                                     Activo
                                   </label>
@@ -4686,7 +5204,7 @@ export default function FretboardScalesPage() {
                               </div>
                             </div>
 
-                            <div className="mt-2 grid items-end gap-2 grid-cols-[96px_210px_90px_200px_130px_280px]">
+                            <div className="mt-2 grid items-end gap-2 grid-cols-[96px_210px_90px_200px_200px_130px_290px]">
                               <div className="min-w-0">
                                 <label className={UI_LABEL_SM}>Tono</label>
                                 <div className="mt-1 flex items-center gap-1.5">
@@ -4756,7 +5274,12 @@ export default function FretboardScalesPage() {
                                     disabled={disableAll}
                                   >
                                     {CHORD_QUALITIES.map((q) => (
-                                      <option key={q.value} value={q.value}>
+                                      <option key={q.value} value={q.value}
+                                        disabled={
+                                          (q.value === "hdim" && slot.structure === "triad" && !slot.ext7) ||
+                                          (q.value === "dom" && slot.structure === "triad" && !slot.ext7)
+                                        }
+                                      >
                                         {q.label}
                                       </option>
                                     ))}
@@ -4788,7 +5311,11 @@ export default function FretboardScalesPage() {
                                   value={slot.structure}
                                   onChange={(e) => {
                                     const val = e.target.value;
-                                    const patch = val === "chord" ? {} : { ext9: false, ext11: false, ext13: false };
+                                    const patch = val === "triad"
+                                      ? { ext6: false, ext7: false, ext9: false, ext11: false, ext13: false }
+                                      : val === "chord"
+                                        ? {}
+                                        : { ext9: false, ext11: false, ext13: false };
                                     updateNearSlot(idx, { structure: val, selFrets: null, ...patch });
                                   }}
                                   disabled={disableAll}
@@ -4803,23 +5330,31 @@ export default function FretboardScalesPage() {
 
                               <div className="min-w-0">
                                 <label className={UI_LABEL_SM}>Forma</label>
-                                <select className={UI_SELECT_SM} value={slot.inversion} onChange={(e) => updateNearSlot(idx, { inversion: e.target.value, selFrets: null })} disabled={disableAll}>
-                                  {CHORD_FORMS.map((inv) => (
+                                <select className={UI_SELECT_SM} value={slot.form || "closed"} onChange={(e) => updateNearSlot(idx, { form: e.target.value, selFrets: null })} disabled={disableAll}>
+                                  {CHORD_FORMS.map((form) => (
                                     <option
-                                      key={inv.value}
-                                      value={inv.value}
-                                      disabled={
-                                        (slot.structure === "triad" && inv.value === "3") ||
-                                        (isDropForm(inv.value) && !isStrictFourNoteDropEligible({
-                                          structure: slot.structure,
-                                          ext7: slot.ext7,
-                                          ext6: slot.ext6,
-                                          ext9: slot.ext9,
-                                          ext11: slot.ext11,
-                                          ext13: slot.ext13,
-                                        }))
-                                      }
+                                      key={form.value}
+                                      value={form.value}
+                                      disabled={isDropForm(form.value) && !isStrictFourNoteDropEligible({
+                                        structure: slot.structure,
+                                        ext7: slot.ext7,
+                                        ext6: slot.ext6,
+                                        ext9: slot.ext9,
+                                        ext11: slot.ext11,
+                                        ext13: slot.ext13,
+                                      })}
                                     >
+                                      {form.label}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+
+                              <div className="min-w-0">
+                                <label className={UI_LABEL_SM}>Inversión</label>
+                                <select className={UI_SELECT_SM} value={slot.inversion} onChange={(e) => updateNearSlot(idx, { inversion: e.target.value, selFrets: null })} disabled={disableAll}>
+                                  {CHORD_INVERSIONS.map((inv) => (
+                                    <option key={inv.value} value={inv.value} disabled={slot.structure === "triad" && inv.value === "3"}>
                                       {inv.label}
                                     </option>
                                   ))}
@@ -4830,14 +5365,14 @@ export default function FretboardScalesPage() {
                                 <label className={UI_LABEL_SM}>Extensiones</label>
                                 <div className={UI_EXT_GRID}>
                                   <label className="inline-flex items-center gap-2">
-                                    <input type="checkbox" checked={!!slot.ext7} onChange={(e) => updateNearSlot(idx, { ext7: e.target.checked, selFrets: null })} disabled={disableAll || slot.structure === "tetrad"} /> 7
+                                    <input type="checkbox" checked={hasEffectiveSeventh({ structure: slot.structure, ext7: slot.ext7, ext6: slot.ext6, ext9: slot.ext9, ext11: slot.ext11, ext13: slot.ext13 })} onChange={(e) => updateNearSlot(idx, { ext7: e.target.checked, selFrets: null })} disabled={disableAll || slot.structure === "tetrad" || slot.structure === "triad"} /> 7
                                   </label>
                                   <label className="inline-flex items-center gap-2">
                                     <input
                                       type="checkbox"
                                       checked={!!slot.ext6}
                                       onChange={(e) => updateNearSlot(idx, { ext6: e.target.checked, selFrets: null })}
-                                      disabled={disableAll}
+                                      disabled={disableAll || slot.structure === "triad"}
                                     />{" "}
                                     6
                                   </label>
@@ -4853,61 +5388,75 @@ export default function FretboardScalesPage() {
                                 </div>
                               </div>
 
-                              <div className="min-w-0 flex-1">
+                              <div className="min-w-0 flex-1 pt-[8px]">
                                 <label className={UI_LABEL_SM}>Digitación en rango ({options.length} opciones)</label>
-                                <div className="mt-1 flex items-center gap-1.5">
-                                  <button
-                                    type="button"
-                                    className={UI_BTN_SM}
-                                    title="Anterior"
-                                    onClick={() => {
-                                      if (!options.length) return;
-                                      const cur = slot.selFrets ?? options[0].frets;
-                                      let iCur = options.findIndex((v) => v.frets === cur);
-                                      if (iCur < 0) iCur = 0;
-                                      const iNew = (iCur - 1 + options.length) % options.length;
-                                      updateNearSlot(idx, { selFrets: options[iNew].frets });
-                                    }}
-                                    disabled={disableAll || !options.length}
-                                  >
-                              <ChevronLeft className="h-4 w-4" />
-                            </button>
+                                <div className="mt-1 flex items-end gap-1.5">
+                                  <div className="flex items-center gap-1.5">
+                                    <button
+                                      type="button"
+                                      className={UI_BTN_SM}
+                                      title="Anterior"
+                                      onClick={() => {
+                                        if (!options.length) return;
+                                        const cur = slot.selFrets ?? options[0].frets;
+                                        let iCur = options.findIndex((v) => v.frets === cur);
+                                        if (iCur < 0) iCur = 0;
+                                        const iNew = (iCur - 1 + options.length) % options.length;
+                                        updateNearSlot(idx, { selFrets: options[iNew].frets });
+                                      }}
+                                      disabled={disableAll || !options.length}
+                                    >
+                                      <ChevronLeft className="h-4 w-4" />
+                                    </button>
 
-                                  <select
-                                    className={UI_SELECT_SM + " flex-1"}
-                                    value={slot.selFrets || "(auto)"}
-                                    onChange={(e) => {
-                                      const v = e.target.value;
-                                      updateNearSlot(idx, { selFrets: v === "(auto)" ? null : v });
-                                    }}
-                                    disabled={disableAll}
-                                  >
-                                    <option value="(auto)">(auto)</option>
-                                    {options.map((v) => (
-                                      <option key={v.frets} value={v.frets}>
-                                        {isDropForm(slot.inversion)
-                                          ? `${v._dropInvLabel || "Drop"} · ${v.frets} (min ${v.minFret} · span ${v.span})`
-                                          : `${v.frets} (min ${v.minFret} · span ${v.span})`}
-                                      </option>
-                                    ))}
-                                  </select>
+                                    <select
+                                      className={UI_SELECT_SM + " min-w-0 flex-1 max-w-[152px]"}
+                                      value={slot.selFrets || "(auto)"}
+                                      onChange={(e) => {
+                                        const v = e.target.value;
+                                        updateNearSlot(idx, { selFrets: v === "(auto)" ? null : v });
+                                      }}
+                                      disabled={disableAll}
+                                    >
+                                      <option value="(auto)">(auto)</option>
+                                      {options.map((v) => (
+                                        <option key={v.frets} value={v.frets}>
+                                          {`${v.frets} (min ${v.minFret} · dist ${v.reach ?? (v.span + 1)})`}
+                                        </option>
+                                      ))}
+                                    </select>
 
-                                  <button
-                                    type="button"
-                                    className={UI_BTN_SM}
-                                    title="Siguiente"
-                                    onClick={() => {
-                                      if (!options.length) return;
-                                      const cur = slot.selFrets ?? options[0].frets;
-                                      let iCur = options.findIndex((v) => v.frets === cur);
-                                      if (iCur < 0) iCur = 0;
-                                      const iNew = (iCur + 1) % options.length;
-                                      updateNearSlot(idx, { selFrets: options[iNew].frets });
-                                    }}
-                                    disabled={disableAll || !options.length}
-                                  >
-                              <ChevronRight className="h-4 w-4" />
-                            </button>
+                                    <button
+                                      type="button"
+                                      className={UI_BTN_SM}
+                                      title="Siguiente"
+                                      onClick={() => {
+                                        if (!options.length) return;
+                                        const cur = slot.selFrets ?? options[0].frets;
+                                        let iCur = options.findIndex((v) => v.frets === cur);
+                                        if (iCur < 0) iCur = 0;
+                                        const iNew = (iCur + 1) % options.length;
+                                        updateNearSlot(idx, { selFrets: options[iNew].frets });
+                                      }}
+                                      disabled={disableAll || !options.length}
+                                    >
+                                      <ChevronRight className="h-4 w-4" />
+                                    </button>
+                                  </div>
+
+                                  <div className="w-[56px]">
+                                    <label className={UI_LABEL_SM}>Dist.</label>
+                                    <select
+                                      className={UI_SELECT_SM + " w-full"}
+                                      value={slot.maxDist || 4}
+                                      onChange={(e) => updateNearSlot(idx, { maxDist: parseInt(e.target.value, 10), selFrets: null })}
+                                      disabled={disableAll}
+                                    >
+                                      {[4, 5, 6].map((n) => (
+                                        <option key={n} value={n}>{n}</option>
+                                      ))}
+                                    </select>
+                                  </div>
                                 </div>
                                 <div className="mt-1 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-600">
                                   
@@ -4928,10 +5477,10 @@ export default function FretboardScalesPage() {
           </div>
 
           {/* DERECHA */}
-          <aside className="space-y-4">
+          <aside className="space-y-4 max-w-[150px]">
             <section className="rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-200">
               <div className="mb-2 text-sm font-semibold text-slate-800">Colores (círculos)</div>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 gap-2">
                 {[
                   { k: "root", label: legend.root },
                   { k: "third", label: legend.third },
@@ -4958,7 +5507,7 @@ export default function FretboardScalesPage() {
             {showBoards.chords ? (
               <section className="rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-200">
                 <div className="mb-2 text-sm font-semibold text-slate-800">Colores (acordes: 7/6/9/11/13)</div>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 gap-2">
                   {[
                     { k: "seventh", label: "7" },
                     { k: "sixth", label: "6" },
@@ -4985,7 +5534,7 @@ export default function FretboardScalesPage() {
             {showBoards.patterns ? (
 <section className="rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-200">
               <div className="mb-2 text-sm font-semibold text-slate-800">Colores (patrones)</div>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 gap-2">
                 {Array.from({ length: 7 }, (_, i) => i).map((i) => (
                   <div key={i} className="flex items-center justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50 px-2 py-1.5">
                     <div>
@@ -5010,7 +5559,7 @@ export default function FretboardScalesPage() {
         </div>
               <footer className="mt-6 flex items-center justify-between border-t border-slate-200 pt-3 text-xs text-slate-600">
           <span>Creado por: Jesus Quevedo Rodriguez</span>
-          <span>ver. 1.3</span>
+          <span>ver. 1.3 · 2026-03-12 11:01</span>
         </footer>
       </div>
     </div>
