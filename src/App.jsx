@@ -486,6 +486,12 @@ const APP_BASE = (import.meta && import.meta.env && import.meta.env.BASE_URL) ? 
 // Fallback (cuando se ejecuta fuera del repo, p.ej. sandbox): GitHub Pages del proyecto
 const PAGES_BASE = "https://a01653.github.io/mastil_escalas/";
 const UI_STORAGE_KEY = "mastil_interactivo_guitarra_config_v1";
+const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
+const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
+const QUICK_PRESET_COUNT = 3;
+const UI_CONFIG_VERSION = 1;
+const APP_VERSION = "1.5";
+const APP_VERSION_STAMP = "2026-03-12 15:10";
 
 function chordDbUrl(keyName, suffix) {
   // Ruta RELATIVA dentro de /public (sin base) => chords-db/...
@@ -2136,6 +2142,81 @@ function inferControlTitle(el) {
   return label || ownText || "";
 }
 
+const HEX_COLOR_RE = /^#[0-9a-fA-F]{6}$/;
+
+function sanitizeBoolValue(v, fallback) {
+  return typeof v === "boolean" ? v : fallback;
+}
+
+function sanitizeNumberValue(v, fallback, min, max) {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(min, Math.min(max, n));
+}
+
+function sanitizeOneOf(v, allowed, fallback) {
+  return allowed.includes(v) ? v : fallback;
+}
+
+function sanitizeColorValue(v, fallback) {
+  return typeof v === "string" && HEX_COLOR_RE.test(v) ? v : fallback;
+}
+
+function unwrapPersistedPayload(raw) {
+  if (raw && typeof raw === "object" && raw.config && typeof raw.config === "object") {
+    return {
+      version: Number(raw.version) || 0,
+      config: raw.config,
+    };
+  }
+  return {
+    version: 0,
+    config: raw && typeof raw === "object" ? raw : {},
+  };
+}
+
+function sanitizeNearSlotValue(value, fallback) {
+  const slot = value && typeof value === "object" ? value : {};
+  return {
+    ...fallback,
+    enabled: sanitizeBoolValue(slot.enabled, fallback.enabled),
+    rootPc: sanitizeNumberValue(slot.rootPc, fallback.rootPc, 0, 11),
+    quality: sanitizeOneOf(slot.quality, CHORD_QUALITIES.map((q) => q.value), fallback.quality),
+    suspension: sanitizeOneOf(slot.suspension, ["none", "sus2", "sus4"], fallback.suspension),
+    structure: sanitizeOneOf(slot.structure, CHORD_STRUCTURES.map((s) => s.value), fallback.structure),
+    inversion: sanitizeOneOf(slot.inversion, CHORD_INVERSIONS.map((x) => x.value), fallback.inversion),
+    form: sanitizeOneOf(slot.form, CHORD_FORMS.map((x) => x.value), fallback.form),
+    ext7: sanitizeBoolValue(slot.ext7, fallback.ext7),
+    ext6: sanitizeBoolValue(slot.ext6, fallback.ext6),
+    ext9: sanitizeBoolValue(slot.ext9, fallback.ext9),
+    ext11: sanitizeBoolValue(slot.ext11, fallback.ext11),
+    ext13: sanitizeBoolValue(slot.ext13, fallback.ext13),
+    spellPreferSharps: sanitizeBoolValue(slot.spellPreferSharps, fallback.spellPreferSharps),
+    maxDist: sanitizeOneOf(Number(slot.maxDist), [4, 5, 6], fallback.maxDist),
+    selFrets: typeof slot.selFrets === "string" || slot.selFrets == null ? slot.selFrets : fallback.selFrets,
+  };
+}
+
+function sanitizePresetCollection(raw) {
+  const arr = Array.isArray(raw) ? raw : [];
+  return Array.from({ length: QUICK_PRESET_COUNT }, (_, i) => {
+    const item = arr[i];
+    if (!item || typeof item !== "object") return null;
+    const payload = unwrapPersistedPayload(item.payload || item).config;
+    if (!payload || typeof payload !== "object") return null;
+    return {
+      name: typeof item.name === "string" && cleanUiText(item.name) ? cleanUiText(item.name).slice(0, 40) : `Preset ${i + 1}`,
+      savedAt: typeof item.savedAt === "string" ? item.savedAt : "",
+      payload: {
+        version: UI_CONFIG_VERSION,
+        appVersion: APP_VERSION,
+        schemaUpdatedAt: APP_VERSION_STAMP,
+        config: payload,
+      },
+    };
+  });
+}
+
 function computeMusicalRoute({
   rootPc,
   scaleIntervals,
@@ -2421,22 +2502,9 @@ export default function FretboardScalesPage() {
   const appRootRef = useRef(null);
   const importConfigInputRef = useRef(null);
 
-  const [browserBuildStamp] = useState(() => {
-    const d = new Date();
-    try {
-      return new Intl.DateTimeFormat(undefined, {
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-      }).format(d);
-    } catch {
-      return d.toLocaleString();
-    }
-  });
   const [storageHydrated, setStorageHydrated] = useState(false);
+  const [configNotice, setConfigNotice] = useState(null);
+  const [quickPresets, setQuickPresets] = useState(() => Array.from({ length: QUICK_PRESET_COUNT }, () => null));
 
   // Notación (auto / override)
   const [accMode, setAccMode] = useState("auto"); // auto | sharps | flats
@@ -2810,80 +2878,131 @@ export default function FretboardScalesPage() {
     patternColors,
   ]);
 
+  const persistedUiPayload = useMemo(() => ({
+    version: UI_CONFIG_VERSION,
+    appVersion: APP_VERSION,
+    schemaUpdatedAt: APP_VERSION_STAMP,
+    config: persistedUiConfig,
+  }), [persistedUiConfig]);
+
   useEffect(() => {
     try {
       if (typeof window === "undefined") {
         setStorageHydrated(true);
         return;
       }
+
+      const presetRaw = window.localStorage.getItem(UI_PRESETS_STORAGE_KEY);
+      if (presetRaw) {
+        try {
+          setQuickPresets(sanitizePresetCollection(JSON.parse(presetRaw)));
+        } catch {
+        }
+      }
+
+      const queuedNotice = window.sessionStorage.getItem(UI_STATUS_SESSION_KEY);
+      if (queuedNotice) {
+        try {
+          const parsedNotice = JSON.parse(queuedNotice);
+          if (parsedNotice && typeof parsedNotice === "object") setConfigNotice(parsedNotice);
+        } catch {
+        }
+        window.sessionStorage.removeItem(UI_STATUS_SESSION_KEY);
+      }
       const raw = window.localStorage.getItem(UI_STORAGE_KEY);
       if (!raw) {
         setStorageHydrated(true);
         return;
       }
-      const saved = JSON.parse(raw);
-      if (!saved || typeof saved !== "object") {
-        setStorageHydrated(true);
-        return;
+
+      const parsed = JSON.parse(raw);
+      const payload = unwrapPersistedPayload(parsed);
+      const saved = payload.config || {};
+      if (payload.version && payload.version !== UI_CONFIG_VERSION) {
+        setConfigNotice({ type: "info", text: `Configuración antigua (v${payload.version}) cargada con saneado.` });
       }
 
-      if ("accMode" in saved) setAccMode(saved.accMode);
-      if ("showIntervalsLabel" in saved) setShowIntervalsLabel(!!saved.showIntervalsLabel);
-      if ("showNotesLabel" in saved) setShowNotesLabel(!!saved.showNotesLabel);
-      if ("rootPc" in saved) setRootPc(Number(saved.rootPc));
-      if ("scaleRootLetter" in saved) setScaleRootLetter(saved.scaleRootLetter);
-      if ("scaleRootAcc" in saved) setScaleRootAcc(saved.scaleRootAcc ?? null);
-      if ("scaleName" in saved) setScaleName(saved.scaleName);
-      if ("maxFret" in saved) setMaxFret(Number(saved.maxFret));
-      if ("showNonScale" in saved) setShowNonScale(!!saved.showNonScale);
-      if ("customInput" in saved) setCustomInput(saved.customInput);
-      if ("extraInput" in saved) setExtraInput(saved.extraInput);
-      if ("showExtra" in saved) setShowExtra(!!saved.showExtra);
-      if (saved.showBoards && typeof saved.showBoards === "object") setShowBoards((prev) => ({ ...prev, ...saved.showBoards }));
-      if ("patternsMode" in saved) setPatternsMode(saved.patternsMode);
+      if ("accMode" in saved) setAccMode(sanitizeOneOf(saved.accMode, ["auto", "sharps", "flats"], "auto"));
+      if ("showIntervalsLabel" in saved) setShowIntervalsLabel(sanitizeBoolValue(saved.showIntervalsLabel, true));
+      if ("showNotesLabel" in saved) setShowNotesLabel(sanitizeBoolValue(saved.showNotesLabel, false));
+      if ("rootPc" in saved) setRootPc(sanitizeNumberValue(saved.rootPc, 5, 0, 11));
+      if ("scaleRootLetter" in saved) setScaleRootLetter(sanitizeOneOf(saved.scaleRootLetter, LETTERS, "F"));
+      if ("scaleRootAcc" in saved) setScaleRootAcc(saved.scaleRootAcc == null ? null : sanitizeOneOf(saved.scaleRootAcc, ["flat", "sharp"], null));
+      if ("scaleName" in saved) setScaleName(sanitizeOneOf(saved.scaleName, Object.keys(SCALE_PRESETS), "Escala mayor"));
+      if ("maxFret" in saved) setMaxFret(sanitizeNumberValue(saved.maxFret, 15, 12, 24));
+      if ("showNonScale" in saved) setShowNonScale(sanitizeBoolValue(saved.showNonScale, false));
+      if ("customInput" in saved && typeof saved.customInput === "string") setCustomInput(saved.customInput);
+      if ("extraInput" in saved && typeof saved.extraInput === "string") setExtraInput(saved.extraInput);
+      if ("showExtra" in saved) setShowExtra(sanitizeBoolValue(saved.showExtra, false));
+      if (saved.showBoards && typeof saved.showBoards === "object") {
+        setShowBoards((prev) => ({
+          ...prev,
+          scale: sanitizeBoolValue(saved.showBoards.scale, prev.scale),
+          patterns: sanitizeBoolValue(saved.showBoards.patterns, prev.patterns),
+          route: sanitizeBoolValue(saved.showBoards.route, prev.route),
+          chords: sanitizeBoolValue(saved.showBoards.chords, prev.chords),
+        }));
+      }
+      if ("patternsMode" in saved) setPatternsMode(sanitizeOneOf(saved.patternsMode, ["auto", "boxes", "nps", "caged"], "auto"));
 
-      if ("chordRootPc" in saved) setChordRootPc(Number(saved.chordRootPc));
-      if ("chordSpellPreferSharps" in saved) setChordSpellPreferSharps(!!saved.chordSpellPreferSharps);
-      if ("chordQuality" in saved) setChordQuality(saved.chordQuality);
-      if ("chordSuspension" in saved) setChordSuspension(saved.chordSuspension);
-      if ("chordStructure" in saved) setChordStructure(saved.chordStructure);
-      if ("chordInversion" in saved) setChordInversion(saved.chordInversion);
-      if ("chordForm" in saved) setChordForm(saved.chordForm);
-      if ("chordExt7" in saved) setChordExt7(!!saved.chordExt7);
-      if ("chordExt6" in saved) setChordExt6(!!saved.chordExt6);
-      if ("chordExt9" in saved) setChordExt9(!!saved.chordExt9);
-      if ("chordExt11" in saved) setChordExt11(!!saved.chordExt11);
-      if ("chordExt13" in saved) setChordExt13(!!saved.chordExt13);
-      if ("chordVoicingIdx" in saved) setChordVoicingIdx(Number(saved.chordVoicingIdx) || 0);
-      if ("chordMaxDist" in saved) setChordMaxDist(Number(saved.chordMaxDist) || 4);
+      if ("chordRootPc" in saved) setChordRootPc(sanitizeNumberValue(saved.chordRootPc, 5, 0, 11));
+      if ("chordSpellPreferSharps" in saved) setChordSpellPreferSharps(sanitizeBoolValue(saved.chordSpellPreferSharps, true));
+      if ("chordQuality" in saved) setChordQuality(sanitizeOneOf(saved.chordQuality, CHORD_QUALITIES.map((q) => q.value), "maj"));
+      if ("chordSuspension" in saved) setChordSuspension(sanitizeOneOf(saved.chordSuspension, ["none", "sus2", "sus4"], "none"));
+      if ("chordStructure" in saved) setChordStructure(sanitizeOneOf(saved.chordStructure, CHORD_STRUCTURES.map((s) => s.value), "triad"));
+      if ("chordInversion" in saved) setChordInversion(sanitizeOneOf(saved.chordInversion, CHORD_INVERSIONS.map((x) => x.value), "root"));
+      if ("chordForm" in saved) setChordForm(sanitizeOneOf(saved.chordForm, CHORD_FORMS.map((x) => x.value), "closed"));
+      if ("chordExt7" in saved) setChordExt7(sanitizeBoolValue(saved.chordExt7, false));
+      if ("chordExt6" in saved) setChordExt6(sanitizeBoolValue(saved.chordExt6, false));
+      if ("chordExt9" in saved) setChordExt9(sanitizeBoolValue(saved.chordExt9, false));
+      if ("chordExt11" in saved) setChordExt11(sanitizeBoolValue(saved.chordExt11, false));
+      if ("chordExt13" in saved) setChordExt13(sanitizeBoolValue(saved.chordExt13, false));
+      if ("chordVoicingIdx" in saved) setChordVoicingIdx(sanitizeNumberValue(saved.chordVoicingIdx, 0, 0, 999));
+      if ("chordMaxDist" in saved) setChordMaxDist(sanitizeOneOf(Number(saved.chordMaxDist), [4, 5, 6], 4));
 
-      if ("nearWindowStart" in saved) setNearWindowStart(Number(saved.nearWindowStart) || 0);
-      if ("nearWindowSize" in saved) setNearWindowSize(Number(saved.nearWindowSize) || 6);
-      if ("nearAutoScaleSync" in saved) setNearAutoScaleSync(!!saved.nearAutoScaleSync);
+      if ("nearWindowStart" in saved) setNearWindowStart(sanitizeNumberValue(saved.nearWindowStart, 2, 0, 24));
+      if ("nearWindowSize" in saved) setNearWindowSize(sanitizeNumberValue(saved.nearWindowSize, 6, 1, 24));
+      if ("nearAutoScaleSync" in saved) setNearAutoScaleSync(sanitizeBoolValue(saved.nearAutoScaleSync, true));
       if (Array.isArray(saved.nearSlots)) {
-        setNearSlots((prev) => prev.map((slot, i) => ({ ...slot, ...(saved.nearSlots[i] || {}) })));
+        setNearSlots((prev) => prev.map((slot, i) => sanitizeNearSlotValue(saved.nearSlots[i], slot)));
       }
       if (Array.isArray(saved.nearBgColors)) {
-        setNearBgColors((prev) => prev.map((c, i) => saved.nearBgColors[i] || c));
+        setNearBgColors((prev) => prev.map((c, i) => sanitizeColorValue(saved.nearBgColors[i], c)));
       }
 
-      if ("routeStartCode" in saved) setRouteStartCode(saved.routeStartCode);
-      if ("routeEndCode" in saved) setRouteEndCode(saved.routeEndCode);
-      if ("routeMaxPerString" in saved) setRouteMaxPerString(Number(saved.routeMaxPerString) || 4);
-      if ("routeMode" in saved) setRouteMode(saved.routeMode);
-      if ("routePreferNps" in saved) setRoutePreferNps(!!saved.routePreferNps);
-      if ("routePreferVertical" in saved) setRoutePreferVertical(!!saved.routePreferVertical);
-      if ("routeKeepPattern" in saved) setRouteKeepPattern(!!saved.routeKeepPattern);
-      if ("allowPatternSwitch" in saved) setAllowPatternSwitch(!!saved.allowPatternSwitch);
-      if ("patternSwitchPenalty" in saved) setPatternSwitchPenalty(Number(saved.patternSwitchPenalty) || 0);
-      if ("routeFixedPattern" in saved) setRouteFixedPattern(saved.routeFixedPattern);
-      if ("routePickNext" in saved) setRoutePickNext(saved.routePickNext);
+      if ("routeStartCode" in saved && typeof saved.routeStartCode === "string") setRouteStartCode(saved.routeStartCode);
+      if ("routeEndCode" in saved && typeof saved.routeEndCode === "string") setRouteEndCode(saved.routeEndCode);
+      if ("routeMaxPerString" in saved) setRouteMaxPerString(sanitizeNumberValue(saved.routeMaxPerString, 4, 1, 5));
+      if ("routeMode" in saved) setRouteMode(sanitizeOneOf(saved.routeMode, ["auto", "free", "pos", "nps", "penta", "caged"], "auto"));
+      if ("routePreferNps" in saved) setRoutePreferNps(sanitizeBoolValue(saved.routePreferNps, true));
+      if ("routePreferVertical" in saved) setRoutePreferVertical(sanitizeBoolValue(saved.routePreferVertical, false));
+      if ("routeKeepPattern" in saved) setRouteKeepPattern(sanitizeBoolValue(saved.routeKeepPattern, false));
+      if ("allowPatternSwitch" in saved) setAllowPatternSwitch(sanitizeBoolValue(saved.allowPatternSwitch, true));
+      if ("patternSwitchPenalty" in saved) setPatternSwitchPenalty(sanitizeNumberValue(saved.patternSwitchPenalty, 2, 0, 6));
+      if ("routeFixedPattern" in saved && typeof saved.routeFixedPattern === "string") setRouteFixedPattern(saved.routeFixedPattern);
+      if ("routePickNext" in saved) setRoutePickNext(sanitizeOneOf(saved.routePickNext, ["start", "end"], "start"));
 
-      if (saved.colors && typeof saved.colors === "object") setColors((prev) => ({ ...prev, ...saved.colors }));
+      if (saved.colors && typeof saved.colors === "object") {
+        setColors((prev) => ({
+          ...prev,
+          root: sanitizeColorValue(saved.colors.root, prev.root),
+          third: sanitizeColorValue(saved.colors.third, prev.third),
+          fifth: sanitizeColorValue(saved.colors.fifth, prev.fifth),
+          other: sanitizeColorValue(saved.colors.other, prev.other),
+          extra: sanitizeColorValue(saved.colors.extra, prev.extra),
+          route: sanitizeColorValue(saved.colors.route, prev.route),
+          seventh: sanitizeColorValue(saved.colors.seventh, prev.seventh),
+          sixth: sanitizeColorValue(saved.colors.sixth, prev.sixth),
+          ninth: sanitizeColorValue(saved.colors.ninth, prev.ninth),
+          eleventh: sanitizeColorValue(saved.colors.eleventh, prev.eleventh),
+          thirteenth: sanitizeColorValue(saved.colors.thirteenth, prev.thirteenth),
+        }));
+      }
       if (Array.isArray(saved.patternColors)) {
-        setPatternColors((prev) => prev.map((c, i) => saved.patternColors[i] || c));
+        setPatternColors((prev) => prev.map((c, i) => sanitizeColorValue(saved.patternColors[i], c)));
       }
     } catch {
+      setConfigNotice({ type: "error", text: "Configuración guardada inválida. Se usaron valores seguros." });
     } finally {
       setStorageHydrated(true);
     }
@@ -2893,14 +3012,36 @@ export default function FretboardScalesPage() {
     if (!storageHydrated) return;
     try {
       if (typeof window === "undefined") return;
-      window.localStorage.setItem(UI_STORAGE_KEY, JSON.stringify(persistedUiConfig));
+      window.localStorage.setItem(UI_STORAGE_KEY, JSON.stringify(persistedUiPayload));
     } catch {
     }
-  }, [storageHydrated, persistedUiConfig]);
+  }, [storageHydrated, persistedUiPayload]);
+
+  useEffect(() => {
+    try {
+      if (typeof window === "undefined") return;
+      window.localStorage.setItem(UI_PRESETS_STORAGE_KEY, JSON.stringify(quickPresets));
+    } catch {
+    }
+  }, [quickPresets]);
+
+  useEffect(() => {
+    if (!configNotice) return;
+    const t = window.setTimeout(() => setConfigNotice(null), 3500);
+    return () => window.clearTimeout(t);
+  }, [configNotice]);
+
+  function queueReloadNotice(type, text) {
+    try {
+      if (typeof window === "undefined") return;
+      window.sessionStorage.setItem(UI_STATUS_SESSION_KEY, JSON.stringify({ type, text }));
+    } catch {
+    }
+  }
 
   function exportUiConfig() {
     try {
-      const raw = JSON.stringify(persistedUiConfig, null, 2);
+      const raw = JSON.stringify(persistedUiPayload, null, 2);
       const blob = new Blob([raw], { type: "application/json" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -2912,8 +3053,20 @@ export default function FretboardScalesPage() {
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
+      setConfigNotice({ type: "success", text: "Configuración exportada." });
     } catch {
+      setConfigNotice({ type: "error", text: "No pude exportar la configuración." });
     }
+  }
+
+  function buildImportedPayload(parsed) {
+    const payload = unwrapPersistedPayload(parsed);
+    return {
+      version: UI_CONFIG_VERSION,
+      appVersion: APP_VERSION,
+      schemaUpdatedAt: APP_VERSION_STAMP,
+      config: payload.config || {},
+    };
   }
 
   function importUiConfigFromFile(file) {
@@ -2923,14 +3076,15 @@ export default function FretboardScalesPage() {
       try {
         const raw = String(reader.result || "");
         const parsed = JSON.parse(raw);
-        if (!parsed || typeof parsed !== "object") throw new Error("JSON inválido");
+        const payload = buildImportedPayload(parsed);
         if (typeof window === "undefined") return;
-        window.localStorage.setItem(UI_STORAGE_KEY, JSON.stringify(parsed));
+        window.localStorage.setItem(UI_STORAGE_KEY, JSON.stringify(payload));
+        queueReloadNotice("success", "Configuración importada.");
         window.location.reload();
       } catch (e) {
-        if (typeof window !== "undefined") {
-          window.alert(`No pude importar la configuración: ${String(e?.message || e)}`);
-        }
+        const msg = `No pude importar la configuración: ${String(e?.message || e)}`;
+        setConfigNotice({ type: "error", text: msg });
+        if (typeof window !== "undefined") window.alert(msg);
       }
     };
     reader.readAsText(file);
@@ -2942,8 +3096,47 @@ export default function FretboardScalesPage() {
       const ok = window.confirm("Se borrará la configuración guardada y se recargará la página. ¿Continuar?");
       if (!ok) return;
       window.localStorage.removeItem(UI_STORAGE_KEY);
+      queueReloadNotice("info", "Configuración restablecida.");
       window.location.reload();
     } catch {
+    }
+  }
+
+  function saveQuickPreset(slotIdx) {
+    try {
+      if (typeof window === "undefined") return;
+      const currentName = quickPresets[slotIdx]?.name || `Preset ${slotIdx + 1}`;
+      const asked = window.prompt(`Nombre para el preset ${slotIdx + 1}:`, currentName);
+      if (asked === null) return;
+      const name = cleanUiText(asked) || `Preset ${slotIdx + 1}`;
+      setQuickPresets((prev) => {
+        const next = [...prev];
+        next[slotIdx] = {
+          name,
+          savedAt: APP_VERSION_STAMP,
+          payload: persistedUiPayload,
+        };
+        return next;
+      });
+      setConfigNotice({ type: "success", text: `Preset ${slotIdx + 1} guardado.` });
+    } catch {
+      setConfigNotice({ type: "error", text: "No pude guardar el preset." });
+    }
+  }
+
+  function loadQuickPreset(slotIdx) {
+    try {
+      const preset = quickPresets[slotIdx];
+      if (!preset?.payload) {
+        setConfigNotice({ type: "error", text: `El preset ${slotIdx + 1} está vacío.` });
+        return;
+      }
+      if (typeof window === "undefined") return;
+      window.localStorage.setItem(UI_STORAGE_KEY, JSON.stringify(preset.payload));
+      queueReloadNotice("success", `Preset ${slotIdx + 1} cargado.`);
+      window.location.reload();
+    } catch {
+      setConfigNotice({ type: "error", text: "No pude cargar el preset." });
     }
   }
 
@@ -4913,6 +5106,37 @@ export default function FretboardScalesPage() {
               }}
             />
           </div>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <span className="text-xs font-semibold text-slate-700">Presets rápidos</span>
+            {Array.from({ length: QUICK_PRESET_COUNT }, (_, i) => (
+              <div key={i} className="flex items-center gap-1">
+                <button
+                  type="button"
+                  className={UI_BTN_SM + " w-auto px-3"}
+                  onClick={() => loadQuickPreset(i)}
+                  disabled={!quickPresets[i]}
+                  title={quickPresets[i]?.savedAt ? `${quickPresets[i]?.name} · ${quickPresets[i]?.savedAt}` : `Preset ${i + 1} vacío`}
+                >
+                  {quickPresets[i]?.name || `Preset ${i + 1}`}
+                </button>
+                <button
+                  type="button"
+                  className={UI_BTN_SM + " w-auto px-2"}
+                  onClick={() => saveQuickPreset(i)}
+                  title={`Guardar configuración actual en Preset ${i + 1}`}
+                >
+                  Guardar
+                </button>
+              </div>
+            ))}
+          </div>
+          {configNotice ? (
+            <div
+              className={`mt-2 rounded-xl border px-3 py-2 text-sm ${configNotice.type === "error" ? "border-rose-200 bg-rose-50 text-rose-700" : configNotice.type === "success" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-sky-200 bg-sky-50 text-sky-700"}`}
+            >
+              {configNotice.text}
+            </div>
+          ) : null}
         </header>
 
         <div className="grid gap-3 grid-cols-[1fr_190px]">
@@ -5939,7 +6163,7 @@ export default function FretboardScalesPage() {
         </div>
               <footer className="mt-6 flex items-center justify-between border-t border-slate-200 pt-3 text-xs text-slate-600">
           <span>Creado por: Jesus Quevedo Rodriguez</span>
-          <span>{`ver. 1.3 · ${browserBuildStamp}`}</span>
+          <span>{`ver. ${APP_VERSION} · ${APP_VERSION_STAMP}`}</span>
         </footer>
       </div>
     </div>
