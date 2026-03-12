@@ -18,8 +18,8 @@ const SCALE_PRESETS = {
   "Pentatónica mayor": [0, 2, 4, 7, 9],
   "Pentatónica menor": [0, 3, 5, 7, 10],
 
-  "Escala mayor": [0, 2, 4, 5, 7, 9, 11],
-  "Escala menor (natural)": [0, 2, 3, 5, 7, 8, 10],
+  "Mayor": [0, 2, 4, 5, 7, 9, 11],
+  "Menor natural": [0, 2, 3, 5, 7, 8, 10],
 
   "Jónica (Ionian)": [0, 2, 4, 5, 7, 9, 11],
   "Dórica (Dorian)": [0, 2, 3, 5, 7, 9, 10],
@@ -57,6 +57,42 @@ const SCALE_PRESETS = {
 
   "Personalizada": null,
 };
+
+const SCALE_NAME_ALIASES = {
+  "Escala mayor": "Mayor",
+  "Escala menor (natural)": "Menor natural",
+};
+
+const SCALE_OPTION_ORDER = [
+  "Mayor",
+  "Mayor armónica",
+  "Doble armónica (Bizantina)",
+  "Pentatónica mayor",
+  "Blues (mayor)",
+  "Menor natural",
+  "Menor armónica",
+  "Menor melódica (asc)",
+  "Pentatónica menor",
+  "Blues (menor)",
+  "Húngara menor (Gypsy)",
+  "Jónica (Ionian)",
+  "Dórica (Dorian)",
+  "Frigia (Phrygian)",
+  "Lidia (Lydian)",
+  "Mixolidia (Mixolydian)",
+  "Eólica (Aeolian)",
+  "Locria (Locrian)",
+  "Frigia dominante",
+  "Lidia dominante",
+  "Alterada (Superlocria)",
+  "Tonos enteros",
+  "Disminuida (H-W)",
+  "Disminuida (W-H)",
+  "Bebop mayor",
+  "Bebop dominante",
+  "Bebop dórica",
+  "Personalizada",
+];
 
 // Afinación estándar (UI: 1ª→6ª)
 const STRINGS = [
@@ -477,6 +513,50 @@ function buildScaleDegreeChord({ scaleIntervals, degreeIndex, withSeventh = fals
   };
 }
 
+const ROMAN_DEGREES = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX"];
+
+function tetradSuffixFromOffsets(thirdOffset, fifthOffset, seventhOffset) {
+  const t = mod12(thirdOffset);
+  const f = mod12(fifthOffset);
+  const s = mod12(seventhOffset);
+  if (t === 4 && f === 7 && s === 11) return "maj7";
+  if (t === 4 && f === 7 && s === 10) return "7";
+  if (t === 3 && f === 7 && s === 10) return "m7";
+  if (t === 3 && f === 7 && s === 11) return "m(maj7)";
+  if (t === 3 && f === 6 && s === 10) return "m7(b5)";
+  if (t === 3 && f === 6 && s === 9) return "dim7";
+  if (t === 4 && f === 8 && s === 11) return "maj7#5";
+  if (t === 4 && f === 8 && s === 10) return "7#5";
+  if (t === 4 && f === 6 && s === 10) return "7b5";
+  return "?";
+}
+
+function buildScaleTetradHarmonization({ rootPc, scaleIntervals, spelledScaleNotes, preferSharps }) {
+  const n = scaleIntervals.length;
+  if (n < 4) return [];
+
+  return scaleIntervals.map((rootOffset, i) => {
+    const thirdOffset = mod12(scaleIntervals[(i + 2) % n] - rootOffset);
+    const fifthOffset = mod12(scaleIntervals[(i + 4) % n] - rootOffset);
+    const seventhOffset = mod12(scaleIntervals[(i + 6) % n] - rootOffset);
+    const suffix = tetradSuffixFromOffsets(thirdOffset, fifthOffset, seventhOffset);
+    const degreeName = `${ROMAN_DEGREES[i] || `${i + 1}`}${suffix}`;
+    const noteRoot = spelledScaleNotes[i] || pcToName(mod12(rootPc + rootOffset), preferSharps);
+    const chordNotes = [
+      spelledScaleNotes[i] || pcToName(mod12(rootPc + rootOffset), preferSharps),
+      spelledScaleNotes[(i + 2) % n] || pcToName(mod12(rootPc + scaleIntervals[(i + 2) % n]), preferSharps),
+      spelledScaleNotes[(i + 4) % n] || pcToName(mod12(rootPc + scaleIntervals[(i + 4) % n]), preferSharps),
+      spelledScaleNotes[(i + 6) % n] || pcToName(mod12(rootPc + scaleIntervals[(i + 6) % n]), preferSharps),
+    ];
+
+    return {
+      degreeName,
+      noteName: `${noteRoot}${suffix}`,
+      chordNotes,
+    };
+  });
+}
+
 // Base del sitio (Vite) para que fetch a /public funcione en localhost y GitHub Pages.
 // En producción (Pages) suele ser "/mastil_escalas/" y en dev "/".
 // OJO: nunca accedas a import.meta.env.BASE_URL sin optional chaining.
@@ -490,8 +570,8 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "1.5";
-const APP_VERSION_STAMP = "2026-03-12 15:10";
+const APP_VERSION = "1.6";
+const APP_VERSION_STAMP = "2026-03-12 15:42";
 
 function chordDbUrl(keyName, suffix) {
   // Ruta RELATIVA dentro de /public (sin base) => chords-db/...
@@ -1339,8 +1419,18 @@ function parseTokensToIntervals({ input, rootPc }) {
   return Array.from(new Set(intervals.map(mod12))).sort((a, b) => a - b);
 }
 
+function normalizeScaleName(name) {
+  return SCALE_NAME_ALIASES[name] || name;
+}
+
+function scaleOptionLabel(name) {
+  const ints = SCALE_PRESETS[name];
+  if (!Array.isArray(ints)) return name;
+  return `${name} (${ints.map((i) => intervalToDegreeToken(i)).join(" ")})`;
+}
+
 function buildScaleIntervals(scaleName, customInput, rootPc) {
-  const preset = SCALE_PRESETS[scaleName];
+  const preset = SCALE_PRESETS[normalizeScaleName(scaleName)];
   if (preset) return preset;
   return parseTokensToIntervals({ input: customInput, rootPc });
 }
@@ -1437,11 +1527,11 @@ function getParentMajorTonicPc({ rootPc, scaleName }) {
     "Locria (Locrian)": 7,
   };
 
-  if (scaleName === "Escala mayor") return rootPc;
+  if (scaleName === "Mayor") return rootPc;
   if (scaleName === "Pentatónica mayor") return rootPc;
 
   // Menores: armadura de la relativa mayor
-  if (scaleName === "Escala menor (natural)" || scaleName === "Pentatónica menor") {
+  if (scaleName === "Menor natural" || scaleName === "Pentatónica menor") {
     return mod12(rootPc + 3);
   }
 
@@ -2515,7 +2605,7 @@ export default function FretboardScalesPage() {
   const [rootPc, setRootPc] = useState(5); // F
   const [scaleRootLetter, setScaleRootLetter] = useState("F");
   const [scaleRootAcc, setScaleRootAcc] = useState(null); // null | "flat" | "sharp"
-  const [scaleName, setScaleName] = useState("Escala mayor");
+  const [scaleName, setScaleName] = useState("Mayor");
   const isPentatonicScale = scaleName === "Pentatónica mayor" || scaleName === "Pentatónica menor";
   const [maxFret, setMaxFret] = useState(15);
 
@@ -2928,7 +3018,7 @@ export default function FretboardScalesPage() {
       if ("rootPc" in saved) setRootPc(sanitizeNumberValue(saved.rootPc, 5, 0, 11));
       if ("scaleRootLetter" in saved) setScaleRootLetter(sanitizeOneOf(saved.scaleRootLetter, LETTERS, "F"));
       if ("scaleRootAcc" in saved) setScaleRootAcc(saved.scaleRootAcc == null ? null : sanitizeOneOf(saved.scaleRootAcc, ["flat", "sharp"], null));
-      if ("scaleName" in saved) setScaleName(sanitizeOneOf(saved.scaleName, Object.keys(SCALE_PRESETS), "Escala mayor"));
+      if ("scaleName" in saved) setScaleName(sanitizeOneOf(normalizeScaleName(saved.scaleName), Object.keys(SCALE_PRESETS), "Mayor"));
       if ("maxFret" in saved) setMaxFret(sanitizeNumberValue(saved.maxFret, 15, 12, 24));
       if ("showNonScale" in saved) setShowNonScale(sanitizeBoolValue(saved.showNonScale, false));
       if ("customInput" in saved && typeof saved.customInput === "string") setCustomInput(saved.customInput);
@@ -4056,6 +4146,18 @@ export default function FretboardScalesPage() {
 
   const spelledScaleNotes = useMemo(() => spellScaleNotes({ rootPc, scaleIntervals, preferSharps }), [rootPc, scaleIntervals, preferSharps]);
   const spelledExtraNotes = useMemo(() => spellScaleNotes({ rootPc, scaleIntervals: extraIntervals, preferSharps }), [rootPc, extraIntervals, preferSharps]);
+  const scaleTetradHarmony = useMemo(
+    () => buildScaleTetradHarmonization({ rootPc, scaleIntervals, spelledScaleNotes, preferSharps }),
+    [rootPc, scaleIntervals, spelledScaleNotes, preferSharps]
+  );
+  const scaleTetradDegreesText = useMemo(
+    () => scaleTetradHarmony.map((x) => x.degreeName).join(" · "),
+    [scaleTetradHarmony]
+  );
+  const scaleTetradNotesText = useMemo(
+    () => scaleTetradHarmony.map((x) => x.noteName).join(" · "),
+    [scaleTetradHarmony]
+  );
 
   // Acordes de la escala activa (armonización real según la escala seleccionada arriba)
   const harmonizedScale = useMemo(() => {
@@ -5071,7 +5173,10 @@ export default function FretboardScalesPage() {
   // Estado visual de ♭/♯ (solo para acordes): si la tónica es nota negra, resaltamos ♭ o ♯ según la ortografía.
   const chordAccidental = !NATURAL_PCS.has(mod12(chordRootPc));
 
-  const scaleOptions = useMemo(() => Object.keys(SCALE_PRESETS), []);
+  const scaleOptions = useMemo(
+    () => Object.keys(SCALE_PRESETS).sort((a, b) => a.localeCompare(b, "es", { sensitivity: "base" })),
+    []
+  );
 
   return (
     <div className="min-h-screen overflow-x-auto bg-gradient-to-b from-slate-50 to-slate-100 text-slate-900">
@@ -5081,54 +5186,57 @@ export default function FretboardScalesPage() {
           <p className="text-sm text-slate-600">
             Patrones: <b>5 boxes</b> (pentatónicas), <b>7 3NPS</b> (7 notas) y <b>CAGED</b>. Ruta: sigue la escala en orden y se restringe a patrones.
           </p>
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            <button type="button" className={UI_BTN_SM + " w-auto px-3"} onClick={exportUiConfig}>
-              Exportar config
-            </button>
-            <button
-              type="button"
-              className={UI_BTN_SM + " w-auto px-3"}
-              onClick={() => importConfigInputRef.current && importConfigInputRef.current.click()}
-            >
-              Importar config
-            </button>
-            <button type="button" className={UI_BTN_SM + " w-auto px-3"} onClick={resetUiConfig}>
-              Restablecer
-            </button>
-            <input
-              ref={importConfigInputRef}
-              type="file"
-              accept="application/json,.json"
-              className="hidden"
-              onChange={(e) => {
-                importUiConfigFromFile(e.target.files && e.target.files[0]);
-                e.target.value = "";
-              }}
-            />
-          </div>
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            <span className="text-xs font-semibold text-slate-700">Presets rápidos</span>
-            {Array.from({ length: QUICK_PRESET_COUNT }, (_, i) => (
-              <div key={i} className="flex items-center gap-1">
-                <button
-                  type="button"
-                  className={UI_BTN_SM + " w-auto px-3"}
-                  onClick={() => loadQuickPreset(i)}
-                  disabled={!quickPresets[i]}
-                  title={quickPresets[i]?.savedAt ? `${quickPresets[i]?.name} · ${quickPresets[i]?.savedAt}` : `Preset ${i + 1} vacío`}
-                >
-                  {quickPresets[i]?.name || `Preset ${i + 1}`}
-                </button>
-                <button
-                  type="button"
-                  className={UI_BTN_SM + " w-auto px-2"}
-                  onClick={() => saveQuickPreset(i)}
-                  title={`Guardar configuración actual en Preset ${i + 1}`}
-                >
-                  Guardar
-                </button>
-              </div>
-            ))}
+          <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-semibold text-slate-700">Presets rápidos</span>
+              {Array.from({ length: QUICK_PRESET_COUNT }, (_, i) => (
+                <div key={i} className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    className={UI_BTN_SM + " w-auto px-3"}
+                    onClick={() => loadQuickPreset(i)}
+                    disabled={!quickPresets[i]}
+                    title={quickPresets[i]?.savedAt ? `${quickPresets[i]?.name} · ${quickPresets[i]?.savedAt}` : `Preset ${i + 1} vacío`}
+                  >
+                    {quickPresets[i]?.name || `Preset ${i + 1}`}
+                  </button>
+                  <button
+                    type="button"
+                    className={UI_BTN_SM + " w-auto px-2"}
+                    onClick={() => saveQuickPreset(i)}
+                    title={`Guardar configuración actual en Preset ${i + 1}`}
+                  >
+                    Guardar
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+              <button type="button" className={UI_BTN_SM + " w-auto px-3"} onClick={exportUiConfig}>
+                Exportar config
+              </button>
+              <button
+                type="button"
+                className={UI_BTN_SM + " w-auto px-3"}
+                onClick={() => importConfigInputRef.current && importConfigInputRef.current.click()}
+              >
+                Importar config
+              </button>
+              <button type="button" className={UI_BTN_SM + " w-auto px-3"} onClick={resetUiConfig}>
+                Restablecer
+              </button>
+              <input
+                ref={importConfigInputRef}
+                type="file"
+                accept="application/json,.json"
+                className="hidden"
+                onChange={(e) => {
+                  importUiConfigFromFile(e.target.files && e.target.files[0]);
+                  e.target.value = "";
+                }}
+              />
+            </div>
           </div>
           {configNotice ? (
             <div
@@ -5240,7 +5348,7 @@ export default function FretboardScalesPage() {
                   >
                     {scaleOptions.map((s) => (
                       <option key={s} value={s}>
-                        {s}
+                        {scaleOptionLabel(s)}
                       </option>
                     ))}
                   </select>
@@ -5291,12 +5399,18 @@ export default function FretboardScalesPage() {
                 </div>
               ) : null}
 
-              <div className="mt-2 flex flex-wrap items-end justify-between gap-3">
-                <div className="min-w-[320px] flex-1">
+              <div className="mt-2 flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-[420px] flex-1">
+                  <div className={UI_LABEL_SM}>Armonización (cuatriadas)</div>
+                  <div className="mt-1 text-xs text-slate-600"><b>Grados:</b> {scaleTetradDegreesText}</div>
+                  <div className="mt-0.5 text-xs text-slate-600"><b>Notas:</b> {scaleTetradNotesText}</div>
+                </div>
+
+                <div className="min-w-[220px]">
                   <div className={UI_LABEL_SM}>Notas extra</div>
                   <div className="mt-1 flex items-center gap-2">
                     <input
-                      className={UI_INPUT_SM + " flex-1"}
+                      className={UI_INPUT_SM + " w-28"}
                       value={extraInput}
                       onChange={(e) => setExtraInput(e.target.value)}
                       placeholder="Ej: b2"
@@ -5311,21 +5425,23 @@ export default function FretboardScalesPage() {
                   </div>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2">
-                  <div className="text-xs font-semibold text-slate-700">Mástiles:</div>
-                  <ToggleButton active={showBoards.scale} onClick={() => setShowBoards((s) => ({ ...s, scale: !s.scale }))} title="Muestra el mástil de la escala">
-                    Escala
-                  </ToggleButton>
-                  <ToggleButton active={showBoards.patterns} onClick={() => setShowBoards((s) => ({ ...s, patterns: !s.patterns }))} title="Muestra el mástil de patrones">
-                    Patrones
-                  </ToggleButton>
-                  <ToggleButton active={showBoards.route} onClick={() => setShowBoards((s) => ({ ...s, route: !s.route }))} title="Muestra el mástil de ruta">
-                    Ruta
-                  </ToggleButton>
-                  <ToggleButton active={showBoards.chords} onClick={() => setShowBoards((s) => ({ ...s, chords: !s.chords }))} title="Muestra el panel de acordes">
-                    Acordes
-                  </ToggleButton>
+                <div className="min-w-[220px]">
+                  <div className={UI_LABEL_SM}>Mástiles</div>
+                  <div className="mt-1 flex flex-wrap items-center gap-2">
+                    <ToggleButton active={showBoards.scale} onClick={() => setShowBoards((s) => ({ ...s, scale: !s.scale }))} title="Muestra el mástil de la escala">
+                      Escala
+                    </ToggleButton>
+                    <ToggleButton active={showBoards.patterns} onClick={() => setShowBoards((s) => ({ ...s, patterns: !s.patterns }))} title="Muestra el mástil de patrones">
+                      Patrones
+                    </ToggleButton>
+                    <ToggleButton active={showBoards.route} onClick={() => setShowBoards((s) => ({ ...s, route: !s.route }))} title="Muestra el mástil de ruta">
+                      Ruta
+                    </ToggleButton>
+                    <ToggleButton active={showBoards.chords} onClick={() => setShowBoards((s) => ({ ...s, chords: !s.chords }))} title="Muestra el panel de acordes">
+                      Acordes
+                    </ToggleButton>
                   </div>
+                </div>
               </div>
             </section>
 
