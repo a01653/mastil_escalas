@@ -623,7 +623,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "1.12";
+const APP_VERSION = "1.13";
 const APP_VERSION_STAMP = "2026-03-13 08:22";
 
 function chordDbUrl(keyName, suffix) {
@@ -4227,7 +4227,7 @@ export default function FretboardScalesPage() {
             nextFrets = pending.frets;
             pendingNearRestoreRef.current[idx] = { active: false, frets: null };
           } else {
-            pendingNearRestoreRef.current[idx] = { active: false, frets: null };
+            return slot;
           }
         }
 
