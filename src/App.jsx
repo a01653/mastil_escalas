@@ -623,8 +623,8 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "1.8";
-const APP_VERSION_STAMP = "2026-03-13 07:36";
+const APP_VERSION = "1.9";
+const APP_VERSION_STAMP = "2026-03-13 07:55";
 
 function chordDbUrl(keyName, suffix) {
   // Ruta RELATIVA dentro de /public (sin base) => chords-db/...
@@ -2756,8 +2756,15 @@ export default function FretboardScalesPage() {
   const [chordMaxDist, setChordMaxDist] = useState(4);
   const lastChordVoicingRef = useRef(null);
   const skipChordVoicingRefSyncRef = useRef(false);
+  const pendingChordRestoreRef = useRef({ active: false, frets: null });
   const lastNearVoicingsRef = useRef([null, null, null, null]);
   const skipNearVoicingRefSyncRef = useRef([false, false, false, false]);
+  const pendingNearRestoreRef = useRef([
+    { active: false, frets: null },
+    { active: false, frets: null },
+    { active: false, frets: null },
+    { active: false, frets: null },
+  ]);
 
   // ------------------------
   // Acordes (2): acordes cercanos por rango de trastes
@@ -3108,13 +3115,21 @@ export default function FretboardScalesPage() {
       if ("chordExt11" in saved) setChordExt11(sanitizeBoolValue(saved.chordExt11, false));
       if ("chordExt13" in saved) setChordExt13(sanitizeBoolValue(saved.chordExt13, false));
       if ("chordVoicingIdx" in saved) setChordVoicingIdx(sanitizeNumberValue(saved.chordVoicingIdx, 0, 0, 999));
-      if ("chordSelectedFrets" in saved) setChordSelectedFrets(typeof saved.chordSelectedFrets === "string" || saved.chordSelectedFrets == null ? saved.chordSelectedFrets : null);
+      if ("chordSelectedFrets" in saved) {
+        const restored = typeof saved.chordSelectedFrets === "string" || saved.chordSelectedFrets == null ? saved.chordSelectedFrets : null;
+        setChordSelectedFrets(restored);
+        pendingChordRestoreRef.current = { active: true, frets: restored };
+      }
       if ("chordMaxDist" in saved) setChordMaxDist(sanitizeOneOf(Number(saved.chordMaxDist), [4, 5, 6], 4));
 
       if ("nearWindowStart" in saved) setNearWindowStart(sanitizeNumberValue(saved.nearWindowStart, 2, 0, 24));
       if ("nearWindowSize" in saved) setNearWindowSize(sanitizeNumberValue(saved.nearWindowSize, 6, 1, 24));
       if ("nearAutoScaleSync" in saved) setNearAutoScaleSync(sanitizeBoolValue(saved.nearAutoScaleSync, true));
       if (Array.isArray(saved.nearSlots)) {
+        pendingNearRestoreRef.current = Array.from({ length: 4 }, (_, i) => ({
+          active: true,
+          frets: typeof saved.nearSlots[i]?.selFrets === "string" || saved.nearSlots[i]?.selFrets == null ? (saved.nearSlots[i]?.selFrets ?? null) : null,
+        }));
         setNearSlots((prev) => prev.map((slot, i) => sanitizeNearSlotValue(saved.nearSlots[i], slot)));
       }
       if (Array.isArray(saved.nearBgColors)) {
@@ -3789,6 +3804,25 @@ export default function FretboardScalesPage() {
       return;
     }
 
+    if (pendingChordRestoreRef.current.active) {
+      const wanted = pendingChordRestoreRef.current.frets;
+      if (wanted == null) {
+        pendingChordRestoreRef.current = { active: false, frets: null };
+      } else {
+        const restoredIdx = chordVoicings.findIndex((v) => v.frets === wanted);
+        if (restoredIdx >= 0) {
+          if (restoredIdx !== chordVoicingIdx) {
+            skipChordVoicingRefSyncRef.current = true;
+            setChordVoicingIdx(restoredIdx);
+          }
+          if (chordSelectedFrets !== wanted) setChordSelectedFrets(wanted);
+          pendingChordRestoreRef.current = { active: false, frets: null };
+          return;
+        }
+        pendingChordRestoreRef.current = { active: false, frets: null };
+      }
+    }
+
     const keepIdx = chordSelectedFrets ? chordVoicings.findIndex((v) => v.frets === chordSelectedFrets) : -1;
     if (keepIdx >= 0) {
       if (keepIdx !== chordVoicingIdx) {
@@ -4178,7 +4212,19 @@ export default function FretboardScalesPage() {
 
         let nextFrets = slot.selFrets ?? null;
 
-        const keepCurrent = !!slot.selFrets && options.some((v) => v.frets === slot.selFrets);
+        const pending = pendingNearRestoreRef.current[idx];
+        if (pending?.active) {
+          if (pending.frets == null) {
+            pendingNearRestoreRef.current[idx] = { active: false, frets: null };
+          } else if (options.some((v) => v.frets === pending.frets)) {
+            nextFrets = pending.frets;
+            pendingNearRestoreRef.current[idx] = { active: false, frets: null };
+          } else {
+            pendingNearRestoreRef.current[idx] = { active: false, frets: null };
+          }
+        }
+
+        const keepCurrent = !!nextFrets && options.some((v) => v.frets === nextFrets);
         if (!keepCurrent) {
           const ref = lastNearVoicingsRef.current[idx] || null;
           nextFrets = options[nearestVoicingIndex(ref, options)]?.frets ?? options[0]?.frets ?? null;
