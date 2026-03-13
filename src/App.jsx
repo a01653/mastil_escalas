@@ -623,8 +623,8 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "1.9";
-const APP_VERSION_STAMP = "2026-03-13 07:55";
+const APP_VERSION = "1.10";
+const APP_VERSION_STAMP = "2026-03-13 08:05";
 
 function chordDbUrl(keyName, suffix) {
   // Ruta RELATIVA dentro de /public (sin base) => chords-db/...
@@ -3480,7 +3480,6 @@ export default function FretboardScalesPage() {
           if (!alive) return;
           setChordDbLastUrl(urlLocalAbs);
           setChordDb(json);
-          setChordVoicingIdx(0);
           return;
         }
 
@@ -3493,7 +3492,6 @@ export default function FretboardScalesPage() {
         if (!alive) return;
         setChordDbLastUrl(urlFallbackAbs);
         setChordDb(json);
-        setChordVoicingIdx(0);
       } catch (e) {
         if (!alive) return;
         setChordDb(null);
@@ -3844,13 +3842,19 @@ export default function FretboardScalesPage() {
 
   useEffect(() => {
     const current = chordVoicings[chordVoicingIdx] || chordVoicings[0] || null;
-    if (current?.frets !== (chordSelectedFrets ?? null)) setChordSelectedFrets(current?.frets ?? null);
+    const selectedStillExists = !!chordSelectedFrets && chordVoicings.some((v) => v.frets === chordSelectedFrets);
+
+    if (!pendingChordRestoreRef.current.active && !selectedStillExists) {
+      const nextFrets = current?.frets ?? null;
+      if (nextFrets !== (chordSelectedFrets ?? null)) setChordSelectedFrets(nextFrets);
+    }
+
     if (skipChordVoicingRefSyncRef.current) {
       skipChordVoicingRefSyncRef.current = false;
       return;
     }
     if (current) lastChordVoicingRef.current = current;
-  }, [chordVoicingIdx, chordVoicingsSig]);
+  }, [chordVoicingIdx, chordVoicingsSig, chordSelectedFrets]);
 
   const activeChordVoicing = chordVoicings[chordVoicingIdx] || chordVoicings[0] || null;
 
