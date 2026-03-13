@@ -625,7 +625,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "1.20";
+const APP_VERSION = "1.22";
 const APP_VERSION_STAMP = "2026-03-13 08:22";
 
 function chordDbUrl(keyName, suffix) {
@@ -1226,6 +1226,145 @@ function chordEngineLayerLabel(plan) {
     case "chord": return "Acorde";
     default: return "—";
   }
+}
+
+function chordEngineGeneratorLabel(plan) {
+  switch (plan?.generator) {
+    case "triad": return "Triad";
+    case "tetrad": return "Tetrad";
+    case "drop": return "Drop";
+    case "exact": return "Exact";
+    case "json": return "JSON";
+    default: return "—";
+  }
+}
+
+function studyVoicingFormLabel(voicing, form) {
+  if (isDropForm(form)) {
+    return CHORD_FORMS.find((x) => x.value === form)?.label || "Drop";
+  }
+  if (!voicing) return isOpenForm(form) ? "Abierto" : "Cerrado";
+  return isClosedPositionVoicing(voicing) ? "Cerrado" : "Abierto";
+}
+
+function explainStudyRules(plan) {
+  if (!plan) return [];
+  const out = [];
+  if (!plan.ui?.usesManualForm) out.push("En estructura Acorde la forma es automática.");
+  if (!plan.ui?.allowThirdInversion) out.push("La 3ª inversión no está disponible en triadas.");
+  if (!plan.ui?.dropEligible) out.push("Los drops solo son válidos en cuatriadas estrictas de 4 notas.");
+  if (plan.layer === "multi_add") out.push("Las combinaciones add múltiples usan el generador exacto de intervalos.");
+  if (plan.layer === "extended") out.push("Los acordes extendidos usan el generador de voicings del dataset JSON.");
+  if (plan.layer === "add") out.push("Los add simples se resuelven como cuatriadas sin 7ª real.");
+  return out;
+}
+
+function buildChordNamingExplanation(plan) {
+  if (!plan) return [];
+  const out = [];
+
+  if (plan.suspension === "sus2") out.push("Se nombra sus2 porque la 3ª se sustituye por 2ª.");
+  else if (plan.suspension === "sus4") out.push("Se nombra sus4 porque la 3ª se sustituye por 4ª.");
+  else if (plan.quality === "maj") out.push("La calidad sale de 3ª mayor y 5ª justa.");
+  else if (plan.quality === "dom") out.push("La base es mayor y, cuando aparece la 7ª, se interpreta como dominante.");
+  else if (plan.quality === "min") out.push("La calidad sale de 3ª menor y 5ª justa.");
+  else if (plan.quality === "dim") out.push("La calidad sale de 3ª menor y 5ª disminuida.");
+  else if (plan.quality === "hdim") out.push("Se interpreta como m7(b5): 3ª menor, 5ª disminuida y 7ª menor.");
+
+  if (plan.layer === "triad") out.push("La estructura efectiva es una triada.");
+  if (plan.layer === "tetrad") out.push("La estructura efectiva es una cuatriada.");
+  if (plan.layer === "drop") out.push("El nombre mantiene el acorde, pero el voicing se fuerza como drop.");
+  if (plan.layer === "extended") out.push("El sufijo extendido sale de 7ª y/o tensiones superiores.");
+  if (plan.layer === "add") out.push("Se nombra como add porque añade tensión sin 7ª real.");
+  if (plan.layer === "multi_add") out.push("Se nombra como add múltiple porque combina varias tensiones sin 7ª.");
+
+  if (plan.ext7 && plan.seventhOffset != null) out.push(`Incluye ${intervalToDegreeToken(plan.seventhOffset)}, por eso aparece la 7ª.`);
+  if (plan.ext6) out.push("Incluye 6 como color añadido.");
+  if (plan.ext9) out.push("Incluye 9 como tensión añadida.");
+  if (plan.ext11) out.push("Incluye 11 como tensión añadida.");
+  if (plan.ext13) out.push("Incluye 13 como tensión añadida.");
+
+  return out;
+}
+
+function requestedFormLabel(plan) {
+  if (!plan) return "—";
+  if (isDropForm(plan.form)) return CHORD_FORMS.find((x) => x.value === plan.form)?.label || "Drop";
+  return isOpenForm(plan.form) ? "Abierto" : "Cerrado";
+}
+
+function actualInversionLabelFromVoicing(plan, voicing) {
+  if (!plan || !voicing) return "—";
+  const bassInt = mod12(voicing.bassPc - plan.rootPc);
+  if (bassInt === 0) return "Fundamental";
+  if (bassInt === mod12(plan.thirdOffset)) return "1ª inversión";
+  if (bassInt === mod12(plan.fifthOffset)) return "2ª inversión";
+  if (plan.seventhOffset != null && bassInt === mod12(plan.seventhOffset)) return "3ª inversión";
+  return `Bajo ${intervalToDegreeToken(bassInt)}`;
+}
+
+function analyzeVoicingVsPlan(plan, voicing, preferSharps) {
+  if (!plan) {
+    return {
+      requested: [],
+      actual: [],
+      missing: [],
+      extra: [],
+      requestedForm: "—",
+      actualForm: "—",
+      actualNotes: [],
+      requestedBass: "—",
+      actualBass: "—",
+      actualInversion: "—",
+    };
+  }
+
+  const requested = Array.from(new Set((plan.intervals || []).map(mod12))).sort((a, b) => a - b);
+  const actual = voicing ? Array.from(new Set(Array.from(voicing.relIntervals || []).map(mod12))).sort((a, b) => a - b) : [];
+  const requestedTokens = requested.map((i) => intervalToDegreeToken(i));
+  const actualTokens = actual.map((i) => intervalToDegreeToken(i));
+  const missing = requested.filter((i) => !actual.includes(i)).map((i) => intervalToDegreeToken(i));
+  const extra = actual.filter((i) => !requested.includes(i)).map((i) => intervalToDegreeToken(i));
+
+  return {
+    requested: requestedTokens,
+    actual: actualTokens,
+    missing,
+    extra,
+    requestedForm: requestedFormLabel(plan),
+    actualForm: studyVoicingFormLabel(voicing, plan.form),
+    actualNotes: voicing ? [...voicing.notes].sort((a, b) => pitchAt(a.sIdx, a.fret) - pitchAt(b.sIdx, b.fret)).map((n) => pcToName(n.pc, preferSharps)) : [],
+    requestedBass: pcToName(mod12(plan.rootPc + plan.bassInterval), preferSharps),
+    actualBass: voicing ? pcToName(voicing.bassPc, preferSharps) : "—",
+    actualInversion: actualInversionLabelFromVoicing(plan, voicing),
+  };
+}
+
+function analyzeScaleTensionsForChord({ activeScaleRootPc, scaleIntervals, chordRootPc, chordIntervals, preferSharps }) {
+  const scalePcSet = new Set((scaleIntervals || []).map((i) => mod12(activeScaleRootPc + i)));
+  const chordSet = new Set((chordIntervals || []).map(mod12));
+  const candidates = [
+    { intv: 1, label: "b9" },
+    { intv: 2, label: "9" },
+    { intv: 3, label: "#9" },
+    { intv: 5, label: "11" },
+    { intv: 6, label: "#11" },
+    { intv: 8, label: "b13" },
+    { intv: 9, label: "13" },
+  ];
+
+  const available = [];
+  const unavailable = [];
+
+  for (const c of candidates) {
+    if (chordSet.has(c.intv)) continue;
+    const notePc = mod12(chordRootPc + c.intv);
+    const item = `${c.label} (${pcToName(notePc, preferSharps)})`;
+    if (scalePcSet.has(notePc)) available.push(item);
+    else unavailable.push(item);
+  }
+
+  return { available, unavailable };
 }
 
 function buildCloseTetradAbsoluteOrders(thirdOffset, fifthOffset, seventhOffset) {
@@ -2836,6 +2975,8 @@ export default function FretboardScalesPage() {
   const [storageHydrated, setStorageHydrated] = useState(false);
   const [configNotice, setConfigNotice] = useState(null);
   const [quickPresets, setQuickPresets] = useState(() => Array.from({ length: QUICK_PRESET_COUNT }, () => null));
+  const [studyOpen, setStudyOpen] = useState(false);
+  const [studyTarget, setStudyTarget] = useState("main");
 
   // Notación (auto / override)
   const [accMode, setAccMode] = useState("auto"); // auto | sharps | flats
@@ -4267,6 +4408,177 @@ export default function FretboardScalesPage() {
     () => nearComputed.selected.map((v) => v?.frets || "").join("|"),
     [nearComputed.selected]
   );
+
+  const studyData = useMemo(() => {
+    if (studyTarget === "main") {
+      const mainSpelledNotes = spellChordNotes({ rootPc: chordRootPc, chordIntervals, preferSharps: chordPreferSharps });
+      const mainPcToSpelledName = (pc) => {
+        const interval = mod12(pc - chordRootPc);
+        const idx = chordIntervals.findIndex((x) => mod12(x) === interval);
+        return idx >= 0 ? mainSpelledNotes[idx] : pcToName(pc, chordPreferSharps);
+      };
+      return {
+        rootPc: chordRootPc,
+        preferSharps: chordPreferSharps,
+        title: "Acorde principal",
+        chordName: chordDisplayNameFromUI({
+          rootPc: chordRootPc,
+          preferSharps: chordPreferSharps,
+          quality: chordQuality,
+          suspension: chordSuspension,
+          structure: chordStructure,
+          ext7: chordExt7,
+          ext6: chordExt6,
+          ext9: chordExt9,
+          ext11: chordExt11,
+          ext13: chordExt13,
+        }),
+        notes: mainSpelledNotes,
+        intervals: chordIntervals.map((i) => intervalToChordToken(i, { ext6: chordExt6, ext9: chordExt9 && chordStructure !== "triad", ext11: chordExt11 && chordStructure !== "triad", ext13: chordExt13 && chordStructure !== "triad" })),
+        plan: chordEnginePlan,
+        voicing: activeChordVoicing,
+        bassName: activeChordVoicing ? mainPcToSpelledName(activeChordVoicing.bassPc) : pcToName(chordBassPc, chordPreferSharps),
+        inversionLabel: CHORD_INVERSIONS.find((x) => x.value === chordInversion)?.label || "Fundamental",
+      };
+    }
+
+    const idx = Number(studyTarget);
+    const slot = nearSlots[idx];
+    const plan = nearComputed.ranked[idx]?.plan || null;
+    const voicing = nearComputed.selected[idx] || null;
+    const pref = slot?.spellPreferSharps ?? preferSharpsFromMajorTonicPc(mod12(slot?.rootPc || 0));
+    const ints = buildChordIntervals({
+      quality: slot?.quality,
+      suspension: slot?.suspension || "none",
+      structure: slot?.structure,
+      ext7: slot?.ext7,
+      ext6: slot?.ext6,
+      ext9: slot?.ext9,
+      ext11: slot?.ext11,
+      ext13: slot?.ext13,
+    });
+    const notes = spellChordNotes({ rootPc: slot?.rootPc || 0, chordIntervals: ints, preferSharps: pref });
+    return {
+      rootPc: slot?.rootPc || 0,
+      preferSharps: pref,
+      title: `Acorde cercano ${idx + 1}`,
+      chordName: chordDisplayNameFromUI({
+        rootPc: slot?.rootPc || 0,
+        preferSharps: pref,
+        quality: slot?.quality,
+        suspension: slot?.suspension || "none",
+        structure: slot?.structure,
+        ext7: slot?.ext7,
+        ext6: slot?.ext6,
+        ext9: slot?.ext9,
+        ext11: slot?.ext11,
+        ext13: slot?.ext13,
+      }),
+      notes,
+      intervals: ints.map((i) => intervalToChordToken(i, { ext6: !!slot?.ext6, ext9: !!slot?.ext9 && slot?.structure !== "triad", ext11: !!slot?.ext11 && slot?.structure !== "triad", ext13: !!slot?.ext13 && slot?.structure !== "triad" })),
+      plan,
+      voicing,
+      bassName: voicing ? pcToName(voicing.bassPc, pref) : pcToName(mod12((slot?.rootPc || 0) + (plan?.bassInterval || 0)), pref),
+      inversionLabel: CHORD_INVERSIONS.find((x) => x.value === (slot?.inversion || "root"))?.label || "Fundamental",
+    };
+  }, [studyTarget, chordRootPc, chordPreferSharps, chordQuality, chordSuspension, chordStructure, chordExt7, chordExt6, chordExt9, chordExt11, chordExt13, chordIntervals, chordEnginePlan, activeChordVoicing, chordBassPc, chordInversion, nearSlots, nearComputed]);
+
+  function StudyPanel() {
+    const d = studyData;
+    const rules = explainStudyRules(d?.plan);
+    const naming = buildChordNamingExplanation(d?.plan);
+    const voicingAnalysis = analyzeVoicingVsPlan(d?.plan, d?.voicing, d?.preferSharps ?? chordPreferSharps);
+    const tensionAnalysis = analyzeScaleTensionsForChord({
+      activeScaleRootPc: rootPc,
+      scaleIntervals,
+      chordRootPc: d?.rootPc ?? chordRootPc,
+      chordIntervals: d?.plan?.intervals || [],
+      preferSharps: d?.preferSharps ?? chordPreferSharps,
+    });
+    return (
+      <section className="rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-200">
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <div className="text-sm font-semibold text-slate-800">Modo estudio</div>
+            <div className="text-xs text-slate-600">{d?.title} · {d?.chordName}</div>
+          </div>
+          <button type="button" className={UI_BTN_SM + " w-auto px-3"} onClick={() => setStudyOpen((v) => !v)}>
+            {studyOpen ? "Ocultar" : "Ver análisis"}
+          </button>
+        </div>
+
+        {studyOpen ? (
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+              <div className="text-xs font-semibold text-slate-700">Identidad</div>
+              <div className="mt-2 space-y-1 text-xs text-slate-600">
+                <div><b>Nombre:</b> {d?.chordName}</div>
+                <div><b>Capa:</b> {chordEngineLayerLabel(d?.plan)}</div>
+                <div><b>Generador:</b> {chordEngineGeneratorLabel(d?.plan)}</div>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+              <div className="text-xs font-semibold text-slate-700">Por qué se nombra así</div>
+              <div className="mt-2 space-y-1 text-xs text-slate-600">
+                {naming.length ? naming.map((r, i) => <div key={i}>• {r}</div>) : <div>• Sin explicación adicional.</div>}
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+              <div className="text-xs font-semibold text-slate-700">Construcción</div>
+              <div className="mt-2 space-y-1 text-xs text-slate-600">
+                <div><b>Fórmula:</b> {d?.intervals?.join(" · ") || "—"}</div>
+                <div><b>Notas:</b> {d?.notes?.join(" · ") || "—"}</div>
+                <div><b>Bajo:</b> {d?.bassName || "—"}</div>
+                <div><b>Inversión:</b> {d?.inversionLabel}</div>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+              <div className="text-xs font-semibold text-slate-700">Voicing actual</div>
+              <div className="mt-2 space-y-1 text-xs text-slate-600">
+                <div><b>Tipo:</b> {studyVoicingFormLabel(d?.voicing, d?.plan?.form)}</div>
+                <div><b>Digitación:</b> {d?.voicing?.frets || "—"}</div>
+                <div><b>Distancia:</b> {d?.voicing ? (d.voicing.reach ?? (d.voicing.span + 1)) : "—"}</div>
+                <div><b>Pitch span:</b> {d?.voicing?.pitchSpan ?? "—"}</div>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+              <div className="text-xs font-semibold text-slate-700">UI vs voicing real</div>
+              <div className="mt-2 space-y-1 text-xs text-slate-600">
+                <div><b>Pedido:</b> {voicingAnalysis.requested.join(" · ") || "—"}</div>
+                <div><b>Real:</b> {voicingAnalysis.actual.join(" · ") || "—"}</div>
+                <div><b>Notas reales:</b> {voicingAnalysis.actualNotes.join(" · ") || "—"}</div>
+                <div><b>Forma UI:</b> {voicingAnalysis.requestedForm} · <b>Forma real:</b> {voicingAnalysis.actualForm}</div>
+                <div><b>Bajo UI:</b> {voicingAnalysis.requestedBass} · <b>Bajo real:</b> {voicingAnalysis.actualBass}</div>
+                <div><b>Inv. real:</b> {voicingAnalysis.actualInversion}</div>
+                <div><b>Falta:</b> {voicingAnalysis.missing.join(" · ") || "ninguna"}</div>
+                <div><b>Sobra:</b> {voicingAnalysis.extra.join(" · ") || "nada"}</div>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+              <div className="text-xs font-semibold text-slate-700">Tensiones según escala</div>
+              <div className="mt-2 space-y-1 text-xs text-slate-600">
+                <div><b>Escala activa:</b> {pcToName(rootPc, preferSharps)} {scaleName}</div>
+                <div><b>Disponibles:</b> {tensionAnalysis.available.join(" · ") || "ninguna clara"}</div>
+                <div><b>No disponibles:</b> {tensionAnalysis.unavailable.join(" · ") || "ninguna"}</div>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+              <div className="text-xs font-semibold text-slate-700">Reglas</div>
+              <div className="mt-2 space-y-1 text-xs text-slate-600">
+                {rules.length ? rules.map((r, i) => <div key={i}>• {r}</div>) : <div>• Sin restricciones especiales.</div>}
+              </div>
+            </div>
+          </div>
+        ) : null}
+      </section>
+    );
+  }
 
 
   useEffect(() => {
@@ -5744,6 +6056,16 @@ export default function FretboardScalesPage() {
                           </span>
                           <span className="ml-2 text-xs font-normal text-slate-600">(Notas: {spelledChordNotes.join(", ")})</span>
                         </div>
+                        <button
+                          type="button"
+                          className={UI_BTN_SM + " w-auto px-3"}
+                          onClick={() => {
+                            setStudyTarget("main");
+                            setStudyOpen(true);
+                          }}
+                        >
+                          Estudiar
+                        </button>
                       </div>
                       <div className="grid items-stretch gap-2 grid-cols-[96px_210px_90px_200px_200px_130px_220px_56px]">
                         <div className="min-w-0">
@@ -6078,6 +6400,7 @@ export default function FretboardScalesPage() {
                   </section>
 
                   <ChordFretboard title="Acorde" voicing={activeChordVoicing} voicingIdx={chordVoicingIdx} voicingTotal={Math.max(1, chordVoicings.length)} />
+                  <StudyPanel />
 
                   {/* ACORDES CERCANOS */}
                   <section className="rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-200">
@@ -6142,6 +6465,16 @@ export default function FretboardScalesPage() {
                               </div>
 
                               <div className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  className={UI_BTN_SM + " w-auto px-3"}
+                                  onClick={() => {
+                                    setStudyTarget(String(idx));
+                                    setStudyOpen(true);
+                                  }}
+                                >
+                                  Estudiar
+                                </button>
                                 <span className="text-xs font-semibold text-slate-700">Fondo</span>
                                 <input
                                   type="color"
