@@ -625,7 +625,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "1.18";
+const APP_VERSION = "1.20";
 const APP_VERSION_STAMP = "2026-03-13 08:22";
 
 function chordDbUrl(keyName, suffix) {
@@ -1082,6 +1082,150 @@ function hasEffectiveSeventh({ structure, ext7, ext6, ext9, ext11, ext13 }) {
     return !addOnly;
   }
   return !!ext7;
+}
+
+function chordThirdOffsetFromUI(quality, suspension) {
+  if (suspension === "sus2") return 2;
+  if (suspension === "sus4") return 5;
+  return quality === "maj" || quality === "dom" ? 4 : 3;
+}
+
+function chordFifthOffsetFromUI(quality, suspension) {
+  if (suspension && suspension !== "none") return 7;
+  return quality === "dim" || quality === "hdim" ? 6 : 7;
+}
+
+function buildChordUiRestrictions({ structure, ext7, ext6, ext9, ext11, ext13 }) {
+  const dropEligible = isStrictFourNoteDropEligible({ structure, ext7, ext6, ext9, ext11, ext13 });
+  return {
+    usesManualForm: structureUsesManualForm(structure),
+    allowThirdInversion: structure !== "triad",
+    dropEligible,
+    ext: {
+      showSeven: true,
+      showSix: true,
+      showNine: structure !== "triad",
+      showEleven: structure !== "triad",
+      showThirteen: structure !== "triad",
+      canToggleSeven: structure === "chord",
+      canToggleSix: structure !== "triad",
+      canToggleNine: structure !== "triad",
+      canToggleEleven: structure !== "triad",
+      canToggleThirteen: structure !== "triad",
+    },
+  };
+}
+
+function buildChordEnginePlan({
+  rootPc,
+  quality,
+  suspension = "none",
+  structure,
+  inversion,
+  form,
+  ext7,
+  ext6,
+  ext9,
+  ext11,
+  ext13,
+}) {
+  const thirdOffset = chordThirdOffsetFromUI(quality, suspension);
+  const fifthOffset = chordFifthOffsetFromUI(quality, suspension);
+  const seventhOffset = hasEffectiveSeventh({ structure, ext7, ext6, ext9, ext11, ext13 }) ? seventhOffsetForQuality(quality) : null;
+  const intervals = buildChordIntervals({ quality, suspension, structure, ext7, ext6, ext9, ext11, ext13 });
+  const bassInterval = chordBassInterval({
+    quality,
+    suspension,
+    structure,
+    inversion: normalizeChordFormToInversion(inversion),
+    chordIntervals: intervals,
+    ext7,
+    ext6,
+    ext9,
+    ext11,
+    ext13,
+  });
+
+  const strictDrop = isDropForm(form) && isStrictFourNoteDropEligible({ structure, ext7, ext6, ext9, ext11, ext13 });
+  const singleAdd = isSingleAddChordSelection({ ext7, ext6, ext9, ext11, ext13 });
+  const multiAdd = isMultiAddChordSelection({ ext7, ext6, ext9, ext11, ext13 });
+  const triadOnly = structure === "triad" && !ext7 && !ext6;
+  const tetradFamily = structure === "tetrad" || (structure === "triad" && (ext7 || ext6));
+  const chordFamily = structure === "chord";
+  const extended = chordFamily && !singleAdd && !multiAdd && (ext7 || ext6 || ext9 || ext11 || ext13);
+
+  let layer = "unsupported";
+  let generator = "none";
+
+  if (strictDrop) {
+    layer = "drop";
+    generator = "drop";
+  } else if (triadOnly) {
+    layer = "triad";
+    generator = "triad";
+  } else if (tetradFamily && singleAdd) {
+    layer = "add";
+    generator = "tetrad";
+  } else if (tetradFamily) {
+    layer = "tetrad";
+    generator = "tetrad";
+  } else if (chordFamily && multiAdd) {
+    layer = "multi_add";
+    generator = "exact";
+  } else if (chordFamily && singleAdd) {
+    layer = "add";
+    generator = "tetrad";
+  } else if (extended) {
+    layer = "extended";
+    generator = "json";
+  } else if (chordFamily) {
+    layer = "chord";
+    generator = "json";
+  }
+
+  const ui = buildChordUiRestrictions({ structure, ext7, ext6, ext9, ext11, ext13 });
+
+  return {
+    rootPc: mod12(rootPc),
+    quality,
+    suspension,
+    structure,
+    inversion: normalizeChordFormToInversion(inversion),
+    form,
+    ext7,
+    ext6,
+    ext9,
+    ext11,
+    ext13,
+    thirdOffset,
+    fifthOffset,
+    seventhOffset,
+    intervals,
+    bassInterval,
+    strictDrop,
+    singleAdd,
+    multiAdd,
+    triadOnly,
+    tetradFamily,
+    chordFamily,
+    extended,
+    layer,
+    generator,
+    ui,
+  };
+}
+
+function chordEngineLayerLabel(plan) {
+  switch (plan?.layer) {
+    case "triad": return "Triada";
+    case "tetrad": return "Cuatriada";
+    case "add": return "Add";
+    case "extended": return "Extendido";
+    case "multi_add": return "Add múltiple";
+    case "drop": return "Drop";
+    case "chord": return "Acorde";
+    default: return "—";
+  }
 }
 
 function buildCloseTetradAbsoluteOrders(thirdOffset, fifthOffset, seventhOffset) {
@@ -3470,16 +3614,24 @@ export default function FretboardScalesPage() {
   );
 
   // Necesarios antes de filtrar voicings (evita TDZ)
-  const chordThirdOffset = useMemo(() => {
-    if (chordSuspension === "sus2") return 2;
-    if (chordSuspension === "sus4") return 5;
-    return chordQuality === "maj" || chordQuality === "dom" ? 4 : 3;
-  }, [chordQuality, chordSuspension]);
-  const chordFifthOffset = useMemo(() => {
-    // En sus (2/4) mantenemos 5ª justa.
-    if (chordSuspension && chordSuspension !== "none") return 7;
-    return chordQuality === "dim" || chordQuality === "hdim" ? 6 : 7;
-  }, [chordQuality, chordSuspension]);
+  const chordThirdOffset = useMemo(() => chordThirdOffsetFromUI(chordQuality, chordSuspension), [chordQuality, chordSuspension]);
+  const chordFifthOffset = useMemo(() => chordFifthOffsetFromUI(chordQuality, chordSuspension), [chordQuality, chordSuspension]);
+  const chordEnginePlan = useMemo(
+    () => buildChordEnginePlan({
+      rootPc: chordRootPc,
+      quality: chordQuality,
+      suspension: chordSuspension,
+      structure: chordStructure,
+      inversion: chordInversion,
+      form: chordForm,
+      ext7: chordExt7,
+      ext6: chordExt6,
+      ext9: chordExt9,
+      ext11: chordExt11,
+      ext13: chordExt13,
+    }),
+    [chordRootPc, chordQuality, chordSuspension, chordStructure, chordInversion, chordForm, chordExt7, chordExt6, chordExt9, chordExt11, chordExt13]
+  );
 
   const chordBassInt = useMemo(
     () =>
@@ -3668,143 +3820,79 @@ export default function FretboardScalesPage() {
   }, [showBoards.chords, nearSlots, chordDbCache, chordDbCacheErr]);
 
   const chordVoicings = useMemo(() => {
-    // 1) TRIADAS “reales” = 3 notas
-    if (chordStructure === "triad" && !chordExt7 && !chordExt6) {
+    const plan = chordEnginePlan;
+
+    if (plan.generator === "triad") {
       const tri = filterVoicingsByForm(generateTriadVoicings({
-        rootPc: chordRootPc,
-        thirdOffset: chordThirdOffset,
-        fifthOffset: chordFifthOffset,
-        inversion: normalizeChordFormToInversion(chordInversion),
+        rootPc: plan.rootPc,
+        thirdOffset: plan.thirdOffset,
+        fifthOffset: plan.fifthOffset,
+        inversion: plan.inversion,
         maxFret,
         maxSpan: chordMaxDist,
-      }), chordForm);
+      }), plan.form);
       return tri.slice(0, 60);
     }
 
-    // 2) CUATRIADAS “reales” = 4 notas
-    const seventh = hasEffectiveSeventh({ structure: chordStructure, ext7: chordExt7, ext6: chordExt6, ext9: chordExt9, ext11: chordExt11, ext13: chordExt13 }) ? seventhOffsetForQuality(chordQuality) : null;
-    const wantsTetrad = chordStructure === "tetrad" || (chordStructure === "triad" && (chordExt7 || chordExt6));
-    if (wantsTetrad) {
-      const addOnly =
-        (chordStructure === "tetrad" || chordStructure === "triad") &&
-        isSingleAddChordSelection({
-          ext7: chordExt7,
-          ext6: chordExt6,
-          ext9: chordExt9,
-          ext11: chordExt11,
-          ext13: chordExt13,
-        });
-
-      if (isDropForm(chordForm)) {
-        if (!isStrictFourNoteDropEligible({
-          structure: chordStructure,
-          ext7: chordExt7,
-          ext6: chordExt6,
-          ext9: chordExt9,
-          ext11: chordExt11,
-          ext13: chordExt13,
-        })) {
-          return [];
-        }
-        if (seventh == null) return [];
-        const tet = generateDropTetradVoicings({
-          rootPc: chordRootPc,
-          thirdOffset: chordThirdOffset,
-          fifthOffset: chordFifthOffset,
-          seventhOffset: seventh,
-          form: chordForm,
-          inversion: chordInversion,
-          maxFret,
-          maxSpan: chordMaxDist,
-        });
-        return tet.slice(0, 60);
-      }
-
-      if (addOnly) {
-        const addInt = chordExt13 ? 9 : chordExt11 ? 5 : chordExt9 ? 2 : 9;
-        const tet = filterVoicingsByForm(generateTetradVoicings({
-          rootPc: chordRootPc,
-          thirdOffset: chordThirdOffset,
-          fifthOffset: chordFifthOffset,
-          seventhOffset: addInt,
-          inversion: normalizeChordFormToInversion(chordInversion),
-          maxFret,
-          maxSpan: chordMaxDist,
-        }), chordForm);
-        return tet.slice(0, 60);
-      }
-
-      if (seventh == null) return [];
-      const tet = filterVoicingsByForm(generateTetradVoicings({
-        rootPc: chordRootPc,
-        thirdOffset: chordThirdOffset,
-        fifthOffset: chordFifthOffset,
-        seventhOffset: seventh,
-        inversion: normalizeChordFormToInversion(chordInversion),
+    if (plan.generator === "drop") {
+      if (plan.seventhOffset == null) return [];
+      const tet = generateDropTetradVoicings({
+        rootPc: plan.rootPc,
+        thirdOffset: plan.thirdOffset,
+        fifthOffset: plan.fifthOffset,
+        seventhOffset: plan.seventhOffset,
+        form: plan.form,
+        inversion: plan.inversion,
         maxFret,
         maxSpan: chordMaxDist,
-      }), chordForm);
+      });
       return tet.slice(0, 60);
     }
 
-    // 3) ACORDE (JSON) o add* de 4 notas
-    if (chordStructure === "chord") {
-      const onlyAdd = isSingleAddChordSelection({
-        ext7: chordExt7,
-        ext6: chordExt6,
-        ext9: chordExt9,
-        ext11: chordExt11,
-        ext13: chordExt13,
+    if (plan.generator === "tetrad") {
+      const seventhLike = plan.singleAdd
+        ? (plan.ext13 ? 9 : plan.ext11 ? 5 : plan.ext9 ? 2 : 9)
+        : plan.seventhOffset;
+      if (seventhLike == null) return [];
+      const tet = filterVoicingsByForm(generateTetradVoicings({
+        rootPc: plan.rootPc,
+        thirdOffset: plan.thirdOffset,
+        fifthOffset: plan.fifthOffset,
+        seventhOffset: seventhLike,
+        inversion: plan.inversion,
+        maxFret,
+        maxSpan: chordMaxDist,
+      }), plan.form);
+      return tet.slice(0, 60);
+    }
+
+    if (plan.generator === "exact") {
+      const multi = generateExactIntervalChordVoicings({
+        rootPc: plan.rootPc,
+        intervals: plan.intervals,
+        bassInterval: plan.bassInterval,
+        maxFret,
+        maxSpan: chordMaxDist,
       });
-      const multiAdd = isMultiAddChordSelection({
-        ext7: chordExt7,
-        ext6: chordExt6,
-        ext9: chordExt9,
-        ext11: chordExt11,
-        ext13: chordExt13,
-      });
+      return multi.slice(0, 60);
+    }
 
-      if (onlyAdd) {
-        const addInt = chordExt13 ? 9 : chordExt11 ? 5 : chordExt9 ? 2 : 9;
-        const quad = generateTetradVoicings({
-          rootPc: chordRootPc,
-          thirdOffset: chordThirdOffset,
-          fifthOffset: chordFifthOffset,
-          seventhOffset: addInt,
-          inversion: normalizeChordFormToInversion(chordInversion),
-          maxFret,
-          maxSpan: chordMaxDist,
-        });
-        return quad.slice(0, 60);
-      }
-
-      if (multiAdd) {
-        const multi = generateExactIntervalChordVoicings({
-          rootPc: chordRootPc,
-          intervals: chordIntervals,
-          bassInterval: chordBassInt,
-          maxFret,
-          maxSpan: chordMaxDist,
-        });
-        return multi.slice(0, 60);
-      }
-
+    if (plan.generator === "json") {
       if (!chordDb?.positions?.length) return [];
 
-      const allowed = new Set(chordIntervals.map(mod12));
-      const required = new Set();
-      required.add(mod12(chordThirdOffset));
+      const allowed = new Set(plan.intervals.map(mod12));
+      const required = new Set([mod12(plan.thirdOffset)]);
+      const noTensions = !plan.ext7 && !plan.ext6 && !plan.ext9 && !plan.ext11 && !plan.ext13;
 
-      const noTensions = !chordExt7 && !chordExt6 && !chordExt9 && !chordExt11 && !chordExt13;
       if (noTensions) {
         required.add(0);
-        required.add(mod12(chordFifthOffset));
+        required.add(mod12(plan.fifthOffset));
       } else {
-        if (chordExt7 && seventh != null) required.add(mod12(seventh));
-        if (chordExt6) required.add(9);
-        if (chordExt9) required.add(2);
-        if (chordExt11) required.add(5);
-        if (chordExt13) required.add(9);
+        if (plan.ext7 && plan.seventhOffset != null) required.add(mod12(plan.seventhOffset));
+        if (plan.ext6) required.add(9);
+        if (plan.ext9) required.add(2);
+        if (plan.ext11) required.add(5);
+        if (plan.ext13) required.add(9);
       }
 
       const outStrict = [];
@@ -3814,7 +3902,7 @@ export default function FretboardScalesPage() {
       for (const p of chordDb.positions || []) {
         const fretsLH = parseChordDbFretsString(p?.frets);
         if (!fretsLH) continue;
-        const v = buildVoicingFromFretsLH({ fretsLH, rootPc: chordRootPc, maxFret });
+        const v = buildVoicingFromFretsLH({ fretsLH, rootPc: plan.rootPc, maxFret });
         if (!v || !isErgonomicVoicing(v, chordMaxDist)) continue;
 
         const extraOk = new Set([2, 5, 9, 10, 11]);
@@ -3838,13 +3926,13 @@ export default function FretboardScalesPage() {
         }
         if (invalid) continue;
 
-        const bi = mod12(v.bassPc - chordRootPc);
+        const bi = mod12(v.bassPc - plan.rootPc);
         const key = `${v.frets}`;
         if (seen.has(key)) continue;
         seen.add(key);
 
         const item = { ...v, _extra: extraCount };
-        if (bi === chordBassInt) outStrict.push(item);
+        if (bi === plan.bassInterval) outStrict.push(item);
         else outLoose.push(item);
       }
 
@@ -3854,26 +3942,7 @@ export default function FretboardScalesPage() {
     }
 
     return [];
-  }, [
-    chordForm,
-    chordStructure,
-    chordExt7,
-    chordExt6,
-    chordExt9,
-    chordExt11,
-    chordExt13,
-    chordRootPc,
-    chordQuality,
-    chordSuspension,
-    chordInversion,
-    chordThirdOffset,
-    chordFifthOffset,
-    chordIntervals,
-    chordBassInt,
-    chordDb,
-    chordMaxDist,
-    maxFret,
-  ]);
+  }, [chordEnginePlan, chordDb, chordMaxDist, maxFret]);
 
   const chordVoicingsSig = useMemo(() => chordVoicings.map((v) => v.frets).join("|"), [chordVoicings]);
 
@@ -4002,17 +4071,16 @@ export default function FretboardScalesPage() {
   }
 
   function buildSlotVoicings(slot) {
-    if (!slot?.enabled) return { voicings: [], err: null };
+    if (!slot?.enabled) return { voicings: [], err: null, plan: null };
 
-    const rootPc2 = mod12(slot.rootPc);
-    const third = slotThirdOffset(slot.quality, slot.suspension || "none");
     const slotMaxDist = Math.max(1, Math.min(8, Number(slot.maxDist || 4)));
-    const fifth = slotFifthOffset(slot.quality, slot.suspension || "none");
-    const seventh = hasEffectiveSeventh({ structure: slot.structure, ext7: slot.ext7, ext6: slot.ext6, ext9: slot.ext9, ext11: slot.ext11, ext13: slot.ext13 }) ? seventhOffsetForQuality(slot.quality) : null;
-    const intervals = buildChordIntervals({
+    const plan = buildChordEnginePlan({
+      rootPc: slot.rootPc,
       quality: slot.quality,
       suspension: slot.suspension || "none",
       structure: slot.structure,
+      inversion: slot.inversion,
+      form: slot.form,
       ext7: slot.ext7,
       ext6: slot.ext6,
       ext9: slot.ext9,
@@ -4022,133 +4090,63 @@ export default function FretboardScalesPage() {
 
     const inRange = (v) => v && v.notes.every((n) => n.fret === 0 || (n.fret >= nearFrom && n.fret <= nearTo));
 
-    if (slot.structure === "triad" && !slot.ext7 && !slot.ext6) {
+    if (plan.generator === "triad") {
       const tri = filterVoicingsByForm(generateTriadVoicings({
-        rootPc: rootPc2,
-        thirdOffset: third,
-        fifthOffset: fifth,
-        inversion: normalizeChordFormToInversion(slot.inversion),
+        rootPc: plan.rootPc,
+        thirdOffset: plan.thirdOffset,
+        fifthOffset: plan.fifthOffset,
+        inversion: plan.inversion,
         maxFret: nearTo,
         maxSpan: slotMaxDist,
-      }), slot.form).filter(inRange);
-      return { voicings: tri, err: tri.length ? null : "No encontré triadas en ese rango" };
+      }), plan.form).filter(inRange);
+      return { voicings: tri, err: tri.length ? null : "No encontré triadas en ese rango", plan };
     }
 
-    const wantsTetrad = slot.structure === "tetrad" || (slot.structure === "triad" && (slot.ext7 || slot.ext6));
-    if (wantsTetrad) {
-      const addOnly =
-        (slot.structure === "tetrad" || slot.structure === "triad") &&
-        isSingleAddChordSelection({
-          ext7: slot.ext7,
-          ext6: slot.ext6,
-          ext9: slot.ext9,
-          ext11: slot.ext11,
-          ext13: slot.ext13,
-        });
+    if (plan.generator === "drop") {
+      if (plan.seventhOffset == null) return { voicings: [], err: "No hay 7ª para esta combinación", plan };
+      const tet = generateDropTetradVoicings({
+        rootPc: plan.rootPc,
+        thirdOffset: plan.thirdOffset,
+        fifthOffset: plan.fifthOffset,
+        seventhOffset: plan.seventhOffset,
+        form: plan.form,
+        inversion: plan.inversion,
+        maxFret: nearTo,
+        maxSpan: slotMaxDist,
+      }).filter(inRange);
+      return { voicings: tet, err: tet.length ? null : "No encontré drops en ese rango", plan };
+    }
 
-      if (isDropForm(slot.form)) {
-        if (!isStrictFourNoteDropEligible({
-          structure: slot.structure,
-          ext7: slot.ext7,
-          ext6: slot.ext6,
-          ext9: slot.ext9,
-          ext11: slot.ext11,
-          ext13: slot.ext13,
-        })) {
-          return { voicings: [], err: "Los drops solo están disponibles para cuatriadas estrictas de 4 notas" };
-        }
-        if (seventh == null) return { voicings: [], err: "No hay 7ª para esta combinación" };
-        const tet = generateDropTetradVoicings({
-          rootPc: rootPc2,
-          thirdOffset: third,
-          fifthOffset: fifth,
-          seventhOffset: seventh,
-          form: slot.form,
-          inversion: slot.inversion,
-          maxFret: nearTo,
-          maxSpan: slotMaxDist,
-        }).filter(inRange);
-        return { voicings: tet, err: tet.length ? null : "No encontré drops en ese rango" };
-      }
-
-      if (addOnly) {
-        const addInt = slot.ext13 ? 9 : slot.ext11 ? 5 : slot.ext9 ? 2 : 9;
-        const tet = filterVoicingsByForm(generateTetradVoicings({
-          rootPc: rootPc2,
-          thirdOffset: third,
-          fifthOffset: fifth,
-          seventhOffset: addInt,
-          inversion: normalizeChordFormToInversion(slot.inversion),
-          maxFret: nearTo,
-          maxSpan: slotMaxDist,
-        }), slot.form).filter(inRange);
-        return { voicings: tet, err: tet.length ? null : "No encontré add* en ese rango" };
-      }
-
-      if (seventh == null) return { voicings: [], err: "No hay 7ª para esta combinación" };
+    if (plan.generator === "tetrad") {
+      const seventhLike = plan.singleAdd
+        ? (plan.ext13 ? 9 : plan.ext11 ? 5 : plan.ext9 ? 2 : 9)
+        : plan.seventhOffset;
+      if (seventhLike == null) return { voicings: [], err: "No hay 7ª para esta combinación", plan };
       const tet = filterVoicingsByForm(generateTetradVoicings({
-        rootPc: rootPc2,
-        thirdOffset: third,
-        fifthOffset: fifth,
-        seventhOffset: seventh,
-        inversion: normalizeChordFormToInversion(slot.inversion),
+        rootPc: plan.rootPc,
+        thirdOffset: plan.thirdOffset,
+        fifthOffset: plan.fifthOffset,
+        seventhOffset: seventhLike,
+        inversion: plan.inversion,
         maxFret: nearTo,
         maxSpan: slotMaxDist,
-      }), slot.form).filter(inRange);
-      return { voicings: tet, err: tet.length ? null : "No encontré cuatriadas en ese rango" };
+      }), plan.form).filter(inRange);
+      const err = tet.length ? null : (plan.singleAdd ? "No encontré add* en ese rango" : "No encontré cuatriadas en ese rango");
+      return { voicings: tet, err, plan };
     }
 
-    if (slot.structure === "chord") {
-      const onlyAdd = isSingleAddChordSelection({
-        ext7: slot.ext7,
-        ext6: slot.ext6,
-        ext9: slot.ext9,
-        ext11: slot.ext11,
-        ext13: slot.ext13,
-      });
-      const multiAdd = isMultiAddChordSelection({
-        ext7: slot.ext7,
-        ext6: slot.ext6,
-        ext9: slot.ext9,
-        ext11: slot.ext11,
-        ext13: slot.ext13,
-      });
-      if (multiAdd) {
-        const bassInt = chordBassInterval({
-          quality: slot.quality,
-          suspension: slot.suspension || "none",
-          structure: slot.structure,
-          inversion: normalizeChordFormToInversion(slot.inversion),
-          chordIntervals: intervals,
-          ext7: slot.ext7,
-          ext6: slot.ext6,
-          ext9: slot.ext9,
-          ext11: slot.ext11,
-          ext13: slot.ext13,
-        });
-        const multi = generateExactIntervalChordVoicings({
-          rootPc: rootPc2,
-          intervals,
-          bassInterval: bassInt,
-          maxFret: nearTo,
-          maxSpan: slotMaxDist,
-        }).filter(inRange);
-        return { voicings: multi, err: multi.length ? null : "No hay add múltiples en rango" };
-      }
-      if (onlyAdd) {
-        const addInt = slot.ext13 ? 9 : slot.ext11 ? 5 : slot.ext9 ? 2 : 9;
-        const quad = generateTetradVoicings({
-          rootPc: rootPc2,
-          thirdOffset: third,
-          fifthOffset: fifth,
-          seventhOffset: addInt,
-          inversion: normalizeChordFormToInversion(slot.inversion),
-          maxFret: nearTo,
-          maxSpan: slotMaxDist,
-        }).filter(inRange);
-        return { voicings: quad, err: quad.length ? null : "No hay add* en rango" };
-      }
+    if (plan.generator === "exact") {
+      const multi = generateExactIntervalChordVoicings({
+        rootPc: plan.rootPc,
+        intervals: plan.intervals,
+        bassInterval: plan.bassInterval,
+        maxFret: nearTo,
+        maxSpan: slotMaxDist,
+      }).filter(inRange);
+      return { voicings: multi, err: multi.length ? null : "No hay add múltiples en rango", plan };
+    }
 
+    if (plan.generator === "json") {
       const suffix = chordSuffixFromUI({
         quality: slot.quality,
         suspension: slot.suspension || "none",
@@ -4159,44 +4157,29 @@ export default function FretboardScalesPage() {
         ext11: slot.ext11,
         ext13: slot.ext13,
       });
+      if (!suffix) return { voicings: [], err: "No hay JSON para esta combinación", plan };
 
-      if (!suffix) return { voicings: [], err: "No hay JSON para esta combinación" };
-
-      const keyName = chordDbKeyNameFromPc(rootPc2);
+      const keyName = chordDbKeyNameFromPc(plan.rootPc);
       const cacheKey = `${keyName}/${suffix}`;
       const json = chordDbCache[cacheKey];
       const err = chordDbCacheErr[cacheKey];
-      if (err) return { voicings: [], err: `Error JSON: ${err}` };
-      if (!json) return { voicings: [], err: "Cargando JSON…" };
+      if (err) return { voicings: [], err: `Error JSON: ${err}`, plan };
+      if (!json) return { voicings: [], err: "Cargando JSON…", plan };
 
-      const allowed = new Set(intervals.map(mod12));
-      const required = new Set();
-      required.add(mod12(third));
+      const allowed = new Set(plan.intervals.map(mod12));
+      const required = new Set([mod12(plan.thirdOffset)]);
+      const noTensions = !plan.ext7 && !plan.ext6 && !plan.ext9 && !plan.ext11 && !plan.ext13;
 
-      const noTensions = !slot.ext7 && !slot.ext6 && !slot.ext9 && !slot.ext11 && !slot.ext13;
       if (noTensions) {
         required.add(0);
-        required.add(mod12(fifth));
+        required.add(mod12(plan.fifthOffset));
       } else {
-        if (slot.ext7 && seventh != null) required.add(mod12(seventh));
-        if (slot.ext6) required.add(9);
-        if (slot.ext9) required.add(2);
-        if (slot.ext11) required.add(5);
-        if (slot.ext13) required.add(9);
+        if (plan.ext7 && plan.seventhOffset != null) required.add(mod12(plan.seventhOffset));
+        if (plan.ext6) required.add(9);
+        if (plan.ext9) required.add(2);
+        if (plan.ext11) required.add(5);
+        if (plan.ext13) required.add(9);
       }
-
-      const bassInt = chordBassInterval({
-        quality: slot.quality,
-        suspension: slot.suspension || "none",
-        structure: slot.structure,
-        inversion: normalizeChordFormToInversion(slot.inversion),
-        chordIntervals: intervals,
-        ext7: slot.ext7,
-        ext6: slot.ext6,
-        ext9: slot.ext9,
-        ext11: slot.ext11,
-        ext13: slot.ext13,
-      });
 
       const outStrict = [];
       const outLoose = [];
@@ -4204,7 +4187,7 @@ export default function FretboardScalesPage() {
       for (const p of json.positions || []) {
         const fretsLH = parseChordDbFretsString(p?.frets);
         if (!fretsLH) continue;
-        const v = buildVoicingFromFretsLH({ fretsLH, rootPc: rootPc2, maxFret: nearTo });
+        const v = buildVoicingFromFretsLH({ fretsLH, rootPc: plan.rootPc, maxFret: nearTo });
         if (!v || !isErgonomicVoicing(v, slotMaxDist)) continue;
         if (!inRange(v)) continue;
 
@@ -4229,22 +4212,22 @@ export default function FretboardScalesPage() {
         }
         if (invalid) continue;
 
-        const bi = mod12(v.bassPc - rootPc2);
+        const bi = mod12(v.bassPc - plan.rootPc);
         const key = `${v.frets}`;
         if (seen.has(key)) continue;
         seen.add(key);
 
         const item = { ...v, _extra: extraCount };
-        if (bi === bassInt) outStrict.push(item);
+        if (bi === plan.bassInterval) outStrict.push(item);
         else outLoose.push(item);
       }
 
       const list = outStrict.length ? outStrict : outLoose;
       list.sort((a, b) => ((a._extra ?? 0) - (b._extra ?? 0)) || (a.minFret - b.minFret) || (a.span - b.span) || (a.maxFret - b.maxFret));
-      return { voicings: list.slice(0, 60), err: list.length ? null : "No hay voicings en rango" };
+      return { voicings: list.slice(0, 60), err: list.length ? null : "No hay voicings en rango", plan };
     }
 
-    return { voicings: [], err: "Estructura no soportada" };
+    return { voicings: [], err: "Estructura no soportada", plan };
   }
 
   const nearComputed = useMemo(() => {
@@ -5744,6 +5727,7 @@ export default function FretboardScalesPage() {
                       <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
                         <div className="text-sm font-semibold text-slate-800">
                           Acorde
+                          <span className="ml-2 rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-semibold text-slate-700">{chordEngineLayerLabel(chordEnginePlan)}</span>
                           <span className="ml-2 text-xs font-semibold text-slate-800">
                             {chordDisplayNameFromUI({
                               rootPc: chordRootPc,
@@ -5884,7 +5868,7 @@ export default function FretboardScalesPage() {
 
                         <div className="min-w-0">
                           <label className={UI_LABEL_SM}>Forma</label>
-                          {structureUsesManualForm(chordStructure) ? (
+                          {chordEnginePlan.ui.usesManualForm ? (
                             <div className="mt-1 grid grid-cols-2 gap-1.5">
                               <select
                                 className={UI_SELECT_SM}
@@ -5912,14 +5896,7 @@ export default function FretboardScalesPage() {
                                   <option
                                     key={form.value}
                                     value={form.value}
-                                    disabled={form.value !== "none" && !isStrictFourNoteDropEligible({
-                                      structure: chordStructure,
-                                      ext7: chordExt7,
-                                      ext6: chordExt6,
-                                      ext9: chordExt9,
-                                      ext11: chordExt11,
-                                      ext13: chordExt13,
-                                    })}
+                                    disabled={form.value !== "none" && !chordEnginePlan.ui.dropEligible}
                                   >
                                     {form.label}
                                   </option>
@@ -5937,7 +5914,7 @@ export default function FretboardScalesPage() {
                           <label className={UI_LABEL_SM}>Inversión</label>
                           <select className={UI_SELECT_SM + " mt-1"} value={chordInversion} onChange={(e) => setChordInversion(e.target.value)}>
                             {CHORD_INVERSIONS.map((inv) => (
-                              <option key={inv.value} value={inv.value} disabled={chordStructure === "triad" && inv.value === "3"}>
+                              <option key={inv.value} value={inv.value} disabled={!chordEnginePlan.ui.allowThirdInversion && inv.value === "3"}>
                                 {inv.label}
                               </option>
                             ))}
@@ -5947,78 +5924,87 @@ export default function FretboardScalesPage() {
                         <div className="min-w-0">
                           <label className={UI_LABEL_SM}>Extensiones</label>
                           <div className={UI_EXT_GRID}>
-                            <label className="inline-flex items-center gap-2">
-                              <input type="checkbox" checked={hasEffectiveSeventh({ structure: chordStructure, ext7: chordExt7, ext6: chordExt6, ext9: chordExt9, ext11: chordExt11, ext13: chordExt13 })} onChange={(e) => setChordExt7(e.target.checked)} disabled={chordStructure === "tetrad" || chordStructure === "triad"} /> 7
-                            </label>
-                            <label className="inline-flex items-center gap-2">
-                              <input
-                                type="checkbox"
-                                checked={chordExt6}
-                                onChange={(e) => {
-                                  const v = e.target.checked;
-                                  setChordExt6(v);
-                                  if (v) setChordExt13(false);
-                                  if (chordStructure === "tetrad") {
-                                    setChordExt9(false);
-                                    setChordExt11(false);
-                                    setChordExt13(false);
-                                  }
-                                }}
-                                disabled={chordStructure === "triad"}
-                              /> 6
-                            </label>
-                            {chordStructure !== "triad" ? (
-                              <>
-                                <label className="inline-flex items-center gap-2">
-                                  <input type="checkbox" checked={chordExt9}
-                                    onChange={(e) => {
-                                      const v = e.target.checked;
-                                      if (chordStructure === "tetrad") {
-                                        setChordExt9(v);
-                                        if (v) {
-                                          setChordExt11(false);
-                                          setChordExt13(false);
-                                        }
-                                      } else {
-                                        setChordExt9(v);
+                            {chordEnginePlan.ui.ext.showSeven ? (
+                              <label className="inline-flex items-center gap-2">
+                                <input type="checkbox" checked={hasEffectiveSeventh({ structure: chordStructure, ext7: chordExt7, ext6: chordExt6, ext9: chordExt9, ext11: chordExt11, ext13: chordExt13 })} onChange={(e) => setChordExt7(e.target.checked)} disabled={!chordEnginePlan.ui.ext.canToggleSeven} /> 7
+                              </label>
+                            ) : null}
+                            {chordEnginePlan.ui.ext.showSix ? (
+                              <label className="inline-flex items-center gap-2">
+                                <input
+                                  type="checkbox"
+                                  checked={chordExt6}
+                                  onChange={(e) => {
+                                    const v = e.target.checked;
+                                    setChordExt6(v);
+                                    if (v) setChordExt13(false);
+                                    if (chordStructure === "tetrad") {
+                                      setChordExt9(false);
+                                      setChordExt11(false);
+                                      setChordExt13(false);
+                                    }
+                                  }}
+                                  disabled={!chordEnginePlan.ui.ext.canToggleSix}
+                                /> 6
+                              </label>
+                            ) : null}
+                            {chordEnginePlan.ui.ext.showNine ? (
+                              <label className="inline-flex items-center gap-2">
+                                <input type="checkbox" checked={chordExt9}
+                                  onChange={(e) => {
+                                    const v = e.target.checked;
+                                    if (chordStructure === "tetrad") {
+                                      setChordExt9(v);
+                                      if (v) {
+                                        setChordExt11(false);
+                                        setChordExt13(false);
                                       }
-                                    }}
-                                  /> 9
-                                </label>
-                                <label className="inline-flex items-center gap-2">
-                                  <input type="checkbox" checked={chordExt11}
-                                    onChange={(e) => {
-                                      const v = e.target.checked;
-                                      if (chordStructure === "tetrad") {
-                                        setChordExt11(v);
-                                        if (v) {
-                                          setChordExt9(false);
-                                          setChordExt13(false);
-                                        }
-                                      } else {
-                                        setChordExt11(v);
+                                    } else {
+                                      setChordExt9(v);
+                                    }
+                                  }}
+                                  disabled={!chordEnginePlan.ui.ext.canToggleNine}
+                                /> 9
+                              </label>
+                            ) : null}
+                            {chordEnginePlan.ui.ext.showEleven ? (
+                              <label className="inline-flex items-center gap-2">
+                                <input type="checkbox" checked={chordExt11}
+                                  onChange={(e) => {
+                                    const v = e.target.checked;
+                                    if (chordStructure === "tetrad") {
+                                      setChordExt11(v);
+                                      if (v) {
+                                        setChordExt9(false);
+                                        setChordExt13(false);
                                       }
-                                    }}
-                                  /> 11
-                                </label>
-                                <label className="inline-flex items-center gap-2">
-                                  <input type="checkbox" checked={chordExt13}
-                                    onChange={(e) => {
-                                      const v = e.target.checked;
-                                      if (chordStructure === "tetrad") {
-                                        setChordExt13(v);
-                                        if (v) {
-                                          setChordExt6(false);
-                                          setChordExt9(false);
-                                          setChordExt11(false);
-                                        }
-                                      } else {
-                                        setChordExt13(v);
+                                    } else {
+                                      setChordExt11(v);
+                                    }
+                                  }}
+                                  disabled={!chordEnginePlan.ui.ext.canToggleEleven}
+                                /> 11
+                              </label>
+                            ) : null}
+                            {chordEnginePlan.ui.ext.showThirteen ? (
+                              <label className="inline-flex items-center gap-2">
+                                <input type="checkbox" checked={chordExt13}
+                                  onChange={(e) => {
+                                    const v = e.target.checked;
+                                    if (chordStructure === "tetrad") {
+                                      setChordExt13(v);
+                                      if (v) {
+                                        setChordExt6(false);
+                                        setChordExt9(false);
+                                        setChordExt11(false);
                                       }
-                                    }}
-                                  /> 13
-                                </label>
-                              </>
+                                    } else {
+                                      setChordExt13(v);
+                                    }
+                                  }}
+                                  disabled={!chordEnginePlan.ui.ext.canToggleThirteen}
+                                /> 13
+                              </label>
                             ) : null}
                           </div>
                         </div>
@@ -6076,14 +6062,7 @@ export default function FretboardScalesPage() {
                               <ChevronRight className="h-4 w-4" />
                             </button>
                           </div>
-                          {chordDbLastUrl ? (
-                            <div className="mt-1 text-[11px] text-slate-600">
-                              <a className="underline" href={chordDbLastUrl} target="_blank" rel="noreferrer">
-                                JSON
-                              </a>
-                            </div>
-                          ) : null}
-                          {chordDbError ? <div className="mt-1 text-[11px] font-semibold text-rose-600">{chordDbError}</div> : null}
+                                                    {chordDbError ? <div className="mt-1 text-[11px] font-semibold text-rose-600">{chordDbError}</div> : null}
                         </div>
 
                         <div className="min-w-0">
@@ -6140,6 +6119,14 @@ export default function FretboardScalesPage() {
                         });
 
                         const r = nearComputed.ranked[idx];
+                        const slotUi = r?.plan?.ui || buildChordUiRestrictions({
+                          structure: slot.structure,
+                          ext7: slot.ext7,
+                          ext6: slot.ext6,
+                          ext9: slot.ext9,
+                          ext11: slot.ext11,
+                          ext13: slot.ext13,
+                        });
                         const options = (r?.ranked || []).slice(0, idx === 0 ? 60 : 40);
                         const errMsg = r?.err || null;
 
@@ -6149,6 +6136,7 @@ export default function FretboardScalesPage() {
                               <div className="flex items-center gap-2 text-sm font-semibold text-slate-800">
                                 Acorde {idx + 1}
                                 {idx === 0 ? " (base)" : ""}
+                                <span className="ml-2 rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-semibold text-slate-700">{chordEngineLayerLabel(r?.plan)}</span>
                                 <span className="ml-2 text-xs font-semibold text-slate-800">{chordName}</span>
                                 <span className="ml-2 text-xs font-normal text-slate-600">(Notas: {notes})</span>
                               </div>
@@ -6303,7 +6291,7 @@ export default function FretboardScalesPage() {
 
                               <div className="min-w-0">
                                 <label className={UI_LABEL_SM}>Forma</label>
-                                {structureUsesManualForm(slot.structure) ? (
+                                {slotUi.usesManualForm ? (
                                   <div className="mt-1 grid grid-cols-2 gap-1.5">
                                     <select
                                       className={UI_SELECT_SM}
@@ -6339,14 +6327,7 @@ export default function FretboardScalesPage() {
                                         <option
                                           key={form.value}
                                           value={form.value}
-                                          disabled={form.value !== "none" && !isStrictFourNoteDropEligible({
-                                            structure: slot.structure,
-                                            ext7: slot.ext7,
-                                            ext6: slot.ext6,
-                                            ext9: slot.ext9,
-                                            ext11: slot.ext11,
-                                            ext13: slot.ext13,
-                                          })}
+                                          disabled={form.value !== "none" && !slotUi.dropEligible}
                                         >
                                           {form.label}
                                         </option>
@@ -6364,7 +6345,7 @@ export default function FretboardScalesPage() {
                                 <label className={UI_LABEL_SM}>Inversión</label>
                                 <select className={UI_SELECT_SM + " mt-1"} value={slot.inversion} onChange={(e) => updateNearSlot(idx, { inversion: e.target.value, selFrets: null })} disabled={disableAll}>
                                   {CHORD_INVERSIONS.map((inv) => (
-                                    <option key={inv.value} value={inv.value} disabled={slot.structure === "triad" && inv.value === "3"}>
+                                    <option key={inv.value} value={inv.value} disabled={!slotUi.allowThirdInversion && inv.value === "3"}>
                                       {inv.label}
                                     </option>
                                   ))}
@@ -6374,29 +6355,35 @@ export default function FretboardScalesPage() {
                               <div className="min-w-0">
                                 <label className={UI_LABEL_SM}>Extensiones</label>
                                 <div className={UI_EXT_GRID}>
-                                  <label className="inline-flex items-center gap-2">
-                                    <input type="checkbox" checked={hasEffectiveSeventh({ structure: slot.structure, ext7: slot.ext7, ext6: slot.ext6, ext9: slot.ext9, ext11: slot.ext11, ext13: slot.ext13 })} onChange={(e) => updateNearSlot(idx, { ext7: e.target.checked, selFrets: null })} disabled={disableAll || slot.structure === "tetrad" || slot.structure === "triad"} /> 7
-                                  </label>
-                                  <label className="inline-flex items-center gap-2">
-                                    <input
-                                      type="checkbox"
-                                      checked={!!slot.ext6}
-                                      onChange={(e) => updateNearSlot(idx, { ext6: e.target.checked, selFrets: null })}
-                                      disabled={disableAll || slot.structure === "triad"}
-                                    /> 6
-                                  </label>
-                                  {slot.structure !== "triad" ? (
-                                    <>
-                                      <label className="inline-flex items-center gap-2">
-                                        <input type="checkbox" checked={!!slot.ext9} onChange={(e) => updateNearSlot(idx, { ext9: e.target.checked, selFrets: null })} disabled={disableAll} /> 9
-                                      </label>
-                                      <label className="inline-flex items-center gap-2">
-                                        <input type="checkbox" checked={!!slot.ext11} onChange={(e) => updateNearSlot(idx, { ext11: e.target.checked, selFrets: null })} disabled={disableAll} /> 11
-                                      </label>
-                                      <label className="inline-flex items-center gap-2">
-                                        <input type="checkbox" checked={!!slot.ext13} onChange={(e) => updateNearSlot(idx, { ext13: e.target.checked, selFrets: null })} disabled={disableAll} /> 13
-                                      </label>
-                                    </>
+                                  {slotUi.ext.showSeven ? (
+                                    <label className="inline-flex items-center gap-2">
+                                      <input type="checkbox" checked={hasEffectiveSeventh({ structure: slot.structure, ext7: slot.ext7, ext6: slot.ext6, ext9: slot.ext9, ext11: slot.ext11, ext13: slot.ext13 })} onChange={(e) => updateNearSlot(idx, { ext7: e.target.checked, selFrets: null })} disabled={disableAll || !slotUi.ext.canToggleSeven} /> 7
+                                    </label>
+                                  ) : null}
+                                  {slotUi.ext.showSix ? (
+                                    <label className="inline-flex items-center gap-2">
+                                      <input
+                                        type="checkbox"
+                                        checked={!!slot.ext6}
+                                        onChange={(e) => updateNearSlot(idx, { ext6: e.target.checked, selFrets: null })}
+                                        disabled={disableAll || !slotUi.ext.canToggleSix}
+                                      /> 6
+                                    </label>
+                                  ) : null}
+                                  {slotUi.ext.showNine ? (
+                                    <label className="inline-flex items-center gap-2">
+                                      <input type="checkbox" checked={!!slot.ext9} onChange={(e) => updateNearSlot(idx, { ext9: e.target.checked, selFrets: null })} disabled={disableAll || !slotUi.ext.canToggleNine} /> 9
+                                    </label>
+                                  ) : null}
+                                  {slotUi.ext.showEleven ? (
+                                    <label className="inline-flex items-center gap-2">
+                                      <input type="checkbox" checked={!!slot.ext11} onChange={(e) => updateNearSlot(idx, { ext11: e.target.checked, selFrets: null })} disabled={disableAll || !slotUi.ext.canToggleEleven} /> 11
+                                    </label>
+                                  ) : null}
+                                  {slotUi.ext.showThirteen ? (
+                                    <label className="inline-flex items-center gap-2">
+                                      <input type="checkbox" checked={!!slot.ext13} onChange={(e) => updateNearSlot(idx, { ext13: e.target.checked, selFrets: null })} disabled={disableAll || !slotUi.ext.canToggleThirteen} /> 13
+                                    </label>
                                   ) : null}
                                 </div>
                               </div>
