@@ -845,7 +845,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "1.50";
+const APP_VERSION = "1.54";
 const APP_VERSION_STAMP = "2026-03-13 08:22";
 
 function chordDbUrl(keyName, suffix) {
@@ -3443,6 +3443,7 @@ function computeMusicalRoute({
 export default function FretboardScalesPage() {
   const appRootRef = useRef(null);
   const importConfigInputRef = useRef(null);
+  const chordDetectAudioCtxRef = useRef(null);
 
   const [storageHydrated, setStorageHydrated] = useState(false);
   const [configNotice, setConfigNotice] = useState(null);
@@ -3495,6 +3496,7 @@ export default function FretboardScalesPage() {
   const [chordExt11, setChordExt11] = useState(false);
   const [chordExt13, setChordExt13] = useState(false);
   const [chordDetectMode, setChordDetectMode] = useState(false);
+  const [chordDetectClickAudio, setChordDetectClickAudio] = useState(false);
   const [chordDetectSelectedKeys, setChordDetectSelectedKeys] = useState([]);
   const [chordDetectCandidateId, setChordDetectCandidateId] = useState(null);
 
@@ -4672,6 +4674,85 @@ export default function FretboardScalesPage() {
     }
   }, [chordDetectMode, chordDetectCandidates, chordDetectCandidateId]);
 
+  function fnMidiToFreq(vMidi) {
+    return 440 * Math.pow(2, (Number(vMidi) - 69) / 12);
+  }
+
+  async function fnGetChordDetectAudioCtx() {
+    if (typeof window === "undefined") return null;
+    const vAudioCtor = window.AudioContext || window.webkitAudioContext;
+    if (!vAudioCtor) return null;
+
+    let vCtx = chordDetectAudioCtxRef.current;
+    if (!vCtx) {
+      vCtx = new vAudioCtor();
+      chordDetectAudioCtxRef.current = vCtx;
+    }
+
+    if (vCtx.state === "suspended") {
+      try {
+        await vCtx.resume();
+      } catch {
+      }
+    }
+
+    return vCtx;
+  }
+
+  function fnScheduleChordDetectMidi(vCtx, vMidi, vStartTime, vDuration = 1.2) {
+    const vOsc = vCtx.createOscillator();
+    const vGain = vCtx.createGain();
+
+    vOsc.type = "triangle";
+    vOsc.frequency.setValueAtTime(fnMidiToFreq(vMidi), vStartTime);
+
+    vGain.gain.setValueAtTime(0.0001, vStartTime);
+    vGain.gain.exponentialRampToValueAtTime(0.16, vStartTime + 0.02);
+    vGain.gain.exponentialRampToValueAtTime(0.08, vStartTime + 0.18);
+    vGain.gain.exponentialRampToValueAtTime(0.045, vStartTime + 0.6);
+    vGain.gain.exponentialRampToValueAtTime(0.0001, vStartTime + Math.max(0.75, vDuration - 0.05));
+
+    vOsc.connect(vGain);
+    vGain.connect(vCtx.destination);
+
+    vOsc.start(vStartTime);
+    vOsc.stop(vStartTime + vDuration);
+    vOsc.onended = () => {
+      try { vOsc.disconnect(); } catch {}
+      try { vGain.disconnect(); } catch {}
+    };
+  }
+
+  async function fnPlayChordDetectNote(sIdx, fret) {
+    const vCtx = await fnGetChordDetectAudioCtx();
+    if (!vCtx) return;
+    fnScheduleChordDetectMidi(vCtx, pitchAt(sIdx, fret), vCtx.currentTime, 1.2);
+  }
+
+  async function fnPlayChordDetectSelection() {
+    if (!chordDetectSelectedNotes.length) return;
+    const vCtx = await fnGetChordDetectAudioCtx();
+    if (!vCtx) return;
+
+    const vNotes = [...chordDetectSelectedNotes].sort((a, b) => a.pitch - b.pitch);
+    const vStep = 0.26;
+    const vNow = vCtx.currentTime;
+
+    vNotes.forEach((vNote, vIdx) => {
+      fnScheduleChordDetectMidi(vCtx, vNote.pitch, vNow + (vIdx * vStep), 0.85);
+    });
+  }
+
+  useEffect(() => {
+    return () => {
+      const vCtx = chordDetectAudioCtxRef.current;
+      if (vCtx && typeof vCtx.close === "function") {
+        vCtx.close().catch(() => {});
+      }
+      chordDetectAudioCtxRef.current = null;
+    };
+  }, []);
+
   function applyDetectedCandidate(candidate) {
     if (!candidate) return;
     setChordDetectCandidateId(candidate.id);
@@ -4699,6 +4780,7 @@ export default function FretboardScalesPage() {
   }
 
   function toggleChordDetectCell(sIdx, fret) {
+    if (chordDetectClickAudio) fnPlayChordDetectNote(sIdx, fret);
     const key = `${sIdx}:${fret}`;
     setChordDetectSelectedKeys((prev) => {
       if (prev.includes(key)) return prev.filter((x) => x !== key);
@@ -5911,6 +5993,24 @@ export default function FretboardScalesPage() {
                 : "Pulsa en el mástil para añadir o quitar notas y detectar acordes posibles."}
             </div>
           </div>
+          <div className="flex flex-wrap items-center gap-2">
+          <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-700">
+            <input
+              type="checkbox"
+              checked={chordDetectClickAudio}
+              onChange={(e) => setChordDetectClickAudio(e.target.checked)}
+              className="h-4 w-4 rounded border-slate-300"
+            />
+            Sonido al pulsar
+          </label>
+          <button
+            type="button"
+            className={UI_BTN_SM + " w-auto px-3"}
+            onClick={() => fnPlayChordDetectSelection()}
+            disabled={!chordDetectSelectedKeys.length}
+          >
+            Play
+          </button>
           <button
             type="button"
             className={UI_BTN_SM + " w-auto px-3"}
@@ -5922,6 +6022,7 @@ export default function FretboardScalesPage() {
           >
             Limpiar
           </button>
+        </div>
         </div>
 
         <div className="grid items-center gap-1" style={{ gridTemplateColumns: fretGridCols(maxFret) }}>
@@ -6013,6 +6114,13 @@ export default function FretboardScalesPage() {
   }
 
   function calibratedClusterPos(n, idx) {
+    if (n === 2) {
+      const p = [
+        { x: 15, y: 16 },
+        { x: 56, y: 16 },
+      ][idx];
+      return p ? { left: `${p.x}px`, top: `${p.y}px`, transform: "translate(-50%, -50%)" } : null;
+    }
     if (n === 4) {
       const p = [
         { x: 35, y: 6 },
@@ -6048,7 +6156,13 @@ export default function FretboardScalesPage() {
     const chordBg = nearBgColors[slotIdx] || "#94a3b8";
     const ring = colors[role] || colors.other;
     const dark = isDark(chordBg);
-    const sizeClass = size === "cal" ? "h-[21px] w-[21px] text-[8px]" : size === "s" ? "h-6 w-6 text-[9px]" : "h-7 w-7 text-[10px]";
+    const sizeClass = size === "cal"
+      ? "h-[21px] w-[21px] text-[8px]"
+      : size === "pair"
+        ? "h-[26px] w-[26px] text-[10px]"
+        : size === "s"
+          ? "h-6 w-6 text-[9px]"
+          : "h-7 w-7 text-[10px]";
 
     return (
       <div
@@ -6192,7 +6306,7 @@ export default function FretboardScalesPage() {
                             .map((it, i2) => {
                               const calibratedPos = calibratedClusterPos(items.length, i2);
                               const pos = calibratedPos || cornerStyle(items.length, i2);
-                              const miniSize = calibratedPos ? "cal" : "s";
+                              const miniSize = items.length === 2 ? "pair" : calibratedPos ? "cal" : "s";
                               return (
                                 <div key={`${it.slotIdx}-${it.role}-${i2}`} className="absolute" style={pos}>
                                   <Mini size={miniSize} slotIdx={it.slotIdx} pc={it.pc} role={it.role} fret={fret} sIdx={sIdx} />
