@@ -94,6 +94,87 @@ const SCALE_OPTION_ORDER = [
   "Personalizada",
 ];
 
+const TONALITY_CANDIDATE_SCALE_NAMES = [
+  "Mayor",
+  "Menor natural",
+];
+
+const MANUAL_SCALE_TETRAD_PRESETS = {
+  "Pentatónica mayor": [
+    { scaleIdx: 0, degreeLabel: "I", suffix: "" },
+    { scaleIdx: 1, degreeLabel: "II", suffix: "sus4" },
+    { scaleIdx: 2, degreeLabel: "III", suffix: "m(no5)" },
+    { scaleIdx: 3, degreeLabel: "V", suffix: "sus2" },
+    { scaleIdx: 4, degreeLabel: "VI", suffix: "m" },
+  ],
+  "Pentatónica menor": [
+    { scaleIdx: 0, degreeLabel: "I", suffix: "m" },
+    { scaleIdx: 1, degreeLabel: "bIII", suffix: "" },
+    { scaleIdx: 2, degreeLabel: "IV", suffix: "sus4" },
+    { scaleIdx: 3, degreeLabel: "V", suffix: "m(no5)" },
+    { scaleIdx: 4, degreeLabel: "bVII", suffix: "sus2" },
+  ],
+  "Blues (mayor)": [
+    { scaleIdx: 0, degreeLabel: "I", suffix: "maj7" },
+    { scaleIdx: 1, degreeLabel: "II", suffix: "m7" },
+    { scaleIdx: 3, degreeLabel: "III", suffix: "m7" },
+    { scaleIdx: 4, degreeLabel: "V", suffix: "7" },
+    { scaleIdx: 5, degreeLabel: "VI", suffix: "m7" },
+  ],
+  "Blues (menor)": [
+    { scaleIdx: 0, degreeLabel: "I", suffix: "m7" },
+    { scaleIdx: 1, degreeLabel: "bIII", suffix: "maj7" },
+    { scaleIdx: 2, degreeLabel: "IV", suffix: "m7" },
+    { scaleIdx: 4, degreeLabel: "V", suffix: "m7" },
+    { scaleIdx: 5, degreeLabel: "bVII", suffix: "7" },
+  ],
+  "Bebop mayor": [
+    { scaleIdx: 0, degreeLabel: "I", suffix: "maj7" },
+    { scaleIdx: 1, degreeLabel: "II", suffix: "m7" },
+    { scaleIdx: 2, degreeLabel: "III", suffix: "m7" },
+    { scaleIdx: 3, degreeLabel: "IV", suffix: "maj7" },
+    { scaleIdx: 4, degreeLabel: "V", suffix: "7" },
+    { scaleIdx: 6, degreeLabel: "VI", suffix: "m7" },
+    { scaleIdx: 7, degreeLabel: "VII", suffix: "m7(b5)" },
+  ],
+  "Bebop dominante": [
+    { scaleIdx: 0, degreeLabel: "I", suffix: "7" },
+    { scaleIdx: 1, degreeLabel: "II", suffix: "m7" },
+    { scaleIdx: 2, degreeLabel: "III", suffix: "m7(b5)" },
+    { scaleIdx: 3, degreeLabel: "IV", suffix: "maj7" },
+    { scaleIdx: 4, degreeLabel: "V", suffix: "m7" },
+    { scaleIdx: 5, degreeLabel: "VI", suffix: "m7" },
+    { scaleIdx: 6, degreeLabel: "bVII", suffix: "maj7" },
+  ],
+  "Bebop dórica": [
+    { scaleIdx: 0, degreeLabel: "I", suffix: "m7" },
+    { scaleIdx: 1, degreeLabel: "II", suffix: "m7" },
+    { scaleIdx: 2, degreeLabel: "bIII", suffix: "maj7" },
+    { scaleIdx: 4, degreeLabel: "IV", suffix: "7" },
+    { scaleIdx: 5, degreeLabel: "V", suffix: "m7" },
+    { scaleIdx: 6, degreeLabel: "VI", suffix: "m7(b5)" },
+    { scaleIdx: 7, degreeLabel: "bVII", suffix: "maj7" },
+  ],
+  "Húngara menor (Gypsy)": [
+    { scaleIdx: 0, degreeLabel: "I", suffix: "m(maj7)" },
+    { scaleIdx: 1, degreeLabel: "II", suffix: "7b5" },
+    { scaleIdx: 2, degreeLabel: "bIII", suffix: "maj7#5" },
+    { scaleIdx: 3, degreeLabel: "#IV", suffix: "dim7" },
+    { scaleIdx: 4, degreeLabel: "V", suffix: "maj7" },
+    { scaleIdx: 5, degreeLabel: "bVI", suffix: "maj7" },
+    { scaleIdx: 6, degreeLabel: "VII", suffix: "m6" },
+  ],
+  "Doble armónica (Bizantina)": [
+    { scaleIdx: 0, degreeLabel: "I", suffix: "maj7" },
+    { scaleIdx: 1, degreeLabel: "bII", suffix: "maj7" },
+    { scaleIdx: 2, degreeLabel: "III", suffix: "m6" },
+    { scaleIdx: 3, degreeLabel: "IV", suffix: "m(maj7)" },
+    { scaleIdx: 4, degreeLabel: "V", suffix: "7b5" },
+    { scaleIdx: 5, degreeLabel: "bVI", suffix: "maj7#5" },
+    { scaleIdx: 6, degreeLabel: "VII", suffix: "(no tert.)" },
+  ],
+};
+
 // Afinación estándar (UI: 1ª→6ª)
 const STRINGS = [
   { label: "1ª (E)", pc: 4 },
@@ -136,6 +217,13 @@ function mod12(n) {
 function pcToName(pc, preferSharps) {
   const list = preferSharps ? NOTES_SHARP : NOTES_FLAT;
   return list[mod12(pc)];
+}
+
+function pcToDualName(pc) {
+  const p = mod12(pc);
+  const sharp = NOTES_SHARP[p];
+  const flat = NOTES_FLAT[p];
+  return sharp === flat ? sharp : `${sharp}/${flat}`;
 }
 
 // ------------------------
@@ -570,6 +658,18 @@ function buildHarmonyDegreeChord({ scaleName, harmonyMode, scaleIntervals, degre
 
 const ROMAN_DEGREES = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX"];
 
+function romanizeDegreeNumber(n) {
+  return ROMAN_DEGREES[n - 1] || String(n);
+}
+
+function romanDegreeFromInterval(interval) {
+  const tok = intervalToDegreeToken(interval);
+  const accidental = tok.replace(/[0-9]/g, "");
+  const num = parseInt(tok.replace(/[^0-9]/g, ""), 10);
+  if (!Number.isFinite(num)) return tok;
+  return `${accidental}${romanizeDegreeNumber(num)}`;
+}
+
 function tetradSuffixFromOffsets(thirdOffset, fifthOffset, seventhOffset) {
   const t = mod12(thirdOffset);
   const f = mod12(fifthOffset);
@@ -587,13 +687,25 @@ function tetradSuffixFromOffsets(thirdOffset, fifthOffset, seventhOffset) {
 }
 
 function buildScaleTetradHarmonization({ rootPc, scaleName, harmonyMode, scaleIntervals, spelledScaleNotes, preferSharps }) {
+  const normalized = normalizeScaleName(scaleName);
   const n = scaleIntervals.length;
   if (n < 4) return [];
+
+  const manualPreset = MANUAL_SCALE_TETRAD_PRESETS[normalized];
+  if (manualPreset && manualPreset.length) {
+    return manualPreset.map((item) => {
+      const noteRoot = spelledScaleNotes[item.scaleIdx] || pcToName(mod12(rootPc + scaleIntervals[item.scaleIdx]), preferSharps);
+      return {
+        degreeName: `${item.degreeLabel}${item.suffix}`,
+        noteName: `${noteRoot}${item.suffix}`,
+      };
+    });
+  }
 
   return scaleIntervals.map((rootOffset, i) => {
     const functionalMinorDominant =
       harmonyMode === "functional_minor" &&
-      isMinorHarmonyScaleName(scaleName) &&
+      isMinorHarmonyScaleName(normalized) &&
       n >= 7 &&
       i === 4;
 
@@ -601,7 +713,7 @@ function buildScaleTetradHarmonization({ rootPc, scaleName, harmonyMode, scaleIn
     const fifthOffset = mod12(scaleIntervals[(i + 4) % n] - rootOffset);
     const seventhOffset = mod12(scaleIntervals[(i + 6) % n] - rootOffset);
     const suffix = functionalMinorDominant ? "7" : tetradSuffixFromOffsets(thirdOffset, fifthOffset, seventhOffset);
-    const degreeBase = ROMAN_DEGREES[i] || String(i + 1);
+    const degreeBase = romanDegreeFromInterval(rootOffset);
     const degreeName = `${degreeBase}${suffix}`;
     const noteRoot = spelledScaleNotes[i] || pcToName(mod12(rootPc + rootOffset), preferSharps);
 
@@ -610,6 +722,114 @@ function buildScaleTetradHarmonization({ rootPc, scaleName, harmonyMode, scaleIn
       noteName: `${noteRoot}${suffix}`,
     };
   });
+}
+
+function slotChordTonalitySignature(slot) {
+  if (!slot) return null;
+  return {
+    rootPc: mod12(slot.rootPc),
+    suffix: chordDisplaySuffixOnly({
+      quality: slot.quality,
+      suspension: slot.suspension || "none",
+      structure: slot.structure,
+      ext7: !!slot.ext7,
+      ext6: !!slot.ext6,
+      ext9: !!slot.ext9,
+      ext11: !!slot.ext11,
+      ext13: !!slot.ext13,
+    }),
+  };
+}
+
+function buildTonalityDegreeCandidate({ tonicPc, scaleName, harmonyMode, degreeIndex, withSeventh }) {
+  const scaleIntervals = buildScaleIntervals(scaleName, "", tonicPc);
+  const preferSharps = computeAutoPreferSharps({ rootPc: tonicPc, scaleName });
+  const built = buildHarmonyDegreeChord({ scaleName, harmonyMode, scaleIntervals, degreeIndex, withSeventh });
+  if (!built) return null;
+
+  const rootPc = mod12(tonicPc + built.rootOffset);
+  const noteName = pcToName(rootPc, preferSharps);
+  const suffix = chordDisplaySuffixOnly({
+    quality: built.quality,
+    suspension: built.suspension,
+    structure: built.structure,
+    ext7: built.ext7,
+    ext6: built.ext6,
+    ext9: built.ext9,
+    ext11: built.ext11,
+    ext13: built.ext13,
+  });
+
+  return {
+    rootPc,
+    suffix,
+    degreeIndex,
+    degreeLabel: ROMAN_DEGREES[degreeIndex] || String(degreeIndex + 1),
+    noteLabel: `${noteName}${suffix}`,
+  };
+}
+
+function formatTonalityLabel(scaleName, tonicPc) {
+  const preferSharps = computeAutoPreferSharps({ rootPc: tonicPc, scaleName });
+  const tonicName = pcToName(tonicPc, preferSharps);
+  if (scaleName === "Mayor") return `${tonicName} mayor`;
+  if (scaleName === "Menor natural") return `${tonicName} menor`;
+  return `${tonicName} ${scaleName}`;
+}
+
+function analyzeChordSetTonality({ slots, harmonyMode }) {
+  const selected = (slots || []).filter((s) => !!s?.enabled);
+  if (!selected.length) return { selectedNames: [], labels: [], text: "(ninguna)" };
+
+  const selectedNames = selected.map((slot) => chordDisplayNameFromUI({
+    rootPc: slot.rootPc,
+    preferSharps: slot.spellPreferSharps ?? preferSharpsFromMajorTonicPc(mod12(slot.rootPc)),
+    quality: slot.quality,
+    suspension: slot.suspension || "none",
+    structure: slot.structure,
+    ext7: !!slot.ext7,
+    ext6: !!slot.ext6,
+    ext9: !!slot.ext9,
+    ext11: !!slot.ext11,
+    ext13: !!slot.ext13,
+  }));
+
+  const results = [];
+
+  for (const scaleName of TONALITY_CANDIDATE_SCALE_NAMES) {
+    for (let tonicPc = 0; tonicPc < 12; tonicPc++) {
+      let ok = true;
+
+      for (const slot of selected) {
+        const target = slotChordTonalitySignature(slot);
+        const withSeventh = slot.structure === "tetrad" || !!slot.ext7;
+        let found = false;
+
+        for (let degreeIndex = 0; degreeIndex < 7; degreeIndex++) {
+          const cand = buildTonalityDegreeCandidate({ tonicPc, scaleName, harmonyMode, degreeIndex, withSeventh });
+          if (!cand) continue;
+          if (cand.rootPc === target.rootPc && cand.suffix === target.suffix) {
+            found = true;
+            break;
+          }
+        }
+
+        if (!found) {
+          ok = false;
+          break;
+        }
+      }
+
+      if (ok) results.push(formatTonalityLabel(scaleName, tonicPc));
+    }
+  }
+
+  const labels = Array.from(new Set(results));
+  return {
+    selectedNames,
+    labels,
+    text: labels.length ? labels.join(" · ") : "No clara con los acordes seleccionados",
+  };
 }
 
 // Base del sitio (Vite) para que fetch a /public funcione en localhost y GitHub Pages.
@@ -625,7 +845,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "1.22";
+const APP_VERSION = "1.49";
 const APP_VERSION_STAMP = "2026-03-13 08:22";
 
 function chordDbUrl(keyName, suffix) {
@@ -1365,6 +1585,230 @@ function analyzeScaleTensionsForChord({ activeScaleRootPc, scaleIntervals, chord
   }
 
   return { available, unavailable };
+}
+
+function buildDominantInfo(targetRootPc, preferSharps) {
+  const rootPc = mod12(targetRootPc + 7);
+  const rootName = pcToName(rootPc, preferSharps);
+  const targetName = pcToName(mod12(targetRootPc), preferSharps);
+  const notes = spellChordNotes({ rootPc, chordIntervals: [0, 4, 7, 10], preferSharps });
+  return {
+    rootPc,
+    name: `${rootName}7`,
+    notes,
+    relation: `V7 → ${targetName}`,
+  };
+}
+
+function buildBackdoorDominantInfo(targetRootPc, preferSharps) {
+  const rootPc = mod12(targetRootPc - 2);
+  const rootName = pcToName(rootPc, preferSharps);
+  const targetName = pcToName(mod12(targetRootPc), preferSharps);
+  const notes = spellChordNotes({ rootPc, chordIntervals: [0, 4, 7, 10], preferSharps });
+  return {
+    rootPc,
+    name: `${rootName}7`,
+    notes,
+    relation: `bVII7 → ${targetName}`,
+  };
+}
+
+const CHORD_DETECT_FORMULAS = [
+  { id: "maj", intervals: [0, 4, 7], degreeLabels: ["1", "3", "5"], suffix: "", ui: { quality: "maj", suspension: "none", structure: "triad", inversion: "root", form: "open", positionForm: "open", ext7: false, ext6: false, ext9: false, ext11: false, ext13: false } },
+  { id: "min", intervals: [0, 3, 7], degreeLabels: ["1", "b3", "5"], suffix: "m", ui: { quality: "min", suspension: "none", structure: "triad", inversion: "root", form: "open", positionForm: "open", ext7: false, ext6: false, ext9: false, ext11: false, ext13: false } },
+  { id: "dim", intervals: [0, 3, 6], degreeLabels: ["1", "b3", "b5"], suffix: "dim", ui: { quality: "dim", suspension: "none", structure: "triad", inversion: "root", form: "open", positionForm: "open", ext7: false, ext6: false, ext9: false, ext11: false, ext13: false } },
+  { id: "sus2", intervals: [0, 2, 7], degreeLabels: ["1", "2", "5"], suffix: "sus2", ui: { quality: "maj", suspension: "sus2", structure: "triad", inversion: "root", form: "open", positionForm: "open", ext7: false, ext6: false, ext9: false, ext11: false, ext13: false } },
+  { id: "sus4", intervals: [0, 5, 7], degreeLabels: ["1", "4", "5"], suffix: "sus4", ui: { quality: "maj", suspension: "sus4", structure: "triad", inversion: "root", form: "open", positionForm: "open", ext7: false, ext6: false, ext9: false, ext11: false, ext13: false } },
+  { id: "6", intervals: [0, 4, 7, 9], degreeLabels: ["1", "3", "5", "6"], suffix: "6", ui: { quality: "maj", suspension: "none", structure: "tetrad", inversion: "root", form: "open", positionForm: "open", ext7: false, ext6: true, ext9: false, ext11: false, ext13: false } },
+  { id: "m6", intervals: [0, 3, 7, 9], degreeLabels: ["1", "b3", "5", "6"], suffix: "m6", ui: { quality: "min", suspension: "none", structure: "tetrad", inversion: "root", form: "open", positionForm: "open", ext7: false, ext6: true, ext9: false, ext11: false, ext13: false } },
+  { id: "add9", intervals: [0, 2, 4, 7], degreeLabels: ["1", "9", "3", "5"], suffix: "add9", ui: { quality: "maj", suspension: "none", structure: "tetrad", inversion: "root", form: "open", positionForm: "open", ext7: false, ext6: false, ext9: true, ext11: false, ext13: false } },
+  { id: "madd9", intervals: [0, 2, 3, 7], degreeLabels: ["1", "9", "b3", "5"], suffix: "m(add9)", ui: { quality: "min", suspension: "none", structure: "tetrad", inversion: "root", form: "open", positionForm: "open", ext7: false, ext6: false, ext9: true, ext11: false, ext13: false } },
+  { id: "add11", intervals: [0, 4, 5, 7], degreeLabels: ["1", "3", "11", "5"], suffix: "add11", ui: { quality: "maj", suspension: "none", structure: "tetrad", inversion: "root", form: "open", positionForm: "open", ext7: false, ext6: false, ext9: false, ext11: true, ext13: false } },
+  { id: "madd11", intervals: [0, 3, 5, 7], degreeLabels: ["1", "b3", "11", "5"], suffix: "m(add11)", ui: { quality: "min", suspension: "none", structure: "tetrad", inversion: "root", form: "open", positionForm: "open", ext7: false, ext6: false, ext9: false, ext11: true, ext13: false } },
+  { id: "maddb13", intervals: [0, 3, 7, 8], degreeLabels: ["1", "b3", "5", "b13"], suffix: "m(addb13)", ui: null },
+  { id: "maj9", intervals: [0, 2, 4, 7, 11], degreeLabels: ["1", "9", "3", "5", "7"], suffix: "maj9", ui: { quality: "maj", suspension: "none", structure: "chord", inversion: "root", form: "open", positionForm: "open", ext7: true, ext6: false, ext9: true, ext11: false, ext13: false } },
+  { id: "9", intervals: [0, 2, 4, 7, 10], degreeLabels: ["1", "9", "3", "5", "b7"], suffix: "9", ui: { quality: "dom", suspension: "none", structure: "chord", inversion: "root", form: "open", positionForm: "open", ext7: true, ext6: false, ext9: true, ext11: false, ext13: false } },
+  { id: "m9", intervals: [0, 2, 3, 7, 10], degreeLabels: ["1", "9", "b3", "5", "b7"], suffix: "m9", ui: { quality: "min", suspension: "none", structure: "chord", inversion: "root", form: "open", positionForm: "open", ext7: true, ext6: false, ext9: true, ext11: false, ext13: false } },
+  { id: "maj7", intervals: [0, 4, 7, 11], degreeLabels: ["1", "3", "5", "7"], suffix: "maj7", ui: { quality: "maj", suspension: "none", structure: "tetrad", inversion: "root", form: "open", positionForm: "open", ext7: true, ext6: false, ext9: false, ext11: false, ext13: false } },
+  { id: "7", intervals: [0, 4, 7, 10], degreeLabels: ["1", "3", "5", "b7"], suffix: "7", ui: { quality: "dom", suspension: "none", structure: "tetrad", inversion: "root", form: "open", positionForm: "open", ext7: true, ext6: false, ext9: false, ext11: false, ext13: false } },
+  { id: "m7", intervals: [0, 3, 7, 10], degreeLabels: ["1", "b3", "5", "b7"], suffix: "m7", ui: { quality: "min", suspension: "none", structure: "tetrad", inversion: "root", form: "open", positionForm: "open", ext7: true, ext6: false, ext9: false, ext11: false, ext13: false } },
+  { id: "mmaj7", intervals: [0, 3, 7, 11], degreeLabels: ["1", "b3", "5", "7"], suffix: "m(maj7)", ui: null },
+  { id: "m7b5", intervals: [0, 3, 6, 10], degreeLabels: ["1", "b3", "b5", "b7"], suffix: "m7(b5)", ui: { quality: "hdim", suspension: "none", structure: "tetrad", inversion: "root", form: "open", positionForm: "open", ext7: true, ext6: false, ext9: false, ext11: false, ext13: false } },
+  { id: "dim7", intervals: [0, 3, 6, 9], degreeLabels: ["1", "b3", "b5", "bb7"], suffix: "dim7", ui: { quality: "dim", suspension: "none", structure: "tetrad", inversion: "root", form: "open", positionForm: "open", ext7: true, ext6: false, ext9: false, ext11: false, ext13: false } },
+  { id: "maj7sharp5", intervals: [0, 4, 8, 11], degreeLabels: ["1", "3", "#5", "7"], suffix: "maj7#5", ui: null },
+  { id: "7sharp5", intervals: [0, 4, 8, 10], degreeLabels: ["1", "3", "#5", "b7"], suffix: "7#5", ui: null },
+  { id: "7flat5", intervals: [0, 4, 6, 10], degreeLabels: ["1", "3", "b5", "b7"], suffix: "7b5", ui: null },
+];
+
+function appendMissingDegreesToSuffix(baseSuffix, missingDegrees) {
+  if (!missingDegrees?.length) return baseSuffix;
+  const miss = missingDegrees.map((x) => `no${x}`).join(",");
+  if (!baseSuffix) return `(${miss})`;
+  if (baseSuffix.endsWith(")")) return `${baseSuffix.slice(0, -1)},${miss})`;
+  return `${baseSuffix}(${miss})`;
+}
+
+function detectFormulaRole(formula, interval) {
+  const idx = formula?.intervals?.findIndex((x) => mod12(x) === mod12(interval));
+  const label = idx >= 0 ? String(formula.degreeLabels[idx] || "") : "";
+  if (mod12(interval) === 0) return "root";
+  if (label.includes("13") || label === "6") return "thirteenth";
+  if (label.includes("11") || label === "4") return "eleventh";
+  if (label.includes("9") || label === "2") return "ninth";
+  if (label.includes("7")) return "seventh";
+  if (label.includes("5")) return "fifth";
+  if (label.includes("3") || label === "2" || label === "4") return "third";
+  return "other";
+}
+
+function isExtensionLikeDegreeLabel(label) {
+  const s = String(label || "").toLowerCase();
+  return s.includes("6") || s.includes("7") || s.includes("9") || s.includes("11") || s.includes("13");
+}
+
+function isThirdDegreeLabel(label) {
+  const s = String(label || "").toLowerCase();
+  return s === "3" || s === "b3" || s === "#3";
+}
+
+function analyzeDetectedChordCandidates(selectedNotes) {
+  const list = Array.isArray(selectedNotes) ? [...selectedNotes] : [];
+  if (!list.length) return [];
+
+  const ordered = [...list].sort((a, b) => a.pitch - b.pitch);
+  const bass = ordered[0];
+  const uniquePcs = Array.from(new Set(ordered.map((n) => mod12(n.pc))));
+  const raw = [];
+  const seen = new Map();
+
+  for (const rootPc of uniquePcs) {
+    const preferSharps = preferSharpsFromMajorTonicPc(mod12(rootPc));
+    const rootName = pcToName(rootPc, preferSharps);
+    const bassInterval = mod12(bass.pc - rootPc);
+    const selectedIntervalsAll = Array.from(new Set(uniquePcs.map((pc) => mod12(pc - rootPc)))).sort((a, b) => a - b);
+
+    for (const formula of CHORD_DETECT_FORMULAS) {
+      const formulaIntervals = formula.intervals.map(mod12);
+      const formulaSet = new Set(formulaIntervals);
+      const externalBassInterval = formulaSet.has(bassInterval) ? null : bassInterval;
+      const coreSelected = externalBassInterval == null ? selectedIntervalsAll : selectedIntervalsAll.filter((x) => x !== externalBassInterval);
+      const extras = coreSelected.filter((x) => !formulaSet.has(x));
+      if (extras.length) continue;
+      if (!coreSelected.includes(0)) continue;
+
+      const matches = formulaIntervals.filter((x) => coreSelected.includes(x));
+      const missing = formulaIntervals.filter((x) => !coreSelected.includes(x));
+      if (matches.length < Math.min(formulaIntervals.length, 3)) continue;
+      if (missing.length > 1) continue;
+
+      const noteNames = spellChordNotes({ rootPc, chordIntervals: formulaIntervals, preferSharps });
+      const visiblePairs = formulaIntervals
+        .map((intv, idx) => coreSelected.includes(intv) ? `${formula.degreeLabels[idx]}=${noteNames[idx]}` : null)
+        .filter(Boolean);
+      const visibleNotes = formulaIntervals
+        .map((intv, idx) => coreSelected.includes(intv) ? noteNames[idx] : null)
+        .filter(Boolean);
+      const missingLabels = formulaIntervals
+        .map((intv, idx) => !coreSelected.includes(intv) ? formula.degreeLabels[idx] : null)
+        .filter(Boolean);
+      const suffix = appendMissingDegreesToSuffix(formula.suffix, missingLabels);
+      let slashBass = "";
+      if (bass.pc !== rootPc) {
+        const bassIdx = formulaIntervals.findIndex((x) => x === bassInterval);
+        const slashBassName = bassIdx >= 0
+          ? noteNames[bassIdx]
+          : spellNoteFromChordInterval(rootPc, bassInterval, preferSharps);
+        slashBass = `/${slashBassName}`;
+      }
+      const name = `${rootName}${suffix}${slashBass}`;
+      const exact = missing.length === 0;
+      const slashPenalty = bass.pc === rootPc ? 0 : (externalBassInterval == null ? 1 : 3);
+      const score = (exact ? 0 : 20) + slashPenalty + missing.length * 6 + Math.max(0, 4 - matches.length);
+      const uiPatch = formula.ui ? { rootPc, spellPreferSharps: preferSharps, ...formula.ui } : null;
+      const candidate = {
+        id: `${formula.id}|${rootPc}|${externalBassInterval == null ? "in" : externalBassInterval}|${missingLabels.join(",")}`,
+        name,
+        rootPc,
+        bassPc: bass.pc,
+        preferSharps,
+        formula,
+        exact,
+        score,
+        uiPatch,
+        intervalPairsText: visiblePairs.join(", "),
+        visibleNotes,
+        visibleIntervals: matches,
+        missingLabels,
+        externalBassInterval,
+      };
+
+      const prev = seen.get(name);
+      if (!prev || candidate.score < prev.score) seen.set(name, candidate);
+    }
+  }
+
+  raw.push(...seen.values());
+
+  const exactSubsetSignatures = new Set(
+    raw
+      .filter((c) => c.exact)
+      .map((c) => `${c.rootPc}|${c.bassPc}|${c.visibleIntervals.slice().sort((a, b) => a - b).join(",")}`)
+  );
+
+  const filtered = raw.filter((c) => {
+    if (c.exact) return true;
+    if (c.missingLabels.some((x) => isThirdDegreeLabel(x))) return false;
+    if (c.missingLabels.length !== 1) return true;
+    const missingLabel = c.missingLabels[0];
+    if (!isExtensionLikeDegreeLabel(missingLabel)) return true;
+    const sig = `${c.rootPc}|${c.bassPc}|${c.visibleIntervals.slice().sort((a, b) => a - b).join(",")}`;
+    if (exactSubsetSignatures.has(sig)) return false;
+    return true;
+  });
+
+  filtered.sort((a, b) => (a.score - b.score) || a.name.localeCompare(b.name, "es", { sensitivity: "base" }));
+  return filtered.slice(0, 12);
+}
+
+function spellNoteFromChordInterval(rootPc, interval, preferSharps) {
+  const rootName = pcToName(rootPc, preferSharps);
+  const rootLetter = rootName[0];
+  const rootIdx = Math.max(0, LETTERS.indexOf(rootLetter));
+  const deg = chordDegreeNumberFromInterval(interval);
+  const letter = LETTERS[(rootIdx + (deg - 1)) % 7];
+  const pc = mod12(rootPc + interval);
+  return spellPcWithLetter(pc, letter);
+}
+
+function buildDetectedCandidateNoteNameForPc(pc, candidate, preferSharpsFallback) {
+  const prefer = candidate?.preferSharps ?? preferSharpsFallback;
+  if (!candidate) return pcToName(pc, prefer);
+  const interval = mod12(pc - candidate.rootPc);
+  const idx = candidate.formula.intervals.findIndex((x) => mod12(x) === interval);
+  if (idx >= 0) {
+    const spelled = spellChordNotes({ rootPc: candidate.rootPc, chordIntervals: candidate.formula.intervals, preferSharps: prefer });
+    return spelled[idx];
+  }
+  return spellNoteFromChordInterval(candidate.rootPc, interval, prefer);
+}
+
+function buildDetectedCandidateLabelForPc(pc, candidate, preferSharpsFallback, showIntervals = true, showNotes = true) {
+  const noteName = buildDetectedCandidateNoteNameForPc(pc, candidate, preferSharpsFallback);
+  if (!candidate) return noteName;
+  const interval = mod12(pc - candidate.rootPc);
+  const idx = candidate.formula.intervals.findIndex((x) => mod12(x) === interval);
+  const degree = idx >= 0 ? candidate.formula.degreeLabels[idx] : null;
+  if (!degree) return noteName;
+  if (!showIntervals && !showNotes) return degree;
+  if (showIntervals && showNotes) return `${degree}-${noteName}`;
+  if (showIntervals) return degree;
+  return noteName;
+}
+
+function buildDetectedCandidateRoleForPc(pc, candidate) {
+  if (!candidate) return "other";
+  const interval = mod12(pc - candidate.rootPc);
+  return detectFormulaRole(candidate.formula, interval);
 }
 
 function buildCloseTetradAbsoluteOrders(thirdOffset, fifthOffset, seventhOffset) {
@@ -3022,6 +3466,9 @@ export default function FretboardScalesPage() {
   const [chordExt9, setChordExt9] = useState(false);
   const [chordExt11, setChordExt11] = useState(false);
   const [chordExt13, setChordExt13] = useState(false);
+  const [chordDetectMode, setChordDetectMode] = useState(false);
+  const [chordDetectSelectedKeys, setChordDetectSelectedKeys] = useState([]);
+  const [chordDetectCandidateId, setChordDetectCandidateId] = useState(null);
 
 
 
@@ -3246,6 +3693,12 @@ export default function FretboardScalesPage() {
     "#8DE8AD", // Acorde 2        RGB(141,232,173)
     "#FFF475", // Acorde 3        RGB(255,244,117)
     "#F53845", // Acorde 4        RGB(245,56,69)
+  ]);
+  const [clusterTestDots, setClusterTestDots] = useState([
+    { x: 35, y: 6, size: 21, color: "#ef4444" },
+    { x: 12, y: 14, size: 21, color: "#f59e0b" },
+    { x: 57, y: 14, size: 21, color: "#10b981" },
+    { x: 34, y: 25, size: 21, color: "#3b82f6" },
   ]);
 
   const [chordDbCache, setChordDbCache] = useState({}); // key => json
@@ -4151,6 +4604,103 @@ export default function FretboardScalesPage() {
 
   const activeChordVoicing = chordVoicings[chordVoicingIdx] || chordVoicings[0] || null;
 
+  const chordDetectSelectedNotes = useMemo(() => {
+    return chordDetectSelectedKeys
+      .map((key) => {
+        const [sStr, fStr] = String(key || "").split(":");
+        const sIdx = parseInt(sStr, 10);
+        const fret = parseInt(fStr, 10);
+        if (!Number.isFinite(sIdx) || !Number.isFinite(fret)) return null;
+        return {
+          key,
+          sIdx,
+          fret,
+          pc: mod12(STRINGS[sIdx].pc + fret),
+          pitch: pitchAt(sIdx, fret),
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => a.pitch - b.pitch);
+  }, [chordDetectSelectedKeys]);
+
+  const chordDetectCandidates = useMemo(
+    () => analyzeDetectedChordCandidates(chordDetectSelectedNotes),
+    [chordDetectSelectedNotes]
+  );
+
+  const chordDetectSelectedCandidate = useMemo(
+    () => chordDetectCandidates.find((c) => c.id === chordDetectCandidateId) || null,
+    [chordDetectCandidates, chordDetectCandidateId]
+  );
+
+  useEffect(() => {
+    if (!chordDetectMode) return;
+    if (!chordDetectCandidates.length) {
+      if (chordDetectCandidateId !== null) setChordDetectCandidateId(null);
+      return;
+    }
+    if (chordDetectCandidateId && !chordDetectCandidates.some((c) => c.id === chordDetectCandidateId)) {
+      setChordDetectCandidateId(null);
+    }
+  }, [chordDetectMode, chordDetectCandidates, chordDetectCandidateId]);
+
+  function applyDetectedCandidate(candidate) {
+    if (!candidate) return;
+    setChordDetectCandidateId(candidate.id);
+    if (candidate.uiPatch) {
+      const p = candidate.uiPatch;
+      setChordRootPc(p.rootPc);
+      setChordSpellPreferSharps(!!p.spellPreferSharps);
+      setChordQuality(p.quality);
+      setChordSuspension(p.suspension || "none");
+      setChordStructure(p.structure);
+      setChordInversion(p.inversion || "root");
+      setChordPositionForm(p.positionForm || "open");
+      setChordForm(p.form || p.positionForm || "open");
+      setChordExt7(!!p.ext7);
+      setChordExt6(!!p.ext6);
+      setChordExt9(!!p.ext9);
+      setChordExt11(!!p.ext11);
+      setChordExt13(!!p.ext13);
+      setChordSelectedFrets(null);
+      setChordVoicingIdx(0);
+    } else {
+      setChordRootPc(candidate.rootPc);
+      setChordSpellPreferSharps(!!candidate.preferSharps);
+    }
+  }
+
+  function toggleChordDetectCell(sIdx, fret) {
+    const key = `${sIdx}:${fret}`;
+    setChordDetectSelectedKeys((prev) => {
+      if (prev.includes(key)) return prev.filter((x) => x !== key);
+      const withoutSameString = prev.filter((x) => !String(x).startsWith(`${sIdx}:`));
+      return [...withoutSameString, key];
+    });
+  }
+
+  const chordDetectSelectedNotesText = useMemo(
+    () => chordDetectSelectedNotes
+      .map((n) => buildDetectedCandidateNoteNameForPc(n.pc, chordDetectSelectedCandidate, chordPreferSharps))
+      .join(", "),
+    [chordDetectSelectedNotes, chordDetectSelectedCandidate, chordPreferSharps]
+  );
+
+  const chordSectionDisplayName = chordDetectMode && chordDetectSelectedCandidate
+    ? chordDetectSelectedCandidate.name
+    : chordDisplayNameFromUI({
+        rootPc: chordRootPc,
+        preferSharps: chordPreferSharps,
+        quality: chordQuality,
+        suspension: chordSuspension,
+        structure: chordStructure,
+        ext7: chordExt7,
+        ext6: chordExt6,
+        ext9: chordExt9,
+        ext11: chordExt11,
+        ext13: chordExt13,
+      });
+
   const nearFrom = nearWindowStart;
   const nearTo = Math.min(maxFret, nearWindowStart + nearWindowSize - 1);
   const nearStartMax = Math.max(0, maxFret - (nearWindowSize - 1));
@@ -4374,29 +4924,31 @@ export default function FretboardScalesPage() {
   const nearComputed = useMemo(() => {
     const slots = nearSlots.map((s) => buildSlotVoicings(s));
 
-    // Base (slot 0)
-    const baseList = slots[0]?.voicings || [];
-    const baseSelFrets = nearSlots[0]?.selFrets;
-    const base = baseSelFrets ? baseList.find((v) => v.frets === baseSelFrets) : null;
-    const baseVoicing = base || baseList[0] || null;
+    const anchorIdx = slots.findIndex((x, idx) => !!nearSlots[idx]?.enabled && (x?.voicings || []).length > 0);
+    const firstEnabledIdx = nearSlots.findIndex((s) => !!s?.enabled);
+    const refIdx = anchorIdx >= 0 ? anchorIdx : firstEnabledIdx;
 
-    // Sugerencias por cercanía (slots 2..4)
+    const refList = refIdx >= 0 ? (slots[refIdx]?.voicings || []) : [];
+    const refSelFrets = refIdx >= 0 ? nearSlots[refIdx]?.selFrets : null;
+    const refPicked = refSelFrets ? refList.find((v) => v.frets === refSelFrets) : null;
+    const baseVoicing = refPicked || refList[0] || null;
+
     const ranked = slots.map((x, idx) => {
-      if (idx === 0) return { ...x, ranked: x.voicings || [] };
-      const arr = (x.voicings || []).map((v) => ({ ...v, _cost: voicingProximityCost(baseVoicing, v) }));
+      const list = x?.voicings || [];
+      if (idx === refIdx || !baseVoicing) return { ...x, ranked: list };
+      const arr = list.map((v) => ({ ...v, _cost: voicingProximityCost(baseVoicing, v) }));
       arr.sort((a, b) => (a._cost - b._cost) || (a.minFret - b.minFret) || (a.span - b.span));
       return { ...x, ranked: arr.slice(0, 40) };
     });
 
-    // Voicing seleccionado por slot (por frets)
     const selected = ranked.map((r, idx) => {
       const sel = nearSlots[idx]?.selFrets;
-      const list = r.ranked || [];
-      const v = sel ? list.find((x) => x.frets === sel) : null;
-      return v || list[0] || null;
+      const list = r?.ranked || [];
+      const found = sel ? list.find((x) => x.frets === sel) : null;
+      return found || list[0] || null;
     });
 
-    return { ranked, selected, baseVoicing };
+    return { ranked, selected, baseVoicing, baseIdx: refIdx };
   }, [nearSlots, nearFrom, nearTo, chordDbCache, chordDbCacheErr, maxFret]);
 
   const nearRankSig = useMemo(
@@ -4495,6 +5047,8 @@ export default function FretboardScalesPage() {
       chordIntervals: d?.plan?.intervals || [],
       preferSharps: d?.preferSharps ?? chordPreferSharps,
     });
+    const dominant = buildDominantInfo(d?.rootPc ?? chordRootPc, d?.preferSharps ?? chordPreferSharps);
+    const backdoorDominant = buildBackdoorDominantInfo(d?.rootPc ?? chordRootPc, d?.preferSharps ?? chordPreferSharps);
     return (
       <section className="rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-200">
         <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
@@ -4515,6 +5069,24 @@ export default function FretboardScalesPage() {
                 <div><b>Nombre:</b> {d?.chordName}</div>
                 <div><b>Capa:</b> {chordEngineLayerLabel(d?.plan)}</div>
                 <div><b>Generador:</b> {chordEngineGeneratorLabel(d?.plan)}</div>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+              <div className="text-xs font-semibold text-slate-700">Dominantes relacionados</div>
+              <div className="mt-2 space-y-3 text-xs text-slate-600">
+                <div>
+                  <div className="font-semibold text-slate-700">Dominante normal</div>
+                  <div><b>Acorde:</b> {dominant.name}</div>
+                  <div><b>Función:</b> {dominant.relation}</div>
+                  <div><b>Notas:</b> {dominant.notes.join(" · ")}</div>
+                </div>
+                <div className="border-t border-slate-200 pt-2">
+                  <div className="font-semibold text-slate-700">Backdoor dominant</div>
+                  <div><b>Acorde:</b> {backdoorDominant.name}</div>
+                  <div><b>Función:</b> {backdoorDominant.relation}</div>
+                  <div><b>Notas:</b> {backdoorDominant.notes.join(" · ")}</div>
+                </div>
               </div>
             </div>
 
@@ -4541,18 +5113,18 @@ export default function FretboardScalesPage() {
                 <div><b>Tipo:</b> {studyVoicingFormLabel(d?.voicing, d?.plan?.form)}</div>
                 <div><b>Digitación:</b> {d?.voicing?.frets || "—"}</div>
                 <div><b>Distancia:</b> {d?.voicing ? (d.voicing.reach ?? (d.voicing.span + 1)) : "—"}</div>
-                <div><b>Pitch span:</b> {d?.voicing?.pitchSpan ?? "—"}</div>
+                <div><b>Rango de alturas:</b> {d?.voicing?.pitchSpan ?? "—"} semitonos</div>
               </div>
             </div>
 
             <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-              <div className="text-xs font-semibold text-slate-700">UI vs voicing real</div>
+              <div className="text-xs font-semibold text-slate-700">Selección vs voicing real</div>
               <div className="mt-2 space-y-1 text-xs text-slate-600">
                 <div><b>Pedido:</b> {voicingAnalysis.requested.join(" · ") || "—"}</div>
                 <div><b>Real:</b> {voicingAnalysis.actual.join(" · ") || "—"}</div>
                 <div><b>Notas reales:</b> {voicingAnalysis.actualNotes.join(" · ") || "—"}</div>
-                <div><b>Forma UI:</b> {voicingAnalysis.requestedForm} · <b>Forma real:</b> {voicingAnalysis.actualForm}</div>
-                <div><b>Bajo UI:</b> {voicingAnalysis.requestedBass} · <b>Bajo real:</b> {voicingAnalysis.actualBass}</div>
+                <div><b>Forma selección:</b> {voicingAnalysis.requestedForm} · <b>Forma real:</b> {voicingAnalysis.actualForm}</div>
+                <div><b>Bajo selección:</b> {voicingAnalysis.requestedBass} · <b>Bajo real:</b> {voicingAnalysis.actualBass}</div>
                 <div><b>Inv. real:</b> {voicingAnalysis.actualInversion}</div>
                 <div><b>Falta:</b> {voicingAnalysis.missing.join(" · ") || "ninguna"}</div>
                 <div><b>Sobra:</b> {voicingAnalysis.extra.join(" · ") || "nada"}</div>
@@ -4654,7 +5226,7 @@ export default function FretboardScalesPage() {
 
   // Acordes de la escala activa (armonización real según la escala seleccionada arriba)
   const harmonizedScale = useMemo(() => {
-    const base = nearSlots?.[0] || {};
+    const base = nearSlots.find((s) => s?.enabled) || nearSlots?.[0] || {};
     const withSeventh = base.structure === "tetrad" || !!base.ext7;
 
     const degrees = scaleIntervals.map((interval, i) => {
@@ -4697,7 +5269,7 @@ export default function FretboardScalesPage() {
       scaleLabel: scaleName,
       withSeventh,
       degrees,
-      names: degrees.map((d) => d.name),
+      names: (MANUAL_SCALE_TETRAD_PRESETS[normalizeScaleName(scaleName)] || (withSeventh && scaleTetradHarmony.length)) ? scaleTetradHarmony.map((x) => x.noteName) : degrees.map((d) => d.name),
     };
   }, [
     nearSlots?.[0]?.structure,
@@ -4709,6 +5281,11 @@ export default function FretboardScalesPage() {
     preferSharps,
     scaleName,
   ]);
+
+  const nearTonalityAnalysis = useMemo(
+    () => analyzeChordSetTonality({ slots: nearSlots, harmonyMode }),
+    [nearSlots, harmonyMode]
+  );
 
   useEffect(() => {
     if (!storageHydrated) return;
@@ -4878,6 +5455,20 @@ export default function FretboardScalesPage() {
     return note;
   }
 
+  function hoverCellNoteText(sIdx, fret) {
+    const pc = mod12(STRINGS[sIdx].pc + fret);
+    return pcToDualName(pc);
+  }
+
+  function HoverCellNote({ sIdx, fret, visible }) {
+    if (!visible) return null;
+    return (
+      <div className="pointer-events-none absolute inset-0 z-[12] hidden items-center justify-center text-[10px] font-semibold text-slate-500 group-hover:flex">
+        {hoverCellNoteText(sIdx, fret)}
+      </div>
+    );
+  }
+
   function labelForChordPc(pc) {
     const interval = mod12(pc - chordRootPc);
     const itv = intervalToChordToken(interval, { ext6: chordExt6, ext9: chordExt9 && chordStructure !== "triad", ext11: chordExt11 && chordStructure !== "triad", ext13: chordExt13 && chordStructure !== "triad" });
@@ -4910,6 +5501,20 @@ export default function FretboardScalesPage() {
       next[idx] = value;
       return next;
     });
+  }
+
+  function setClusterTestDot(idx, key, value) {
+    setClusterTestDots((prev) => prev.map((dot, i) => {
+      if (i !== idx) return dot;
+      const n = Number(value);
+      if (!Number.isFinite(n)) return dot;
+      return {
+        ...dot,
+        [key]: key === "size"
+          ? Math.max(8, Math.min(40, n))
+          : Math.max(-20, Math.min(80, n)),
+      };
+    }));
   }
 
   // Patrones (para el 2º mástil)
@@ -5129,11 +5734,11 @@ export default function FretboardScalesPage() {
       <div
         className="relative z-20 inline-flex h-7 w-7 items-center justify-center rounded-full text-[10px] font-semibold"
         style={circleStyle(baseRole)}
-        title={`${pcToName(pc, preferSharps)} | ${intervalToDegreeToken(mod12(pc - rootPc))} | cuerda ${sIdx + 1}, traste ${fret}`}
+        title={`${pcToDualName(pc)} · ${intervalToDegreeToken(mod12(pc - rootPc))}`}
       >
         {labelForPc(pc)}
         {badge ? (
-          <span className="absolute -right-1 -top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-slate-900 px-1 text-[10px] text-white">
+          <span className="absolute -right-1 -top-1 inline-flex min-w-4 items-center justify-center rounded-full bg-white px-1 text-[9px] font-bold leading-none text-slate-700 shadow-sm ring-1 ring-slate-200">
             {badge}
           </span>
         ) : null}
@@ -5142,75 +5747,51 @@ export default function FretboardScalesPage() {
   }
 
   function ChordCircle({ pc, role, fret, sIdx, isBass }) {
-    const baseRole = role;
-    const extraRing = isBass ? `inset 0 0 0 3px ${rgba("#000000", 0.9)}` : "none";
-
+    const bg = colors[role] || colors.other;
+    const dark = isDark(bg);
     return (
       <div
         className="relative z-20 inline-flex h-7 w-7 items-center justify-center rounded-full text-[10px] font-semibold"
-        style={{ ...circleStyle(baseRole), boxShadow: `${circleStyle(baseRole).boxShadow}, ${extraRing}` }}
-        title={`${chordPcToSpelledName(pc)} | ${intervalToChordToken(mod12(pc - chordRootPc), { ext6: chordExt6, ext9: chordExt9 && chordStructure !== "triad", ext11: chordExt11 && chordStructure !== "triad", ext13: chordExt13 && chordStructure !== "triad" })} | cuerda ${sIdx + 1}, traste ${fret}`}
+        style={{
+          backgroundColor: bg,
+          color: role === "other" ? "#0f172a" : dark ? "#ffffff" : "#0f172a",
+          boxShadow: isBass ? `inset 0 0 0 2px ${rgba("#000000", 0.95)}` : `0 0 0 2px ${rgba(bg, 0.25)}`,
+        }}
+        title={`${chordPcToSpelledName(pc)} · ${intervalToChordToken(mod12(pc - chordRootPc), { ext6: chordExt6, ext9: chordExt9 && chordStructure !== "triad", ext11: chordExt11 && chordStructure !== "triad", ext13: chordExt13 && chordStructure !== "triad" })}${isBass ? " · bajo" : ""}`}
       >
         {labelForChordPc(pc)}
-        {isBass ? (
-          <span className="absolute -right-1 -top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-slate-900 px-1 text-[10px] text-white">
-            B
-          </span>
-        ) : null}
-      </div>
-    );
-  }
-
-  function MuteMark({ small = false, title = "Cuerda muteada" }) {
-    return (
-      <div
-        className={`relative z-20 inline-flex items-center justify-center rounded-full border border-slate-300 bg-white font-bold text-slate-600 ${small ? "h-5 w-5 text-[10px]" : "h-6 w-6 text-[11px]"}`}
-        title={title}
-      >
-        X
       </div>
     );
   }
 
   function ChordFretboard({ title, voicing, voicingIdx, voicingTotal }) {
-    const cellMap = new Map();
-    const mutedSet = new Set(voicing?.mutedSIdx || []);
-    if (voicing?.notes) {
-      for (const n of voicing.notes) cellMap.set(`${n.sIdx}:${n.fret}`, n);
-    }
+    const notesMap = useMemo(() => {
+      const m = new Map();
+      if (!voicing?.notes?.length) return m;
+      for (const n of voicing.notes) {
+        m.set(`${n.sIdx}:${n.fret}`, {
+          pc: n.pc,
+          isBass: `${n.sIdx}:${n.fret}` === voicing.bassKey,
+        });
+      }
+      return m;
+    }, [voicing]);
+
+    const noteText = voicing
+      ? [...voicing.notes]
+          .sort((a, b) => pitchAt(a.sIdx, a.fret) - pitchAt(b.sIdx, b.fret))
+          .map((n) => chordPcToSpelledName(n.pc))
+          .join(" – ")
+      : "";
 
     return (
       <section className="rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-200">
-        <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
           <div>
-            <div className="text-sm font-semibold text-slate-800">
-              {title}
-              <span className="ml-2 text-xs font-semibold text-slate-800">
-                {chordDisplayNameFromUI({
-                  rootPc: chordRootPc,
-                  preferSharps: chordPreferSharps,
-                  quality: chordQuality,
-                  suspension: chordSuspension,
-                  structure: chordStructure,
-                  ext7: chordExt7,
-                  ext6: chordExt6,
-                  ext9: chordExt9,
-                  ext11: chordExt11,
-                  ext13: chordExt13,
-                })}
-              </span>
-            </div>
-            <div className="text-xs text-slate-600">Notas: {spelledChordNotes.join(" – ")} · Bajo marcado con anillo negro.</div>
+            <div className="text-sm font-semibold text-slate-800">{title} {voicing ? chordDisplayNameFromUI({ rootPc: chordRootPc, preferSharps: chordPreferSharps, quality: chordQuality, suspension: chordSuspension, structure: chordStructure, ext7: chordExt7, ext6: chordExt6, ext9: chordExt9, ext11: chordExt11, ext13: chordExt13 }) : ""}</div>
+            <div className="text-xs text-slate-600">{voicing ? `Notas: ${noteText}. Bajo marcado con anillo negro.` : "No hay voicings para esta selección."}</div>
           </div>
-          <div className="text-xs text-slate-600">
-            {voicing ? (
-              <span>
-                Voicing {Math.min(voicingIdx + 1, voicingTotal)}/{voicingTotal}: <b>{voicing.frets}</b>
-              </span>
-            ) : (
-              <span className="font-semibold text-rose-600">No hay voicing</span>
-            )}
-          </div>
+          {voicing ? <div className="text-xs text-slate-600">Voicing {Math.min(voicingIdx + 1, voicingTotal)}/{voicingTotal}: <b>{voicing.frets}</b></div> : null}
         </div>
 
         <div className="grid items-center gap-1" style={{ gridTemplateColumns: fretGridCols(maxFret) }}>
@@ -5224,136 +5805,251 @@ export default function FretboardScalesPage() {
 
         <div className="mt-2 space-y-1">
           {STRINGS.map((st, sIdx) => (
-            <React.Fragment key={st.label}>
-              <div className="grid items-center gap-1" style={{ gridTemplateColumns: fretGridCols(maxFret) }}>
-                <div className="text-xs font-medium text-slate-700">{st.label}</div>
-
-                {Array.from({ length: maxFret + 1 }, (_, fret) => {
-                  const cellKey = `${sIdx}:${fret}`;
-                  const n = cellMap.get(cellKey);
-                  const pc = n ? n.pc : mod12(st.pc + fret);
-                  const inVoicing = !!n;
-                  const role = inVoicing ? chordRoleOfPc(pc) : "other";
-                  const isBass = inVoicing && voicing?.bassKey === cellKey;
-                  const showMuteX = fret === 0 && !inVoicing && mutedSet.has(sIdx);
-                  return (
-                    <div
-                      key={`${sIdx}-${fret}`}
-                      className={`relative flex h-8 overflow-visible items-center justify-center rounded-lg border ${
-                        fret === 0 ? "border-slate-300" : "border-slate-200"
-                      }`}
-                      style={{ backgroundColor: "#f8fafc" }}
-                    >
-                      {hasInlayCell(fret, sIdx) ? (
-                        <div className="pointer-events-none absolute left-1/2 z-10 -translate-x-1/2" style={{ bottom: "-10px" }}>
-                          <div className="h-4 w-4 rounded-full bg-slate-300 opacity-95" />
-                        </div>
-                      ) : null}
-                      {inVoicing ? <ChordCircle pc={pc} role={role} fret={fret} sIdx={sIdx} isBass={isBass} /> : null}
-                      {showMuteX ? <MuteMark title={`Cuerda ${sIdx + 1} muteada`} /> : null}
-                    </div>
-                  );
-                })}
-              </div>
-            </React.Fragment>
+            <div key={st.label} className="grid items-center gap-1" style={{ gridTemplateColumns: fretGridCols(maxFret) }}>
+              <div className="text-xs font-medium text-slate-700">{st.label}</div>
+              {Array.from({ length: maxFret + 1 }, (_, fret) => {
+                const cellKey = `${sIdx}:${fret}`;
+                const item = notesMap.get(cellKey);
+                return (
+                  <div
+                    key={`${sIdx}-${fret}`}
+                    className={`group relative flex h-8 overflow-visible items-center justify-center rounded-lg border ${fret === 0 ? "border-slate-300" : "border-slate-200"}`}
+                    style={{ backgroundColor: "#f8fafc" }}
+                  >
+                    <HoverCellNote sIdx={sIdx} fret={fret} visible={!item} />
+                    {hasInlayCell(fret, sIdx) ? (
+                      <div className="pointer-events-none absolute left-1/2 z-10 -translate-x-1/2" style={{ bottom: "-10px" }}>
+                        <div className="h-4 w-4 rounded-full bg-slate-300 opacity-95" />
+                      </div>
+                    ) : null}
+                    {item ? <ChordCircle pc={item.pc} role={chordRoleOfPc(item.pc)} fret={fret} sIdx={sIdx} isBass={item.isBass} /> : null}
+                  </div>
+                );
+              })}
+            </div>
           ))}
         </div>
       </section>
     );
   }
 
-  // Mástil combinado para "Acordes cercanos" (hasta 4)
-  function NearChordsFretboard() {
-    // cellKey -> [{slotIdx, pc, isBass, role}...]
-    const slotDataMaps = useMemo(() => {
-      return nearSlots.map((slot, idx) => {
-        const notesMap = new Map();
-        const mutedSet = new Set();
-        if (!slot?.enabled) return { notesMap, mutedSet };
-        const v = nearComputed.selected[idx];
-        if (v?.mutedSIdx?.length) {
-          for (const s of v.mutedSIdx) mutedSet.add(s);
-        }
-        if (!v?.notes?.length) return { notesMap, mutedSet };
-        for (const n of v.notes) {
-          const key = `${n.sIdx}:${n.fret}`;
-          notesMap.set(key, { pc: n.pc, isBass: v.bassKey === key });
-        }
-        return { notesMap, mutedSet };
-      });
-    }, [nearSlots, nearComputed.selected]);
+  function ChordInvestigationCircle({ pc, fret, sIdx, candidate, isBass }) {
+    const role = buildDetectedCandidateRoleForPc(pc, candidate);
+    const bg = colors[role] || colors.other;
+    const dark = isDark(bg);
+    const noteLabel = buildDetectedCandidateLabelForPc(pc, candidate, chordPreferSharps, showIntervalsLabel, showNotesLabel);
+    return (
+      <div
+        className="relative z-20 inline-flex h-7 w-7 items-center justify-center rounded-full text-[10px] font-semibold"
+        style={{
+          backgroundColor: bg,
+          color: role === "other" ? "#0f172a" : dark ? "#ffffff" : "#0f172a",
+          boxShadow: isBass ? `inset 0 0 0 2px ${rgba("#000000", 0.95)}` : `0 0 0 2px ${rgba(bg, 0.25)}`,
+        }}
+        title={`${noteLabel}${isBass ? " · bajo" : ""}`}
+      >
+        {noteLabel}
+      </div>
+    );
+  }
 
-    function slotRoleOfPc(pc, slot) {
-      const interval = mod12(pc - slot.rootPc);
-      const third = slotThirdOffset(slot.quality, slot.suspension);
-      const fifth = slotFifthOffset(slot.quality, slot.suspension);
-      const seventh = slot.ext7 ? seventhOffsetForQuality(slot.quality) : null;
+  function ChordInvestigationFretboard() {
+    const selectedMap = useMemo(() => {
+      const m = new Map();
+      if (!chordDetectSelectedNotes.length) return m;
+      const bassKey = chordDetectSelectedNotes[0]?.key || null;
+      for (const n of chordDetectSelectedNotes) {
+        m.set(`${n.sIdx}:${n.fret}`, {
+          pc: n.pc,
+          isBass: n.key === bassKey,
+        });
+      }
+      return m;
+    }, [chordDetectSelectedNotes]);
 
-      if (interval === 0) return "root";
-      if (interval === third) return "third";
-      if (interval === fifth) return "fifth";
-      if (slot.ext7 && seventh != null && interval === mod12(seventh)) return "seventh";
-      if (slot.ext13 && interval === 9) return "thirteenth";
-      if (slot.ext11 && interval === 5) return "eleventh";
-      if (slot.ext9 && interval === 2) return "ninth";
-      if (slot.ext6 && interval === 9) return "sixth";
-      return "other";
-    }
+    const selectedStrings = useMemo(
+      () => new Set(chordDetectSelectedNotes.map((n) => n.sIdx)),
+      [chordDetectSelectedNotes]
+    );
 
-    // Fondo por acorde (claro). Si hay solape, diagonal.
-    function bgForCell(items) {
-      if (!items.length) return {};
-      const c1 = rgba(nearBgColors[items[0].slotIdx] || "#e2e8f0", 0.55);
-      if (items.length === 1) return { backgroundColor: c1 };
-      const c2 = rgba(nearBgColors[items[1].slotIdx] || "#e2e8f0", 0.55);
-      return { backgroundImage: `linear-gradient(135deg, ${c1} 0%, ${c1} 50%, ${c2} 50%, ${c2} 100%)` };
-    }
-
-    // Posicionamiento en esquinas (cuando hay solape)
-    function cornerStyle(n, idx) {
-      const pad = 4;
-      if (n === 2) return idx === 0 ? { left: pad, top: pad } : { right: pad, bottom: pad };
-      if (n === 3) return idx === 0 ? { left: pad, top: pad } : idx === 1 ? { right: pad, top: pad } : { left: pad, bottom: pad };
-      return idx === 0
-        ? { left: pad, top: pad }
-        : idx === 1
-          ? { right: pad, top: pad }
-          : idx === 2
-            ? { left: pad, bottom: pad }
-            : { right: pad, bottom: pad };
-    }
-
-    function Mini({ slotIdx, pc, isBass, role, fret, sIdx, size = "m" }) {
-      const bg = colors[role] || colors.other;
-      const dark = isDark(bg);
-
-      const preferSharpsSlot = nearSlots[slotIdx]?.spellPreferSharps ?? preferSharpsFromMajorTonicPc(nearSlots[slotIdx].rootPc);
-      const note = pcToName(pc, preferSharpsSlot);
-      const interval = mod12(pc - nearSlots[slotIdx].rootPc);
-      const tok = intervalToChordToken(interval, {
-        ext6: !!nearSlots[slotIdx].ext6,
-        ext9: !!nearSlots[slotIdx].ext9 && nearSlots[slotIdx].structure !== "triad",
-        ext11: !!nearSlots[slotIdx].ext11 && nearSlots[slotIdx].structure !== "triad",
-        ext13: !!nearSlots[slotIdx].ext13 && nearSlots[slotIdx].structure !== "triad",
-      });
-
-      const showI = !!showIntervalsLabel;
-      const showN = !!showNotesLabel;
-
-      return (
-        <div
-          className={`relative z-20 inline-flex items-center justify-center rounded-full font-bold ${size === "s" ? "h-6 w-6 text-[9px]" : "h-7 w-7 text-[10px]"}`}
-          style={{
-            backgroundColor: bg,
-            color: dark ? "#fff" : "#0f172a",
-            boxShadow: isBass ? `inset 0 0 0 2px ${rgba("#000000", 0.95)}` : `0 0 0 1px ${rgba(bg, 0.35)}`,
-          }}
-          title={`${note} · ${tok} · cuerda ${sIdx + 1} traste ${fret}${isBass ? " · BAJO" : ""}`}
-        >
-          {showI && showN ? `${tok}-${note}` : showI ? tok : note}
+    return (
+      <section className="rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-200">
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <div className="text-sm font-semibold text-slate-800">Acorde por selección manual</div>
+            <div className="text-xs text-slate-600">
+              {chordDetectSelectedNotes.length
+                ? `Notas seleccionadas: ${chordDetectSelectedNotesText}. Pulsa de nuevo para quitar una nota.`
+                : "Pulsa en el mástil para añadir o quitar notas y detectar acordes posibles."}
+            </div>
+          </div>
+          <button
+            type="button"
+            className={UI_BTN_SM + " w-auto px-3"}
+            onClick={() => {
+              setChordDetectSelectedKeys([]);
+              setChordDetectCandidateId(null);
+            }}
+            disabled={!chordDetectSelectedKeys.length}
+          >
+            Limpiar
+          </button>
         </div>
-      );
+
+        <div className="grid items-center gap-1" style={{ gridTemplateColumns: fretGridCols(maxFret) }}>
+          <div className="text-xs font-semibold text-slate-600">Cuerda</div>
+          {Array.from({ length: maxFret + 1 }, (_, fret) => (
+            <div key={fret} className="relative flex flex-col items-center">
+              <div className="text-[10px] text-slate-600">{fret}</div>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-2 space-y-1">
+          {STRINGS.map((st, sIdx) => (
+            <div key={st.label} className="grid items-center gap-1" style={{ gridTemplateColumns: fretGridCols(maxFret) }}>
+              <div className="text-xs font-medium text-slate-700">{st.label}</div>
+              {Array.from({ length: maxFret + 1 }, (_, fret) => {
+                const key = `${sIdx}:${fret}`;
+                const item = selectedMap.get(key);
+                return (
+                  <button
+                    key={`${sIdx}-${fret}`}
+                    type="button"
+                    onClick={() => toggleChordDetectCell(sIdx, fret)}
+                    className={`group relative flex h-8 overflow-visible items-center justify-center rounded-lg border ${fret === 0 ? "border-slate-300" : "border-slate-200"} bg-slate-50 hover:ring-2 hover:ring-slate-300`}
+                  >
+                    <HoverCellNote sIdx={sIdx} fret={fret} visible={!item} />
+                    {hasInlayCell(fret, sIdx) ? (
+                      <div className="pointer-events-none absolute left-1/2 z-10 -translate-x-1/2" style={{ bottom: "-10px" }}>
+                        <div className="h-4 w-4 rounded-full bg-slate-300 opacity-95" />
+                      </div>
+                    ) : null}
+                    {item ? <ChordInvestigationCircle pc={item.pc} fret={fret} sIdx={sIdx} candidate={chordDetectSelectedCandidate} isBass={item.isBass} /> : (fret === 0 && !selectedStrings.has(sIdx) ? <span className="text-xs font-semibold text-slate-400">X</span> : null)}
+                  </button>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      </section>
+    );
+  }
+
+  function slotRoleOfPc(pc, slot) {
+    const interval = mod12(pc - slot.rootPc);
+    const third = chordThirdOffsetFromUI(slot.quality, slot.suspension || "none");
+    const fifth = chordFifthOffsetFromUI(slot.quality, slot.suspension || "none");
+    const seventh = seventhOffsetForQuality(slot.quality);
+
+    if (interval === 0) return "root";
+    if (interval === third) return "third";
+    if (interval === fifth) return "fifth";
+    if (hasEffectiveSeventh({ structure: slot.structure, ext7: slot.ext7, ext6: slot.ext6, ext9: slot.ext9, ext11: slot.ext11, ext13: slot.ext13 }) && interval === mod12(seventh)) return "seventh";
+    if (slot.ext13 && interval === 9) return "thirteenth";
+    if (slot.ext11 && interval === 5) return "eleventh";
+    if (slot.ext9 && interval === 2) return "ninth";
+    if (slot.ext6 && interval === 9) return "sixth";
+    return "other";
+  }
+
+  function slotLabelForPc(slot, pc) {
+    const ints = buildChordIntervals({
+      quality: slot.quality,
+      suspension: slot.suspension || "none",
+      structure: slot.structure,
+      ext7: slot.ext7,
+      ext6: slot.ext6,
+      ext9: slot.ext9,
+      ext11: slot.ext11,
+      ext13: slot.ext13,
+    });
+    const pref = slot?.spellPreferSharps ?? preferSharpsFromMajorTonicPc(mod12(slot.rootPc));
+    const spelled = spellChordNotes({ rootPc: slot.rootPc, chordIntervals: ints, preferSharps: pref });
+    const interval = mod12(pc - slot.rootPc);
+    const idx = ints.findIndex((x) => mod12(x) === interval);
+    const note = idx >= 0 ? spelled[idx] : pcToName(pc, pref);
+    const tok = intervalToChordToken(interval, {
+      ext6: !!slot.ext6,
+      ext9: !!slot.ext9 && slot.structure !== "triad",
+      ext11: !!slot.ext11 && slot.structure !== "triad",
+      ext13: !!slot.ext13 && slot.structure !== "triad",
+    });
+
+    const showI = !!showIntervalsLabel;
+    const showN = !!showNotesLabel;
+    if (!showI && !showN) return tok;
+    if (showI && showN) return `${tok}-${note}`;
+    if (showI) return tok;
+    return note;
+  }
+
+  function calibratedClusterPos(n, idx) {
+    if (n === 4) {
+      const p = [
+        { x: 35, y: 6 },
+        { x: 12, y: 14 },
+        { x: 57, y: 14 },
+        { x: 34, y: 25 },
+      ][idx];
+      return p ? { left: `${p.x}px`, top: `${p.y}px`, transform: "translate(-50%, -50%)" } : null;
     }
+    if (n === 3) {
+      const p = [
+        { x: 12, y: 14 },
+        { x: 34, y: 14 },
+        { x: 57, y: 14 },
+      ][idx];
+      return p ? { left: `${p.x}px`, top: `${p.y}px`, transform: "translate(-50%, -50%)" } : null;
+    }
+    return null;
+  }
+
+  function cornerStyle(n, idx) {
+    if (n <= 1) return { left: "50%", top: "50%", transform: "translate(-50%, -50%)" };
+    if (n === 2) {
+      return idx === 0
+        ? { left: 16, top: "50%", transform: "translateY(-50%)" }
+        : { right: 16, top: "50%", transform: "translateY(-50%)" };
+    }
+    return { left: "50%", top: "50%", transform: "translate(-50%, -50%)" };
+  }
+
+  function Mini({ slotIdx, pc, role, fret, sIdx, size = "m" }) {
+    const slot = nearSlots[slotIdx];
+    const chordBg = nearBgColors[slotIdx] || "#94a3b8";
+    const ring = colors[role] || colors.other;
+    const dark = isDark(chordBg);
+    const sizeClass = size === "cal" ? "h-[21px] w-[21px] text-[8px]" : size === "s" ? "h-6 w-6 text-[9px]" : "h-7 w-7 text-[10px]";
+
+    return (
+      <div
+        className={`relative z-20 inline-flex items-center justify-center rounded-full font-bold ${sizeClass}`}
+        style={{
+          backgroundColor: chordBg,
+          color: dark ? "#fff" : "#0f172a",
+          border: `2px solid ${ring}`,
+          boxSizing: "border-box",
+        }}
+        title={`${slotLabelForPc(slot, pc)} · acorde ${slotIdx + 1}`}
+      >
+        {slotLabelForPc(slot, pc)}
+      </div>
+    );
+  }
+
+  function NearChordsFretboard() {
+    const slotDataMaps = nearComputed.selected.map((v, idx) => {
+      const notesMap = new Map();
+      if (!nearSlots[idx]?.enabled || !v?.notes?.length) return { notesMap };
+      for (const n of v.notes) {
+        notesMap.set(`${n.sIdx}:${n.fret}`, {
+          pc: n.pc,
+          isBass: `${n.sIdx}:${n.fret}` === v.bassKey,
+        });
+      }
+      return { notesMap };
+    });
 
     const activeCount = nearSlots.filter((s) => s?.enabled).length;
 
@@ -5363,7 +6059,7 @@ export default function FretboardScalesPage() {
           <div>
             <div className="text-sm font-semibold text-slate-800">Mástil: acordes cercanos</div>
             <div className="text-xs text-slate-600">Acordes de la escala de {harmonizedScale.tonicName} · {harmonizedScale.scaleLabel}: {harmonizedScale.names.join(" · ")}</div>
-            <div className="text-xs text-slate-600">Fondo = color por acorde · círculos: colores por función (1/3/5/otras) · texto = nota/intervalo · anillo = bajo.</div>
+            <div className="text-xs text-slate-600">Relleno = color del acorde · borde = función (1/3/5/7/otras) · texto = nota/intervalo.</div>
           </div>
           <div className="flex flex-wrap items-end justify-end gap-3">
             <div className="flex items-end gap-1.5">
@@ -5374,8 +6070,8 @@ export default function FretboardScalesPage() {
                 title="Mover rango 1 traste a la izquierda"
                 onClick={() => setNearWindowStart((s) => Math.max(0, s - 1))}
               >
-                              <ChevronLeft className="h-4 w-4" />
-                            </button>
+                <ChevronLeft className="h-4 w-4" />
+              </button>
 
               <div className="flex items-end gap-1.5">
                 <div>
@@ -5402,8 +6098,8 @@ export default function FretboardScalesPage() {
                 title="Mover rango 1 traste a la derecha"
                 onClick={() => setNearWindowStart((s) => Math.min(nearStartMax, s + 1))}
               >
-                              <ChevronRight className="h-4 w-4" />
-                            </button>
+                <ChevronRight className="h-4 w-4" />
+              </button>
 
               <div className="ml-1 text-xs text-slate-600 tabular-nums">
                 {nearFrom}–{nearTo}
@@ -5416,7 +6112,6 @@ export default function FretboardScalesPage() {
           </div>
         </div>
 
-        {/* Cabecera de trastes */}
         <div className="grid items-center gap-1" style={{ gridTemplateColumns: fretGridCols(maxFret) }}>
           <div className="text-xs font-semibold text-slate-600">Cuerda</div>
           {Array.from({ length: maxFret + 1 }, (_, fret) => (
@@ -5433,38 +6128,32 @@ export default function FretboardScalesPage() {
                 <div className="text-xs font-medium text-slate-700">{st.label}</div>
 
                 {Array.from({ length: maxFret + 1 }, (_, fret) => {
-                  const cellKey = `${sIdx}:${fret}`;
                   const items = [];
                   for (let slotIdx = 0; slotIdx < 4; slotIdx++) {
                     if (!nearSlots[slotIdx]?.enabled) continue;
-                    const n = slotDataMaps[slotIdx].notesMap.get(cellKey);
+                    const n = slotDataMaps[slotIdx].notesMap.get(`${sIdx}:${fret}`);
                     if (!n) continue;
-                    const role = slotRoleOfPc(n.pc, nearSlots[slotIdx]);
-                    items.push({ slotIdx, pc: n.pc, isBass: n.isBass, role });
+                    items.push({ slotIdx, pc: n.pc, role: slotRoleOfPc(n.pc, nearSlots[slotIdx]) });
                   }
+
                   return (
                     <div
                       key={`${sIdx}-${fret}`}
-                      className={`relative flex h-8 overflow-visible items-center justify-center rounded-lg border ${fret === 0 ? "border-slate-300" : "border-slate-200"}`}
-                      style={{ backgroundColor: "#f8fafc", ...bgForCell(items) }}
+                      className={`group relative flex h-8 overflow-visible items-center justify-center rounded-lg border ${fret === 0 ? "border-slate-300" : "border-slate-200"}`}
+                      style={{ backgroundColor: "#f8fafc" }}
                     >
+                      <HoverCellNote sIdx={sIdx} fret={fret} visible={!items.length} />
                       {hasInlayCell(fret, sIdx) ? (
-                        <div
-                          className="pointer-events-none absolute left-1/2 z-10 -translate-x-1/2"
-                          style={{ bottom: "-10px" }}
-                        >
+                        <div className="pointer-events-none absolute left-1/2 z-10 -translate-x-1/2" style={{ bottom: "-10px" }}>
                           <div className="h-4 w-4 rounded-full bg-slate-300 opacity-95" />
                         </div>
                       ) : null}
                       {fret >= nearFrom && fret <= nearTo ? (
-                        <div
-                          className="pointer-events-none absolute inset-0 z-[2] rounded-lg"
-                          style={{ backgroundColor: "rgba(15, 23, 42, 0.05)" }}
-                        />
+                        <div className="pointer-events-none absolute inset-0 z-[2] rounded-lg" style={{ backgroundColor: "rgba(15, 23, 42, 0.05)" }} />
                       ) : null}
                       {items.length === 1 ? (
                         <div className="pointer-events-none">
-                          <Mini size="m" slotIdx={items[0].slotIdx} pc={items[0].pc} isBass={items[0].isBass} role={items[0].role} fret={fret} sIdx={sIdx} />
+                          <Mini size="m" slotIdx={items[0].slotIdx} pc={items[0].pc} role={items[0].role} fret={fret} sIdx={sIdx} />
                         </div>
                       ) : items.length ? (
                         <div className="absolute inset-0 pointer-events-none">
@@ -5473,22 +6162,95 @@ export default function FretboardScalesPage() {
                             .sort((a, b) => a.slotIdx - b.slotIdx)
                             .slice(0, 4)
                             .map((it, i2) => {
-                              const pos = cornerStyle(items.length, i2);
+                              const calibratedPos = calibratedClusterPos(items.length, i2);
+                              const pos = calibratedPos || cornerStyle(items.length, i2);
+                              const miniSize = calibratedPos ? "cal" : "s";
                               return (
                                 <div key={`${it.slotIdx}-${it.role}-${i2}`} className="absolute" style={pos}>
-                                  <Mini size="s" slotIdx={it.slotIdx} pc={it.pc} isBass={it.isBass} role={it.role} fret={fret} sIdx={sIdx} />
+                                  <Mini size={miniSize} slotIdx={it.slotIdx} pc={it.pc} role={it.role} fret={fret} sIdx={sIdx} />
                                 </div>
                               );
                             })}
                         </div>
                       ) : null}
-                      
                     </div>
                   );
                 })}
               </div>
             </React.Fragment>
           ))}
+        </div>
+      </section>
+    );
+  }
+
+  function ClusterOverlapDebugPanel() {
+    return (
+      <section className="mt-3 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-3">
+        <div className="text-sm font-semibold text-slate-800">Prueba solape (traste 23)</div>
+        <div className="mt-1 text-xs text-slate-600">Usa X, Y y tamaño para ajustar manualmente 4 círculos de prueba fuera del mástil.</div>
+
+        <div className="mt-3 flex flex-wrap gap-4">
+          <div className="rounded-xl border border-slate-200 bg-white p-3">
+            <div className="mb-2 text-xs font-semibold text-slate-700">Vista previa</div>
+            <div className="flex items-start gap-2">
+              <div className="pt-7 text-[11px] font-semibold text-slate-600">23</div>
+              <div className="relative h-8 w-[72px] rounded-lg border border-slate-200 bg-slate-50">
+                {clusterTestDots.map((dot, idx) => (
+                  <div
+                    key={idx}
+                    className="absolute rounded-full border-2 bg-white"
+                    style={{
+                      left: `${dot.x}px`,
+                      top: `${dot.y}px`,
+                      width: `${dot.size}px`,
+                      height: `${dot.size}px`,
+                      borderColor: dot.color,
+                      transform: "translate(-50%, -50%)",
+                    }}
+                    title={`Círculo ${idx + 1}: x ${dot.x}, y ${dot.y}, tamaño ${dot.size}`}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="grid flex-1 gap-2 md:grid-cols-2 xl:grid-cols-4">
+            {clusterTestDots.map((dot, idx) => (
+              <div key={idx} className="rounded-xl border border-slate-200 bg-white p-3">
+                <div className="text-xs font-semibold text-slate-700">Círculo {idx + 1}</div>
+                <div className="mt-2 grid grid-cols-3 gap-2">
+                  <div>
+                    <label className={UI_LABEL_SM}>X</label>
+                    <input
+                      type="number"
+                      className={UI_INPUT_SM + " mt-1 w-full"}
+                      value={dot.x}
+                      onChange={(e) => setClusterTestDot(idx, "x", e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className={UI_LABEL_SM}>Y</label>
+                    <input
+                      type="number"
+                      className={UI_INPUT_SM + " mt-1 w-full"}
+                      value={dot.y}
+                      onChange={(e) => setClusterTestDot(idx, "y", e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className={UI_LABEL_SM}>Tamaño</label>
+                    <input
+                      type="number"
+                      className={UI_INPUT_SM + " mt-1 w-full"}
+                      value={dot.size}
+                      onChange={(e) => setClusterTestDot(idx, "size", e.target.value)}
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
     );
@@ -5588,7 +6350,7 @@ export default function FretboardScalesPage() {
                           setRoutePickNext("start");
                         }
                       }}
-                      className={`relative flex h-8 overflow-visible items-center justify-center rounded-lg border ${
+                      className={`group relative flex h-8 overflow-visible items-center justify-center rounded-lg border ${
                         fret === 0 ? "border-slate-300" : "border-slate-200"
                       } ${mode === "route" && inScale ? "cursor-pointer hover:ring-2 hover:ring-slate-300" : ""}`}
                       style={{ backgroundColor: "#f8fafc", ...bgPat, ...bgRoute }}
@@ -5601,6 +6363,7 @@ export default function FretboardScalesPage() {
                           <div className="h-4 w-4 rounded-full bg-slate-300 opacity-95" />
                         </div>
                       ) : null}
+                      <HoverCellNote sIdx={sIdx} fret={fret} visible={!shouldRender} />
                       {shouldRender && displayRole ? (
                         <Circle pc={pc} role={displayRole} fret={fret} sIdx={sIdx} badge={mode === "route" ? routeIdx : null} />
                       ) : showAllNotes ? (
@@ -5891,7 +6654,7 @@ export default function FretboardScalesPage() {
               <div className="mt-2 flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-[420px] flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <div className={UI_LABEL_SM}>Armonización (cuatriadas)</div>
+                    <div className={UI_LABEL_SM}>Armonización</div>
                     <select
                       className={UI_SELECT_SM + " w-44"}
                       value={harmonyMode}
@@ -6034,27 +6797,25 @@ export default function FretboardScalesPage() {
                 <div className="space-y-3">
                   {/* ACORDES (principal) */}
                   <section className="rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-200">
-                    <div className="text-sm font-semibold text-slate-800">Acordes</div>
-                    <div className="mt-2 rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="text-sm font-semibold text-slate-800">Acordes</div>
+                      <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-700">
+                        <input
+                          type="checkbox"
+                          checked={chordDetectMode}
+                          onChange={(e) => setChordDetectMode(e.target.checked)}
+                          className="h-4 w-4 rounded border-slate-300"
+                        />
+                        Investigar en mástil
+                      </label>
+                    </div>
+                    <fieldset disabled={chordDetectMode} className={`mt-2 rounded-2xl border border-slate-200 bg-slate-50 p-3 ${chordDetectMode ? "opacity-70" : ""}`}>
                       <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
                         <div className="text-sm font-semibold text-slate-800">
                           Acorde
                           <span className="ml-2 rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-semibold text-slate-700">{chordEngineLayerLabel(chordEnginePlan)}</span>
-                          <span className="ml-2 text-xs font-semibold text-slate-800">
-                            {chordDisplayNameFromUI({
-                              rootPc: chordRootPc,
-                              preferSharps: chordPreferSharps,
-                              quality: chordQuality,
-                              suspension: chordSuspension,
-                              structure: chordStructure,
-                              ext7: chordExt7,
-                              ext6: chordExt6,
-                              ext9: chordExt9,
-                              ext11: chordExt11,
-                              ext13: chordExt13,
-                            })}
-                          </span>
-                          <span className="ml-2 text-xs font-normal text-slate-600">(Notas: {spelledChordNotes.join(", ")})</span>
+                          <span className="ml-2 text-xs font-semibold text-slate-800">{chordSectionDisplayName}</span>
+                          <span className="ml-2 text-xs font-normal text-slate-600">(Notas: {chordDetectMode ? (chordDetectSelectedNotesText || "—") : spelledChordNotes.join(", ")})</span>
                         </div>
                         <button
                           type="button"
@@ -6396,10 +7157,45 @@ export default function FretboardScalesPage() {
                           </select>
                         </div>
                       </div>
-                    </div>
+                    </fieldset>
                   </section>
 
-                  <ChordFretboard title="Acorde" voicing={activeChordVoicing} voicingIdx={chordVoicingIdx} voicingTotal={Math.max(1, chordVoicings.length)} />
+                  {chordDetectMode ? (
+                    <>
+                      <ChordInvestigationFretboard />
+                      <section className="rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-200">
+                        <div className="text-sm font-semibold text-slate-800">Posibles acordes</div>
+                        <div className="mt-1 text-xs text-slate-600">
+                          {chordDetectSelectedNotes.length
+                            ? "Selecciona una lectura para copiarla a la sección Acorde."
+                            : "Añade notas en el mástil para ver lecturas posibles."}
+                        </div>
+                        <div className="mt-3 space-y-2">
+                          {chordDetectCandidates.length ? chordDetectCandidates.map((cand) => (
+                            <label key={cand.id} className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
+                              <input
+                                type="radio"
+                                name="detected-chord"
+                                checked={chordDetectCandidateId === cand.id}
+                                onChange={() => applyDetectedCandidate(cand)}
+                                className="mt-0.5 h-4 w-4"
+                              />
+                              <div>
+                                <div className="font-semibold text-slate-800">{cand.name}</div>
+                                <div>{cand.intervalPairsText}</div>
+                              </div>
+                            </label>
+                          )) : (
+                            <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-3 py-3 text-xs text-slate-500">
+                              No hay lecturas claras todavía. Empieza con 3 o 4 notas.
+                            </div>
+                          )}
+                        </div>
+                      </section>
+                    </>
+                  ) : (
+                    <ChordFretboard title="Acorde" voicing={activeChordVoicing} voicingIdx={chordVoicingIdx} voicingTotal={Math.max(1, chordVoicings.length)} />
+                  )}
                   <StudyPanel />
 
                   {/* ACORDES CERCANOS */}
@@ -6407,7 +7203,7 @@ export default function FretboardScalesPage() {
                     <div className="flex flex-wrap items-end justify-between gap-2">
                       <div>
                         <div className="text-sm font-semibold text-slate-800">Acordes cercanos</div>
-                        <div className="text-xs text-slate-600">Selecciona hasta 4 acordes y busca digitaciones dentro de un rango. Ordena por cercanía al Acorde 1.</div>
+                        <div className="text-xs text-slate-600">Selecciona hasta 4 acordes y busca digitaciones dentro de un rango. Ordena por cercanía al primer acorde activo.</div>
                         <div className="text-xs text-slate-500">Los acordes se ajustan automáticamente según la nota raíz y la escala activas.</div>
                       </div>
 
@@ -6424,9 +7220,13 @@ export default function FretboardScalesPage() {
                       </div>
                     </div>
 
+                    <div className="mt-3 text-xs text-slate-600">
+                      <b>Posibles tonalidades:</b> {nearTonalityAnalysis.text}
+                    </div>
+
                     <div className="mt-3 space-y-2">
                       {nearSlots.map((slot, idx) => {
-                        const disableAll = idx > 0 && !slot.enabled;
+                        const disableAll = !slot.enabled;
                         const notes = spellChordNotesForSlot(slot).join(", ");
                         const chordName = chordDisplayNameFromUI({
                           rootPc: slot.rootPc,
@@ -6450,18 +7250,20 @@ export default function FretboardScalesPage() {
                           ext11: slot.ext11,
                           ext13: slot.ext13,
                         });
-                        const options = (r?.ranked || []).slice(0, idx === 0 ? 60 : 40);
+                        const rankedOptions = r?.ranked || [];
+                        const options = [...rankedOptions]
+                          .sort((a, b) => (a.minFret - b.minFret) || ((a.reach ?? (a.span + 1)) - (b.reach ?? (b.span + 1))) || (a.maxFret - b.maxFret) || a.frets.localeCompare(b.frets))
+                          .slice(0, idx === 0 ? 60 : 40);
                         const errMsg = r?.err || null;
 
                         return (
                           <div key={idx} className={`rounded-2xl border border-slate-200 p-3 ${disableAll ? "bg-slate-50" : "bg-white"}`}>
                             <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
                               <div className="flex items-center gap-2 text-sm font-semibold text-slate-800">
-                                Acorde {idx + 1}
-                                {idx === 0 ? " (base)" : ""}
-                                <span className="ml-2 rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-semibold text-slate-700">{chordEngineLayerLabel(r?.plan)}</span>
-                                <span className="ml-2 text-xs font-semibold text-slate-800">{chordName}</span>
-                                <span className="ml-2 text-xs font-normal text-slate-600">(Notas: {notes})</span>
+                                <span>Acorde {idx + 1}{nearComputed.baseIdx === idx ? " (referencia)" : ""}</span>
+                                <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-semibold text-slate-700">{chordEngineLayerLabel(r?.plan)}</span>
+                                <span className="text-xs font-semibold text-slate-800">{chordName}</span>
+                                <span className="text-xs font-normal text-slate-600">(Notas: {notes})</span>
                               </div>
 
                               <div className="flex items-center gap-2">
@@ -6483,18 +7285,16 @@ export default function FretboardScalesPage() {
                                   className="h-6 w-10 cursor-pointer rounded-md border border-slate-200 bg-white"
                                   disabled={disableAll}
                                 />
-                                {idx > 0 ? (
-                                  <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-700">
-                                    <input
-                                      type="checkbox"
-                                      checked={!!slot.enabled}
-                                      onChange={(e) => updateNearSlot(idx, { enabled: e.target.checked, selFrets: null })}
-                                      className="h-4 w-4 rounded border-slate-300"
-                                      title={`Activar/desactivar Acorde ${idx + 1}`}
-                                    />
-                                    Activo
-                                  </label>
-                                ) : null}
+                                <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-700">
+                                  <input
+                                    type="checkbox"
+                                    checked={!!slot.enabled}
+                                    onChange={(e) => updateNearSlot(idx, { enabled: e.target.checked, selFrets: null })}
+                                    className="h-4 w-4 rounded border-slate-300"
+                                    title={`Activar/desactivar Acorde ${idx + 1}`}
+                                  />
+                                  Activo
+                                </label>
                               </div>
                             </div>
 
@@ -6514,9 +7314,7 @@ export default function FretboardScalesPage() {
                                     disabled={disableAll}
                                   >
                                     {LETTERS.map((l) => (
-                                      <option key={l} value={l}>
-                                        {l}
-                                      </option>
+                                      <option key={l} value={l}>{l}</option>
                                     ))}
                                   </select>
                                   <button
@@ -6524,58 +7322,42 @@ export default function FretboardScalesPage() {
                                     className={`${UI_BTN_SM} ${(!NATURAL_PCS.has(mod12(slot.rootPc)) && !slot.spellPreferSharps) ? "!bg-slate-900 !text-white !border-slate-900" : ""}`}
                                     title="Bajar 1 semitono"
                                     onClick={() => {
-                                    const letter = chordUiLetterFromPc(slot.rootPc, false); // fuerza letra desde bemoles
-                                    const nat = mod12(NATURAL_PC[letter]);
-                                    const cur = mod12(slot.rootPc);
-                                    if (cur !== nat) {
-                                      updateNearSlot(idx, { rootPc: nat, selFrets: null, spellPreferSharps: false });
-                                      return;
-                                    }
-                                    updateNearSlot(idx, { rootPc: mod12(nat - 1), selFrets: null, spellPreferSharps: false });
-                                  }}
+                                      const letter = chordUiLetterFromPc(slot.rootPc, false);
+                                      const nat = mod12(NATURAL_PC[letter]);
+                                      const cur = mod12(slot.rootPc);
+                                      if (cur !== nat) {
+                                        updateNearSlot(idx, { rootPc: nat, selFrets: null, spellPreferSharps: false });
+                                        return;
+                                      }
+                                      updateNearSlot(idx, { rootPc: mod12(nat - 1), selFrets: null, spellPreferSharps: false });
+                                    }}
                                     disabled={disableAll}
-                                  >
-                                    ♭
-                                  </button>
+                                  >♭</button>
                                   <button
                                     type="button"
                                     className={`${UI_BTN_SM} ${(!NATURAL_PCS.has(mod12(slot.rootPc)) && slot.spellPreferSharps) ? "!bg-slate-900 !text-white !border-slate-900" : ""}`}
                                     title="Subir 1 semitono"
                                     onClick={() => {
-                                    const letter = chordUiLetterFromPc(slot.rootPc, true); // fuerza letra desde sostenidos
-                                    const nat = mod12(NATURAL_PC[letter]);
-                                    const cur = mod12(slot.rootPc);
-                                    if (cur !== nat) {
-                                      updateNearSlot(idx, { rootPc: nat, selFrets: null, spellPreferSharps: true });
-                                      return;
-                                    }
-                                    updateNearSlot(idx, { rootPc: mod12(nat + 1), selFrets: null, spellPreferSharps: true });
-                                  }}
+                                      const letter = chordUiLetterFromPc(slot.rootPc, true);
+                                      const nat = mod12(NATURAL_PC[letter]);
+                                      const cur = mod12(slot.rootPc);
+                                      if (cur !== nat) {
+                                        updateNearSlot(idx, { rootPc: nat, selFrets: null, spellPreferSharps: true });
+                                        return;
+                                      }
+                                      updateNearSlot(idx, { rootPc: mod12(nat + 1), selFrets: null, spellPreferSharps: true });
+                                    }}
                                     disabled={disableAll}
-                                  >
-                                    ♯
-                                  </button>
+                                  >♯</button>
                                 </div>
                               </div>
 
                               <div className="min-w-0">
                                 <label className={UI_LABEL_SM}>Calidad / Sus</label>
                                 <div className="mt-1 grid grid-cols-2 gap-1.5">
-                                  <select
-                                    className={UI_SELECT_SM}
-                                    value={slot.quality}
-                                    onChange={(e) => updateNearSlot(idx, { quality: e.target.value, selFrets: null })}
-                                    disabled={disableAll}
-                                  >
+                                  <select className={UI_SELECT_SM} value={slot.quality} onChange={(e) => updateNearSlot(idx, { quality: e.target.value, selFrets: null })} disabled={disableAll}>
                                     {CHORD_QUALITIES.map((q) => (
-                                      <option key={q.value} value={q.value}
-                                        disabled={
-                                          (q.value === "hdim" && slot.structure === "triad" && !slot.ext7) ||
-                                          (q.value === "dom" && slot.structure === "triad" && !slot.ext7)
-                                        }
-                                      >
-                                        {q.label}
-                                      </option>
+                                      <option key={q.value} value={q.value} disabled={(q.value === "hdim" && slot.structure === "triad" && !slot.ext7) || (q.value === "dom" && slot.structure === "triad" && !slot.ext7)}>{q.label}</option>
                                     ))}
                                   </select>
                                   <select
@@ -6615,9 +7397,7 @@ export default function FretboardScalesPage() {
                                   disabled={disableAll}
                                 >
                                   {CHORD_STRUCTURES.map((s) => (
-                                    <option key={s.value} value={s.value}>
-                                      {s.label}
-                                    </option>
+                                    <option key={s.value} value={s.value}>{s.label}</option>
                                   ))}
                                 </select>
                               </div>
@@ -6657,20 +7437,12 @@ export default function FretboardScalesPage() {
                                       title="Tipo de drop. Usa — para voicing libre"
                                     >
                                       {DROP_FORM_OPTIONS.map((form) => (
-                                        <option
-                                          key={form.value}
-                                          value={form.value}
-                                          disabled={form.value !== "none" && !slotUi.dropEligible}
-                                        >
-                                          {form.label}
-                                        </option>
+                                        <option key={form.value} value={form.value} disabled={form.value !== "none" && !slotUi.dropEligible}>{form.label}</option>
                                       ))}
                                     </select>
                                   </div>
                                 ) : (
-                                  <div className="mt-1 flex h-7 items-center rounded-xl border border-slate-200 bg-slate-100 px-2 text-xs text-slate-500">
-                                    Automática
-                                  </div>
+                                  <div className="mt-1 flex h-7 items-center rounded-xl border border-slate-200 bg-slate-100 px-2 text-xs text-slate-500">Automática</div>
                                 )}
                               </div>
 
@@ -6678,9 +7450,7 @@ export default function FretboardScalesPage() {
                                 <label className={UI_LABEL_SM}>Inversión</label>
                                 <select className={UI_SELECT_SM + " mt-1"} value={slot.inversion} onChange={(e) => updateNearSlot(idx, { inversion: e.target.value, selFrets: null })} disabled={disableAll}>
                                   {CHORD_INVERSIONS.map((inv) => (
-                                    <option key={inv.value} value={inv.value} disabled={!slotUi.allowThirdInversion && inv.value === "3"}>
-                                      {inv.label}
-                                    </option>
+                                    <option key={inv.value} value={inv.value} disabled={!slotUi.allowThirdInversion && inv.value === "3"}>{inv.label}</option>
                                   ))}
                                 </select>
                               </div>
@@ -6695,12 +7465,7 @@ export default function FretboardScalesPage() {
                                   ) : null}
                                   {slotUi.ext.showSix ? (
                                     <label className="inline-flex items-center gap-2">
-                                      <input
-                                        type="checkbox"
-                                        checked={!!slot.ext6}
-                                        onChange={(e) => updateNearSlot(idx, { ext6: e.target.checked, selFrets: null })}
-                                        disabled={disableAll || !slotUi.ext.canToggleSix}
-                                      /> 6
+                                      <input type="checkbox" checked={!!slot.ext6} onChange={(e) => updateNearSlot(idx, { ext6: e.target.checked, selFrets: null })} disabled={disableAll || !slotUi.ext.canToggleSix} /> 6
                                     </label>
                                   ) : null}
                                   {slotUi.ext.showNine ? (
@@ -6752,9 +7517,7 @@ export default function FretboardScalesPage() {
                                   >
                                     <option value="(auto)">(auto)</option>
                                     {options.map((v) => (
-                                      <option key={v.frets} value={v.frets}>
-                                        {`${v.frets} (min ${v.minFret} · dist ${v.reach ?? (v.span + 1)})`}
-                                      </option>
+                                      <option key={v.frets} value={v.frets}>{`${v.frets} (min ${v.minFret} · dist ${v.reach ?? (v.span + 1)})`}</option>
                                     ))}
                                   </select>
 
@@ -6782,12 +7545,7 @@ export default function FretboardScalesPage() {
 
                               <div className="min-w-0">
                                 <label className={UI_LABEL_SM}>Dist.</label>
-                                <select
-                                  className={UI_SELECT_SM + " mt-1 w-full"}
-                                  value={slot.maxDist || 4}
-                                  onChange={(e) => updateNearSlot(idx, { maxDist: parseInt(e.target.value, 10), selFrets: null })}
-                                  disabled={disableAll}
-                                >
+                                <select className={UI_SELECT_SM + " mt-1 w-full"} value={slot.maxDist || 4} onChange={(e) => updateNearSlot(idx, { maxDist: parseInt(e.target.value, 10), selFrets: null })} disabled={disableAll}>
                                   {[4, 5, 6].map((n) => (
                                     <option key={n} value={n}>{n}</option>
                                   ))}
