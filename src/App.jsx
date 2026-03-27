@@ -969,8 +969,8 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "2.10";
-const APP_VERSION_STAMP = "2026-03-27 15:00";
+const APP_VERSION = "2.16";
+const APP_VERSION_STAMP = "2026-03-27 17:00";
 
 function chordDbUrl(keyName, suffix) {
   // Ruta RELATIVA dentro de /public (sin base) => chords-db/...
@@ -1078,12 +1078,22 @@ function buildVoicingFromFretsLH({ fretsLH, rootPc, maxFret }) {
   };
 }
 
+function frettedSpanFromFrets(frets) {
+  const arr = Array.isArray(frets) ? frets.filter((f) => Number.isFinite(f) && f >= 0) : [];
+  const fretted = arr.filter((f) => f > 0);
+  const ref = fretted.length ? fretted : arr;
+  if (!ref.length) return 0;
+  return Math.max(...ref) - Math.min(...ref);
+}
+
 function isErgonomicVoicing(v, maxReachLimit = 4) {
   if (!v?.notes?.length) return false;
 
   const fretted = v.notes.filter((n) => n.fret > 0);
   const frets = fretted.map((n) => n.fret).sort((a, b) => a - b);
-  const reach = frets.length ? (frets[frets.length - 1] - frets[0] + 1) : (v.reach ?? ((v.maxFret - v.minFret) + 1));
+  const reach = frets.length
+    ? (frets[frets.length - 1] - frets[0] + 1)
+    : (v.reach ?? ((v.maxFret - v.minFret) + 1));
 
   // Distancia real entre notas pisadas. Las cuerdas al aire no deben inflar el alcance.
   if (reach > maxReachLimit) return false;
@@ -1102,7 +1112,6 @@ function isErgonomicVoicing(v, maxReachLimit = 4) {
 
 function generateTriadVoicings({ rootPc, thirdOffset, fifthOffset, inversion, maxFret, maxSpan = 4 }) {
   const targets = [0, thirdOffset, fifthOffset].map((x) => mod12(rootPc + x));
-  const degrees = [0, thirdOffset, fifthOffset].map(mod12);
 
   // Sets de triadas "tocables": combinaciones de 3 cuerdas con salto máximo de 2 cuerdas
   // (p.ej. permite 4-3-1 como en 43,35,15) para que haya opciones en rangos estrechos.
@@ -1136,20 +1145,14 @@ function generateTriadVoicings({ rootPc, thirdOffset, fifthOffset, inversion, ma
       const sB = set[1];
       const sC = set[2];
 
-      const pcA = targets[perm[0]];
-      const pcB = targets[perm[1]];
-      const pcC = targets[perm[2]];
-
-      const fa = fretsForPcOnString(sA, pcA, maxFret);
-      const fb = fretsForPcOnString(sB, pcB, maxFret);
-      const fc = fretsForPcOnString(sC, pcC, maxFret);
+      const fa = fretsForPcOnString(sA, targets[perm[0]], maxFret);
+      const fb = fretsForPcOnString(sB, targets[perm[1]], maxFret);
+      const fc = fretsForPcOnString(sC, targets[perm[2]], maxFret);
 
       for (const f1 of fa) {
         for (const f2 of fb) {
           for (const f3 of fc) {
-            const minF = Math.min(f1, f2, f3);
-            const maxF2 = Math.max(f1, f2, f3);
-            const span = maxF2 - minF;
+            const span = frettedSpanFromFrets([f1, f2, f3]);
             if (span > maxSpan) continue;
 
             // Construye fretsLH: LowE..HighE
@@ -1164,6 +1167,7 @@ function generateTriadVoicings({ rootPc, thirdOffset, fifthOffset, inversion, ma
 
             // Exactamente 3 notas y exactamente {1,3,5}
             if (v.notes.length !== 3) continue;
+
             const rel = v.relIntervals;
             if (rel.size !== 3) continue;
             if (![0, mod12(thirdOffset), mod12(fifthOffset)].every((x) => rel.has(x))) continue;
@@ -1188,8 +1192,6 @@ function generateTriadVoicings({ rootPc, thirdOffset, fifthOffset, inversion, ma
 
 function generateTetradVoicings({ rootPc, thirdOffset, fifthOffset, seventhOffset, inversion, maxFret, maxSpan = 5 }) {
   const targets = [0, thirdOffset, fifthOffset, seventhOffset].map((x) => mod12(rootPc + x));
-  const degrees = [0, thirdOffset, fifthOffset, seventhOffset].map(mod12);
-
   // 3 sets típicos de cuatriadas: (1-2-3-4), (2-3-4-5), (3-4-5-6)
   const sets = [
     [0, 1, 2, 3],
@@ -1221,28 +1223,26 @@ function generateTetradVoicings({ rootPc, thirdOffset, fifthOffset, seventhOffse
 
   for (const set of sets) {
     for (const perm of perms) {
-      const s = set;
       const pcs = [targets[perm[0]], targets[perm[1]], targets[perm[2]], targets[perm[3]]];
-      const fretsList = pcs.map((pc, idx) => fretsForPcOnString(s[idx], pc, maxFret));
+      const fretsList = pcs.map((pc, idx) => fretsForPcOnString(set[idx], pc, maxFret));
 
       for (const f1 of fretsList[0]) {
         for (const f2 of fretsList[1]) {
           for (const f3 of fretsList[2]) {
             for (const f4 of fretsList[3]) {
-              const minF = Math.min(f1, f2, f3, f4);
-              const maxF2 = Math.max(f1, f2, f3, f4);
-              const span = maxF2 - minF;
+              const span = frettedSpanFromFrets([f1, f2, f3, f4]);
               if (span > maxSpan) continue;
 
               const fretsLH = [null, null, null, null, null, null];
-              fretsLH[5 - s[0]] = f1;
-              fretsLH[5 - s[1]] = f2;
-              fretsLH[5 - s[2]] = f3;
-              fretsLH[5 - s[3]] = f4;
+              fretsLH[5 - set[0]] = f1;
+              fretsLH[5 - set[1]] = f2;
+              fretsLH[5 - set[2]] = f3;
+              fretsLH[5 - set[3]] = f4;
 
               const v = buildVoicingFromFretsLH({ fretsLH, rootPc, maxFret });
               if (!v || !isErgonomicVoicing(v, maxSpan)) continue;
               if (v.notes.length !== 4) continue;
+
               const rel = v.relIntervals;
               if (rel.size !== 4) continue;
               if (![0, mod12(thirdOffset), mod12(fifthOffset), mod12(seventhOffset)].every((x) => rel.has(x))) continue;
@@ -1312,7 +1312,7 @@ function augmentVoicingsWithChordToneDuplicatesInWindow({ voicings, rootPc, allo
       const alts = [];
       const addAlt = (fret) => {
         if (fret === baseFret) return;
-        if (alts.some((x) => x === fret)) return;
+        if (alts.includes(fret)) return;
         alts.push(fret);
       };
 
@@ -1323,7 +1323,7 @@ function augmentVoicingsWithChordToneDuplicatesInWindow({ voicings, rootPc, allo
         if (sIdx === 0 || sIdx === 5) addAlt(null);
       }
 
-      return { sIdx, baseFret, alts };
+      return { sIdx, alts };
     }).filter((x) => x.alts.length);
 
     if (!stringDefs.length) continue;
@@ -1346,14 +1346,18 @@ function augmentVoicingsWithChordToneDuplicatesInWindow({ voicings, rootPc, allo
         const bassInt = mod12(v.bassPc - rootPc);
         if (Array.isArray(allowedBassIntervals) && allowedBassIntervals.length && !allowedBassIntervals.includes(bassInt)) return;
 
-        pushVoicing(v);
+        pushVoicing({
+          ...v,
+          _form: base?._form,
+          _sourceRootPc: base?._sourceRootPc,
+        });
         return;
       }
 
-      const { sIdx, alts } = stringDefs[idx];
       rec(idx + 1, fretsLH, changedCount);
       if (changedCount >= 2) return;
 
+      const { sIdx, alts } = stringDefs[idx];
       for (const fret of alts) {
         const next = [...fretsLH];
         next[5 - sIdx] = fret;
@@ -1373,7 +1377,7 @@ function augmentExactVoicingsWithOpenSubstitutions({ voicings, rootPc, allowedIn
   const seen = new Set();
   const mustHave = requiredIntervals instanceof Set ? requiredIntervals : new Set(Array.from(allowedIntervals || []).map(mod12));
 
-  const pushIfValid = (fretsLH) => {
+  const pushBuiltIfValid = (fretsLH, baseMeta = null) => {
     if (!Array.isArray(fretsLH)) return;
     const v = buildVoicingFromFretsLH({ fretsLH, rootPc, maxFret });
     if (!v || !isErgonomicVoicing(v, maxSpan)) return;
@@ -1393,10 +1397,19 @@ function augmentExactVoicingsWithOpenSubstitutions({ voicings, rootPc, allowedIn
 
     if (seen.has(v.frets)) return;
     seen.add(v.frets);
-    out.push(v);
+    out.push({
+      ...v,
+      _form: baseMeta?._form,
+      _sourceRootPc: baseMeta?._sourceRootPc,
+    });
   };
 
-  baseList.forEach((v) => pushIfValid(parseChordDbFretsString(v?.frets)));
+  baseList.forEach((v) => {
+    if (!v?.frets) return;
+    if (seen.has(v.frets)) return;
+    seen.add(v.frets);
+    out.push(v);
+  });
 
   for (const base of baseList) {
     const baseFretsLH = parseChordDbFretsString(base?.frets);
@@ -1415,7 +1428,7 @@ function augmentExactVoicingsWithOpenSubstitutions({ voicings, rootPc, allowedIn
       if (!openEligibleLhIdx[item.lhIdx]) continue;
       const next = [...baseFretsLH];
       next[item.lhIdx] = 0;
-      pushIfValid(next);
+      pushBuiltIfValid(next, base);
     }
 
     for (const add of mutedIdx) {
@@ -1424,7 +1437,7 @@ function augmentExactVoicingsWithOpenSubstitutions({ voicings, rootPc, allowedIn
         const next = [...baseFretsLH];
         next[add.lhIdx] = 0;
         next[mute.lhIdx] = null;
-        pushIfValid(next);
+        pushBuiltIfValid(next, base);
       }
     }
   }
@@ -1502,9 +1515,10 @@ function generateExactIntervalChordVoicings({ rootPc, intervals, bassInterval = 
         }
 
         for (const fret of fretLists[idx]) {
-          const nextMin = minF == null ? fret : Math.min(minF, fret);
-          const nextMax = maxF2 == null ? fret : Math.max(maxF2, fret);
-          if (nextMax - nextMin > maxSpan) continue;
+          const nextMin = fret > 0 ? (minF == null ? fret : Math.min(minF, fret)) : minF;
+          const nextMax = fret > 0 ? (maxF2 == null ? fret : Math.max(maxF2, fret)) : maxF2;
+          const nextSpan = nextMin == null || nextMax == null ? 0 : (nextMax - nextMin);
+          if (nextSpan > maxSpan) continue;
           fretsLH[5 - set[idx]] = fret;
           rec(idx + 1, nextMin, nextMax);
           fretsLH[5 - set[idx]] = null;
@@ -1518,7 +1532,6 @@ function generateExactIntervalChordVoicings({ rootPc, intervals, bassInterval = 
   out.sort((a, b) => (a.minFret - b.minFret) || (a.span - b.span) || (a.maxFret - b.maxFret));
   return out;
 }
-
 
 function isDropForm(form) {
   return String(form || "").startsWith("drop");
@@ -1643,9 +1656,27 @@ function dedupeAndSortVoicings(list) {
       map.set(item.frets, item);
       continue;
     }
+
     const prevCost = (prev.minFret ?? 0) * 10 + (prev.span ?? 0);
     const nextCost = (item.minFret ?? 0) * 10 + (item.span ?? 0);
-    if (nextCost < prevCost) map.set(item.frets, item);
+    const prevHasDropMeta = !!prev._form && isDropForm(prev._form);
+    const nextHasDropMeta = !!item._form && isDropForm(item._form);
+
+    if (nextCost < prevCost) {
+      map.set(item.frets, item);
+      continue;
+    }
+
+    if (nextCost === prevCost) {
+      if (nextHasDropMeta && !prevHasDropMeta) {
+        map.set(item.frets, item);
+        continue;
+      }
+      if ((item._sourceRootPc != null) && (prev._sourceRootPc == null)) {
+        map.set(item.frets, item);
+        continue;
+      }
+    }
   }
   return Array.from(map.values()).sort((a, b) => (a.minFret - b.minFret) || (a.span - b.span) || (a.maxFret - b.maxFret) || a.frets.localeCompare(b.frets));
 }
@@ -2520,7 +2551,7 @@ function generateDropTetradVoicings({ rootPc, thirdOffset, fifthOffset, seventhO
       }
       if (!ok) continue;
 
-      const span = Math.max(...fretsPerLowToHigh.map((x) => x.fret)) - Math.min(...fretsPerLowToHigh.map((x) => x.fret));
+      const span = frettedSpanFromFrets(fretsPerLowToHigh.map((x) => x.fret));
       if (span > maxSpan) continue;
 
       const fretsLH = [null, null, null, null, null, null];
@@ -3638,10 +3669,14 @@ function inferControlTitle(el) {
   }
 
   if (tag === "input" && type === "color") return label ? (label + ": elegir color") : "Elegir color";
-  if (tag === "input" && type === "checkbox") return label || "Activar o desactivar";
+  if (tag === "input" && type === "checkbox") {
+    if (labelNorm.includes("permitir cuerdas al aire")) return "Permite usar cuerdas al aire como opción de voicing. La distancia se calcula solo con las notas pisadas.";
+    return label || "Activar o desactivar";
+  }
   if (tag === "input") return label || "Introducir valor";
 
   if (tag === "button") {
+    if (ownText === "Estudiar") return "Abre el análisis del acorde, del voicing y de sus tensiones.";
     if (ownText === "♭") return "Bajar 1 semitono";
     if (ownText === "♯") return "Subir 1 semitono";
     if (ownText === "Auto") return "Deja que la aplicación elija automáticamente.";
@@ -3711,6 +3746,7 @@ function sanitizeNearSlotValue(value, fallback) {
     ext13: sanitizeBoolValue(slot.ext13, fallback.ext13),
     spellPreferSharps: sanitizeBoolValue(slot.spellPreferSharps, fallback.spellPreferSharps),
     maxDist: sanitizeOneOf(Number(slot.maxDist), [4, 5, 6], fallback.maxDist),
+    allowOpenStrings: sanitizeBoolValue(slot.allowOpenStrings, fallback.allowOpenStrings),
     selFrets: typeof slot.selFrets === "string" || slot.selFrets == null ? slot.selFrets : fallback.selFrets,
   };
 }
@@ -4175,6 +4211,7 @@ export default function FretboardScalesPage() {
   const [chordVoicingIdx, setChordVoicingIdx] = useState(0);
   const [chordSelectedFrets, setChordSelectedFrets] = useState(null);
   const [chordMaxDist, setChordMaxDist] = useState(4);
+  const [chordAllowOpenStrings, setChordAllowOpenStrings] = useState(false);
   const lastChordVoicingRef = useRef(null);
   const skipChordVoicingRefSyncRef = useRef(false);
   const pendingChordRestoreRef = useRef({ active: false, frets: null });
@@ -4228,6 +4265,7 @@ export default function FretboardScalesPage() {
       ext13: false,
       spellPreferSharps: chordSpellPreferSharps,
       maxDist: 4,
+      allowOpenStrings: false,
       selFrets: null,
     };
 
@@ -4247,6 +4285,7 @@ export default function FretboardScalesPage() {
       ext13: false,
       spellPreferSharps: chordSpellPreferSharps,
       maxDist: 4,
+      allowOpenStrings: false,
       selFrets: null,
     });
 
@@ -4436,6 +4475,7 @@ export default function FretboardScalesPage() {
     chordVoicingIdx,
     chordSelectedFrets,
     chordMaxDist,
+    chordAllowOpenStrings,
     nearWindowStart,
     nearWindowSize,
     nearAutoScaleSync,
@@ -4489,6 +4529,7 @@ export default function FretboardScalesPage() {
     chordVoicingIdx,
     chordSelectedFrets,
     chordMaxDist,
+    chordAllowOpenStrings,
     nearWindowStart,
     nearWindowSize,
     nearAutoScaleSync,
@@ -4613,6 +4654,7 @@ export default function FretboardScalesPage() {
         pendingChordRestoreRef.current = { active: true, frets: restored };
       }
       if ("chordMaxDist" in saved) setChordMaxDist(sanitizeOneOf(Number(saved.chordMaxDist), [4, 5, 6], 4));
+      if ("chordAllowOpenStrings" in saved) setChordAllowOpenStrings(sanitizeBoolValue(saved.chordAllowOpenStrings, false));
 
       if ("nearWindowStart" in saved) setNearWindowStart(sanitizeNumberValue(saved.nearWindowStart, 2, 0, 24));
       if ("nearWindowSize" in saved) setNearWindowSize(sanitizeNumberValue(saved.nearWindowSize, 6, 1, 24));
@@ -5107,6 +5149,42 @@ export default function FretboardScalesPage() {
     const inversionChoices = concreteInversionsForSelection(plan.inversion, plan.ui?.allowThirdInversion);
     const selectedBassIntervals = bassIntervalsForSelection(plan);
     const rootCandidates = symmetricRootCandidatesForPlan(plan);
+    const finalizeMainVoicings = (list) => {
+      const base = dedupeAndSortVoicings(list);
+      if (!chordAllowOpenStrings) return base;
+      const allowedIntervals = new Set((plan.intervals || []).map(mod12));
+      const requiredIntervals = new Set((plan.intervals || []).map(mod12));
+
+      if (plan.structure === "chord") {
+        return augmentVoicingsWithChordToneDuplicatesInWindow({
+          voicings: base,
+          rootPc: plan.rootPc,
+          allowedIntervals,
+          requiredIntervals,
+          allowedBassIntervals: selectedBassIntervals,
+          nearFrom: 0,
+          nearTo: maxFret,
+          maxFret,
+          maxSpan: chordMaxDist,
+        });
+      }
+
+      const exactNoteCount = allowedIntervals.size;
+      if (exactNoteCount < 3 || exactNoteCount > 4) return base;
+
+      return augmentExactVoicingsWithOpenSubstitutions({
+        voicings: base,
+        rootPc: plan.rootPc,
+        allowedIntervals,
+        requiredIntervals,
+        allowedBassIntervals: selectedBassIntervals,
+        nearFrom: 0,
+        nearTo: maxFret,
+        maxFret,
+        maxSpan: chordMaxDist,
+        exactNoteCount,
+      });
+    };
 
     if (plan.generator === "triad") {
       const tri = dedupeAndSortVoicings(rootCandidates.flatMap((rootCandidate) =>
@@ -5121,7 +5199,8 @@ export default function FretboardScalesPage() {
           }), plan.form).map((v) => normalizeGeneratedVoicingForDisplay(v, plan.rootPc, rootCandidate))
         )
       ));
-      return tri.slice(0, 60);
+      const finalTri = finalizeMainVoicings(tri);
+      return finalTri.slice(0, 60);
     }
 
     if (plan.generator === "drop") {
@@ -5140,7 +5219,8 @@ export default function FretboardScalesPage() {
           }).map((v) => normalizeGeneratedVoicingForDisplay(v, plan.rootPc, rootCandidate))
         )
       ));
-      return tet.slice(0, 60);
+      const finalTet = finalizeMainVoicings(tet);
+      return finalTet.slice(0, 60);
     }
 
     if (plan.generator === "tetrad") {
@@ -5171,7 +5251,8 @@ export default function FretboardScalesPage() {
               )
             ));
           })();
-      return tet.slice(0, 60);
+      const finalTet = finalizeMainVoicings(tet);
+      return finalTet.slice(0, 60);
     }
 
     if (plan.generator === "exact") {
@@ -5182,7 +5263,8 @@ export default function FretboardScalesPage() {
         maxFret,
         maxSpan: chordMaxDist,
       }).map((v) => normalizeGeneratedVoicingForDisplay(v, plan.rootPc, plan.rootPc))));
-      return multi.slice(0, 60);
+      const finalMulti = finalizeMainVoicings(multi);
+      return finalMulti.slice(0, 60);
     }
 
     if (plan.generator === "json") {
@@ -5246,11 +5328,12 @@ export default function FretboardScalesPage() {
 
       const list = outStrict.length ? outStrict : outLoose;
       list.sort((a, b) => ((a._extra ?? 0) - (b._extra ?? 0)) || (a.minFret - b.minFret) || (a.span - b.span) || (a.maxFret - b.maxFret));
-      return list.slice(0, 60);
+      const finalJson = finalizeMainVoicings(list);
+      return finalJson.slice(0, 60);
     }
 
     return [];
-  }, [chordEnginePlan, chordDb, chordMaxDist, maxFret]);
+  }, [chordEnginePlan, chordDb, chordMaxDist, chordAllowOpenStrings, maxFret]);
 
   const chordVoicingsSig = useMemo(() => chordVoicings.map((v) => v.frets).join("|"), [chordVoicings]);
 
@@ -5594,12 +5677,14 @@ export default function FretboardScalesPage() {
       ext13: slot.ext13,
     });
 
-    const inRange = (v) => v && v.notes.every((n) => n.fret === 0 || (n.fret >= nearFrom && n.fret <= nearTo));
+    const allowOpenStrings = slot.allowOpenStrings !== false;
+    const inRange = (v) => v && v.notes.every((n) => allowOpenStrings ? (n.fret === 0 || (n.fret >= nearFrom && n.fret <= nearTo)) : (n.fret >= nearFrom && n.fret <= nearTo));
     const inversionChoices = concreteInversionsForSelection(plan.inversion, plan.ui?.allowThirdInversion);
     const selectedBassIntervals = bassIntervalsForSelection(plan);
     const rootCandidates = symmetricRootCandidatesForPlan(plan);
     const finalizeNearVoicings = (list) => {
       const base = dedupeAndSortVoicings(list);
+      if (!allowOpenStrings) return base;
       const allowedIntervals = new Set((plan.intervals || []).map(mod12));
       const requiredIntervals = new Set((plan.intervals || []).map(mod12));
 
@@ -5616,8 +5701,6 @@ export default function FretboardScalesPage() {
           maxSpan: slotMaxDist,
         });
       }
-
-      if (!isOpenForm(plan.form)) return base;
 
       const exactNoteCount = allowedIntervals.size;
       if (exactNoteCount < 3 || exactNoteCount > 4) return base;
@@ -7049,6 +7132,32 @@ export default function FretboardScalesPage() {
   }
 
   function NearChordsFretboard() {
+    const baseSlotIdx = nearComputed.baseIdx;
+    const baseSlot = baseSlotIdx >= 0 ? nearSlots[baseSlotIdx] : null;
+    const basePlan = baseSlotIdx >= 0 ? (nearComputed.ranked[baseSlotIdx]?.plan || null) : null;
+    const baseVoicing = baseSlotIdx >= 0 ? (nearComputed.selected[baseSlotIdx] || null) : null;
+    const baseChordName = baseSlot
+      ? chordDisplayNameFromUI({
+          rootPc: baseSlot.rootPc,
+          preferSharps: baseSlot?.spellPreferSharps ?? preferSharpsFromMajorTonicPc(mod12(baseSlot.rootPc)),
+          quality: baseSlot.quality,
+          suspension: baseSlot.suspension || "none",
+          structure: baseSlot.structure,
+          ext7: baseSlot.ext7,
+          ext6: baseSlot.ext6,
+          ext9: baseSlot.ext9,
+          ext11: baseSlot.ext11,
+          ext13: baseSlot.ext13,
+        })
+      : null;
+    const baseChordDisplayName = baseSlot
+      ? buildChordHeaderSummary({
+          name: baseChordName,
+          plan: basePlan,
+          voicing: baseVoicing,
+          positionForm: baseSlot.positionForm,
+        })
+      : null;
     const slotDataMaps = nearComputed.selected.map((v, idx) => {
       const notesMap = new Map();
       if (!nearSlots[idx]?.enabled || !v?.notes?.length) return { notesMap };
@@ -7077,6 +7186,7 @@ export default function FretboardScalesPage() {
         <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
           <div>
             <div className="text-sm font-semibold text-slate-800">Mástil: acordes cercanos</div>
+            {baseChordName ? <div className="text-xs text-slate-600"><b>Acorde activo:</b> {baseChordName}</div> : null}
             <div className="text-xs text-slate-600">Acordes de la escala de {harmonizedScale.tonicName} · {harmonizedScale.scaleLabel}: {harmonizedScale.names.join(" · ")}</div>
             <div className="text-xs text-slate-600">Relleno = color del acorde · borde = función (1/3/5/7/otras) · texto = nota/intervalo.</div>
           </div>
@@ -8016,9 +8126,28 @@ export default function FretboardScalesPage() {
                           <span className="ml-2 text-xs font-semibold text-slate-800">{chordBaseDisplayName}</span>
                           <span className="ml-2 text-xs font-normal text-slate-600">(Notas: {chordDetectMode ? (chordDetectSelectedNotesText || "—") : spelledChordNotes.join(", ")})</span>
                         </div>
-                        <button
+                        <div className="flex items-center gap-2">
+                          <label
+                            className="ml-[200px] inline-flex h-7 items-center gap-2 rounded-xl border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-700"
+                            title="Permite usar cuerdas al aire como opción de voicing. La distancia se calcula solo con las notas pisadas."
+                          >
+                            <span>Permitir cuerdas al aire</span>
+                            <input
+                              type="checkbox"
+                              checked={chordAllowOpenStrings}
+                              onChange={(e) => {
+                                setChordAllowOpenStrings(e.target.checked);
+                                setChordSelectedFrets(null);
+                                setChordVoicingIdx(0);
+                              }}
+                              title="Permite usar cuerdas al aire como opción de voicing. La distancia se calcula solo con las notas pisadas."
+                              className="h-4 w-4 rounded border-slate-300"
+                            />
+                          </label>
+                          <button
                           type="button"
                           className={UI_BTN_SM + " w-auto px-3"}
+                          title="Abre el análisis del acorde, del voicing y de sus tensiones."
                           onClick={() => {
                             setStudyTarget("main");
                             setStudyOpen(true);
@@ -8026,6 +8155,7 @@ export default function FretboardScalesPage() {
                         >
                           Estudiar
                         </button>
+                        </div>
                       </div>
                       <div className="grid items-stretch gap-2 grid-cols-[96px_210px_90px_200px_200px_130px_220px_56px]">
                         <div className="min-w-0">
@@ -8432,6 +8562,13 @@ export default function FretboardScalesPage() {
                         });
 
                         const r = nearComputed.ranked[idx];
+                        const selectedVoicing = nearComputed.selected[idx] || null;
+                        const slotDisplayName = buildChordHeaderSummary({
+                          name: chordName,
+                          plan: r?.plan,
+                          voicing: selectedVoicing,
+                          positionForm: slot.positionForm,
+                        });
                         const slotUi = r?.plan?.ui || buildChordUiRestrictions({
                           structure: slot.structure,
                           ext7: slot.ext7,
@@ -8451,15 +8588,30 @@ export default function FretboardScalesPage() {
                             <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
                               <div className="flex items-center gap-2 text-sm font-semibold text-slate-800">
                                 <span>Acorde {idx + 1}{nearComputed.baseIdx === idx ? " (referencia)" : ""}</span>
-                                <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-semibold text-slate-700">{chordEngineLayerLabel(r?.plan)}</span>
-                                <span className="text-xs font-semibold text-slate-800">{chordName}</span>
+                                <span className="text-xs font-semibold text-slate-800">{slotDisplayName}</span>
                                 <span className="text-xs font-normal text-slate-600">(Notas: {notes})</span>
+			
                               </div>
 
                               <div className="flex items-center gap-2">
+                                <label
+                                  className="inline-flex h-7 items-center gap-2 rounded-xl border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-700"
+                                  title="Permite usar cuerdas al aire como opción de voicing dentro del rango. La distancia se calcula solo con las notas pisadas."
+                                >
+                                  <span>Permitir cuerdas al aire</span>
+                                  <input
+                                    type="checkbox"
+                                    checked={slot.allowOpenStrings === true}
+                                    onChange={(e) => updateNearSlot(idx, { allowOpenStrings: e.target.checked, selFrets: null })}
+                                    disabled={disableAll}
+                                    title="Permite usar cuerdas al aire como opción de voicing dentro del rango. La distancia se calcula solo con las notas pisadas."
+                                    className="h-4 w-4 rounded border-slate-300"
+                                  />
+                                </label>
                                 <button
                                   type="button"
                                   className={UI_BTN_SM + " w-auto px-3"}
+                                  title="Abre el análisis del acorde, del voicing y de sus tensiones."
                                   onClick={() => {
                                     setStudyTarget(String(idx));
                                     setStudyOpen(true);
