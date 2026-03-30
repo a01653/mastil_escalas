@@ -1,5 +1,3 @@
-Sí. Pondría algo así:
-
 ````md
 # Mástil interactivo de guitarra
 
