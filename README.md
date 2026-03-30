@@ -1,114 +1,133 @@
+Sí. Pondría algo así:
+
+````md
 # Mástil interactivo de guitarra
 
 Aplicación web para estudiar **escalas, patrones, rutas musicales y acordes** sobre el mástil de la guitarra de forma visual e interactiva.
 
-Está orientada al estudio práctico del diapasón, la relación entre **notas, intervalos, digitaciones, voicings, patrones y armonía**, y la exploración de acordes tanto desde teoría como desde posiciones reales en el mástil.
+Está pensada como herramienta práctica de estudio para entender la relación entre **notas, intervalos, digitaciones, voicings, patrones y armonía** directamente sobre el diapasón.
 
----
+## Descripción
 
-## Demo
+El proyecto permite visualizar escalas y acordes en un mástil interactivo, generar patrones habituales de guitarra, analizar voicings y comparar digitaciones cercanas dentro de una zona concreta del mástil.
 
-**Demo online:** añade aquí la URL de GitHub Pages del proyecto.
+También incluye un modo de exploración para seleccionar notas manualmente y detectar acordes posibles a partir de esa selección.
 
-Ejemplo:
+## Funcionalidades principales
 
-```txt
-https://a01653.github.io/mastil_escalas/
+### Escalas
+- Escalas mayores y menores
+- Pentatónica mayor y menor
+- Modos griegos
+- Escalas armónicas, melódicas, bebop, disminuidas, de tonos enteros y otras variantes
+- Escalas personalizadas por intervalos
 
-Características principales
-Escalas
-Escalas mayores y menores
-Pentatónica mayor y menor
-Modos griegos
-Escalas armónicas, melódicas, bebop, disminuidas, de tonos enteros y otras variantes
-Escalas personalizadas por intervalos
-Visualización en el mástil
-Vista por notas
-Vista por intervalos
-Vista combinada de notas e intervalos
-Opción para mostrar notas fuera de la escala
-Resaltado de raíz, 3ª, 5ª y tensiones
-Notación automática o forzada con sostenidos/bemoles
-Patrones
-5 boxes para pentatónicas
-3NPS para escalas de 7 notas
-CAGED
-Resaltado de zonas típicas de blues
-Ruta musical
-Cálculo de recorridos entre una posición inicial y una final
-Modos de ruta libre, por posición, por patrón o por sistema concreto
-Preferencias de continuidad por cuerda, verticalidad y permanencia en patrón
-Acordes
-Construcción de:
-triadas
-cuatriadas
-acordes extendidos
-Soporte para:
-inversiones
-voicings cerrados
-voicings abiertos
-drops
-tensiones 6, 7, 9, 11 y 13
-Selección de digitaciones reales
-Análisis del acorde y del voicing mostrado
-Investigar en mástil
-Selección manual de notas sobre el mástil
-Detección de acordes posibles a partir de esas notas
-Copia del acorde detectado al panel principal
-Reproducción opcional de la selección
-Acordes cercanos
-Comparación de hasta 4 acordes
-Búsqueda de digitaciones dentro de un rango concreto de trastes
-Ordenación por cercanía al acorde de referencia
-Estudio visual de voice leading y armonización práctica
-Configuración
-Persistencia automática en navegador
-Presets rápidos
-Exportación e importación de configuración
-Tecnologías
-React
-Vite
-Tailwind CSS
-Lucide React
-Instalación
+### Visualización sobre el mástil
+- Vista por **notas**
+- Vista por **intervalos**
+- Vista combinada de notas e intervalos
+- Opción para mostrar también las notas fuera de la escala
+- Resaltado de raíz, 3ª, 5ª y tensiones
+
+### Patrones
+- **5 boxes** para pentatónicas
+- **3NPS** para escalas de 7 notas
+- **CAGED**
+- Casillas de referencia para blues
+
+### Ruta musical
+- Cálculo de recorridos entre una nota inicial y otra final
+- Modos de ruta libre, por posición, por patrón o por sistema concreto
+- Preferencias de continuidad por cuerda, verticalidad y permanencia en patrón
+
+### Acordes
+- Construcción de:
+  - triadas
+  - cuatriadas
+  - acordes extendidos
+- Soporte para:
+  - inversiones
+  - voicings cerrados
+  - voicings abiertos
+  - drops
+  - tensiones 6, 7, 9, 11 y 13
+- Selección de digitaciones reales
+- Análisis del acorde y del voicing mostrado
+
+### Acordes cercanos
+- Comparación de hasta 4 acordes
+- Búsqueda de digitaciones dentro de un rango concreto de trastes
+- Ordenación por cercanía al acorde de referencia
+- Estudio de voice leading y armonización práctica
+
+### Investigar en mástil
+- Selección manual de notas sobre el mástil
+- Detección de acordes posibles a partir de esas notas
+- Posibilidad de copiar el acorde detectado al panel principal
+- Reproducción opcional de la selección
+
+### Configuración
+- Persistencia automática en navegador
+- Exportación e importación de configuración
+- Presets rápidos
+
+## Tecnologías
+
+- **React**
+- **Vite**
+- **Tailwind CSS**
+- **Lucide React**
+
+## Objetivo del proyecto
+
+Este proyecto nace como herramienta de apoyo al estudio de guitarra para:
+
+- localizar notas en el mástil
+- entender intervalos y construcción de escalas
+- relacionar escalas con acordes
+- estudiar patrones reales de digitación
+- analizar inversiones, drops y voicings
+- trabajar progresiones y acordes cercanos de forma visual
+
+## Instalación
+
+```bash
 npm install
 npm run dev
-Build de producción
+````
+
+## Build de producción
+
+```bash
 npm run build
-Vista previa local
+```
+
+## Vista previa local
+
+```bash
 npm run preview
-Estructura general
-Escalas: selección de tonalidad, escala y visualización
-Patrones: boxes, 3NPS y CAGED
-Ruta: cálculo de recorrido musical entre dos posiciones
-Acordes: construcción, análisis y digitaciones
-Acordes cercanos: comparación de voicings en rango
-Modo estudio: análisis armónico y funcional
-Objetivo del proyecto
+```
 
-Este proyecto está pensado como herramienta práctica de estudio para guitarra, centrada en:
+## Estructura general del proyecto
 
-entender la distribución de notas en el mástil
-relacionar escalas y acordes
-estudiar digitaciones reales
-analizar inversiones, drops y voicings
-trabajar progresiones y acordes cercanos de forma visual
-Roadmap
-En curso
-Mejora de digitaciones y voicings
-Refinado de la lógica armónica
-Ajustes de usabilidad en la interfaz
-Mejora del análisis musical
-Futuro
-Más presets y configuraciones rápidas
-Más escalas y sistemas de patrones
-Mejoras visuales en comparación de acordes
-Posible reproducción más avanzada de notas y acordes
-Exportación de diagramas o capturas
-Estado del proyecto
+* **Escalas**: selección de tonalidad, escala y visualización
+* **Patrones**: boxes, 3NPS y CAGED
+* **Ruta**: cálculo de recorrido musical entre dos posiciones
+* **Acordes**: construcción, análisis y digitaciones
+* **Acordes cercanos**: comparación de voicings en rango
+* **Modo estudio**: análisis armónico y funcional
 
-Proyecto en desarrollo activo.
+## Estado del proyecto
 
-Autor
+Proyecto en desarrollo activo, con foco en:
 
-Jesus Quevedo Rodriguez
+* mejora de voicings y digitaciones
+* refinado de lógica armónica
+* mejoras de usabilidad e interfaz
+* ampliación del análisis musical
+
+## Autor
+
+**Jesus Quevedo Rodriguez**
+
+
