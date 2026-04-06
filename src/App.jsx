@@ -969,8 +969,8 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "2.57";
-const APP_VERSION_STAMP = "2026-04-01 11:35";
+const APP_VERSION = "2.58";
+const APP_VERSION_STAMP = "2026-04-06 07:20";
 
 function chordDbUrl(keyName, suffix) {
   // Ruta RELATIVA dentro de /public (sin base) => chords-db/...
@@ -1682,10 +1682,8 @@ function dedupeAndSortVoicings(list) {
 }
 
 function buildOpenSupersetTetradVoicings({ rootCandidates, inversionChoices, plan, maxFret, maxSpan }) {
-  const seventhLike = plan.singleAdd
-    ? (plan.ext13 ? 9 : plan.ext11 ? 5 : plan.ext9 ? 2 : 9)
-    : plan.seventhOffset;
-  if (seventhLike == null) return [];
+  const topVoiceOffset = plan.topVoiceOffset;
+  if (topVoiceOffset == null) return [];
 
   const normalOpen = rootCandidates.flatMap((rootCandidate) =>
     inversionChoices.flatMap((inv) =>
@@ -1693,7 +1691,7 @@ function buildOpenSupersetTetradVoicings({ rootCandidates, inversionChoices, pla
         rootPc: rootCandidate,
         thirdOffset: plan.thirdOffset,
         fifthOffset: plan.fifthOffset,
-        seventhOffset: seventhLike,
+        seventhOffset: topVoiceOffset,
         inversion: inv,
         maxFret,
         maxSpan,
@@ -1746,8 +1744,19 @@ function normalizeGeneratedVoicingForDisplay(voicing, displayRootPc, sourceRootP
   };
 }
 
+function singleAddOffsetFromUi({ ext6, ext9, ext11, ext13 }) {
+  if (ext13) return 9;
+  if (ext11) return 5;
+  if (ext9) return 2;
+  if (ext6) return 9;
+  return null;
+}
+
 function isStrictFourNoteDropEligible({ structure, ext7, ext6, ext9, ext11, ext13 }) {
-  return structure === "tetrad" && hasEffectiveSeventh({ structure, ext7, ext6, ext9, ext11, ext13 }) && !ext6 && !ext9 && !ext11 && !ext13;
+  if (structure !== "tetrad") return false;
+  const addCount = addSelectionCount({ ext6, ext9, ext11, ext13 });
+  if (hasEffectiveSeventh({ structure, ext7, ext6, ext9, ext11, ext13 })) return addCount === 0;
+  return addCount === 1;
 }
 
 function addSelectionCount({ ext6, ext9, ext11, ext13 }) {
@@ -1838,6 +1847,8 @@ function buildChordEnginePlan({
   const thirdOffset = chordThirdOffsetFromUI(quality, suspension);
   const fifthOffset = chordFifthOffsetFromUI(quality, suspension);
   const seventhOffset = hasEffectiveSeventh({ structure, ext7, ext6, ext9, ext11, ext13 }) ? seventhOffsetForQuality(quality) : null;
+  const singleAddOffset = singleAddOffsetFromUi({ ext6, ext9, ext11, ext13 });
+  const topVoiceOffset = seventhOffset ?? singleAddOffset;
   const intervals = buildChordIntervals({ quality, suspension, structure, ext7, ext6, ext9, ext11, ext13 });
   const bassInterval = chordBassInterval({
     quality,
@@ -1907,6 +1918,8 @@ function buildChordEnginePlan({
     thirdOffset,
     fifthOffset,
     seventhOffset,
+    singleAddOffset,
+    topVoiceOffset,
     intervals,
     bassInterval,
     strictDrop,
@@ -1986,6 +1999,7 @@ function buildChordNamingExplanation(plan) {
   if (plan.layer === "multi_add") out.push("Se nombra como add múltiple porque combina varias tensiones sin 7ª.");
 
   if (plan.ext7 && plan.seventhOffset != null) out.push(`Incluye ${intervalToDegreeToken(plan.seventhOffset)}, por eso aparece la 7ª.`);
+  else if (plan.singleAddOffset != null) out.push(`La cuarta voz real es ${intervalToDegreeToken(plan.singleAddOffset)}.`);
   if (plan.ext6) out.push("Incluye 6 como color añadido.");
   if (plan.ext9) out.push("Incluye 9 como tensión añadida.");
   if (plan.ext11) out.push("Incluye 11 como tensión añadida.");
@@ -2006,7 +2020,7 @@ function actualInversionLabelFromVoicing(plan, voicing) {
   if (bassInt === 0) return "Fundamental";
   if (bassInt === mod12(plan.thirdOffset)) return "1ª inversión";
   if (bassInt === mod12(plan.fifthOffset)) return "2ª inversión";
-  if (plan.seventhOffset != null && bassInt === mod12(plan.seventhOffset)) return "3ª inversión";
+  if (plan.topVoiceOffset != null && bassInt === mod12(plan.topVoiceOffset)) return "3ª inversión";
   return `Bajo ${intervalToDegreeToken(bassInt)}`;
 }
 
@@ -6572,14 +6586,14 @@ export default function FretboardScalesPage() {
     }
 
     if (plan.generator === "drop") {
-      if (plan.seventhOffset == null) return [];
+      if (plan.topVoiceOffset == null) return [];
       const tet = dedupeAndSortVoicings(rootCandidates.flatMap((rootCandidate) =>
         inversionChoices.flatMap((inv) =>
           generateDropTetradVoicings({
             rootPc: rootCandidate,
             thirdOffset: plan.thirdOffset,
             fifthOffset: plan.fifthOffset,
-            seventhOffset: plan.seventhOffset,
+            seventhOffset: plan.topVoiceOffset,
             form: plan.form,
             inversion: inv,
             maxFret,
@@ -6601,17 +6615,15 @@ export default function FretboardScalesPage() {
             maxSpan: chordMaxDist,
           })
         : (() => {
-            const seventhLike = plan.singleAdd
-              ? (plan.ext13 ? 9 : plan.ext11 ? 5 : plan.ext9 ? 2 : 9)
-              : plan.seventhOffset;
-            if (seventhLike == null) return [];
+            const topVoiceOffset = plan.topVoiceOffset;
+            if (topVoiceOffset == null) return [];
             return dedupeAndSortVoicings(rootCandidates.flatMap((rootCandidate) =>
               inversionChoices.flatMap((inv) =>
                 filterVoicingsByForm(generateTetradVoicings({
                   rootPc: rootCandidate,
                   thirdOffset: plan.thirdOffset,
                   fifthOffset: plan.fifthOffset,
-                  seventhOffset: seventhLike,
+                  seventhOffset: topVoiceOffset,
                   inversion: inv,
                   maxFret,
                   maxSpan: chordMaxDist,
@@ -7132,7 +7144,7 @@ export default function FretboardScalesPage() {
             rootPc: rootCandidate,
             thirdOffset: plan.thirdOffset,
             fifthOffset: plan.fifthOffset,
-            seventhOffset: plan.seventhOffset,
+            seventhOffset: plan.topVoiceOffset,
             form: plan.form,
             inversion: inv,
             maxFret: nearTo,
