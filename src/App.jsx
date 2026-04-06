@@ -4613,6 +4613,8 @@ function computeRouteLab({
       const currentBoxSameString = candidates[i].filter((cand) => cand.sIdx === prevInfo.sIdx && cellInBox(prevInfo.boxStart, cand));
       const currentBoxAny = candidates[i].filter((cand) => cellInBox(prevInfo.boxStart, cand));
       const oldFutureCoverage = futureCoverage(prevInfo.boxStart, i, 4);
+      const currentBoxStringCount = getBoxInfo(prevInfo.boxStart).stringFrets[prevInfo.sIdx]?.length || 1;
+      const currentStringTarget = Math.min(phrasing.hardLimit, Math.max(phrasing.phraseTarget, currentBoxStringCount));
 
       const feasible = [];
       for (const cand of candidates[i]) {
@@ -4665,12 +4667,14 @@ function computeRouteLab({
           const { boxStart, futureSameCount, futureCoverage: nextBoxCoverage } = boxInfo;
           const sameBox = boxStart === prevInfo.boxStart;
           const center = boxStart + ((width - 1) / 2);
+          const nextBoxStringCount = getBoxInfo(boxStart).stringFrets[cand.sIdx]?.length || 1;
+          const nextStringTarget = Math.min(phrasing.hardLimit, Math.max(phrasing.phraseTarget, nextBoxStringCount));
           let primary = 0;
           let smooth = 0;
 
           smooth += movementCost(prevPos, cand);
 
-          if (bestSameStringForward && !sameString && prevInfo.runCount < phrasing.phraseTarget) {
+          if (bestSameStringForward && !sameString && prevInfo.runCount < currentStringTarget) {
             primary += 42;
           }
 
@@ -4678,7 +4682,7 @@ function computeRouteLab({
             smooth -= 4.5;
           }
 
-          if (!sameString && currentBoxSameString.length && prevInfo.runCount < phrasing.phraseTarget) {
+          if (!sameString && currentBoxSameString.length && prevInfo.runCount < currentStringTarget) {
             primary += 24;
           }
 
@@ -4713,8 +4717,10 @@ function computeRouteLab({
             primary += 0.8;
           }
 
-          if (nextRun > phrasing.phraseTarget) {
-            primary += (nextRun - phrasing.phraseTarget) * (family === "penta" ? 18 : 7);
+          if (nextRun > nextStringTarget) {
+            primary += (nextRun - nextStringTarget) * (family === "penta" ? 18 : 7);
+          } else if (sameString && nextRun <= nextStringTarget) {
+            smooth -= 1.2;
           }
 
           if (sameString && stepTrend !== 0 && targetFretDir !== 0 && stepTrend === targetFretDir) {
@@ -4739,8 +4745,8 @@ function computeRouteLab({
           }
 
           const sameStringPotential = sameStringChainPotential(boxStart, i, cand.sIdx);
-          if (sameStringPotential > phrasing.phraseTarget) {
-            primary += (sameStringPotential - phrasing.phraseTarget) * (family === "penta" ? 16 : 6);
+          if (sameStringPotential > nextStringTarget) {
+            primary += (sameStringPotential - nextStringTarget) * (family === "penta" ? 16 : 6);
           }
 
           if (remainingStepsAfter <= 2 && futureSameCount > 0 && !sameString) {
