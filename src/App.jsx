@@ -71,6 +71,10 @@ const SCALE_PRESETS = {
   "Bebop mayor": [0, 2, 4, 5, 7, 8, 9, 11],
   "Bebop dominante": [0, 2, 4, 5, 7, 9, 10, 11],
   "Bebop dórica": [0, 2, 3, 4, 5, 7, 9, 10],
+  "Bebop frigia dominante": [0, 1, 4, 5, 7, 8, 10, 11],
+  "Bebop locria": [0, 1, 3, 5, 6, 7, 8, 10],
+  "Bebop menor armónica": [0, 2, 3, 5, 7, 8, 10, 11],
+  "Bebop menor melódica": [0, 2, 3, 5, 7, 9, 10, 11],
 
   // Otras útiles
   "Pentatónica menor + blue note": [0, 3, 5, 6, 7, 10],
@@ -85,38 +89,11 @@ const SCALE_PRESETS = {
 const SCALE_NAME_ALIASES = {
   "Escala mayor": "Mayor",
   "Escala menor (natural)": "Menor natural",
+  "Bebop mixolidia": "Bebop dominante",
+  "Bebop menor": "Bebop dórica",
 };
 
-const SCALE_OPTION_ORDER = [
-  "Mayor",
-  "Mayor armónica",
-  "Doble armónica (Bizantina)",
-  "Pentatónica mayor",
-  "Pentatónica mayor + blue note",
-  "Menor natural",
-  "Menor armónica",
-  "Menor melódica (asc)",
-  "Pentatónica menor",
-  "Pentatónica menor + blue note",
-  "Húngara menor (Gypsy)",
-  "Jónica (Ionian)",
-  "Dórica (Dorian)",
-  "Frigia (Phrygian)",
-  "Lidia (Lydian)",
-  "Mixolidia (Mixolydian)",
-  "Eólica (Aeolian)",
-  "Locria (Locrian)",
-  "Frigia dominante",
-  "Lidia dominante",
-  "Alterada (Superlocria)",
-  "Tonos enteros",
-  "Disminuida (H-W)",
-  "Disminuida (W-H)",
-  "Bebop mayor",
-  "Bebop dominante",
-  "Bebop dórica",
-  "Personalizada",
-];
+
 
 const TONALITY_CANDIDATE_SCALE_NAMES = [
   "Mayor",
@@ -969,8 +946,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "2.58";
-const APP_VERSION_STAMP = "2026-04-06 07:20";
+const APP_VERSION = "2.59";
 
 function chordDbUrl(keyName, suffix) {
   // Ruta RELATIVA dentro de /public (sin base) => chords-db/...
@@ -3838,7 +3814,6 @@ function sanitizePresetCollection(raw) {
       payload: {
         version: UI_CONFIG_VERSION,
         appVersion: APP_VERSION,
-        schemaUpdatedAt: APP_VERSION_STAMP,
         config: payload,
       },
     };
@@ -5918,7 +5893,6 @@ export default function FretboardScalesPage() {
   const persistedUiPayload = useMemo(() => ({
     version: UI_CONFIG_VERSION,
     appVersion: APP_VERSION,
-    schemaUpdatedAt: APP_VERSION_STAMP,
     config: persistedUiConfig,
   }), [persistedUiConfig]);
 
@@ -6138,7 +6112,6 @@ export default function FretboardScalesPage() {
     return {
       version: UI_CONFIG_VERSION,
       appVersion: APP_VERSION,
-      schemaUpdatedAt: APP_VERSION_STAMP,
       config: payload.config || {},
     };
   }
@@ -6195,7 +6168,7 @@ export default function FretboardScalesPage() {
         const next = [...prev];
         next[slotIdx] = {
           name,
-          savedAt: APP_VERSION_STAMP,
+          savedAt: new Date().toISOString(),
           payload: persistedUiPayload,
         };
         return next;
