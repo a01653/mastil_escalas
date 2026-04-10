@@ -951,7 +951,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "2.61";
+const APP_VERSION = "2.65";
 
 function chordDbUrl(keyName, suffix) {
   // Ruta RELATIVA dentro de /public (sin base) => chords-db/...
@@ -2241,6 +2241,69 @@ function shouldFilterExactSubsetCandidate(candidate, exactCandidates) {
   });
 }
 
+function candidateVisibleDegreeLabels(candidate) {
+  if (!candidate?.formula?.intervals?.length) return [];
+  return candidate.formula.intervals
+    .map((intv, idx) => candidate.visibleIntervals.includes(mod12(intv)) ? String(candidate.formula.degreeLabels[idx] || "") : null)
+    .filter(Boolean);
+}
+
+function candidateHasCompleteTriad(candidate) {
+  const labels = candidateVisibleDegreeLabels(candidate);
+  const hasRoot = candidate.visibleIntervals.includes(0);
+  const hasThird = labels.some((x) => isThirdDegreeLabel(x));
+  const hasFifth = labels.some((x) => isFifthDegreeLabel(x));
+  return hasRoot && hasThird && hasFifth;
+}
+
+function candidateFormulaComplexityPenalty(candidate) {
+  const id = String(candidate?.formula?.id || "");
+  if (["maj", "min", "sus2", "sus4"].includes(id)) return 0;
+  if (["6", "m6", "add9", "madd9", "add11", "madd11"].includes(id)) return 2;
+  if (["maj7", "7", "m7", "m7b5", "dim7"].includes(id)) return 4;
+  if (["maj9", "9", "m9"].includes(id)) return 6;
+  if (["mmaj7"].includes(id)) return 8;
+  if (["maj7sharp5", "7sharp5", "7flat5", "maddb13"].includes(id)) return 12;
+  return 7;
+}
+
+function candidateProbabilityScore(candidate) {
+  if (!candidate) return 999;
+
+  let score = 0;
+  const formulaSize = (candidate.formula?.intervals || []).length;
+  const triadCore = candidateHasCompleteTriad(candidate);
+  const externalBass = candidate.externalBassInterval != null;
+  const visibleLabels = candidateVisibleDegreeLabels(candidate);
+  const hasAlteredFifth = visibleLabels.some((x) => {
+    const s = String(x || "").toLowerCase();
+    return s === "b5" || s === "#5";
+  });
+
+  score += candidateFormulaComplexityPenalty(candidate);
+  score += (candidate.missingLabels?.length || 0) * 9;
+  if (candidate.missingLabels?.some((x) => isThirdDegreeLabel(x))) score += 5;
+
+  if (candidate.exact) score -= 2;
+  else score += 2;
+
+  if (triadCore) score -= 3;
+  if (hasAlteredFifth) score += 8;
+
+  if (externalBass) {
+    if (triadCore && formulaSize === 3 && (candidate.missingLabels?.length || 0) === 0) score -= 8;
+    else if (triadCore) score -= 2;
+    else score += 4;
+  } else if (candidate.bassPc !== candidate.rootPc) {
+    score += 1;
+  }
+
+  score += Math.max(0, formulaSize - 3) * 1.2;
+  score += ((candidate.name || "").match(/[♯#b♭]/g) || []).length * 0.15;
+
+  return Number(score.toFixed(2));
+}
+
 function analyzeDetectedChordCandidates(selectedNotes) {
   const list = Array.isArray(selectedNotes) ? [...selectedNotes] : [];
   if (!list.length) return [];
@@ -2330,9 +2393,13 @@ function analyzeDetectedChordCandidates(selectedNotes) {
           externalBassInterval,
         };
 
+        candidate.probabilityScore = candidateProbabilityScore(candidate);
+
         const dedupeKey = `${candidate.name}|${candidate.intervalPairsText}`;
         const prev = seen.get(dedupeKey);
-        if (!prev || candidate.score < prev.score) seen.set(dedupeKey, candidate);
+        if (!prev || candidate.probabilityScore < prev.probabilityScore || (candidate.probabilityScore === prev.probabilityScore && candidate.score < prev.score)) {
+          seen.set(dedupeKey, candidate);
+        }
       }
     }
   }
@@ -2365,7 +2432,11 @@ function analyzeDetectedChordCandidates(selectedNotes) {
     return true;
   });
 
-  filtered.sort((a, b) => (a.score - b.score) || a.name.localeCompare(b.name, "es", { sensitivity: "base" }));
+  filtered.sort((a, b) => {
+    if ((a.probabilityScore ?? 999) !== (b.probabilityScore ?? 999)) return (a.probabilityScore ?? 999) - (b.probabilityScore ?? 999);
+    if (a.score !== b.score) return a.score - b.score;
+    return a.name.localeCompare(b.name, "es", { sensitivity: "base" });
+  });
   return filtered.slice(0, 12);
 }
 
@@ -5248,6 +5319,63 @@ function displayedAccidentalForNote(note, signatureMap) {
   return noteAccidental;
 }
 
+function formatChordBadgeDegree(label) {
+  const s = String(label || "");
+  if (!s) return "";
+  if (s === "1") return "1";
+  if (s === "b3") return "m3";
+  return s;
+}
+
+function buildChordBadgeItems({ notes, intervals, degreeLabels, ext6 = false, ext9 = false, ext11 = false, ext13 = false, structure = "triad" }) {
+  const safeNotes = Array.isArray(notes) ? notes : [];
+  const safeIntervals = Array.isArray(intervals) ? intervals : [];
+
+  return safeNotes
+    .map((note, idx) => {
+      const fallback = intervalToChordToken(safeIntervals[idx] ?? 0, {
+        ext6,
+        ext9: ext9 && structure !== "triad",
+        ext11: ext11 && structure !== "triad",
+        ext13: ext13 && structure !== "triad",
+      });
+      const degree = formatChordBadgeDegree(String(degreeLabels?.[idx] || fallback));
+      return note && degree ? { note, degree } : null;
+    })
+    .filter(Boolean);
+}
+
+function ChordNoteBadgeStrip({ items, bassNote, bassLabel = "Bajo" }) {
+  const safeItems = Array.isArray(items) ? items.filter(Boolean) : [];
+  if (!safeItems.length && !bassNote) return null;
+
+  return (
+    <div className="flex flex-wrap items-end gap-x-3 gap-y-2">
+      {safeItems.length ? (
+        <div className="flex flex-wrap items-end gap-x-3 gap-y-2">
+          {safeItems.map((item, idx) => (
+            <div key={`${item.note}-${item.degree}-${idx}`} className="flex min-w-[34px] flex-col items-center gap-1">
+              <div className="text-[11px] font-semibold text-slate-700">{item.note}</div>
+              <div className="min-w-[34px] rounded-md bg-sky-500 px-2 py-1 text-center text-[10px] font-semibold leading-none text-white shadow-sm">
+                {item.degree}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      {bassNote ? (
+        <div className="flex min-w-[46px] flex-col items-center gap-1">
+          <div className="text-[11px] font-semibold text-slate-700">{bassNote}</div>
+          <div className="min-w-[46px] rounded-md bg-slate-700 px-2 py-1 text-center text-[10px] font-semibold leading-none text-white shadow-sm">
+            {bassLabel}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function MusicStaff({ events, preferSharps, clefMode = "guitar", beatsPerBar = 4, beatUnit = 4, keySignature = null }) {
   const safeEvents = Array.isArray(events) ? events.filter((evt) => Array.isArray(evt?.notes) && evt.notes.length) : [];
   if (!safeEvents.length) return null;
@@ -6272,8 +6400,9 @@ export default function FretboardScalesPage() {
   // Deletreo armónico del acorde: evita cosas como D–Gb–A (debe ser D–F#–A)
   const chordPcToSpelledName = (pc) => {
     const interval = mod12(pc - chordRootPc);
+    const localSpelledChordNotes = spellChordNotes({ rootPc: chordRootPc, chordIntervals, preferSharps: chordPreferSharps });
     const idx = chordIntervals.findIndex((x) => mod12(x) === interval);
-    return idx >= 0 ? spelledChordNotes[idx] : pcToName(pc, chordPreferSharps);
+    return idx >= 0 ? localSpelledChordNotes[idx] : pcToName(pc, chordPreferSharps);
   };
 
   const chordNoteOptions = useMemo(() => {
@@ -6804,6 +6933,11 @@ export default function FretboardScalesPage() {
     [chordDetectSelectedNotes]
   );
 
+  const chordDetectSelectionSignature = useMemo(
+    () => [...chordDetectSelectedKeys].sort().join("|"),
+    [chordDetectSelectedKeys]
+  );
+
   const chordDetectSelectedCandidate = useMemo(
     () => chordDetectCandidates.find((c) => c.id === chordDetectCandidateId) || null,
     [chordDetectCandidates, chordDetectCandidateId]
@@ -6819,6 +6953,14 @@ export default function FretboardScalesPage() {
       setChordDetectCandidateId(null);
     }
   }, [chordDetectMode, chordDetectCandidates, chordDetectCandidateId]);
+
+  useEffect(() => {
+    if (!chordDetectMode) return;
+    const nextId = chordDetectCandidates[0]?.id || null;
+    if ((chordDetectCandidateId || null) !== nextId) {
+      setChordDetectCandidateId(nextId);
+    }
+  }, [chordDetectMode, chordDetectSelectionSignature, chordDetectCandidates]);
 
   // --------------------------------------------------------------------------
   // HELPERS LOCALES: DETECCIÓN DE ACORDES (audio y selección)
@@ -6995,6 +7137,33 @@ export default function FretboardScalesPage() {
     }).join(", ");
   }, [chordDetectSelectedCandidate, scaleIntervals, chordPreferSharps]);
 
+  const chordDetectSelectedCandidateBadgeItems = useMemo(() => {
+    if (!chordDetectSelectedCandidate) return [];
+    const prefer = chordDetectSelectedCandidate.preferSharps ?? chordPreferSharps;
+    const noteNames = spellChordNotes({
+      rootPc: chordDetectSelectedCandidate.rootPc,
+      chordIntervals: chordDetectSelectedCandidate.formula.intervals,
+      preferSharps: prefer,
+    });
+
+    return buildChordBadgeItems({
+      notes: noteNames,
+      intervals: chordDetectSelectedCandidate.formula.intervals,
+      degreeLabels: chordDetectSelectedCandidate.formula.degreeLabels,
+      structure: chordDetectSelectedCandidate.uiPatch?.structure || "triad",
+    });
+  }, [chordDetectSelectedCandidate, chordPreferSharps]);
+
+  const chordDetectSelectedCandidateBassNote = useMemo(() => {
+    if (!chordDetectSelectedCandidate) return null;
+    const prefer = chordDetectSelectedCandidate.preferSharps ?? chordPreferSharps;
+    const bassInterval = chordDetectSelectedCandidate.externalBassInterval != null
+      ? chordDetectSelectedCandidate.externalBassInterval
+      : mod12(chordDetectSelectedCandidate.bassPc - chordDetectSelectedCandidate.rootPc);
+
+    return spellNoteFromChordInterval(chordDetectSelectedCandidate.rootPc, bassInterval, prefer);
+  }, [chordDetectSelectedCandidate, chordPreferSharps]);
+
   const chordBaseDisplayName = chordDisplayNameFromUI({
         rootPc: chordRootPc,
         preferSharps: chordPreferSharps,
@@ -7015,103 +7184,190 @@ export default function FretboardScalesPage() {
     positionForm: chordPositionForm,
   });
 
-  // Acordes cercanos (mismo criterio de roles/etiquetas, pero por slot)
+  const chordHeaderBadgeItems = useMemo(
+    () => buildChordBadgeItems({
+      notes: spellChordNotes({ rootPc: chordRootPc, chordIntervals, preferSharps: chordPreferSharps }),
+      intervals: chordIntervals,
+      ext6: chordExt6,
+      ext9: chordExt9,
+      ext11: chordExt11,
+      ext13: chordExt13,
+      structure: chordStructure,
+    }),
+    [chordRootPc, chordIntervals, chordPreferSharps, chordExt6, chordExt9, chordExt11, chordExt13, chordStructure]
+  );
 
-  // --------------------------------------------------------------------------
-  // HELPERS LOCALES: ACORDES CERCANOS
-  // --------------------------------------------------------------------------
+  const chordHeaderBassNote = useMemo(() => {
+    const bassPc = activeChordVoicing?.bassPc ?? chordBassPc;
+    return chordPcToSpelledName(bassPc);
+  }, [activeChordVoicing, chordBassPc, chordPcToSpelledName]);
 
-  const nearFrom = nearWindowStart;
-  const nearTo = Math.min(maxFret, nearWindowStart + nearWindowSize - 1);
-  const nearStartMax = Math.max(0, maxFret - (nearWindowSize - 1));
+  const nearFrom = useMemo(
+    () => Math.max(0, Math.min(maxFret, Math.floor(Number(nearWindowStart) || 0))),
+    [nearWindowStart, maxFret]
+  );
 
-  function slotThirdOffset(quality, suspension) {
-    if (suspension === "sus2") return 2;
-    if (suspension === "sus4") return 5;
-    return quality === "maj" || quality === "dom" ? 4 : 3;
-  }
+  const nearTo = useMemo(() => {
+    const size = Math.max(1, Math.floor(Number(nearWindowSize) || 1));
+    return Math.max(nearFrom, Math.min(maxFret, nearFrom + size - 1));
+  }, [nearFrom, nearWindowSize, maxFret]);
 
-  function slotFifthOffset(quality, suspension) {
-    if (suspension && suspension !== "none") return 7;
-    return quality === "dim" || quality === "hdim" ? 6 : 7;
+  const nearStartMax = useMemo(
+    () => Math.max(0, maxFret - (Math.max(1, Math.floor(Number(nearWindowSize) || 1)) - 1)),
+    [nearWindowSize, maxFret]
+  );
+
+  function updateNearSlot(idx, patch) {
+    setNearSlots((prev) => prev.map((slot, i) => {
+      if (i !== idx) return slot;
+      const next = { ...slot, ...patch };
+      if (Object.prototype.hasOwnProperty.call(patch || {}, "form") && !isDropForm(next.form)) {
+        next.positionForm = next.form;
+      }
+      return next;
+    }));
   }
 
   function spellChordNotesForSlot(slot) {
     const ints = buildChordIntervals({
-      quality: slot.quality,
-      suspension: slot.suspension || "none",
-      structure: slot.structure,
-      ext7: slot.ext7,
-      ext6: slot.ext6,
-      ext9: slot.ext9,
-      ext11: slot.ext11,
-      ext13: slot.ext13,
+      quality: slot?.quality,
+      suspension: slot?.suspension || "none",
+      structure: slot?.structure,
+      ext7: !!slot?.ext7,
+      ext6: !!slot?.ext6,
+      ext9: !!slot?.ext9,
+      ext11: !!slot?.ext11,
+      ext13: !!slot?.ext13,
     });
-    const pref = slot?.spellPreferSharps ?? preferSharpsFromMajorTonicPc(mod12(slot.rootPc));
-    return spellChordNotes({ rootPc: slot.rootPc, chordIntervals: ints, preferSharps: pref });
+    const pref = slot?.spellPreferSharps ?? preferSharpsFromMajorTonicPc(mod12(slot?.rootPc || 0));
+    return spellChordNotes({ rootPc: slot?.rootPc || 0, chordIntervals: ints, preferSharps: pref });
   }
 
-  function voicingProximityCost(base, cand) {
-    if (!base || !cand) return 9999;
-    const bf = base.notes.map((n) => n.fret).sort((a, b) => a - b);
-    const cf = cand.notes.map((n) => n.fret).sort((a, b) => a - b);
-    const len = Math.min(bf.length, cf.length);
-    let cost = Math.abs((base.minFret + base.maxFret) / 2 - (cand.minFret + cand.maxFret) / 2) * 2;
-    cost += Math.abs(base.span - cand.span) * 0.8;
-    for (let i = 0; i < len; i++) cost += Math.abs(bf[i] - cf[i]);
-    return cost;
-  }
+  function nearestVoicingIndex(reference, options) {
+    const list = Array.isArray(options) ? options : [];
+    if (!list.length) return 0;
+    if (!reference) return 0;
 
-  function nearestVoicingIndex(ref, options) {
-    if (!options?.length) return 0;
-    if (!ref) return 0;
-    let best = 0;
-    let bestCost = Infinity;
-    for (let i = 0; i < options.length; i++) {
-      const c = voicingProximityCost(ref, options[i]);
-      if (c < bestCost) {
-        bestCost = c;
-        best = i;
+    const refFrets = parseChordDbFretsString(reference?.frets);
+    const refCenter = ((reference?.minFret ?? 0) + (reference?.maxFret ?? 0)) / 2;
+    const refBassPitch = reference?.notes?.length
+      ? Math.min(...reference.notes.map((n) => pitchAt(n.sIdx, n.fret)))
+      : 0;
+
+    let bestIdx = 0;
+    let bestScore = Number.POSITIVE_INFINITY;
+
+    list.forEach((v, idx) => {
+      const vFrets = parseChordDbFretsString(v?.frets);
+      const vCenter = ((v?.minFret ?? 0) + (v?.maxFret ?? 0)) / 2;
+      const vBassPitch = v?.notes?.length
+        ? Math.min(...v.notes.map((n) => pitchAt(n.sIdx, n.fret)))
+        : 0;
+
+      let overlap = 0;
+      if (refFrets && vFrets) {
+        for (let i = 0; i < 6; i++) {
+          if (refFrets[i] === vFrets[i]) overlap += 1;
+        }
       }
-    }
-    return best;
-  }
 
-  function updateNearSlot(idx, patch) {
-    setNearSlots((prev) => prev.map((s, i) => (i === idx ? { ...s, ...patch } : s)));
-  }
+      const score =
+        Math.abs(vCenter - refCenter) * 3 +
+        Math.abs(vBassPitch - refBassPitch) * 0.2 +
+        Math.abs((v?.reach ?? ((v?.span ?? 0) + 1)) - (reference?.reach ?? ((reference?.span ?? 0) + 1))) * 1.2 -
+        overlap * 4;
 
-  function buildSlotVoicings(slot) {
-    if (!slot?.enabled) return { voicings: [], err: null, plan: null };
-
-    const slotMaxDist = Math.max(1, Math.min(8, Number(slot.maxDist || 4)));
-    const plan = buildChordEnginePlan({
-      rootPc: slot.rootPc,
-      quality: slot.quality,
-      suspension: slot.suspension || "none",
-      structure: slot.structure,
-      inversion: slot.inversion,
-      form: slot.form,
-      ext7: slot.ext7,
-      ext6: slot.ext6,
-      ext9: slot.ext9,
-      ext11: slot.ext11,
-      ext13: slot.ext13,
+      if (score < bestScore) {
+        bestScore = score;
+        bestIdx = idx;
+      }
     });
 
-    const allowOpenStrings = slot.allowOpenStrings !== false;
-    const inRange = (v) => v && v.notes.every((n) => allowOpenStrings ? (n.fret === 0 || (n.fret >= nearFrom && n.fret <= nearTo)) : (n.fret >= nearFrom && n.fret <= nearTo));
-    const inversionChoices = concreteInversionsForSelection(plan.inversion, plan.ui?.allowThirdInversion);
-    const selectedBassIntervals = bassIntervalsForSelection(plan);
-    const rootCandidates = symmetricRootCandidatesForPlan(plan);
-    const finalizeNearVoicings = (list) => {
-      const base = dedupeAndSortVoicings(list);
-      if (!allowOpenStrings) return base;
-      const allowedIntervals = new Set((plan.intervals || []).map(mod12));
-      const requiredIntervals = new Set((plan.intervals || []).map(mod12));
+    return bestIdx;
+  }
 
-      if (plan.structure === "chord") {
-        return augmentVoicingsWithChordToneDuplicatesInWindow({
+  const nearComputed = useMemo(() => {
+    const baseIdx = nearSlots.findIndex((slot) => !!slot?.enabled);
+
+    const rankVsBase = (candidate, baseVoicing) => {
+      if (!candidate || !baseVoicing) return 0;
+
+      const cCenter = ((candidate.minFret ?? 0) + (candidate.maxFret ?? 0)) / 2;
+      const bCenter = ((baseVoicing.minFret ?? 0) + (baseVoicing.maxFret ?? 0)) / 2;
+      const cBassPitch = candidate.notes?.length
+        ? Math.min(...candidate.notes.map((n) => pitchAt(n.sIdx, n.fret)))
+        : 0;
+      const bBassPitch = baseVoicing.notes?.length
+        ? Math.min(...baseVoicing.notes.map((n) => pitchAt(n.sIdx, n.fret)))
+        : 0;
+      const overlap = (candidate.notes || []).filter((n) =>
+        (baseVoicing.notes || []).some((b) => b.sIdx === n.sIdx && b.fret === n.fret)
+      ).length;
+
+      return (
+        Math.abs(cCenter - bCenter) * 3 +
+        Math.abs(cBassPitch - bBassPitch) * 0.18 +
+        Math.abs((candidate.reach ?? ((candidate.span ?? 0) + 1)) - (baseVoicing.reach ?? ((baseVoicing.span ?? 0) + 1))) * 1.1 -
+        overlap * 5
+      );
+    };
+
+    const buildSlotVoicings = (slot) => {
+      if (!slot?.enabled) return { plan: null, ranked: [], err: null };
+
+      const plan = buildChordEnginePlan({
+        rootPc: slot.rootPc,
+        quality: slot.quality,
+        suspension: slot.suspension || "none",
+        structure: slot.structure,
+        inversion: slot.inversion,
+        form: slot.form,
+        ext7: !!slot.ext7,
+        ext6: !!slot.ext6,
+        ext9: !!slot.ext9,
+        ext11: !!slot.ext11,
+        ext13: !!slot.ext13,
+      });
+
+      const maxSpan = slot.maxDist || 4;
+      const allowOpenStrings = !!slot.allowOpenStrings;
+      const selectedBassIntervals = bassIntervalsForSelection(plan);
+      const rootCandidates = symmetricRootCandidatesForPlan(plan);
+
+      const inNearWindow = (fret) => fret >= nearFrom && fret <= nearTo;
+      const voicingFits = (v) => {
+        if (!v || !isErgonomicVoicing(v, maxSpan)) return false;
+        return (v.notes || []).every((n) => (n.fret === 0 ? allowOpenStrings : inNearWindow(n.fret)));
+      };
+
+      const dedupeWindowed = (list) => dedupeAndSortVoicings(list).filter(voicingFits);
+
+      const finalize = (list) => {
+        let base = dedupeWindowed(list);
+        if (!allowOpenStrings) return base;
+
+        const allowedIntervals = new Set((plan.intervals || []).map(mod12));
+        const requiredIntervals = new Set((plan.intervals || []).map(mod12));
+
+        if (plan.structure === "chord") {
+          base = augmentVoicingsWithChordToneDuplicatesInWindow({
+            voicings: base,
+            rootPc: plan.rootPc,
+            allowedIntervals,
+            requiredIntervals,
+            allowedBassIntervals: selectedBassIntervals,
+            nearFrom,
+            nearTo,
+            maxFret,
+            maxSpan,
+          });
+          return dedupeWindowed(base);
+        }
+
+        const exactNoteCount = allowedIntervals.size;
+        if (exactNoteCount < 3 || exactNoteCount > 4) return base;
+
+        base = augmentExactVoicingsWithOpenSubstitutions({
           voicings: base,
           rootPc: plan.rootPc,
           allowedIntervals,
@@ -7120,240 +7376,206 @@ export default function FretboardScalesPage() {
           nearFrom,
           nearTo,
           maxFret,
-          maxSpan: slotMaxDist,
+          maxSpan,
+          exactNoteCount,
         });
+        return dedupeWindowed(base);
+      };
+
+      if (plan.generator === "triad") {
+        const list = rootCandidates.flatMap((rootCandidate) =>
+          concreteInversionsForSelection(plan.inversion, plan.ui?.allowThirdInversion).flatMap((inv) =>
+            filterVoicingsByForm(
+              generateTriadVoicings({
+                rootPc: rootCandidate,
+                thirdOffset: plan.thirdOffset,
+                fifthOffset: plan.fifthOffset,
+                inversion: inv,
+                maxFret,
+                maxSpan,
+              }),
+              plan.form
+            ).map((v) => normalizeGeneratedVoicingForDisplay(v, plan.rootPc, rootCandidate))
+          )
+        );
+        return { plan, ranked: finalize(list), err: null };
       }
 
-      const exactNoteCount = allowedIntervals.size;
-      if (exactNoteCount < 3 || exactNoteCount > 4) return base;
+      if (plan.generator === "drop") {
+        if (plan.topVoiceOffset == null) return { plan, ranked: [], err: "Sin voicings en este rango." };
+        const list = rootCandidates.flatMap((rootCandidate) =>
+          concreteInversionsForSelection(plan.inversion, plan.ui?.allowThirdInversion).flatMap((inv) =>
+            generateDropTetradVoicings({
+              rootPc: rootCandidate,
+              thirdOffset: plan.thirdOffset,
+              fifthOffset: plan.fifthOffset,
+              seventhOffset: plan.topVoiceOffset,
+              form: plan.form,
+              inversion: inv,
+              maxFret,
+              maxSpan,
+            }).map((v) => normalizeGeneratedVoicingForDisplay(v, plan.rootPc, rootCandidate))
+          )
+        );
+        return { plan, ranked: finalize(list), err: null };
+      }
 
-      return augmentExactVoicingsWithOpenSubstitutions({
-        voicings: base,
-        rootPc: plan.rootPc,
-        allowedIntervals,
-        requiredIntervals,
-        allowedBassIntervals: selectedBassIntervals,
-        nearFrom,
-        nearTo,
-        maxFret,
-        maxSpan: slotMaxDist,
-        exactNoteCount,
-      });
-    };
-
-    if (plan.generator === "triad") {
-      const tri = dedupeAndSortVoicings(rootCandidates.flatMap((rootCandidate) =>
-        inversionChoices.flatMap((inv) =>
-          filterVoicingsByForm(generateTriadVoicings({
-            rootPc: rootCandidate,
-            thirdOffset: plan.thirdOffset,
-            fifthOffset: plan.fifthOffset,
-            inversion: inv,
-            maxFret: nearTo,
-            maxSpan: slotMaxDist,
-          }), plan.form)
-            .filter(inRange)
-            .map((v) => normalizeGeneratedVoicingForDisplay(v, plan.rootPc, rootCandidate))
-        )
-      ));
-      const finalTri = finalizeNearVoicings(tri);
-      return { voicings: finalTri, err: finalTri.length ? null : "No encontré triadas en ese rango", plan };
-    }
-
-    if (plan.generator === "drop") {
-      if (plan.seventhOffset == null) return { voicings: [], err: "No hay 7ª para esta combinación", plan };
-      const tet = dedupeAndSortVoicings(rootCandidates.flatMap((rootCandidate) =>
-        inversionChoices.flatMap((inv) =>
-          generateDropTetradVoicings({
-            rootPc: rootCandidate,
-            thirdOffset: plan.thirdOffset,
-            fifthOffset: plan.fifthOffset,
-            seventhOffset: plan.topVoiceOffset,
-            form: plan.form,
-            inversion: inv,
-            maxFret: nearTo,
-            maxSpan: slotMaxDist,
-          })
-            .filter(inRange)
-            .map((v) => normalizeGeneratedVoicingForDisplay(v, plan.rootPc, rootCandidate))
-        )
-      ));
-      const finalDrop = finalizeNearVoicings(tet);
-      return { voicings: finalDrop, err: finalDrop.length ? null : "No encontré drops en ese rango", plan };
-    }
-
-    if (plan.generator === "tetrad") {
-      const tet = plan.form === "open"
-        ? buildOpenSupersetTetradVoicings({
-            rootCandidates,
-            inversionChoices,
-            plan,
-            maxFret: nearTo,
-            maxSpan: slotMaxDist,
-          }).filter(inRange)
-        : (() => {
-            const seventhLike = plan.singleAdd
-              ? (plan.ext13 ? 9 : plan.ext11 ? 5 : plan.ext9 ? 2 : 9)
-              : plan.seventhOffset;
-            if (seventhLike == null) return [];
-            return dedupeAndSortVoicings(rootCandidates.flatMap((rootCandidate) =>
-              inversionChoices.flatMap((inv) =>
-                filterVoicingsByForm(generateTetradVoicings({
-                  rootPc: rootCandidate,
-                  thirdOffset: plan.thirdOffset,
-                  fifthOffset: plan.fifthOffset,
-                  seventhOffset: seventhLike,
-                  inversion: inv,
-                  maxFret: nearTo,
-                  maxSpan: slotMaxDist,
-                }), plan.form)
-                  .filter(inRange)
-                  .map((v) => normalizeGeneratedVoicingForDisplay(v, plan.rootPc, rootCandidate))
+      if (plan.generator === "tetrad") {
+        const list = plan.form === "open"
+          ? buildOpenSupersetTetradVoicings({
+              rootCandidates,
+              inversionChoices: concreteInversionsForSelection(plan.inversion, plan.ui?.allowThirdInversion),
+              plan,
+              maxFret,
+              maxSpan,
+            })
+          : rootCandidates.flatMap((rootCandidate) =>
+              concreteInversionsForSelection(plan.inversion, plan.ui?.allowThirdInversion).flatMap((inv) =>
+                filterVoicingsByForm(
+                  generateTetradVoicings({
+                    rootPc: rootCandidate,
+                    thirdOffset: plan.thirdOffset,
+                    fifthOffset: plan.fifthOffset,
+                    seventhOffset: plan.topVoiceOffset,
+                    inversion: inv,
+                    maxFret,
+                    maxSpan,
+                  }),
+                  plan.form
+                ).map((v) => normalizeGeneratedVoicingForDisplay(v, plan.rootPc, rootCandidate))
               )
-            ));
-          })();
-      const finalTet = finalizeNearVoicings(tet);
-      const err = finalTet.length ? null : (plan.singleAdd ? "No encontré add* en ese rango" : "No encontré cuatriadas en ese rango");
-      return { voicings: finalTet, err, plan };
-    }
-
-    if (plan.generator === "exact") {
-      const multi = dedupeAndSortVoicings(selectedBassIntervals.flatMap((bassInterval) =>
-        generateExactIntervalChordVoicings({
-          rootPc: plan.rootPc,
-          intervals: plan.intervals,
-          bassInterval,
-          maxFret: nearTo,
-          maxSpan: slotMaxDist,
-        })
-          .filter(inRange)
-          .map((v) => normalizeGeneratedVoicingForDisplay(v, plan.rootPc, plan.rootPc))
-      ));
-      const finalMulti = finalizeNearVoicings(multi);
-      return { voicings: finalMulti, err: finalMulti.length ? null : "No hay add múltiples en rango", plan };
-    }
-
-    if (plan.generator === "json") {
-      const suffix = chordSuffixFromUI({
-        quality: slot.quality,
-        suspension: slot.suspension || "none",
-        structure: slot.structure,
-        ext7: slot.ext7,
-        ext6: slot.ext6,
-        ext9: slot.ext9,
-        ext11: slot.ext11,
-        ext13: slot.ext13,
-      });
-      if (!suffix) return { voicings: [], err: "No hay JSON para esta combinación", plan };
-
-      const keyName = chordDbKeyNameFromPc(plan.rootPc);
-      const cacheKey = `${keyName}/${suffix}`;
-      const json = chordDbCache[cacheKey];
-      const err = chordDbCacheErr[cacheKey];
-      if (err) return { voicings: [], err: `Error JSON: ${err}`, plan };
-      if (!json) return { voicings: [], err: "Cargando JSON…", plan };
-
-      const allowed = new Set(plan.intervals.map(mod12));
-      const required = new Set([mod12(plan.thirdOffset)]);
-      const noTensions = !plan.ext7 && !plan.ext6 && !plan.ext9 && !plan.ext11 && !plan.ext13;
-
-      if (noTensions) {
-        required.add(0);
-        required.add(mod12(plan.fifthOffset));
-      } else {
-        if (plan.ext7 && plan.seventhOffset != null) required.add(mod12(plan.seventhOffset));
-        if (plan.ext6) required.add(9);
-        if (plan.ext9) required.add(2);
-        if (plan.ext11) required.add(5);
-        if (plan.ext13) required.add(9);
+            );
+        return { plan, ranked: finalize(list), err: null };
       }
 
-      const outStrict = [];
-      const outLoose = [];
-      const seen = new Set();
-      for (const p of json.positions || []) {
-        const fretsLH = parseChordDbFretsString(p?.frets);
-        if (!fretsLH) continue;
-        const v = buildVoicingFromFretsLH({ fretsLH, rootPc: plan.rootPc, maxFret: nearTo });
-        if (!v || !isErgonomicVoicing(v, slotMaxDist)) continue;
-        if (!inRange(v)) continue;
+      if (plan.generator === "exact") {
+        const list = selectedBassIntervals.flatMap((bassInterval) =>
+          generateExactIntervalChordVoicings({
+            rootPc: plan.rootPc,
+            intervals: plan.intervals,
+            bassInterval,
+            maxFret,
+            maxSpan,
+          }).map((v) => normalizeGeneratedVoicingForDisplay(v, plan.rootPc, plan.rootPc))
+        );
+        return { plan, ranked: finalize(list), err: null };
+      }
 
-        const extraOk = new Set([2, 5, 9, 10, 11]);
-        let invalid = false;
-        let extraCount = 0;
-        for (const r of v.relIntervals) {
-          if (!allowed.has(r)) {
-            if (extraOk.has(r)) extraCount++;
-            else {
+      if (plan.generator === "json") {
+        const suffix = chordSuffixFromUI({
+          quality: slot.quality,
+          suspension: slot.suspension || "none",
+          structure: slot.structure,
+          ext7: !!slot.ext7,
+          ext6: !!slot.ext6,
+          ext9: !!slot.ext9,
+          ext11: !!slot.ext11,
+          ext13: !!slot.ext13,
+        });
+        const cacheKey = `${chordDbKeyNameFromPc(slot.rootPc)}/${suffix}`;
+        const json = chordDbCache[cacheKey];
+        const cachedErr = chordDbCacheErr[cacheKey] || null;
+
+        if (!json?.positions?.length) {
+          return { plan, ranked: [], err: cachedErr || "Sin digitaciones en este rango." };
+        }
+
+        const allowed = new Set(plan.intervals.map(mod12));
+        const required = new Set([mod12(plan.thirdOffset)]);
+        const noTensions = !slot.ext7 && !slot.ext6 && !slot.ext9 && !slot.ext11 && !slot.ext13;
+
+        if (noTensions) {
+          required.add(0);
+          required.add(mod12(plan.fifthOffset));
+        } else {
+          if (slot.ext7 && plan.seventhOffset != null) required.add(mod12(plan.seventhOffset));
+          if (slot.ext6) required.add(9);
+          if (slot.ext9) required.add(2);
+          if (slot.ext11) required.add(5);
+          if (slot.ext13) required.add(9);
+        }
+
+        const strict = [];
+        const loose = [];
+        const seen = new Set();
+
+        for (const p of json.positions || []) {
+          const fretsLH = parseChordDbFretsString(p?.frets);
+          if (!fretsLH) continue;
+          const v = buildVoicingFromFretsLH({ fretsLH, rootPc: plan.rootPc, maxFret });
+          if (!voicingFits(v)) continue;
+
+          const extraOk = new Set([2, 5, 9, 10, 11]);
+          let invalid = false;
+          let extraCount = 0;
+
+          for (const r of v.relIntervals) {
+            if (!allowed.has(r)) {
+              if (extraOk.has(r)) extraCount += 1;
+              else {
+                invalid = true;
+                break;
+              }
+            }
+          }
+          if (invalid) continue;
+          for (const r of required) {
+            if (!v.relIntervals.has(r)) {
               invalid = true;
               break;
             }
           }
-        }
-        if (invalid) continue;
-        for (const r of required) {
-          if (!v.relIntervals.has(r)) {
-            invalid = true;
-            break;
-          }
-        }
-        if (invalid) continue;
+          if (invalid) continue;
 
-        const bi = mod12(v.bassPc - plan.rootPc);
-        const key = `${v.frets}`;
-        if (seen.has(key)) continue;
-        seen.add(key);
+          const bassInt = mod12(v.bassPc - plan.rootPc);
+          const key = `${v.frets}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
 
-        const item = { ...v, _extra: extraCount };
-        if (selectedBassIntervals.includes(bi)) outStrict.push(item);
-        else if (plan.inversion !== "all") outLoose.push(item);
+          const item = { ...v, _extra: extraCount };
+          if (selectedBassIntervals.includes(bassInt)) strict.push(item);
+          else if (plan.inversion !== "all") loose.push(item);
+        }
+
+        const list = strict.length ? strict : loose;
+        list.sort((a, b) => ((a._extra ?? 0) - (b._extra ?? 0)) || (a.minFret - b.minFret) || (a.span - b.span) || (a.maxFret - b.maxFret));
+        return { plan, ranked: finalize(list), err: null };
       }
 
-      const list = outStrict.length ? outStrict : outLoose;
-      list.sort((a, b) => ((a._extra ?? 0) - (b._extra ?? 0)) || (a.minFret - b.minFret) || (a.span - b.span) || (a.maxFret - b.maxFret));
-      const finalJson = finalizeNearVoicings(list.slice(0, 60));
-      return { voicings: finalJson, err: finalJson.length ? null : "No hay voicings en rango", plan };
-    }
+      return { plan, ranked: [], err: "Sin voicings en este rango." };
+    };
 
-    return { voicings: [], err: "Estructura no soportada", plan };
-  }
+    const initial = nearSlots.map((slot) => buildSlotVoicings(slot));
+    const baseOptions = baseIdx >= 0 ? (initial[baseIdx]?.ranked || []) : [];
+    const baseRef = baseIdx >= 0
+      ? (baseOptions.find((v) => v.frets === nearSlots[baseIdx]?.selFrets) || baseOptions[0] || null)
+      : null;
 
-  // --------------------------------------------------------------------------
-  // CÁLCULOS DERIVADOS: ACORDES CERCANOS
-  // --------------------------------------------------------------------------
-
-  const nearComputed = useMemo(() => {
-    const slots = nearSlots.map((s) => buildSlotVoicings(s));
-
-    const anchorIdx = slots.findIndex((x, idx) => !!nearSlots[idx]?.enabled && (x?.voicings || []).length > 0);
-    const firstEnabledIdx = nearSlots.findIndex((s) => !!s?.enabled);
-    const refIdx = anchorIdx >= 0 ? anchorIdx : firstEnabledIdx;
-
-    const refList = refIdx >= 0 ? (slots[refIdx]?.voicings || []) : [];
-    const refSelFrets = refIdx >= 0 ? nearSlots[refIdx]?.selFrets : null;
-    const refPicked = refSelFrets ? refList.find((v) => v.frets === refSelFrets) : null;
-    const baseVoicing = refPicked || refList[0] || null;
-
-    const ranked = slots.map((x, idx) => {
-      const list = x?.voicings || [];
-      if (idx === refIdx || !baseVoicing) return { ...x, ranked: list };
-      const arr = list.map((v) => ({ ...v, _cost: voicingProximityCost(baseVoicing, v) }));
-      arr.sort((a, b) => (a._cost - b._cost) || (a.minFret - b.minFret) || (a.span - b.span));
-      return { ...x, ranked: arr.slice(0, 40) };
+    const ranked = initial.map((entry, idx) => {
+      if (idx === baseIdx || !baseRef || !(entry?.ranked?.length)) return entry;
+      return {
+        ...entry,
+        ranked: [...entry.ranked].sort((a, b) => {
+          const da = rankVsBase(a, baseRef);
+          const db = rankVsBase(b, baseRef);
+          if (da !== db) return da - db;
+          return (a.minFret - b.minFret) || ((a.reach ?? (a.span + 1)) - (b.reach ?? (b.span + 1))) || a.frets.localeCompare(b.frets);
+        }),
+      };
     });
 
-    const selected = ranked.map((r, idx) => {
-      const sel = nearSlots[idx]?.selFrets;
-      const list = r?.ranked || [];
-      const found = sel ? list.find((x) => x.frets === sel) : null;
-      return found || list[0] || null;
+    const selected = ranked.map((entry, idx) => {
+      if (!nearSlots[idx]?.enabled) return null;
+      const options = entry?.ranked || [];
+      if (!options.length) return null;
+      return options.find((v) => v.frets === nearSlots[idx]?.selFrets) || options[0] || null;
     });
 
-    return { ranked, selected, baseVoicing, baseIdx: refIdx };
-  }, [nearSlots, nearFrom, nearTo, chordDbCache, chordDbCacheErr, maxFret]);
+    return { baseIdx, ranked, selected };
+  }, [nearSlots, nearFrom, nearTo, maxFret, chordDbCache, chordDbCacheErr]);
 
   const nearRankSig = useMemo(
-    () => nearComputed.ranked.map((r) => (r?.ranked || []).map((v) => v.frets).join(",")).join("|"),
+    () => nearComputed.ranked.map((entry) => (entry?.ranked || []).map((v) => v.frets).join(",")).join("|"),
     [nearComputed.ranked]
   );
 
@@ -8492,8 +8714,13 @@ export default function FretboardScalesPage() {
             </div>
             {chordDetectSelectedCandidate ? (
               <>
-                <div className="text-xs text-slate-600">(Notas: {chordDetectSelectedCandidateNotesText})</div>
-                <div className="text-xs text-slate-600">Notas de la escala: {chordDetectSelectedCandidateScaleNotesText}</div>
+                <div className="mt-1">
+                  <ChordNoteBadgeStrip
+                    items={chordDetectSelectedCandidateBadgeItems}
+                    bassNote={chordDetectSelectedCandidateBassNote}
+                  />
+                </div>
+                <div className="mt-1 text-xs text-slate-600">Notas de la escala: {chordDetectSelectedCandidateScaleNotesText}</div>
               </>
             ) : (
               <div className="text-xs text-slate-600">Pulsa en el mástil para añadir o quitar notas y detectar acordes posibles.</div>
@@ -9799,10 +10026,14 @@ export default function FretboardScalesPage() {
                     </div>
                     <fieldset disabled={chordDetectMode} className={`mt-2 rounded-2xl border border-slate-200 bg-slate-50 p-3 ${chordDetectMode ? "opacity-70" : ""}`}>
                       <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
-                        <div className="text-sm font-semibold text-slate-800">
-                          Acorde
-                          <span className="ml-2 text-xs font-semibold text-slate-800">{chordBaseDisplayName}</span>
-                          <span className="ml-2 text-xs font-normal text-slate-600">(Notas: {chordDetectMode ? (chordDetectSelectedNotesText || "—") : spelledChordNotes.join(", ")})</span>
+                        <div>
+                          <div className="text-sm font-semibold text-slate-800">
+                            Acorde
+                            <span className="ml-2 text-xs font-semibold text-slate-800">{chordBaseDisplayName}</span>
+                          </div>
+                          <div className="mt-1">
+                            <ChordNoteBadgeStrip items={chordHeaderBadgeItems} bassNote={chordHeaderBassNote} />
+                          </div>
                         </div>
                         <div className="flex items-center gap-2">
                           <label
