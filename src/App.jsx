@@ -951,7 +951,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "2.68";
+const APP_VERSION = "2.69";
 
 function chordDbUrl(keyName, suffix) {
   // Ruta RELATIVA dentro de /public (sin base) => chords-db/...
@@ -7163,16 +7163,27 @@ export default function FretboardScalesPage() {
   const chordDetectSelectedCandidateBadgeItems = useMemo(() => {
     if (!chordDetectSelectedCandidate) return [];
     const prefer = chordDetectSelectedCandidate.preferSharps ?? chordPreferSharps;
-    const noteNames = spellChordNotes({
-      rootPc: chordDetectSelectedCandidate.rootPc,
-      chordIntervals: chordDetectSelectedCandidate.formula.intervals,
-      preferSharps: prefer,
-    });
+
+    const visibleDegreeLabels = (Array.isArray(chordDetectSelectedCandidate.formula?.intervals)
+      ? chordDetectSelectedCandidate.formula.intervals
+          .map((intv, idx) => chordDetectSelectedCandidate.visibleIntervals.includes(mod12(intv))
+            ? String(chordDetectSelectedCandidate.formula.degreeLabels?.[idx] || "")
+            : null)
+          .filter(Boolean)
+      : []);
+
+    const visibleNoteNames = (Array.isArray(chordDetectSelectedCandidate.formula?.intervals)
+      ? chordDetectSelectedCandidate.formula.intervals
+          .map((intv) => chordDetectSelectedCandidate.visibleIntervals.includes(mod12(intv))
+            ? spellNoteFromChordInterval(chordDetectSelectedCandidate.rootPc, intv, prefer)
+            : null)
+          .filter(Boolean)
+      : []);
 
     return buildChordBadgeItems({
-      notes: noteNames,
-      intervals: chordDetectSelectedCandidate.formula.intervals,
-      degreeLabels: chordDetectSelectedCandidate.formula.degreeLabels,
+      notes: visibleNoteNames,
+      intervals: chordDetectSelectedCandidate.visibleIntervals,
+      degreeLabels: visibleDegreeLabels,
       structure: chordDetectSelectedCandidate.uiPatch?.structure || "triad",
     });
   }, [chordDetectSelectedCandidate, chordPreferSharps]);
