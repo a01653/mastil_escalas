@@ -2404,6 +2404,15 @@ function buildQuartalManualCandidates(selectedNotes) {
       const stepText = chain.steps.map(buildQuartalStepText).join(" · ");
       const intervalPairsText = `${visibleNotes.join(" – ")} · bajo en ${bassName}${stepText ? ` · ${stepText}` : ""}`;
       const exact = extras.length === 0 && chain.pcs.length === uniquePcs.length;
+      const spreadKind = chain.steps.length
+        ? chain.steps.every((step, idx) => {
+            const a = ordered[idx];
+            const b = ordered[idx + 1];
+            return !!a && !!b && (b.pitch - a.pitch) === step;
+          })
+          ? "closed"
+          : "open"
+        : "closed";
       const score = Number(((exact ? 6 : 10) + (quartalType === "mixed" ? 2 : 0) + (externalBassInterval != null ? 2 : 0) - Math.max(0, chain.pcs.length - 3)).toFixed(2));
 
       const candidate = {
@@ -2425,7 +2434,15 @@ function buildQuartalManualCandidates(selectedNotes) {
         },
         exact,
         score,
-        uiPatch: null,
+        uiPatch: {
+          rootPc,
+          spellPreferSharps: preferSharps,
+          family: "quartal",
+          quartalType,
+          quartalVoices: String(chain.pcs.length),
+          quartalSpread: spreadKind,
+          quartalReference: "root",
+        },
         intervalPairsText,
         visibleNotes,
         visibleIntervals,
@@ -7627,28 +7644,38 @@ export default function FretboardScalesPage() {
     setChordDetectCandidateId(candidate.id);
     if (!candidate.uiPatch) return;
     setStudyTarget("main");
-    if (candidate.uiPatch) {
-      const p = candidate.uiPatch;
-      setChordFamily("tertian");
+
+    const p = candidate.uiPatch;
+
+    if (p.family === "quartal") {
+      setChordFamily("quartal");
       setChordRootPc(p.rootPc);
       setChordSpellPreferSharps(!!p.spellPreferSharps);
-      setChordQuality(p.quality);
-      setChordSuspension(p.suspension || "none");
-      setChordStructure(p.structure);
-      setChordInversion(p.inversion || "root");
-      setChordPositionForm(p.positionForm || "open");
-      setChordForm(p.form || p.positionForm || "open");
-      setChordExt7(!!p.ext7);
-      setChordExt6(!!p.ext6);
-      setChordExt9(!!p.ext9);
-      setChordExt11(!!p.ext11);
-      setChordExt13(!!p.ext13);
-      setChordSelectedFrets(null);
-      setChordVoicingIdx(0);
-    } else {
-      setChordRootPc(candidate.rootPc);
-      setChordSpellPreferSharps(!!candidate.preferSharps);
+      setChordQuartalType(p.quartalType || "pure");
+      setChordQuartalVoices(p.quartalVoices || "4");
+      setChordQuartalSpread(p.quartalSpread || "closed");
+      setChordQuartalReference(p.quartalReference || "root");
+      setChordQuartalSelectedFrets(null);
+      setChordQuartalVoicingIdx(0);
+      return;
     }
+
+    setChordFamily("tertian");
+    setChordRootPc(p.rootPc);
+    setChordSpellPreferSharps(!!p.spellPreferSharps);
+    setChordQuality(p.quality);
+    setChordSuspension(p.suspension || "none");
+    setChordStructure(p.structure);
+    setChordInversion(p.inversion || "root");
+    setChordPositionForm(p.positionForm || "open");
+    setChordForm(p.form || p.positionForm || "open");
+    setChordExt7(!!p.ext7);
+    setChordExt6(!!p.ext6);
+    setChordExt9(!!p.ext9);
+    setChordExt11(!!p.ext11);
+    setChordExt13(!!p.ext13);
+    setChordSelectedFrets(null);
+    setChordVoicingIdx(0);
   }
 
   function toggleChordDetectCell(sIdx, fret) {
