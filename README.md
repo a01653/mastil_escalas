@@ -127,4 +127,5 @@ Proyecto en desarrollo activo, con foco en:
 
 **Jesus Quevedo Rodriguez**
 
+ Si quieres hacer alguna sugerencia mandame un correo y verá si es posible incluirla a **jesus@jqbit.com**
 
