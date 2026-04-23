@@ -52,6 +52,7 @@ const MOBILE_BOTTOM_NAV_OPTIONS = [
   { value: "chords", label: "Acordes", icon: ChordDiagramIcon },
   { value: "nearChords", label: "Cercanos", icon: Waypoints },
 ];
+const MOBILE_SECTION_SWIPE_MIN_DISTANCE_PX = 56;
 const SCALE_INFO_TEXT = "Escala + (opcional) extras. Resalta raíz/3ª/5ª.";
 const PATTERNS_INFO_TEXT = "Patrones: 5 boxes (pentatónicas), 7 3NPS (7 notas) y CAGED. Ruta: sigue la escala en orden y se restringe a patrones";
 const NEAR_CHORDS_INFO_TEXT = "Selecciona hasta 4 acordes y busca digitaciones dentro de un rango. Ordena por cercanía al primer acorde activo. Los acordes se ajustan automáticamente según la nota raíz y la escala activas.";
@@ -1165,7 +1166,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "3.19";
+const APP_VERSION = "3.21";
 
 function chordDbUrl(keyName, suffix) {
   // Ruta RELATIVA dentro de /public (sin base) => chords-db/...
@@ -7925,6 +7926,9 @@ export default function FretboardScalesPage() {
   const tonalContextRef = useRef(null);
   const importConfigInputRef = useRef(null);
   const chordDetectAudioCtxRef = useRef(null);
+  const mobileSectionPointerRef = useRef(null);
+  const mobileSectionSlideRef = useRef(null);
+  const mobileSectionSuppressClickRef = useRef(false);
 
   const [storageHydrated, setStorageHydrated] = useState(false);
   const [configNotice, setConfigNotice] = useState(null);
@@ -7970,6 +7974,7 @@ export default function FretboardScalesPage() {
   const [isMobileLayout, setIsMobileLayout] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobileActiveSection, setMobileActiveSection] = useState("chords");
+  const [mobileSectionMotion, setMobileSectionMotion] = useState("none");
   const [mobileTonalContextOpen, setMobileTonalContextOpen] = useState(false);
   const [showKingBoxes, setShowKingBoxes] = useState(false);
   const [kingBoxMode, setKingBoxMode] = useState("bb");
@@ -8040,9 +8045,13 @@ export default function FretboardScalesPage() {
       setMobileMenuOpen(false);
       setMobileTonalContextOpen(false);
       setMobileInfoPopover(null);
+      setMobileSectionMotion("none");
+      resetMobileSectionSlide();
       return;
     }
     const firstVisible = MOBILE_SECTION_OPTIONS.find((option) => showBoards[option.value])?.value || "chords";
+    setMobileSectionMotion("none");
+    resetMobileSectionSlide();
     setMobileActiveSection(firstVisible);
   }, [isMobileLayout]);
 
@@ -13589,6 +13598,12 @@ function ChordFretboard({
   const themeDisabledControlText = isDark(themeDisabledControlBg) ? "#f8fafc" : "#64748b";
   const themeDisabledControlBorder = isDark(themeDisabledControlBg) ? "#475569" : "#cbd5e1";
   const routeLabPickHelpText = `Click en el mástil de ruta para elegir: ${routeLabPickNext === "start" ? "Inicio" : "Fin"}.`;
+  const mobileActiveSectionIdx = MOBILE_BOTTOM_NAV_OPTIONS.findIndex((option) => option.value === mobileActiveSection);
+  const mobilePrevSection = mobileActiveSectionIdx > 0 ? MOBILE_BOTTOM_NAV_OPTIONS[mobileActiveSectionIdx - 1].value : null;
+  const mobileNextSection =
+    mobileActiveSectionIdx >= 0 && mobileActiveSectionIdx < MOBILE_BOTTOM_NAV_OPTIONS.length - 1
+      ? MOBILE_BOTTOM_NAV_OPTIONS[mobileActiveSectionIdx + 1].value
+      : null;
   const appThemeStyle = {
     backgroundColor: themePageBg,
     "--panel-bg": themeElementBg,
@@ -13603,6 +13618,10 @@ function ChordFretboard({
 
   function selectBoardView(section) {
     if (isMobileLayout) {
+      const currentIdx = MOBILE_BOTTOM_NAV_OPTIONS.findIndex((option) => option.value === mobileActiveSection);
+      const nextIdx = MOBILE_BOTTOM_NAV_OPTIONS.findIndex((option) => option.value === section);
+      setMobileSectionMotion(currentIdx >= 0 && nextIdx >= 0 && nextIdx !== currentIdx ? (nextIdx > currentIdx ? "next" : "prev") : "none");
+      resetMobileSectionSlide();
       setMobileActiveSection(section);
       setMobileMenuOpen(false);
       return;
@@ -13612,6 +13631,122 @@ function ChordFretboard({
       return;
     }
     setShowBoards((prev) => normalizeBoardVisibility({ ...prev, [section]: true }, section));
+  }
+
+  function mobileSectionIndex() {
+    return MOBILE_BOTTOM_NAV_OPTIONS.findIndex((option) => option.value === mobileActiveSection);
+  }
+
+  function canMoveMobileSectionBy(delta) {
+    const idx = mobileSectionIndex();
+    const nextIdx = idx + delta;
+    return idx >= 0 && nextIdx >= 0 && nextIdx < MOBILE_BOTTOM_NAV_OPTIONS.length;
+  }
+
+  function isMobileSectionSwipeIgnored(target) {
+    return !!target?.closest?.("button,input,select,textarea,a,label,[role='button'],[contenteditable='true'],[data-mobile-swipe-ignore='true']");
+  }
+
+  function setMobileSectionSlideTransform(dx, dragging = false) {
+    const el = mobileSectionSlideRef.current;
+    if (!el) return;
+    el.style.transition = dragging ? "none" : "";
+    el.style.setProperty("--mobile-section-drag-x", `${Math.round(dx)}px`);
+    el.style.opacity = dragging ? String(Math.max(0.78, 1 - Math.min(Math.abs(dx), 320) / 1100)) : "";
+  }
+
+  function resetMobileSectionSlide() {
+    const el = mobileSectionSlideRef.current;
+    if (!el) return;
+    el.style.transition = "";
+    el.style.removeProperty("--mobile-section-drag-x");
+    el.style.opacity = "";
+  }
+
+  function moveMobileSectionBy(delta) {
+    if (!isMobileLayout || mobileMenuOpen || mobileTonalContextOpen || mobileInfoPopover || manualOpen || studyOpen) return;
+    const currentIdx = mobileSectionIndex();
+    const nextIdx = currentIdx + delta;
+    if (currentIdx < 0 || nextIdx < 0 || nextIdx >= MOBILE_BOTTOM_NAV_OPTIONS.length) return;
+    selectBoardView(MOBILE_BOTTOM_NAV_OPTIONS[nextIdx].value);
+  }
+
+  function handleMobileSectionPointerDown(e) {
+    if (!isMobileLayout || mobileMenuOpen || mobileTonalContextOpen || mobileInfoPopover || manualOpen || studyOpen) return;
+    if ((e.pointerType && e.pointerType !== "touch" && e.pointerType !== "pen") || isMobileSectionSwipeIgnored(e.target)) {
+      mobileSectionPointerRef.current = null;
+      return;
+    }
+    setMobileSectionMotion("none");
+    resetMobileSectionSlide();
+    mobileSectionPointerRef.current = {
+      pointerId: e.pointerId,
+      x: e.clientX,
+      y: e.clientY,
+      dragging: false,
+      verticalScroll: false,
+    };
+  }
+
+  function handleMobileSectionPointerMove(e) {
+    const start = mobileSectionPointerRef.current;
+    if (!start || start.pointerId !== e.pointerId || start.verticalScroll) return;
+    const dx = e.clientX - start.x;
+    const dy = e.clientY - start.y;
+
+    if (!start.dragging) {
+      if (Math.abs(dy) > 12 && Math.abs(dy) > Math.abs(dx)) {
+        start.verticalScroll = true;
+        return;
+      }
+      if (!(Math.abs(dx) > 14 && Math.abs(dx) > Math.abs(dy) * 1.2)) return;
+      start.dragging = true;
+      e.currentTarget.setPointerCapture?.(e.pointerId);
+    }
+
+    e.preventDefault();
+    const canMove = canMoveMobileSectionBy(dx < 0 ? 1 : -1);
+    const viewportWidth = window.innerWidth || 360;
+    const maxDrag = Math.max(150, viewportWidth * 0.62);
+    const boundedDx = Math.max(-maxDrag, Math.min(maxDrag, canMove ? dx : dx * 0.22));
+    setMobileSectionSlideTransform(boundedDx, true);
+  }
+
+  function handleMobileSectionPointerEnd(e) {
+    const start = mobileSectionPointerRef.current;
+    mobileSectionPointerRef.current = null;
+    try {
+      e.currentTarget.releasePointerCapture?.(e.pointerId);
+    } catch {
+    }
+    if (!start || start.pointerId !== e.pointerId || start.verticalScroll) {
+      resetMobileSectionSlide();
+      return;
+    }
+    const dx = e.clientX - start.x;
+    const dy = e.clientY - start.y;
+    const isHorizontalSwipe = start.dragging && Math.abs(dx) >= MOBILE_SECTION_SWIPE_MIN_DISTANCE_PX && Math.abs(dx) > Math.abs(dy) * 1.2;
+    if (!isHorizontalSwipe) {
+      resetMobileSectionSlide();
+      return;
+    }
+
+    mobileSectionSuppressClickRef.current = true;
+    window.setTimeout(() => {
+      mobileSectionSuppressClickRef.current = false;
+    }, 250);
+    if (canMoveMobileSectionBy(dx < 0 ? 1 : -1)) {
+      resetMobileSectionSlide();
+      moveMobileSectionBy(dx < 0 ? 1 : -1);
+      return;
+    }
+    resetMobileSectionSlide();
+  }
+
+  function handleMobileSectionClickCapture(e) {
+    if (!mobileSectionSuppressClickRef.current) return;
+    e.preventDefault();
+    e.stopPropagation();
   }
 
   function renderColorPanels(boardVisibility, extraClassName = "") {
@@ -13909,9 +14044,73 @@ function ChordFretboard({
     );
   }
 
+  function renderMobileAdjacentSectionPreview(section) {
+    const option = MOBILE_BOTTOM_NAV_OPTIONS.find((item) => item.value === section);
+    if (!option) return <div className="min-h-[420px]" />;
+    const Icon = option.icon;
+
+    return (
+      <div className="pointer-events-none space-y-3 opacity-95" aria-hidden="true">
+        <div
+          className="flex w-full items-center gap-2 rounded-2xl border border-slate-200 p-3 text-left shadow-sm ring-1 ring-slate-200"
+          style={{ backgroundColor: "var(--subsection-header-bg, #ebf2fa)" }}
+        >
+          <div className="min-w-0 flex-1">
+            <div className="text-sm font-semibold text-slate-800">Contexto tonal</div>
+            <div className="mt-1 truncate text-xs font-semibold text-slate-600">{tonalContextSummary}</div>
+          </div>
+          <ChevronRight className="h-4 w-4 shrink-0 text-slate-400" />
+        </div>
+        <PanelBlock title={option.label}>
+          <div className="flex min-h-[420px] items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-white/70 px-4 text-center">
+            <div className="max-w-[220px] text-slate-600">
+              <Icon className="mx-auto h-8 w-8 text-slate-500" aria-hidden="true" />
+              <div className="mt-3 text-base font-semibold text-slate-800">{option.label}</div>
+              <div className="mt-1 text-xs">Suelta para cambiar a esta sección.</div>
+            </div>
+          </div>
+        </PanelBlock>
+      </div>
+    );
+  }
+
   return (
     <div className="app-theme min-h-screen overflow-x-auto text-slate-900" style={appThemeStyle}>
       <style>{`
+        @keyframes mobile-section-slide-next {
+          from { opacity: 0.55; transform: translate3d(calc(-33.333333% + 96px), 0, 0); }
+          to { opacity: 1; transform: translate3d(calc(-33.333333% + 0px), 0, 0); }
+        }
+        @keyframes mobile-section-slide-prev {
+          from { opacity: 0.55; transform: translate3d(calc(-33.333333% - 96px), 0, 0); }
+          to { opacity: 1; transform: translate3d(calc(-33.333333% + 0px), 0, 0); }
+        }
+        .mobile-section-slide {
+          --mobile-section-drag-x: 0px;
+          display: flex;
+          align-items: flex-start;
+          width: 300%;
+          touch-action: pan-y;
+          transform: translate3d(calc(-33.333333% + var(--mobile-section-drag-x)), 0, 0);
+          transition: transform 760ms cubic-bezier(0.22, 1, 0.36, 1), opacity 760ms cubic-bezier(0.22, 1, 0.36, 1);
+          will-change: transform, opacity;
+        }
+        .mobile-section-pane {
+          flex: 0 0 33.333333%;
+          min-width: 0;
+          width: 33.333333%;
+        }
+        .mobile-section-slide[data-motion="next"] {
+          animation: mobile-section-slide-next 760ms cubic-bezier(0.22, 1, 0.36, 1);
+        }
+        .mobile-section-slide[data-motion="prev"] {
+          animation: mobile-section-slide-prev 760ms cubic-bezier(0.22, 1, 0.36, 1);
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .mobile-section-slide[data-motion] {
+            animation: none !important;
+          }
+        }
         .app-theme .bg-white { background-color: var(--panel-bg) !important; }
         .app-theme .bg-sky-50 { background: var(--panel-soft-bg) !important; background-image: none !important; }
         .app-theme .bg-sky-100 { background: var(--panel-soft-bg) !important; background-image: none !important; }
@@ -14240,7 +14439,33 @@ function ChordFretboard({
             </div>
 
             {/* MÁSTILES */}
-            <div className="space-y-3">
+            <div
+              className={isMobileLayout ? "space-y-3 overflow-x-hidden" : "space-y-3"}
+              onPointerDown={handleMobileSectionPointerDown}
+              onPointerMove={handleMobileSectionPointerMove}
+              onPointerUp={handleMobileSectionPointerEnd}
+              onPointerCancel={(e) => {
+                mobileSectionPointerRef.current = null;
+                try {
+                  e.currentTarget.releasePointerCapture?.(e.pointerId);
+                } catch {
+                }
+                resetMobileSectionSlide();
+              }}
+              onClickCapture={handleMobileSectionClickCapture}
+            >
+              <div
+                ref={mobileSectionSlideRef}
+                key={isMobileLayout ? mobileActiveSection : "desktop-sections"}
+                className={isMobileLayout ? "mobile-section-slide" : "space-y-3"}
+                data-motion={isMobileLayout ? mobileSectionMotion : undefined}
+              >
+                {isMobileLayout ? (
+                  <div className="mobile-section-pane pr-2">
+                    {mobilePrevSection ? renderMobileAdjacentSectionPreview(mobilePrevSection) : <div className="min-h-[420px]" />}
+                  </div>
+                ) : null}
+                <div className={isMobileLayout ? "mobile-section-pane space-y-3" : "space-y-3"}>
               {isMobileLayout ? (
                 <div
                   className="flex w-full items-center gap-2 rounded-2xl border border-slate-200 p-3 text-left shadow-sm ring-1 ring-slate-200"
@@ -14276,9 +14501,9 @@ function ChordFretboard({
                   </div>
                 </div>
               ) : null}
-              {effectiveBoards.scale ? <Fretboard title="Escala" subtitle={SCALE_INFO_TEXT} mode="scale" /> : null}
-              {effectiveBoards.patterns ? <Fretboard title="Patrones" subtitle={PATTERNS_INFO_TEXT} mode="patterns" /> : null}
-              {effectiveBoards.route ? (
+                {effectiveBoards.scale ? <Fretboard title="Escala" subtitle={SCALE_INFO_TEXT} mode="scale" /> : null}
+                {effectiveBoards.patterns ? <Fretboard title="Patrones" subtitle={PATTERNS_INFO_TEXT} mode="patterns" /> : null}
+                {effectiveBoards.route ? (
                 <PanelBlock
                   title={<InfoTitle label="Ruta musical" info={routeLabPickHelpText} />}
                   titleTooltip={!isMobileLayout ? routeLabPickHelpText : ""}
@@ -14317,9 +14542,9 @@ function ChordFretboard({
                     <RouteLabFretboard />
                   </div>
                 </PanelBlock>
-              ) : null}
+                ) : null}
 
-              {effectiveBoards.chords ? (
+                {effectiveBoards.chords ? (
                 <div className="space-y-3">
                   {/* ACORDES (principal) */}
                   <PanelBlock
@@ -15196,7 +15421,7 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
                 </div>
               ) : null}
 
-              {effectiveBoards.nearChords ? (
+                {effectiveBoards.nearChords ? (
                 <PanelBlock
                   title={isMobileLayout ? (
                     <span className="inline-flex items-center gap-2">
@@ -15607,9 +15832,16 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
 
                   <NearChordsFretboard />
                 </PanelBlock>
-              ) : null}
+                ) : null}
 
-              {(effectiveBoards.chords || effectiveBoards.nearChords) ? <StudyPanel /> : null}
+                {(effectiveBoards.chords || effectiveBoards.nearChords) ? <StudyPanel /> : null}
+                </div>
+                {isMobileLayout ? (
+                  <div className="mobile-section-pane pl-2">
+                    {mobileNextSection ? renderMobileAdjacentSectionPreview(mobileNextSection) : <div className="min-h-[420px]" />}
+                  </div>
+                ) : null}
+              </div>
             </div>
           </div>
 
