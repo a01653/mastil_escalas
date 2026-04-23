@@ -1166,7 +1166,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "3.22";
+const APP_VERSION = "3.23";
 
 function chordDbUrl(keyName, suffix) {
   // Ruta RELATIVA dentro de /public (sin base) => chords-db/...
@@ -4856,6 +4856,7 @@ function rgba(hex, a) {
 }
 
 const FRET_CELL_BG = "rgba(248, 250, 252, 0.72)";
+const FRET_INLAY_BG = "var(--fret-inlay-bg, #9fc0d4)";
 
 function isDark(hex) {
   const rgb = hexToRgb(hex);
@@ -8413,6 +8414,39 @@ export default function FretboardScalesPage() {
   const [themeElementBg, setThemeElementBg] = useState("#ffffff");
   const [themeDisabledControlBg, setThemeDisabledControlBg] = useState("#f0f0f0");
 
+  useEffect(() => {
+    if (typeof document === "undefined") return undefined;
+    const html = document.documentElement;
+    const body = document.body;
+    const root = document.getElementById("root");
+    const prevHtmlBg = html.style.backgroundColor;
+    const prevHtmlBgImage = html.style.backgroundImage;
+    const prevBodyBg = body.style.backgroundColor;
+    const prevBodyBgImage = body.style.backgroundImage;
+    const prevRootBg = root?.style.backgroundColor || "";
+    const prevRootBgImage = root?.style.backgroundImage || "";
+
+    html.style.backgroundColor = themePageBg;
+    html.style.backgroundImage = "none";
+    body.style.backgroundColor = themePageBg;
+    body.style.backgroundImage = "none";
+    if (root) {
+      root.style.backgroundColor = themePageBg;
+      root.style.backgroundImage = "none";
+    }
+
+    return () => {
+      html.style.backgroundColor = prevHtmlBg;
+      html.style.backgroundImage = prevHtmlBgImage;
+      body.style.backgroundColor = prevBodyBg;
+      body.style.backgroundImage = prevBodyBgImage;
+      if (root) {
+        root.style.backgroundColor = prevRootBg;
+        root.style.backgroundImage = prevRootBgImage;
+      }
+    };
+  }, [themePageBg]);
+
   // --------------------------------------------------------------------------
   // PERSISTENCIA / EXPORTACIÓN / PRESETS
   // --------------------------------------------------------------------------
@@ -10998,7 +11032,7 @@ export default function FretboardScalesPage() {
     .pdf-mini-neck-cell--open { border-radius: 6px; }
     .pdf-mini-neck-dot { position: relative; z-index: 2; display: inline-flex; width: 20px; height: 20px; border-radius: 999px; align-items: center; justify-content: center; padding: 0 3px; text-align: center; font-size: 6px; line-height: 1.05; font-weight: 700; box-shadow: 0 0 0 2px rgba(15,23,42,0.08); }
     .pdf-mini-neck-dot--bass { box-shadow: inset 0 0 0 2px rgba(0,0,0,0.95); }
-    .pdf-mini-neck-inlay { position: absolute; bottom: 4px; width: 8px; height: 8px; border-radius: 999px; background: rgba(148,163,184,0.6); z-index: 1; }
+    .pdf-mini-neck-inlay { position: absolute; bottom: 4px; width: 8px; height: 8px; border-radius: 999px; background: var(--fret-inlay-bg-soft, rgba(159,192,212,0.78)); z-index: 1; }
     .pdf-mini-neck-inlay--active { opacity: 0.32; }
     .pdf-mini-neck-muted { font-size: 9px; font-weight: 700; color: #94a3b8; }
     @media print {
@@ -12099,7 +12133,7 @@ export default function FretboardScalesPage() {
           const has = isDouble ? INLAY_DOUBLE.has(fret) : INLAY_SINGLE.has(fret);
           return (
             <div key={fret} className="relative flex h-4 items-center justify-center">
-              {has ? <div className="h-4 w-4 rounded-full bg-slate-300 opacity-95" /> : null}
+              {has ? <div className="h-4 w-4 rounded-full opacity-95" style={{ backgroundColor: FRET_INLAY_BG }} /> : null}
             </div>
           );
         })}
@@ -12114,7 +12148,7 @@ export default function FretboardScalesPage() {
         <div className="mt-0.5 flex h-2.5 items-center justify-center gap-0.5">
           {mobileFretHasInlay(fret)
             ? Array.from({ length: INLAY_DOUBLE.has(fret) ? 2 : 1 }, (_, idx) => (
-                <div key={idx} className="h-2.5 w-2.5 rounded-full bg-slate-300 opacity-90" />
+                <div key={idx} className="h-2.5 w-2.5 rounded-full opacity-90" style={{ backgroundColor: FRET_INLAY_BG }} />
               ))
             : null}
         </div>
@@ -12155,7 +12189,7 @@ export default function FretboardScalesPage() {
                 {mobileFretHasInlay(fret) ? (
                   <div className="absolute right-0 top-1/2 flex -translate-y-1/2 flex-col items-center justify-center">
                     {Array.from({ length: INLAY_DOUBLE.has(fret) ? 2 : 1 }, (_, idx) => (
-                      <div key={idx} className={`${idx ? "mt-0.5" : ""} h-2.5 w-2.5 rounded-full bg-slate-300 opacity-90`} />
+                      <div key={idx} className={`${idx ? "mt-0.5" : ""} h-2.5 w-2.5 rounded-full opacity-90`} style={{ backgroundColor: FRET_INLAY_BG }} />
                     ))}
                   </div>
                 ) : null}
@@ -12166,7 +12200,7 @@ export default function FretboardScalesPage() {
                   <div className="grid items-center gap-1" style={{ gridTemplateColumns: mobileVerticalFretGridCols() }}>
                     {mobileInlayGridColumns(fret).map((gridColumn) => (
                       <div key={`inlay-${fret}-${gridColumn}`} className="flex items-center justify-center" style={{ gridColumn }}>
-                        <div className="h-3.5 w-3.5 rounded-full bg-slate-300 opacity-90" />
+                        <div className="h-3.5 w-3.5 rounded-full opacity-90" style={{ backgroundColor: FRET_INLAY_BG }} />
                       </div>
                     ))}
                   </div>
@@ -12395,7 +12429,7 @@ function ChordFretboard({
                       className="pointer-events-none absolute left-1/2 z-0 -translate-x-1/2 -translate-y-1/2"
                       style={{ top: "78%" }}
                     >
-                      <div className="h-4 w-4 rounded-full bg-slate-300 opacity-80" />
+                      <div className="h-4 w-4 rounded-full opacity-80" style={{ backgroundColor: FRET_INLAY_BG }} />
                     </div>
                   ) : null}
 
@@ -12506,7 +12540,7 @@ function ChordFretboard({
                     <HoverCellNote sIdx={sIdx} fret={fret} visible={!item} />
                     {hasInlayCell(fret, sIdx) ? (
                       <div className="pointer-events-none absolute left-1/2 z-0 -translate-x-1/2 -translate-y-1/2" style={{ top: "78%" }}>
-                        <div className="h-4 w-4 rounded-full bg-slate-300 opacity-80" />
+                        <div className="h-4 w-4 rounded-full opacity-80" style={{ backgroundColor: FRET_INLAY_BG }} />
                       </div>
                     ) : null}
                     {item ? <GuideToneCircle pc={item.pc} isBass={item.isBass} /> : (fret === 0 && mutedStrings.has(sIdx) ? <span className="text-xs font-semibold text-slate-400">X</span> : (showNonScale ? <div className="text-[10px] text-slate-400">{labelForCellAt(sIdx, fret)}</div> : null))}
@@ -12612,7 +12646,7 @@ function ChordFretboard({
                     <HoverCellNote sIdx={sIdx} fret={fret} visible={!item} />
                     {hasInlayCell(fret, sIdx) ? (
                       <div className="pointer-events-none absolute left-1/2 z-0 -translate-x-1/2 -translate-y-1/2" style={{ top: "78%" }}>
-                        <div className="h-4 w-4 rounded-full bg-slate-300 opacity-80" />
+                        <div className="h-4 w-4 rounded-full opacity-80" style={{ backgroundColor: FRET_INLAY_BG }} />
                       </div>
                     ) : null}
                     {item ? <ChordInvestigationCircle pc={item.pc} fret={fret} sIdx={sIdx} candidate={chordDetectSelectedCandidate} isBass={item.isBass} /> : (fret === 0 && !selectedStrings.has(sIdx) ? <span className="text-xs font-semibold text-slate-400">X</span> : (showNonScale ? <div className="text-[10px] text-slate-400">{chordDetectSelectedCandidate ? buildDetectedCandidateBackgroundLabelForPc(mod12(STRINGS[sIdx].pc + fret), chordDetectSelectedCandidate, chordPreferSharps, showIntervalsLabel, showNotesLabel) : labelForCellAt(sIdx, fret)}</div> : null))}
@@ -12915,7 +12949,7 @@ function ChordFretboard({
                       <HoverCellNote sIdx={sIdx} fret={fret} visible={!items.length} />
                       {hasInlayCell(fret, sIdx) ? (
                       <div className="pointer-events-none absolute left-1/2 z-0 -translate-x-1/2 -translate-y-1/2" style={{ top: "78%" }}>
-                        <div className="h-4 w-4 rounded-full bg-slate-300 opacity-80" />
+                        <div className="h-4 w-4 rounded-full opacity-80" style={{ backgroundColor: FRET_INLAY_BG }} />
                       </div>
                     ) : null}
                       {fret >= nearFrom && fret <= nearTo ? (
@@ -13141,7 +13175,7 @@ function ChordFretboard({
                               className="pointer-events-none absolute left-1/2 z-0 -translate-x-1/2"
                               style={{ bottom: "-10px" }}
                             >
-                              <div className="h-4 w-4 rounded-full bg-slate-300 opacity-95" />
+                              <div className="h-4 w-4 rounded-full opacity-95" style={{ backgroundColor: FRET_INLAY_BG }} />
                             </div>
                           ) : null}
                           <HoverCellNote sIdx={sIdx} fret={fret} visible={!shouldRender} />
@@ -13369,7 +13403,7 @@ function ChordFretboard({
                               className="pointer-events-none absolute left-1/2 z-0 -translate-x-1/2"
                               style={{ bottom: "-10px" }}
                             >
-                              <div className="h-4 w-4 rounded-full bg-slate-300 opacity-95" />
+                              <div className="h-4 w-4 rounded-full opacity-95" style={{ backgroundColor: FRET_INLAY_BG }} />
                             </div>
                           ) : null}
                           <HoverCellNote sIdx={sIdx} fret={fret} visible={!shouldRender} />
@@ -13600,25 +13634,31 @@ function ChordFretboard({
   const themeHoverBg = themeObjectBg;
   const themeDisabledControlText = isDark(themeDisabledControlBg) ? "#f8fafc" : "#64748b";
   const themeDisabledControlBorder = isDark(themeDisabledControlBg) ? "#475569" : "#cbd5e1";
+  const themeFretInlayBg = mixHexColors(themeSectionHeaderBg, "#71a3c1", 0.46);
   const routeLabPickHelpText = `Click en el mástil de ruta para elegir: ${routeLabPickNext === "start" ? "Inicio" : "Fin"}.`;
-  const mobileActiveSectionIdx = MOBILE_BOTTOM_NAV_OPTIONS.findIndex((option) => option.value === mobileActiveSection);
-  const mobilePrevSection = mobileActiveSectionIdx > 0 ? MOBILE_BOTTOM_NAV_OPTIONS[mobileActiveSectionIdx - 1].value : null;
+  const mobileRenderedCenterSection = mobileSectionTransition?.fromSection || mobileActiveSection;
+  const mobileRenderedSectionIdx = MOBILE_BOTTOM_NAV_OPTIONS.findIndex((option) => option.value === mobileRenderedCenterSection);
+  const mobilePrevSection = mobileRenderedSectionIdx > 0 ? MOBILE_BOTTOM_NAV_OPTIONS[mobileRenderedSectionIdx - 1].value : null;
   const mobileNextSection =
-    mobileActiveSectionIdx >= 0 && mobileActiveSectionIdx < MOBILE_BOTTOM_NAV_OPTIONS.length - 1
-      ? MOBILE_BOTTOM_NAV_OPTIONS[mobileActiveSectionIdx + 1].value
+    mobileRenderedSectionIdx >= 0 && mobileRenderedSectionIdx < MOBILE_BOTTOM_NAV_OPTIONS.length - 1
+      ? MOBILE_BOTTOM_NAV_OPTIONS[mobileRenderedSectionIdx + 1].value
       : null;
   const mobileTransitionTargetSection = mobileSectionTransition?.targetSection || null;
   const mobileTransitionDirection = mobileSectionTransition?.direction || 0;
   const mobileRenderedPrevSection = mobileTransitionDirection < 0 ? mobileTransitionTargetSection : mobilePrevSection;
   const mobileRenderedNextSection = mobileTransitionDirection > 0 ? mobileTransitionTargetSection : mobileNextSection;
-  const mobileBottomNavSelectedSection = mobileTransitionTargetSection || mobileActiveSection;
+  const mobileBottomNavSelectedSection = mobileActiveSection;
   const appThemeStyle = {
     backgroundColor: themePageBg,
+    backgroundImage: "none",
+    "--page-bg": themePageBg,
     "--panel-bg": themeElementBg,
     "--panel-soft-bg": themeSoftBg,
     "--panel-hover-bg": themeHoverBg,
     "--section-header-bg": themeSectionHeaderBg,
     "--subsection-header-bg": themeObjectBg,
+    "--fret-inlay-bg": themeFretInlayBg,
+    "--fret-inlay-bg-soft": rgba(themeFretInlayBg, 0.78),
     "--control-disabled-bg": themeDisabledControlBg,
     "--control-disabled-text": themeDisabledControlText,
     "--control-disabled-border": themeDisabledControlBorder,
@@ -13630,18 +13670,21 @@ function ChordFretboard({
         setMobileMenuOpen(false);
         return;
       }
-      const currentIdx = MOBILE_BOTTOM_NAV_OPTIONS.findIndex((option) => option.value === mobileActiveSection);
+      const currentIdx = MOBILE_BOTTOM_NAV_OPTIONS.findIndex((option) => option.value === mobileRenderedCenterSection);
       const nextIdx = MOBILE_BOTTOM_NAV_OPTIONS.findIndex((option) => option.value === section);
       if (nextIdx < 0 || currentIdx < 0 || nextIdx === currentIdx) {
+        setMobileActiveSection(section);
         setMobileMenuOpen(false);
         setMobileSectionMotion("none");
         resetMobileSectionSlide();
         return;
       }
       setMobileSectionTransition({
+        fromSection: mobileRenderedCenterSection,
         targetSection: section,
         direction: nextIdx > currentIdx ? 1 : -1,
       });
+      setMobileActiveSection(section);
       setMobileSectionMotion("none");
       resetMobileSectionSlide();
       setMobileMenuOpen(false);
@@ -13701,10 +13744,13 @@ function ChordFretboard({
       resetMobileSectionSlide();
       return;
     }
+    const targetSection = MOBILE_BOTTOM_NAV_OPTIONS[nextIdx].value;
     setMobileSectionTransition({
-      targetSection: MOBILE_BOTTOM_NAV_OPTIONS[nextIdx].value,
+      fromSection: mobileActiveSection,
+      targetSection,
       direction: delta,
     });
+    setMobileActiveSection(targetSection);
     setMobileSectionMotion("none");
     setMobileMenuOpen(false);
     setMobileSectionSlideTransform(delta > 0 ? -mobileSectionViewportWidth() : mobileSectionViewportWidth());
@@ -13792,7 +13838,6 @@ function ChordFretboard({
   function handleMobileSectionSlideTransitionEnd(e) {
     if (!isMobileLayout || e.target !== e.currentTarget || e.propertyName !== "transform") return;
     if (!mobileSectionTransition) return;
-    setMobileActiveSection(mobileSectionTransition.targetSection);
     setMobileSectionTransition(null);
   }
 
@@ -15548,9 +15593,6 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <h1 className="text-lg font-semibold sm:text-xl">Mástil interactivo: escalas, patrones, rutas y acordes</h1>
-              {isMobileLayout ? (
-                <div className="mt-1 text-xs text-slate-600">Vista móvil: una sección activa cada vez.</div>
-              ) : null}
             </div>
             <div className="flex items-center gap-2">
               <span className="rounded-xl border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600 shadow-sm">ver. {APP_VERSION}</span>
@@ -15864,7 +15906,7 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
             >
               <div
                 ref={mobileSectionSlideRef}
-                key={isMobileLayout ? mobileActiveSection : "desktop-sections"}
+                key={isMobileLayout ? mobileRenderedCenterSection : "desktop-sections"}
                 className={isMobileLayout ? "mobile-section-slide" : "space-y-3"}
                 data-motion={isMobileLayout ? mobileSectionMotion : undefined}
                 onTransitionEnd={isMobileLayout ? handleMobileSectionSlideTransitionEnd : undefined}
@@ -15875,7 +15917,7 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
                   </div>
                 ) : null}
                 {renderBoardPanels(
-                  isMobileLayout ? boardVisibilityForSection(mobileActiveSection) : effectiveBoards,
+                  isMobileLayout ? boardVisibilityForSection(mobileRenderedCenterSection) : effectiveBoards,
                   {
                     paneClassName: isMobileLayout ? "mobile-section-pane space-y-3 px-1" : "space-y-3",
                     includeMobileTonalContext: isMobileLayout,
@@ -15963,7 +16005,7 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
                   className={`flex min-h-[58px] flex-col items-center justify-center gap-1 rounded-[22px] px-1.5 py-2 text-[10px] font-semibold leading-tight transition-colors ${mobileBottomNavSelectedSection === option.value ? "bg-[#71a3c1] text-slate-900 shadow-[0_8px_20px_rgba(113,163,193,0.28)]" : "bg-transparent text-slate-600 hover:bg-sky-50 hover:text-slate-900"}`}
                   onClick={() => selectBoardView(option.value)}
                   title={option.label}
-                  disabled={!!mobileSectionTransition}
+                  aria-disabled={mobileSectionTransition ? "true" : undefined}
                 >
                   <option.icon className={`shrink-0 ${mobileBottomNavSelectedSection === option.value ? "h-[18px] w-[18px]" : "h-[17px] w-[17px]"}`} aria-hidden="true" />
                   <span className="block max-w-full truncate">{option.label}</span>
