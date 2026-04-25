@@ -420,12 +420,12 @@ function mobileVerticalFretGridCols() {
 }
 
 function mobileVerticalFretCellClass(fret) {
-  return fret === 0 ? "h-[34px] pb-1" : "h-[45px]";
+  return fret === 0 ? "h-[34px]" : "h-[45px]";
 }
 
 function mobileVerticalFretRowMarginTop(fret, previousFret) {
   if (previousFret == null) return undefined;
-  return previousFret === 0 && fret === 1 ? "calc(0.25rem + 4px)" : "0.25rem";
+  return previousFret === 0 ? "calc(2px + 0.25rem)" : "0.25rem";
 }
 
 function mobileVerticalFretBorderClass(fret) {
@@ -1250,7 +1250,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "3.41";
+const APP_VERSION = "3.52";
 
 function chordDbUrl(keyName, suffix) {
   // Ruta RELATIVA dentro de /public (sin base) => chords-db/...
@@ -8018,6 +8018,8 @@ export default function FretboardScalesPage() {
   const mobileSectionPointerRef = useRef(null);
   const mobileSectionSlideRef = useRef(null);
   const mobileSectionSuppressClickRef = useRef(false);
+  const mobileChordSummaryMeasureRef = useRef(null);
+  const [mobileChordSummaryUseCompact, setMobileChordSummaryUseCompact] = useState(false);
 
   const [storageHydrated, setStorageHydrated] = useState(false);
   const [configNotice, setConfigNotice] = useState(null);
@@ -12395,16 +12397,20 @@ export default function FretboardScalesPage() {
                   </div>
                 ) : null}
               </div>
-              {MOBILE_VERTICAL_STRING_ORDER.map((sIdx) => renderCell({ sIdx, fret, cellClassName: mobileVerticalFretCellClass(fret) }))}
-              {showOpenNutLine && fret === 0 ? (
+              {visibleFrets[fretIdx - 1] === 0 ? (
                 <div
-                  className="pointer-events-none absolute inset-x-0 bottom-0 z-[10] translate-y-1/2 rounded-full"
-                  style={{ height: MOBILE_CHORD_NUT_WIDTH, backgroundColor: MOBILE_CHORD_NUT_BG }}
+                  className="pointer-events-none absolute inset-x-0 -top-0.5 -translate-y-1/2 rounded-full"
+                  style={{
+                    zIndex: showOpenNutLine && fret === 1 ? 2 : -1,
+                    height: MOBILE_CHORD_NUT_WIDTH,
+                    backgroundColor: showOpenNutLine && fret === 1 ? MOBILE_CHORD_NUT_BG : "var(--panel-bg, #ffffff)",
+                  }}
                   aria-hidden="true"
                 />
               ) : null}
+              {MOBILE_VERTICAL_STRING_ORDER.map((sIdx) => renderCell({ sIdx, fret, cellClassName: mobileVerticalFretCellClass(fret) }))}
               {mobileFretHasInlay(fret) ? (
-                <div className="pointer-events-none absolute inset-x-0 top-1/2 z-[1] -translate-y-1/2">
+                <div className="pointer-events-none absolute inset-x-0 top-1/2 z-[3] -translate-y-1/2">
                   <div className="grid items-center gap-1" style={{ gridTemplateColumns: mobileVerticalFretGridCols() }}>
                     {mobileInlayGridColumns(fret).map((gridColumn) => (
                       <div key={`inlay-${fret}-${gridColumn}`} className="flex items-center justify-center" style={{ gridColumn }}>
@@ -12547,6 +12553,35 @@ function ChordCircle({ role, isBass, displayLabel, titleText, fret = 1, compactO
   // COMPONENTES UI INTERNOS: ACORDES Y DETECCIÓN
   // --------------------------------------------------------------------------
 
+  function renderChordAllowOpenStringsToggle(className = "") {
+    return (
+      <label
+        className={`inline-flex items-center gap-2 text-xs font-semibold text-slate-700 ${className}`.trim()}
+        title={chordFamily === "quartal" ? "Incluye cuerdas al aire en la búsqueda de voicings cuartales." : chordFamily === "guide_tones" ? "Incluye cuerdas al aire en la búsqueda de shells de notas guía." : "Permite usar cuerdas al aire como opción de voicing. La distancia se calcula solo con las notas pisadas."}
+      >
+        <span>Permitir cuerdas al aire</span>
+        <input
+          type="checkbox"
+          checked={chordAllowOpenStrings}
+          onChange={(e) => {
+            setChordAllowOpenStrings(e.target.checked);
+            if (chordFamily === "quartal") {
+              setChordQuartalSelectedFrets(null);
+              setChordQuartalVoicingIdx(0);
+            } else if (chordFamily === "guide_tones") {
+              setGuideToneSelectedFrets(null);
+              setGuideToneVoicingIdx(0);
+            } else {
+              setChordSelectedFrets(null);
+              setChordVoicingIdx(0);
+            }
+          }}
+          className="h-4 w-4 rounded border-slate-300"
+        />
+      </label>
+    );
+  }
+
 function ChordFretboard({
   title,
   subtitle = "",
@@ -12593,11 +12628,16 @@ function ChordFretboard({
       level="subsection"
       title={title}
       description={voicing ? `Notas: ${noteText}.${subtitle ? ` ${subtitle}` : ""}` : subtitle}
-      headerAside={voicing ? (
-        <div className="text-xs text-slate-600">
-          Voicing {Math.min(voicingIdx + 1, voicingTotal)}/{voicingTotal}: <b>{voicing.frets}</b>
+      headerAside={(
+        <div className="flex flex-col items-end gap-1">
+          {renderChordAllowOpenStringsToggle("justify-end")}
+          {voicing ? (
+            <div className="text-xs text-slate-600">
+              Voicing {Math.min(voicingIdx + 1, voicingTotal)}/{voicingTotal}: <b>{voicing.frets}</b>
+            </div>
+          ) : null}
         </div>
-      ) : null}
+      )}
     >
 
       {!voicing && emptyMessage ? (
@@ -12616,9 +12656,9 @@ function ChordFretboard({
             return (
               <div
                 key={`${sIdx}-${fret}`}
-                className={`group relative isolate flex w-full overflow-visible items-center justify-center rounded-lg border ${
+                className={`group relative flex w-full overflow-visible items-center justify-center rounded-lg border ${
                   mobileVerticalFretBorderClass(fret)
-                } ${cellClassName} ${item ? "z-[4]" : "z-0"}`}
+                } ${cellClassName}`}
                 style={{ backgroundColor: fret === 0 ? "transparent" : FRET_CELL_BG }}
               >
                 <HoverCellNote sIdx={sIdx} fret={fret} visible={!item && !isMutedOpen} />
@@ -12764,7 +12804,12 @@ function ChordFretboard({
         level="subsection"
         title={title}
         description={`${voicing ? `Notas: ${noteText}. ` : ""}Shells de 3 notas con 1, 3 y 7 según la calidad. Forma e inversión afectan al voicing real.`}
-        headerAside={voicing ? <div className="text-xs text-slate-600">Voicing {Math.min(voicingIdx + 1, voicingTotal)}/{voicingTotal}: <b>{voicing.frets}</b></div> : null}
+        headerAside={(
+          <div className="flex flex-col items-end gap-1">
+            {renderChordAllowOpenStringsToggle("justify-end")}
+            {voicing ? <div className="text-xs text-slate-600">Voicing {Math.min(voicingIdx + 1, voicingTotal)}/{voicingTotal}: <b>{voicing.frets}</b></div> : null}
+          </div>
+        )}
       >
 
         {!voicing && emptyMessage ? (
@@ -12783,9 +12828,9 @@ function ChordFretboard({
               return (
                 <div
                   key={`${sIdx}-${fret}`}
-                  className={`group relative isolate flex w-full overflow-visible items-center justify-center rounded-lg border ${
+                  className={`group relative flex w-full overflow-visible items-center justify-center rounded-lg border ${
                     mobileVerticalFretBorderClass(fret)
-                  } ${cellClassName} ${item ? "z-[4]" : "z-0"}`}
+                  } ${cellClassName}`}
                   style={{ backgroundColor: fret === 0 ? "transparent" : FRET_CELL_BG }}
                 >
                   <HoverCellNote sIdx={sIdx} fret={fret} visible={!item && !isMutedOpen} />
@@ -12861,13 +12906,20 @@ function ChordFretboard({
       () => new Set(chordDetectSelectedNotes.map((n) => n.sIdx)),
       [chordDetectSelectedNotes]
     );
+    const manualSelectionInfoText = `${
+      chordDetectSelectedCandidate
+        ? `Notas de la escala: ${chordDetectSelectedCandidateScaleNotesText}.`
+        : "Pulsa en el mástil para añadir o quitar notas y detectar acordes posibles."
+    } Trastes: las flechas izquierda y derecha desplazan el rango visible del mástil en móvil; no cambian las notas seleccionadas, solo qué trastes se muestran.`;
 
     return (
       <PanelBlock
         level="subsection"
-        title={chordDetectSelectedCandidate ? `Acorde por selección manual - ${chordDetectSelectedCandidate.name}` : "Acorde por selección manual"}
-        description={chordDetectSelectedCandidate ? `Notas de la escala: ${chordDetectSelectedCandidateScaleNotesText}` : "Pulsa en el mástil para añadir o quitar notas y detectar acordes posibles."}
-        headerAside={<div className="flex flex-wrap items-center gap-2">
+        title={<InfoTitle label="Selección manual" info={manualSelectionInfoText} />}
+        titleTooltip={!isMobileLayout ? manualSelectionInfoText : ""}
+        headerClassName="items-start"
+        description={(
+          <div className="flex flex-col items-start gap-2">
           {isMobileLayout ? (
             <div className="flex items-center gap-1.5">
               <div className="text-xs font-semibold text-slate-700">Trastes</div>
@@ -12894,23 +12946,28 @@ function ChordFretboard({
               </button>
             </div>
           ) : null}
-          <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-700">
-            <input
-              type="checkbox"
-              checked={chordDetectClickAudio}
-              onChange={(e) => setChordDetectClickAudio(e.target.checked)}
-              className="h-4 w-4 rounded border-slate-300"
-            />
-            Sonido al pulsar
-          </label>
-          <button
-            type="button"
-            className={UI_BTN_SM + " w-auto px-3"}
-            onClick={() => fnPlayChordDetectSelection()}
-            disabled={!chordDetectSelectedKeys.length}
-          >
-            Play
-          </button>
+            <div className="flex flex-wrap items-center justify-start gap-2">
+              <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={chordDetectClickAudio}
+                  onChange={(e) => setChordDetectClickAudio(e.target.checked)}
+                  className="h-4 w-4 rounded border-slate-300"
+                />
+                Sonido al pulsar
+              </label>
+              <button
+                type="button"
+                className={UI_BTN_SM + " w-auto px-3"}
+                onClick={() => fnPlayChordDetectSelection()}
+                disabled={!chordDetectSelectedKeys.length}
+              >
+                Play
+              </button>
+            </div>
+          </div>
+        )}
+        headerAside={(
           <button
             type="button"
             className={UI_BTN_SM + " w-auto px-3"}
@@ -12922,7 +12979,7 @@ function ChordFretboard({
           >
             Limpiar
           </button>
-        </div>}
+        )}
       >
 
         {chordDetectSelectedCandidate ? (
@@ -12947,9 +13004,9 @@ function ChordFretboard({
                   key={`${sIdx}-${fret}`}
                   type="button"
                   onClick={() => toggleChordDetectCell(sIdx, fret)}
-                  className={`group relative isolate flex w-full overflow-visible items-center justify-center rounded-lg border ${cellClassName} ${
+                  className={`group relative flex w-full overflow-visible items-center justify-center rounded-lg border ${cellClassName} ${
                     mobileVerticalFretBorderClass(fret)
-                  } ${item ? "z-[4]" : "z-0"} ${fret === 0 ? "bg-transparent" : "bg-slate-50 hover:ring-2 hover:ring-slate-300"}`}
+                  } ${fret === 0 ? "bg-transparent" : "bg-slate-50 hover:ring-2 hover:ring-slate-300"}`}
                 >
                   <HoverCellNote sIdx={sIdx} fret={fret} visible={!item} />
                   {item ? (
@@ -13293,9 +13350,9 @@ function ChordFretboard({
               return (
                 <div
                   key={`${sIdx}-${fret}`}
-                  className={`group relative isolate flex w-full overflow-visible items-center justify-center rounded-lg border ${
+                  className={`group relative flex w-full overflow-visible items-center justify-center rounded-lg border ${
                     mobileVerticalFretBorderClass(fret)
-                  } ${cellClassName} ${items.length ? "z-[4]" : "z-0"}`}
+                  } ${cellClassName}`}
                   style={{ backgroundColor: fret === 0 ? "transparent" : FRET_CELL_BG }}
                 >
                   <HoverCellNote sIdx={sIdx} fret={fret} visible={!items.length} />
@@ -13518,9 +13575,9 @@ function ChordFretboard({
                       setRouteLabPickNext("start");
                     }
                   }}
-                  className={`group relative isolate flex w-full overflow-visible items-center justify-center rounded-lg border ${cellClassName} ${
+                  className={`group relative flex w-full overflow-visible items-center justify-center rounded-lg border ${cellClassName} ${
                     mobileVerticalFretBorderClass(fret)
-                  } ${shouldRender && displayRole ? "z-[4]" : "z-0"} ${inScale ? "cursor-pointer hover:ring-2 hover:ring-slate-300" : ""}`}
+                  } ${inScale ? "cursor-pointer hover:ring-2 hover:ring-slate-300" : ""}`}
                   style={{ backgroundColor: fret === 0 ? "transparent" : FRET_CELL_BG, ...bgRoute }}
                 >
                   <HoverCellNote sIdx={sIdx} fret={fret} visible={!shouldRender} />
@@ -13738,9 +13795,9 @@ function ChordFretboard({
                       setRoutePickNext("start");
                     }
                   }}
-                  className={`group relative isolate flex w-full overflow-visible items-center justify-center rounded-lg border ${cellClassName} ${
+                  className={`group relative flex w-full overflow-visible items-center justify-center rounded-lg border ${cellClassName} ${
                     mobileVerticalFretBorderClass(fret)
-                  } ${shouldRender && displayRole ? "z-[4]" : "z-0"} ${mode === "route" && inScale ? "cursor-pointer hover:ring-2 hover:ring-slate-300" : ""}`}
+                  } ${mode === "route" && inScale ? "cursor-pointer hover:ring-2 hover:ring-slate-300" : ""}`}
                   style={{ backgroundColor: fret === 0 ? "transparent" : FRET_CELL_BG, ...bgPat, ...bgRoute }}
                 >
                   <HoverCellNote sIdx={sIdx} fret={fret} visible={!shouldRender} />
@@ -14093,6 +14150,44 @@ function ChordFretboard({
     return String(raw || "").replace(/\s+·\s+/g, " - ");
   }
 
+  const mobileChordSummaryFullText = chordControlsSummary();
+  const mobileChordSummaryCompactText = mobileChordSummaryFullText.replace(/\bCuatriada\b/g, "Cuatri");
+
+  useEffect(() => {
+    if (!isMobileLayout) {
+      setMobileChordSummaryUseCompact(false);
+      return undefined;
+    }
+
+    const node = mobileChordSummaryMeasureRef.current;
+    if (!node) {
+      setMobileChordSummaryUseCompact(false);
+      return undefined;
+    }
+
+    let frameId = 0;
+    const update = () => {
+      frameId = 0;
+      setMobileChordSummaryUseCompact(node.scrollWidth > node.clientWidth + 1);
+    };
+    const schedule = () => {
+      if (frameId) cancelAnimationFrame(frameId);
+      frameId = requestAnimationFrame(update);
+    };
+
+    schedule();
+    const ResizeObserverImpl = typeof window !== "undefined" ? window.ResizeObserver : undefined;
+    const observer = ResizeObserverImpl ? new ResizeObserverImpl(schedule) : null;
+    if (observer) observer.observe(node);
+    if (typeof window !== "undefined") window.addEventListener("resize", schedule);
+
+    return () => {
+      if (frameId) cancelAnimationFrame(frameId);
+      if (observer) observer.disconnect();
+      if (typeof window !== "undefined") window.removeEventListener("resize", schedule);
+    };
+  }, [isMobileLayout, mobileRenderedCenterSection, chordDetectMode, mobileChordSummaryFullText]);
+
   function renderChordBadgeStripBlock(className = "") {
     const commonClass = className.trim();
     if (chordFamily === "quartal") {
@@ -14231,8 +14326,15 @@ function ChordFretboard({
             </button>
           </div>
         </div>
-        <div className="mt-1 whitespace-nowrap text-[13px] font-semibold leading-5 text-slate-600">
-          {chordControlsSummary()}
+        <div className="relative mt-1 whitespace-nowrap text-[13px] font-semibold leading-5 text-slate-600">
+          <span>{mobileChordSummaryUseCompact ? mobileChordSummaryCompactText : mobileChordSummaryFullText}</span>
+          <span
+            ref={mobileChordSummaryMeasureRef}
+            className="pointer-events-none invisible absolute inset-x-0 top-0 block whitespace-nowrap"
+            aria-hidden="true"
+          >
+            {mobileChordSummaryFullText}
+          </span>
         </div>
         {renderChordBadgeStripBlock("mt-4")}
         <div className="mt-3 flex flex-wrap items-end gap-2">
@@ -14240,32 +14342,6 @@ function ChordFretboard({
             {renderMainChordVoicingPicker()}
           </div>
           {renderMobileChordDistControl("shrink-0")}
-        </div>
-        <div className="mt-3">
-          <label
-            className="inline-flex items-center gap-2 text-xs font-semibold text-slate-700"
-            title={chordFamily === "quartal" ? "Incluye cuerdas al aire en la búsqueda de voicings cuartales." : chordFamily === "guide_tones" ? "Incluye cuerdas al aire en la búsqueda de shells de notas guía." : "Permite usar cuerdas al aire como opción de voicing. La distancia se calcula solo con las notas pisadas."}
-          >
-            <span>Permitir cuerdas al aire</span>
-            <input
-              type="checkbox"
-              checked={chordAllowOpenStrings}
-              onChange={(e) => {
-                setChordAllowOpenStrings(e.target.checked);
-                if (chordFamily === "quartal") {
-                  setChordQuartalSelectedFrets(null);
-                  setChordQuartalVoicingIdx(0);
-                } else if (chordFamily === "guide_tones") {
-                  setGuideToneSelectedFrets(null);
-                  setGuideToneVoicingIdx(0);
-                } else {
-                  setChordSelectedFrets(null);
-                  setChordVoicingIdx(0);
-                }
-              }}
-              className="h-4 w-4 rounded border-slate-300"
-            />
-          </label>
         </div>
       </div>
     );
