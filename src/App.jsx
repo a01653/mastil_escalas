@@ -15310,11 +15310,12 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
           <div className="flex shrink-0 items-center gap-1.5">
             <button
               type="button"
-              className={UI_BTN_SM + " w-auto px-3"}
+              className={`${UI_BTN_SM} inline-flex items-center justify-center`}
               title="Abre el análisis del acorde, del voicing y de sus tensiones."
               onClick={openMainChordStudy}
+              aria-label="Estudiar acorde"
             >
-              Estudiar
+              <BookOpen className="h-4 w-4" />
             </button>
             <button
               type="button"
