@@ -14920,7 +14920,7 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
         as="div"
         level="subsection"
         title={slotLabel}
-        description={mobileDescription}
+        description={null}
         disabledHeader={disableAll}
         bodyClassName="overflow-visible"
         headerAside={<div className="flex items-center gap-1.5">
@@ -14957,6 +14957,9 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
             </button>
           </div>}
       >
+        <div className="mb-3 text-[13px] font-semibold leading-5 text-slate-600">
+          {mobileDescription}
+        </div>
         {errMsg ? (
           <div className="mb-3 text-xs font-semibold text-rose-400">
             {errMsg}
