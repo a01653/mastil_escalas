@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Blocks, ChevronLeft, ChevronRight, HelpCircle, Info, Menu, Music, Route, Settings, Waypoints, X } from "lucide-react";
+import { Blocks, BookOpen, ChevronLeft, ChevronRight, HelpCircle, Info, Menu, Music, Route, Settings, Waypoints, X } from "lucide-react";
 
 // Mástil interactivo
 // - Escalas: pentatónicas (mayor/menor), mayor/menor natural, modos
@@ -58,6 +58,32 @@ const SCALE_INFO_TEXT = "Escala + (opcional) extras. Resalta raíz/3ª/5ª.";
 const PATTERNS_INFO_TEXT = "Patrones: 5 boxes (pentatónicas), 7 3NPS (7 notas) y CAGED. Ruta: sigue la escala en orden y se restringe a patrones";
 const NEAR_CHORDS_INFO_TEXT = "Selecciona hasta 4 acordes y busca digitaciones dentro de un rango. Ordena por cercanía al primer acorde activo. Los acordes se ajustan automáticamente según la nota raíz y la escala activas.";
 const NEAR_AUTO_SCALE_INFO_TEXT = "Con Auto escala ON, los acordes cercanos se rellenan y actualizan según la nota raíz, la escala y la armonización activas. Con OFF, cada acorde queda bajo edición manual.";
+const CHORDS_SECTION_INFO_TEXT = [
+  "Acordes construye el acorde principal y muestra digitaciones reales sobre el mástil.",
+  "Investigar en mástil bloquea el editor superior y te deja seleccionar una nota por cuerda directamente en el diapasón.",
+  "En ese modo la app propone lecturas posibles y puedes copiarlas de vuelta a la sección Acorde.",
+].join("\n");
+const CHORD_EDITOR_INFO_TEXT = [
+  "Esta ventana define el acorde que quieres construir.",
+  "Tono y Calidad / Sus cambian la nota base y el color armónico.",
+  "Estructura, Forma e Inversión ajustan cuántas voces usas y cómo se reparten en el voicing.",
+  "Las casillas 6, 7, 9, 11 y 13 añaden o quitan extensiones según la estructura activa.",
+].join("\n");
+const CHORD_STUDY_INFO_TEXT = [
+  "Modo estudio analiza el acorde activo, el voicing actual y sus tensiones.",
+  "Ver análisis abre o cierra el detalle del estudio.",
+  "Exportar PDF genera un resumen imprimible del análisis visible.",
+].join("\n");
+const CHORD_FRETBOARD_INFO_TEXT = [
+  "Este mástil muestra la digitación real del acorde activo.",
+  "Permitir cuerdas al aire deja entrar voicings con cuerdas al aire sin contar esas cuerdas para la distancia.",
+  "Voicing X/Y indica qué digitación concreta estás viendo dentro de las encontradas.",
+].join("\n");
+const DETECTED_CHORDS_INFO_TEXT = [
+  "Aquí aparecen las lecturas posibles a partir de las notas que has marcado en el mástil.",
+  "El selector elige qué lectura queda activa.",
+  "Copiar en Acorde pasa esa lectura al constructor superior cuando es compatible.",
+].join("\n");
 const PRIMARY_BOARD_SECTIONS = ["scale", "patterns", "route", "chords", "nearChords"];
 const TONAL_CONTEXT_TOOLTIP = "Afecta a Escala, Patrones, Ruta y al contexto armónico usado en análisis y acordes cercanos.";
 const MOBILE_VERTICAL_STRING_ORDER = [5, 4, 3, 2, 1, 0];
@@ -1186,6 +1212,14 @@ function analyzeChordSetTonality({ slots, harmonyMode }) {
   const selected = (slots || []).filter((s) => !!s?.enabled);
   if (!selected.length) return { selectedNames: [], labels: [], text: "(ninguna)" };
 
+  if (selected.some((slot) => String(slot?.family || "tertian") !== "tertian")) {
+    return {
+      selectedNames: [],
+      labels: [],
+      text: "No disponible con familias cuartales o de notas guía activas",
+    };
+  }
+
   const selectedNames = selected.map((slot) => chordDisplayNameFromUI({
     rootPc: slot.rootPc,
     preferSharps: slot.spellPreferSharps ?? preferSharpsFromMajorTonicPc(mod12(slot.rootPc)),
@@ -1250,7 +1284,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "3.52";
+const APP_VERSION = "3.53";
 
 function chordDbUrl(keyName, suffix) {
   // Ruta RELATIVA dentro de /public (sin base) => chords-db/...
@@ -5844,6 +5878,7 @@ function sanitizeNearSlotValue(value, fallback) {
   return {
     ...fallback,
     enabled: sanitizeBoolValue(slot.enabled, fallback.enabled),
+    family: sanitizeOneOf(slot.family, CHORD_FAMILIES.map((x) => x.value), fallback.family || "tertian"),
     rootPc: sanitizeNumberValue(slot.rootPc, fallback.rootPc, 0, 11),
     quality: sanitizeOneOf(slot.quality, CHORD_QUALITIES.map((q) => q.value), fallback.quality),
     suspension: sanitizeOneOf(slot.suspension, ["none", "sus2", "sus4"], fallback.suspension),
@@ -5856,6 +5891,14 @@ function sanitizeNearSlotValue(value, fallback) {
     ext9: sanitizeBoolValue(slot.ext9, fallback.ext9),
     ext11: sanitizeBoolValue(slot.ext11, fallback.ext11),
     ext13: sanitizeBoolValue(slot.ext13, fallback.ext13),
+    quartalType: sanitizeOneOf(slot.quartalType, CHORD_QUARTAL_TYPES.map((x) => x.value), fallback.quartalType || "pure"),
+    quartalVoices: sanitizeOneOf(String(slot.quartalVoices ?? ""), CHORD_QUARTAL_VOICES.map((x) => x.value), fallback.quartalVoices || "4"),
+    quartalSpread: sanitizeOneOf(slot.quartalSpread, CHORD_QUARTAL_SPREADS.map((x) => x.value), fallback.quartalSpread || "closed"),
+    quartalReference: sanitizeOneOf(slot.quartalReference, CHORD_QUARTAL_REFERENCES.map((x) => x.value), fallback.quartalReference || "root"),
+    quartalScaleName: sanitizeOneOf(normalizeScaleName(slot.quartalScaleName), CHORD_QUARTAL_SCALE_NAMES, fallback.quartalScaleName || "Mayor"),
+    guideToneQuality: sanitizeOneOf(slot.guideToneQuality, CHORD_GUIDE_TONE_QUALITIES.map((x) => x.value), fallback.guideToneQuality || "maj7"),
+    guideToneForm: sanitizeOneOf(slot.guideToneForm, CHORD_GUIDE_TONE_FORMS.map((x) => x.value), fallback.guideToneForm || "closed"),
+    guideToneInversion: sanitizeOneOf(slot.guideToneInversion, CHORD_GUIDE_TONE_INVERSIONS.map((x) => x.value), fallback.guideToneInversion || "all"),
     spellPreferSharps: sanitizeBoolValue(slot.spellPreferSharps, fallback.spellPreferSharps),
     maxDist: sanitizeOneOf(Number(slot.maxDist), [4, 5, 6], fallback.maxDist),
     allowOpenStrings: sanitizeBoolValue(slot.allowOpenStrings, fallback.allowOpenStrings),
@@ -8069,6 +8112,7 @@ export default function FretboardScalesPage() {
   const [mobileSectionMotion, setMobileSectionMotion] = useState("none");
   const [mobileTonalContextOpen, setMobileTonalContextOpen] = useState(false);
   const [mobileChordEditorOpen, setMobileChordEditorOpen] = useState(false);
+  const [mobileNearChordEditorIdx, setMobileNearChordEditorIdx] = useState(null);
   const [showKingBoxes, setShowKingBoxes] = useState(false);
   const [kingBoxMode, setKingBoxMode] = useState("bb");
   const [kingBoxColors, setKingBoxColors] = useState({
@@ -8139,6 +8183,7 @@ export default function FretboardScalesPage() {
       setMobileMenuOpen(false);
       setMobileTonalContextOpen(false);
       setMobileChordEditorOpen(false);
+      setMobileNearChordEditorIdx(null);
       setMobileInfoPopover(null);
       setMobileSectionTransition(null);
       setMobileSectionMotion("none");
@@ -8168,7 +8213,7 @@ export default function FretboardScalesPage() {
 
   useEffect(() => {
     if (typeof window === "undefined" || typeof document === "undefined") return undefined;
-    if (!isMobileLayout || !(mobileInfoPopoverOpen || mobileChordEditorOpen || mobileTonalContextOpen)) return undefined;
+    if (!isMobileLayout || !(mobileInfoPopoverOpen || mobileChordEditorOpen || mobileNearChordEditorIdx != null || mobileTonalContextOpen)) return undefined;
 
     const scrollY = window.scrollY || document.documentElement.scrollTop || 0;
     const body = document.body;
@@ -8209,7 +8254,7 @@ export default function FretboardScalesPage() {
       body.style.touchAction = prevBody.touchAction;
       window.scrollTo(0, scrollY);
     };
-  }, [isMobileLayout, mobileInfoPopoverOpen, mobileChordEditorOpen, mobileTonalContextOpen]);
+  }, [isMobileLayout, mobileInfoPopoverOpen, mobileChordEditorOpen, mobileNearChordEditorIdx, mobileTonalContextOpen]);
 
 
   // --------------------------------------------------------------------------
@@ -8302,7 +8347,7 @@ export default function FretboardScalesPage() {
   // - Hasta 4 acordes (slot 1 es base)
   // - Calcula digitaciones tocables dentro del rango y ordena por cercanía al acorde base
   // ------------------------
-  const [nearWindowStart, setNearWindowStart] = useState(2); // inicio del rango (traste)
+  const [nearWindowStart, setNearWindowStart] = useState(1); // inicio del rango (traste)
   const [nearWindowSize, setNearWindowSize] = useState(6); // tamaño del rango (nº de trastes, incluye inicio)
   const [nearAutoScaleSync, setNearAutoScaleSync] = useState(true);
 
@@ -8320,6 +8365,7 @@ export default function FretboardScalesPage() {
     const [nearSlots, setNearSlots] = useState(() => {
     const base = {
       enabled: true,
+      family: chordFamily,
       rootPc: chordRootPc,
       quality: chordQuality,
       suspension: chordSuspension,
@@ -8332,6 +8378,14 @@ export default function FretboardScalesPage() {
       ext9: false,
       ext11: false,
       ext13: false,
+      quartalType: chordQuartalType,
+      quartalVoices: chordQuartalVoices,
+      quartalSpread: chordQuartalSpread,
+      quartalReference: chordQuartalReference,
+      quartalScaleName: chordQuartalScaleName,
+      guideToneQuality,
+      guideToneForm,
+      guideToneInversion,
       spellPreferSharps: chordSpellPreferSharps,
       maxDist: 4,
       allowOpenStrings: false,
@@ -8340,6 +8394,7 @@ export default function FretboardScalesPage() {
 
     const mkEmpty = () => ({
       enabled: false,
+      family: "tertian",
       rootPc: chordRootPc,
       quality: "maj",
       suspension: "none",
@@ -8352,6 +8407,14 @@ export default function FretboardScalesPage() {
       ext9: false,
       ext11: false,
       ext13: false,
+      quartalType: "pure",
+      quartalVoices: "4",
+      quartalSpread: "closed",
+      quartalReference: "root",
+      quartalScaleName: "Mayor",
+      guideToneQuality: "maj7",
+      guideToneForm: "closed",
+      guideToneInversion: "all",
       spellPreferSharps: chordSpellPreferSharps,
       maxDist: 4,
       allowOpenStrings: false,
@@ -8366,6 +8429,7 @@ export default function FretboardScalesPage() {
       let changed = false;
       const next = prev.map((slot) => {
         if (!slot) return slot;
+        if (String(slot.family || "tertian") !== "tertian") return slot;
         if (!isDropForm(slot.form)) return slot;
         if (isStrictFourNoteDropEligible({
           structure: slot.structure,
@@ -8380,7 +8444,7 @@ export default function FretboardScalesPage() {
       });
       return changed ? next : prev;
     });
-  }, [nearSlots.map((s) => `${s?.form}|${s?.structure}|${s?.ext7 ? 1 : 0}|${s?.ext6 ? 1 : 0}|${s?.ext9 ? 1 : 0}|${s?.ext11 ? 1 : 0}|${s?.ext13 ? 1 : 0}`).join(";")]);
+  }, [nearSlots.map((s) => `${s?.family || "tertian"}|${s?.form}|${s?.structure}|${s?.ext7 ? 1 : 0}|${s?.ext6 ? 1 : 0}|${s?.ext9 ? 1 : 0}|${s?.ext11 ? 1 : 0}|${s?.ext13 ? 1 : 0}`).join(";")]);
 
   useEffect(() => {
     if (!storageHydrated) return;
@@ -8388,6 +8452,7 @@ export default function FretboardScalesPage() {
       let changed = false;
       const next = prev.map((slot) => {
         if (!slot) return slot;
+        if (String(slot.family || "tertian") !== "tertian") return slot;
         if (slot.structure !== "tetrad") return slot;
 
         let ext6 = !!slot.ext6;
@@ -8423,13 +8488,14 @@ export default function FretboardScalesPage() {
       });
       return changed ? next : prev;
     });
-  }, [nearSlots.map((s) => `${s?.structure}|${s?.ext6 ? 1 : 0}|${s?.ext7 ? 1 : 0}|${s?.ext9 ? 1 : 0}|${s?.ext11 ? 1 : 0}|${s?.ext13 ? 1 : 0}`).join(";")]);
+  }, [nearSlots.map((s) => `${s?.family || "tertian"}|${s?.structure}|${s?.ext6 ? 1 : 0}|${s?.ext7 ? 1 : 0}|${s?.ext9 ? 1 : 0}|${s?.ext11 ? 1 : 0}|${s?.ext13 ? 1 : 0}`).join(";")]);
 
   useEffect(() => {
     setNearSlots((prev) => {
       let changed = false;
       const next = prev.map((slot) => {
         if (!slot) return slot;
+        if (String(slot.family || "tertian") !== "tertian") return slot;
         let quality = slot.quality;
         if (quality === "hdim" && slot.structure === "triad" && !slot.ext7) quality = "dim";
         if (quality === "dom" && slot.structure === "triad" && !slot.ext7) quality = "maj";
@@ -8441,7 +8507,7 @@ export default function FretboardScalesPage() {
       });
       return changed ? next : prev;
     });
-  }, [nearSlots.map((s) => `${s?.quality}|${s?.structure}|${s?.ext7 ? 1 : 0}`).join(";")]);
+  }, [nearSlots.map((s) => `${s?.family || "tertian"}|${s?.quality}|${s?.structure}|${s?.ext7 ? 1 : 0}`).join(";")]);
 
   const [nearBgColors, setNearBgColors] = useState([
     "#8ACAF4", // Acorde 1 (base)  RGB(138,202,244)
@@ -8835,7 +8901,7 @@ export default function FretboardScalesPage() {
       if ("chordAllowOpenStrings" in saved) setChordAllowOpenStrings(sanitizeBoolValue(saved.chordAllowOpenStrings, false));
       if ("chordDetectWindowStart" in saved) setChordDetectWindowStart(sanitizeNumberValue(saved.chordDetectWindowStart, 1, 1, 24));
 
-      if ("nearWindowStart" in saved) setNearWindowStart(sanitizeNumberValue(saved.nearWindowStart, 2, 0, 24));
+      if ("nearWindowStart" in saved) setNearWindowStart(sanitizeNumberValue(saved.nearWindowStart, 1, 0, 24));
       if ("nearWindowSize" in saved) setNearWindowSize(sanitizeNumberValue(saved.nearWindowSize, 6, 1, 24));
       if ("nearAutoScaleSync" in saved) setNearAutoScaleSync(sanitizeBoolValue(saved.nearAutoScaleSync, true));
       if (Array.isArray(saved.nearSlots)) {
@@ -9510,6 +9576,7 @@ export default function FretboardScalesPage() {
     for (let i = 0; i < nearSlots.length; i++) {
       const s = nearSlots[i];
       if (!s?.enabled) continue;
+      if (String(s.family || "tertian") !== "tertian") continue;
       if (s.structure !== "chord") continue;
 
       const addOnly = isSingleAddChordSelection({
@@ -10297,8 +10364,49 @@ export default function FretboardScalesPage() {
     }));
   }
 
-  function spellChordNotesForSlot(slot) {
-    const ints = buildChordIntervals({
+  function nearSlotFamilyOf(slot) {
+    return sanitizeOneOf(String(slot?.family || "tertian"), CHORD_FAMILIES.map((item) => item.value), "tertian");
+  }
+
+  function buildNearSlotQuartalPitchSets(slot) {
+    return fnBuildQuartalPitchSets({
+      rootPc: mod12(slot?.rootPc || 0),
+      voices: slot?.quartalVoices || "4",
+      type: slot?.quartalType || "pure",
+      reference: slot?.quartalReference || "root",
+      scaleName: slot?.quartalScaleName || "Mayor",
+    });
+  }
+
+  function buildNearSlotNoteMeta(slot, voicing = null) {
+    const family = nearSlotFamilyOf(slot);
+
+    if (family === "quartal") {
+      const pitchSets = buildNearSlotQuartalPitchSets(slot);
+      const orderedPcs = Array.isArray(voicing?.quartalOrderedPcs) && voicing.quartalOrderedPcs.length
+        ? voicing.quartalOrderedPcs
+        : (Array.isArray(pitchSets?.[0]?.pcs) ? pitchSets[0].pcs : []);
+      const rootPc = orderedPcs.length ? mod12(orderedPcs[0]) : mod12(slot?.rootPc || 0);
+      const preferSharps = slot?.spellPreferSharps ?? preferSharpsFromMajorTonicPc(rootPc);
+      const intervals = orderedPcs.map((pc) => mod12(pc - rootPc));
+      const degreeLabels = intervals.map((interval) => intervalToSimpleChordDegreeToken(interval));
+      const notes = intervals.map((interval) => spellNoteFromChordInterval(rootPc, interval, preferSharps));
+      return { family, rootPc, preferSharps, intervals, degreeLabels, notes };
+    }
+
+    if (family === "guide_tones") {
+      const rootPc = mod12(slot?.rootPc || 0);
+      const preferSharps = slot?.spellPreferSharps ?? preferSharpsFromMajorTonicPc(rootPc);
+      const definition = guideToneDefinitionFromQuality(slot?.guideToneQuality || "maj7");
+      const intervals = definition.intervals.map(mod12);
+      const degreeLabels = [...definition.degreeLabels];
+      const notes = intervals.map((interval) => spellNoteFromChordInterval(rootPc, interval, preferSharps));
+      return { family, rootPc, preferSharps, intervals, degreeLabels, notes, definition };
+    }
+
+    const rootPc = mod12(slot?.rootPc || 0);
+    const preferSharps = slot?.spellPreferSharps ?? preferSharpsFromMajorTonicPc(rootPc);
+    const intervals = buildChordIntervals({
       quality: slot?.quality,
       suspension: slot?.suspension || "none",
       structure: slot?.structure,
@@ -10308,8 +10416,145 @@ export default function FretboardScalesPage() {
       ext11: !!slot?.ext11,
       ext13: !!slot?.ext13,
     });
-    const pref = slot?.spellPreferSharps ?? preferSharpsFromMajorTonicPc(mod12(slot?.rootPc || 0));
-    return spellChordNotes({ rootPc: slot?.rootPc || 0, chordIntervals: ints, preferSharps: pref });
+    const degreeLabels = intervals.map((interval) => intervalToChordToken(interval, {
+      ext6: !!slot?.ext6,
+      ext9: !!slot?.ext9 && slot?.structure !== "triad",
+      ext11: !!slot?.ext11 && slot?.structure !== "triad",
+      ext13: !!slot?.ext13 && slot?.structure !== "triad",
+    }));
+    const notes = spellChordNotes({ rootPc, chordIntervals: intervals, preferSharps });
+    return { family, rootPc, preferSharps, intervals, degreeLabels, notes };
+  }
+
+  function buildNearSlotStudyEntry(slot, plan, voicing, idx) {
+    if (!slot) return null;
+
+    const family = nearSlotFamilyOf(slot);
+    const noteMeta = buildNearSlotNoteMeta(slot, voicing);
+
+    if (family === "quartal") {
+      const typeLabel = CHORD_QUARTAL_TYPES.find((item) => item.value === (slot?.quartalType || "pure"))?.label || "Cuartal puro";
+      const degreeText = slot?.quartalReference === "scale" ? fnBuildQuartalDegreeLabel(voicing?.quartalDegree) : "";
+      const chordName = `${pcToName(noteMeta.rootPc, noteMeta.preferSharps)} ${typeLabel}${degreeText ? ` · ${degreeText}` : ""}`;
+      const quartalVoicing = voicing
+        ? {
+            ...voicing,
+            relIntervals: new Set((voicing.notes || []).map((n) => mod12(n.pc - noteMeta.rootPc))),
+          }
+        : null;
+      const quartalPlan = {
+        rootPc: noteMeta.rootPc,
+        intervals: noteMeta.intervals,
+        bassInterval: quartalVoicing?.bassPc != null ? mod12(quartalVoicing.bassPc - noteMeta.rootPc) : (noteMeta.intervals[0] ?? 0),
+        thirdOffset: noteMeta.intervals[1] ?? 0,
+        fifthOffset: noteMeta.intervals[2] ?? noteMeta.intervals[1] ?? 0,
+        topVoiceOffset: noteMeta.intervals.length > 3 ? noteMeta.intervals[3] : null,
+        form: slot?.quartalSpread || "closed",
+        layer: "quartal",
+        generator: "quartal",
+        quartalType: slot?.quartalType || "pure",
+        quartalReference: slot?.quartalReference || "root",
+        quartalScaleName: slot?.quartalScaleName || "Mayor",
+        quartalTonicPc: mod12(slot?.rootPc || 0),
+        quartalSteps: Array.isArray(voicing?.quartalSteps) ? [...voicing.quartalSteps] : [],
+        quartalDegree: typeof voicing?.quartalDegree === "number" ? voicing.quartalDegree : null,
+        ui: { usesManualForm: true, allowThirdInversion: noteMeta.intervals.length > 3, dropEligible: false },
+      };
+      const spreadLabel = CHORD_QUARTAL_SPREADS.find((item) => item.value === (slot?.quartalSpread || "closed"))?.label || "Cerrado";
+      const inversionLabel = quartalVoicing ? actualInversionLabelFromVoicing(quartalPlan, quartalVoicing) : "Según voicing";
+      return {
+        rootPc: noteMeta.rootPc,
+        preferSharps: noteMeta.preferSharps,
+        title: `Acorde cercano ${idx + 1}`,
+        chordName,
+        notes: noteMeta.notes,
+        intervals: noteMeta.degreeLabels,
+        plan: quartalPlan,
+        voicing: quartalVoicing,
+        positionForm: slot?.quartalSpread || "closed",
+        bassName: quartalVoicing?.bassPc != null ? spellNoteFromChordInterval(noteMeta.rootPc, mod12(quartalVoicing.bassPc - noteMeta.rootPc), noteMeta.preferSharps) : "—",
+        inversionLabel,
+        summary: `${chordName} - ${spreadLabel} - ${inversionLabel}`,
+      };
+    }
+
+    if (family === "guide_tones") {
+      const definition = noteMeta.definition || guideToneDefinitionFromQuality(slot?.guideToneQuality || "maj7");
+      const guidePlan = {
+        rootPc: noteMeta.rootPc,
+        intervals: noteMeta.intervals,
+        bassInterval: voicing?.bassPc != null
+          ? mod12(voicing.bassPc - noteMeta.rootPc)
+          : (guideToneBassIntervalsForSelection(definition, slot?.guideToneInversion || "all")[0] ?? 0),
+        thirdOffset: noteMeta.intervals[1] ?? 0,
+        fifthOffset: noteMeta.intervals[2] ?? noteMeta.intervals[1] ?? 0,
+        topVoiceOffset: null,
+        form: slot?.guideToneForm || "closed",
+        layer: "guide_tones",
+        generator: "exact",
+        guideToneQuality: slot?.guideToneQuality || "maj7",
+        ui: { usesManualForm: true, allowThirdInversion: false, dropEligible: false },
+      };
+      const chordName = `${pcToName(noteMeta.rootPc, noteMeta.preferSharps)}${definition.suffix} · Notas guía`;
+      const formLabel = CHORD_GUIDE_TONE_FORMS.find((item) => item.value === (slot?.guideToneForm || "closed"))?.label || "Cerrado";
+      const inversionLabel = voicing
+        ? actualInversionLabelFromVoicing(guidePlan, voicing)
+        : (CHORD_GUIDE_TONE_INVERSIONS.find((item) => item.value === (slot?.guideToneInversion || "all"))?.label || "Fundamental");
+      const bassName = voicing?.bassPc != null
+        ? spellNoteFromChordInterval(noteMeta.rootPc, mod12(voicing.bassPc - noteMeta.rootPc), noteMeta.preferSharps)
+        : spellNoteFromChordInterval(noteMeta.rootPc, guideToneBassIntervalsForSelection(definition, slot?.guideToneInversion || "all")[0] ?? 0, noteMeta.preferSharps);
+      return {
+        rootPc: noteMeta.rootPc,
+        preferSharps: noteMeta.preferSharps,
+        title: `Acorde cercano ${idx + 1}`,
+        chordName,
+        notes: noteMeta.notes,
+        intervals: [...noteMeta.degreeLabels],
+        plan: guidePlan,
+        voicing,
+        positionForm: slot?.guideToneForm || "closed",
+        bassName,
+        inversionLabel,
+        summary: `${chordName} - ${formLabel} - ${inversionLabel}`,
+      };
+    }
+
+    const chordName = chordDisplayNameFromUI({
+      rootPc: noteMeta.rootPc,
+      preferSharps: noteMeta.preferSharps,
+      quality: slot?.quality,
+      suspension: slot?.suspension || "none",
+      structure: slot?.structure,
+      ext7: slot?.ext7,
+      ext6: slot?.ext6,
+      ext9: slot?.ext9,
+      ext11: slot?.ext11,
+      ext13: slot?.ext13,
+    });
+
+    return {
+      rootPc: noteMeta.rootPc,
+      preferSharps: noteMeta.preferSharps,
+      title: `Acorde cercano ${idx + 1}`,
+      chordName,
+      notes: noteMeta.notes,
+      intervals: noteMeta.degreeLabels,
+      plan,
+      voicing,
+      positionForm: slot?.positionForm || positionFormFromEffectiveForm(slot?.form, "closed"),
+      bassName: voicing ? pcToName(voicing.bassPc, noteMeta.preferSharps) : pcToName(mod12(noteMeta.rootPc + (plan?.bassInterval || 0)), noteMeta.preferSharps),
+      inversionLabel: CHORD_INVERSIONS.find((item) => item.value === (slot?.inversion || "root"))?.label || "Fundamental",
+      summary: buildChordHeaderSummary({
+        name: chordName,
+        plan,
+        voicing,
+        positionForm: slot?.positionForm,
+      }),
+    };
+  }
+
+  function spellChordNotesForSlot(slot) {
+    return buildNearSlotNoteMeta(slot).notes;
   }
 
   function nearestVoicingIndex(reference, options) {
@@ -10383,6 +10628,99 @@ export default function FretboardScalesPage() {
 
     const buildSlotVoicings = (slot) => {
       if (!slot?.enabled) return { plan: null, ranked: [], err: null };
+      const family = nearSlotFamilyOf(slot);
+      const maxSpan = slot.maxDist || 4;
+      const allowOpenStrings = !!slot.allowOpenStrings;
+      const inNearWindow = (fret) => fret >= nearFrom && fret <= nearTo;
+      const voicingFits = (v) => {
+        if (!v || !isErgonomicVoicing(v, maxSpan)) return false;
+        return (v.notes || []).every((n) => (n.fret === 0 ? allowOpenStrings : inNearWindow(n.fret)));
+      };
+
+      const dedupeWindowed = (list) => dedupeAndSortVoicings(list).filter(voicingFits);
+
+      if (family === "quartal") {
+        const pitchSets = buildNearSlotQuartalPitchSets(slot);
+        const plan = {
+          rootPc: mod12(slot.rootPc),
+          form: slot.quartalSpread || "closed",
+          layer: "quartal",
+          generator: "quartal",
+          quartalType: slot.quartalType || "pure",
+          quartalReference: slot.quartalReference || "root",
+          quartalScaleName: slot.quartalScaleName || "Mayor",
+          quartalTonicPc: mod12(slot.rootPc),
+          ui: { usesManualForm: true, allowThirdInversion: (parseInt(String(slot.quartalVoices || "4"), 10) || 4) > 3, dropEligible: false },
+        };
+        const ranked = fnGenerateQuartalVoicings({
+          pitchSets,
+          maxDist: maxSpan,
+          allowOpenStrings,
+          maxFret,
+        })
+          .filter((v) => {
+            const kind = v?.quartalSpreadKind || "closed";
+            return (slot.quartalSpread || "closed") === "open" ? kind === "open" : kind === "closed";
+          })
+          .filter(voicingFits);
+        return {
+          plan,
+          ranked,
+          err: ranked.length ? null : `No he encontrado apilados ${(slot.quartalSpread || "closed") === "open" ? "abiertos" : "cerrados"} en este rango.`,
+        };
+      }
+
+      if (family === "guide_tones") {
+        const definition = guideToneDefinitionFromQuality(slot.guideToneQuality || "maj7");
+        const allowedBassIntervals = guideToneBassIntervalsForSelection(definition, slot.guideToneInversion || "all");
+        const allowedIntervals = new Set(definition.intervals.map(mod12));
+        const requiredIntervals = new Set(definition.intervals.map(mod12));
+        const plan = {
+          rootPc: mod12(slot.rootPc),
+          intervals: definition.intervals.map(mod12),
+          bassInterval: allowedBassIntervals[0] ?? 0,
+          thirdOffset: mod12(definition.intervals[1] ?? 0),
+          fifthOffset: mod12(definition.intervals[2] ?? definition.intervals[1] ?? 0),
+          topVoiceOffset: null,
+          form: slot.guideToneForm || "closed",
+          layer: "guide_tones",
+          generator: "exact",
+          guideToneQuality: slot.guideToneQuality || "maj7",
+          inversion: slot.guideToneInversion || "all",
+          ui: { usesManualForm: true, allowThirdInversion: false, dropEligible: false },
+        };
+        let ranked = allowedBassIntervals.flatMap((bassInterval) =>
+          generateExactIntervalChordVoicings({
+            rootPc: mod12(slot.rootPc),
+            intervals: definition.intervals,
+            bassInterval,
+            maxFret,
+            maxSpan,
+          }).map((v) => normalizeGeneratedVoicingForDisplay(v, mod12(slot.rootPc), mod12(slot.rootPc)))
+        );
+        ranked = dedupeWindowed(ranked);
+        if (allowOpenStrings) {
+          ranked = augmentExactVoicingsWithOpenSubstitutions({
+            voicings: ranked,
+            rootPc: mod12(slot.rootPc),
+            allowedIntervals,
+            requiredIntervals,
+            allowedBassIntervals,
+            nearFrom,
+            nearTo,
+            maxFret,
+            maxSpan,
+            exactNoteCount: 3,
+          });
+          ranked = dedupeWindowed(ranked);
+        }
+        ranked = filterVoicingsByForm(dedupeAndSortVoicings(ranked), slot.guideToneForm || "closed").filter(voicingFits);
+        return {
+          plan,
+          ranked,
+          err: ranked.length ? null : "No he encontrado shells de notas guía en este rango.",
+        };
+      }
 
       const plan = buildChordEnginePlan({
         rootPc: slot.rootPc,
@@ -10397,19 +10735,8 @@ export default function FretboardScalesPage() {
         ext11: !!slot.ext11,
         ext13: !!slot.ext13,
       });
-
-      const maxSpan = slot.maxDist || 4;
-      const allowOpenStrings = !!slot.allowOpenStrings;
       const selectedBassIntervals = bassIntervalsForSelection(plan);
       const rootCandidates = symmetricRootCandidatesForPlan(plan);
-
-      const inNearWindow = (fret) => fret >= nearFrom && fret <= nearTo;
-      const voicingFits = (v) => {
-        if (!v || !isErgonomicVoicing(v, maxSpan)) return false;
-        return (v.notes || []).every((n) => (n.fret === 0 ? allowOpenStrings : inNearWindow(n.fret)));
-      };
-
-      const dedupeWindowed = (list) => dedupeAndSortVoicings(list).filter(voicingFits);
 
       const finalize = (list) => {
         let base = dedupeWindowed(list);
@@ -10815,42 +11142,7 @@ export default function FretboardScalesPage() {
     const slot = nearSlots[idx];
     const plan = nearComputed.ranked[idx]?.plan || null;
     const voicing = nearComputed.selected[idx] || null;
-    const pref = slot?.spellPreferSharps ?? preferSharpsFromMajorTonicPc(mod12(slot?.rootPc || 0));
-    const ints = buildChordIntervals({
-      quality: slot?.quality,
-      suspension: slot?.suspension || "none",
-      structure: slot?.structure,
-      ext7: slot?.ext7,
-      ext6: slot?.ext6,
-      ext9: slot?.ext9,
-      ext11: slot?.ext11,
-      ext13: slot?.ext13,
-    });
-    const notes = spellChordNotes({ rootPc: slot?.rootPc || 0, chordIntervals: ints, preferSharps: pref });
-    return {
-      rootPc: slot?.rootPc || 0,
-      preferSharps: pref,
-      title: `Acorde cercano ${idx + 1}`,
-      chordName: chordDisplayNameFromUI({
-        rootPc: slot?.rootPc || 0,
-        preferSharps: pref,
-        quality: slot?.quality,
-        suspension: slot?.suspension || "none",
-        structure: slot?.structure,
-        ext7: slot?.ext7,
-        ext6: slot?.ext6,
-        ext9: slot?.ext9,
-        ext11: slot?.ext11,
-        ext13: slot?.ext13,
-      }),
-      notes,
-      intervals: ints.map((i) => intervalToChordToken(i, { ext6: !!slot?.ext6, ext9: !!slot?.ext9 && slot?.structure !== "triad", ext11: !!slot?.ext11 && slot?.structure !== "triad", ext13: !!slot?.ext13 && slot?.structure !== "triad" })),
-      plan,
-      voicing,
-      positionForm: slot?.positionForm || positionFormFromEffectiveForm(slot?.form, "closed"),
-      bassName: voicing ? pcToName(voicing.bassPc, pref) : pcToName(mod12((slot?.rootPc || 0) + (plan?.bassInterval || 0)), pref),
-      inversionLabel: CHORD_INVERSIONS.find((x) => x.value === (slot?.inversion || "root"))?.label || "Fundamental",
-    };
+    return buildNearSlotStudyEntry(slot, plan, voicing, idx);
   }, [studyTarget, chordDetectMode, chordDetectSelectedCandidate, chordDetectSelectedNotes, chordFamily, chordRootPc, chordPreferSharps, chordQuality, chordSuspension, chordStructure, chordExt7, chordExt6, chordExt9, chordExt11, chordExt13, chordIntervals, chordDegreeLabels, chordEnginePlan, activeChordVoicing, chordBassPc, chordInversion, maxFret, chordQuartalPitchSets, activeQuartalVoicing, chordQuartalCurrentRootPc, chordQuartalDisplayName, chordQuartalSpread, chordQuartalType, chordQuartalReference, guideToneDef, activeGuideToneVoicing, guideToneDisplayName, guideToneForm, guideToneInversion, guideToneQuality, guideToneBassNote, nearSlots, nearComputed]);
 
   // --------------------------------------------------------------------------
@@ -11276,7 +11568,9 @@ export default function FretboardScalesPage() {
       <section className="rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-200">
         <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
           <div>
-            <div className="text-sm font-semibold text-slate-800">Modo estudio</div>
+            <div className="text-sm font-semibold text-slate-800">
+              <InfoTitle label="Modo estudio" info={CHORD_STUDY_INFO_TEXT} alwaysShow />
+            </div>
             <div className="text-xs text-slate-600">{d?.title} · {d?.chordName}</div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -11624,8 +11918,13 @@ export default function FretboardScalesPage() {
 
   // Acordes de la escala activa (armonización real según la escala seleccionada arriba)
   const harmonizedScale = useMemo(() => {
-    const base = nearSlots.find((s) => s?.enabled) || nearSlots?.[0] || {};
-    const withSeventh = base.structure === "tetrad" || !!base.ext7;
+    const base = nearSlots.find((s) => s?.enabled && String(s?.family || "tertian") === "tertian")
+      || nearSlots.find((s) => !!s?.enabled)
+      || nearSlots?.[0]
+      || {};
+    const withSeventh = String(base?.family || "tertian") === "tertian"
+      ? base.structure === "tetrad" || !!base.ext7
+      : true;
     const manualHarmony = buildManualScaleHarmonySpecs({ rootPc, scaleName, scaleIntervals, spelledScaleNotes, preferSharps });
 
     if (manualHarmony?.length) {
@@ -11683,8 +11982,7 @@ export default function FretboardScalesPage() {
       names: (MANUAL_SCALE_TETRAD_PRESETS[normalizeScaleName(scaleName)] || (withSeventh && scaleTetradHarmony.length)) ? scaleTetradHarmony.map((x) => x.noteName) : degrees.map((d) => d.name),
     };
   }, [
-    nearSlots?.[0]?.structure,
-    nearSlots?.[0]?.ext7,
+    nearSlots.map((s) => `${s?.enabled ? 1 : 0}|${s?.family || "tertian"}|${s?.structure}|${s?.ext7 ? 1 : 0}`).join(";"),
     scaleIntervals,
     spelledScaleNotes,
     rootPc,
@@ -11705,25 +12003,43 @@ export default function FretboardScalesPage() {
       if (!prev?.length) return prev;
 
       const s0 = prev[0] || {};
-      const withSeventh = s0.structure === "tetrad" || !!s0.ext7;
-      const built = buildHarmonyDegreeChord({ scaleName, harmonyMode, scaleIntervals, degreeIndex: 0, withSeventh });
-      if (!built) return prev;
+      const family = String(s0.family || "tertian");
+      let patch = null;
 
-      const patch = {
-        rootPc: mod12(rootPc + built.rootOffset),
-        quality: built.quality,
-        suspension: "none",
-        structure: built.structure,
-        inversion: "root",
-        form: "open",
-        positionForm: "open",
-        ext7: built.ext7,
-        ext6: false,
-        ext9: false,
-        ext11: false,
-        ext13: false,
-        spellPreferSharps: preferSharps,
-      };
+      if (family === "quartal") {
+        patch = {
+          rootPc,
+          spellPreferSharps: preferSharps,
+          ...(s0.quartalReference === "scale" && CHORD_QUARTAL_SCALE_NAMES.includes(normalizeScaleName(scaleName))
+            ? { quartalScaleName: normalizeScaleName(scaleName) }
+            : {}),
+        };
+      } else if (family === "guide_tones") {
+        patch = {
+          rootPc,
+          spellPreferSharps: preferSharps,
+        };
+      } else {
+        const withSeventh = s0.structure === "tetrad" || !!s0.ext7;
+        const built = buildHarmonyDegreeChord({ scaleName, harmonyMode, scaleIntervals, degreeIndex: 0, withSeventh });
+        if (!built) return prev;
+
+        patch = {
+          rootPc: mod12(rootPc + built.rootOffset),
+          quality: built.quality,
+          suspension: "none",
+          structure: built.structure,
+          inversion: "root",
+          form: "open",
+          positionForm: "open",
+          ext7: built.ext7,
+          ext6: false,
+          ext9: false,
+          ext11: false,
+          ext13: false,
+          spellPreferSharps: preferSharps,
+        };
+      }
 
       let changed = false;
       for (const k of Object.keys(patch)) {
@@ -11761,6 +12077,7 @@ export default function FretboardScalesPage() {
         if (!degree?.supported) return s;
 
         const patch = {
+          family: "tertian",
           rootPc: degree.rootPc,
           quality: degree.quality,
           suspension: degree.suspension,
@@ -12298,20 +12615,30 @@ export default function FretboardScalesPage() {
     });
   }
 
-  function InfoTitle({ label, info }) {
-    if (!isMobileLayout || !info) return label;
+  function InlineInfoButton({ label, info, className = "" }) {
+    if (!info) return null;
+
+    return (
+      <button
+        type="button"
+        className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-slate-600 hover:text-slate-900 ${className}`.trim()}
+        onClick={(e) => openMobileInfoPopover(e, label, info)}
+        aria-label={`Información sobre ${label}`}
+        title={`Abrir información sobre ${label}`}
+      >
+        <Info className="h-3.5 w-3.5" aria-hidden="true" />
+      </button>
+    );
+  }
+
+  function InfoTitle({ label, info, alwaysShow = false }) {
+    if (!info) return label;
+    if (!alwaysShow && !isMobileLayout) return label;
 
     return (
       <span className="inline-flex min-w-0 items-center gap-1.5">
         <span>{label}</span>
-        <button
-          type="button"
-          className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-slate-600 hover:text-slate-900"
-          onClick={(e) => openMobileInfoPopover(e, label, info)}
-          aria-label={`Información sobre ${label}`}
-        >
-          <Info className="h-3.5 w-3.5" aria-hidden="true" />
-        </button>
+        <InlineInfoButton label={label} info={info} />
       </span>
     );
   }
@@ -12585,6 +12912,7 @@ function ChordCircle({ role, isBass, displayLabel, titleText, fret = 1, compactO
 function ChordFretboard({
   title,
   subtitle = "",
+  infoText = "",
   voicing,
   voicingIdx,
   voicingTotal,
@@ -12626,7 +12954,7 @@ function ChordFretboard({
   return (
     <PanelBlock
       level="subsection"
-      title={title}
+      title={infoText ? <InfoTitle label={title} info={infoText} alwaysShow /> : title}
       description={voicing ? `Notas: ${noteText}.${subtitle ? ` ${subtitle}` : ""}` : subtitle}
       headerAside={(
         <div className="flex flex-col items-end gap-1">
@@ -12769,7 +13097,7 @@ function ChordFretboard({
     );
   }
 
-  function GuideToneFretboard({ title, voicing, voicingIdx, voicingTotal, emptyMessage = "" }) {
+  function GuideToneFretboard({ title, infoText = "", voicing, voicingIdx, voicingTotal, emptyMessage = "" }) {
     const notesMap = useMemo(() => {
       const m = new Map();
       if (!voicing?.notes?.length) return m;
@@ -12802,7 +13130,7 @@ function ChordFretboard({
     return (
       <PanelBlock
         level="subsection"
-        title={title}
+        title={infoText ? <InfoTitle label={title} info={infoText} alwaysShow /> : title}
         description={`${voicing ? `Notas: ${noteText}. ` : ""}Shells de 3 notas con 1, 3 y 7 según la calidad. Forma e inversión afectan al voicing real.`}
         headerAside={(
           <div className="flex flex-col items-end gap-1">
@@ -12906,16 +13234,21 @@ function ChordFretboard({
       () => new Set(chordDetectSelectedNotes.map((n) => n.sIdx)),
       [chordDetectSelectedNotes]
     );
-    const manualSelectionInfoText = `${
+    const manualSelectionInfoText = [
       chordDetectSelectedCandidate
         ? `Notas de la escala: ${chordDetectSelectedCandidateScaleNotesText}.`
-        : "Pulsa en el mástil para añadir o quitar notas y detectar acordes posibles."
-    } Trastes: las flechas izquierda y derecha desplazan el rango visible del mástil en móvil; no cambian las notas seleccionadas, solo qué trastes se muestran.`;
+        : "Pulsa en el mástil para añadir o quitar notas y detectar acordes posibles.",
+      "Solo puede haber una nota por cuerda; si pulsas otra en la misma cuerda, sustituye la anterior.",
+      "Sonido al pulsar activa el audio inmediato al elegir una nota.",
+      "Play reproduce la selección actual de grave a agudo.",
+      "Limpiar borra la selección manual y la lectura elegida.",
+      "En móvil, las flechas de Trastes solo desplazan el rango visible; no cambian las notas seleccionadas.",
+    ].join("\n");
 
     return (
       <PanelBlock
         level="subsection"
-        title={<InfoTitle label="Selección manual" info={manualSelectionInfoText} />}
+        title={<InfoTitle label="Selección manual" info={manualSelectionInfoText} alwaysShow />}
         titleTooltip={!isMobileLayout ? manualSelectionInfoText : ""}
         headerClassName="items-start"
         description={(
@@ -13096,46 +13429,33 @@ function ChordFretboard({
   }
 
   // Roles por slot (acordes cercanos)
-  function slotRoleOfPc(pc, slot) {
-    const interval = mod12(pc - slot.rootPc);
-    const third = chordThirdOffsetFromUI(slot.quality, slot.suspension || "none");
-    const fifth = chordFifthOffsetFromUI(slot.quality, slot.suspension || "none");
-    const seventh = seventhOffsetForQuality(slot.quality);
-
-    if (interval === 0) return "root";
-    if (interval === third) return "third";
-    if (interval === fifth) return "fifth";
-    if (hasEffectiveSeventh({ structure: slot.structure, ext7: slot.ext7, ext6: slot.ext6, ext9: slot.ext9, ext11: slot.ext11, ext13: slot.ext13 }) && interval === mod12(seventh)) return "seventh";
-    if (slot.ext13 && interval === 9) return "thirteenth";
-    if (slot.ext11 && interval === 5) return "eleventh";
-    if (slot.ext9 && interval === 2) return "ninth";
-    if (slot.ext6 && interval === 9) return "sixth";
-    return "other";
+  function slotRoleOfPc(pc, slot, voicing = null) {
+    const meta = buildNearSlotNoteMeta(slot, voicing);
+    const interval = mod12(pc - meta.rootPc);
+    const idx = meta.intervals.findIndex((x) => mod12(x) === interval);
+    const degreeRaw = String(meta.degreeLabels?.[idx] || intervalToSimpleChordDegreeToken(interval));
+    return meta.family === "tertian"
+      ? chordFormulaBadgeRoleFromDegreeLabel(degreeRaw, interval)
+      : chordBadgeRoleFromDegreeLabel(degreeRaw, interval);
   }
 
   // Etiqueta por slot (acordes cercanos)
-  function slotLabelForPc(slot, pc) {
-    const ints = buildChordIntervals({
-      quality: slot.quality,
-      suspension: slot.suspension || "none",
-      structure: slot.structure,
-      ext7: slot.ext7,
-      ext6: slot.ext6,
-      ext9: slot.ext9,
-      ext11: slot.ext11,
-      ext13: slot.ext13,
-    });
-    const pref = slot?.spellPreferSharps ?? preferSharpsFromMajorTonicPc(mod12(slot.rootPc));
-    const spelled = spellChordNotes({ rootPc: slot.rootPc, chordIntervals: ints, preferSharps: pref });
-    const interval = mod12(pc - slot.rootPc);
-    const idx = ints.findIndex((x) => mod12(x) === interval);
-    const note = idx >= 0 ? spelled[idx] : pcToName(pc, pref);
-    const tok = intervalToChordToken(interval, {
-      ext6: !!slot.ext6,
-      ext9: !!slot.ext9 && slot.structure !== "triad",
-      ext11: !!slot.ext11 && slot.structure !== "triad",
-      ext13: !!slot.ext13 && slot.structure !== "triad",
-    });
+  function slotLabelForPc(slot, pc, voicing = null) {
+    const meta = buildNearSlotNoteMeta(slot, voicing);
+    const interval = mod12(pc - meta.rootPc);
+    const idx = meta.intervals.findIndex((x) => mod12(x) === interval);
+    const note = idx >= 0 ? meta.notes[idx] : pcToName(pc, meta.preferSharps);
+    const degreeRaw = idx >= 0
+      ? String(meta.degreeLabels[idx] || "")
+      : meta.family === "tertian"
+        ? intervalToChordToken(interval, {
+            ext6: !!slot.ext6,
+            ext9: !!slot.ext9 && slot.structure !== "triad",
+            ext11: !!slot.ext11 && slot.structure !== "triad",
+            ext13: !!slot.ext13 && slot.structure !== "triad",
+          })
+        : intervalToSimpleChordDegreeToken(interval);
+    const tok = meta.family === "tertian" ? degreeRaw : formatChordBadgeDegree(degreeRaw);
 
     const showI = !!showIntervalsLabel;
     const showN = !!showNotesLabel;
@@ -13189,6 +13509,7 @@ function ChordFretboard({
 
   function Mini({ slotIdx, pc, role, fret, sIdx, size = "m" }) {
     const slot = nearSlots[slotIdx];
+    const voicing = nearComputed.selected[slotIdx] || null;
     const chordBg = nearBgColors[slotIdx] || "#94a3b8";
     const ring = colors[role] || colors.other;
     const dark = isDark(chordBg);
@@ -13203,7 +13524,7 @@ function ChordFretboard({
     return (
       <div
         className={`relative z-20 inline-flex items-center justify-center rounded-full font-bold ${sizeClass}`}
-        title={`${slotLabelForPc(slot, pc)} · acorde ${slotIdx + 1}`}
+        title={`${slotLabelForPc(slot, pc, voicing)} · acorde ${slotIdx + 1}`}
       >
         <span
           className="absolute inset-0 z-[1] rounded-full"
@@ -13214,7 +13535,7 @@ function ChordFretboard({
           }}
         />
         <span className="relative z-[2]" style={{ color: dark ? "#fff" : "#0f172a" }}>
-          {slotLabelForPc(slot, pc)}
+          {slotLabelForPc(slot, pc, voicing)}
         </span>
       </div>
     );
@@ -13225,28 +13546,9 @@ function ChordFretboard({
     const baseSlot = baseSlotIdx >= 0 ? nearSlots[baseSlotIdx] : null;
     const basePlan = baseSlotIdx >= 0 ? (nearComputed.ranked[baseSlotIdx]?.plan || null) : null;
     const baseVoicing = baseSlotIdx >= 0 ? (nearComputed.selected[baseSlotIdx] || null) : null;
-    const baseChordName = baseSlot
-      ? chordDisplayNameFromUI({
-          rootPc: baseSlot.rootPc,
-          preferSharps: baseSlot?.spellPreferSharps ?? preferSharpsFromMajorTonicPc(mod12(baseSlot.rootPc)),
-          quality: baseSlot.quality,
-          suspension: baseSlot.suspension || "none",
-          structure: baseSlot.structure,
-          ext7: baseSlot.ext7,
-          ext6: baseSlot.ext6,
-          ext9: baseSlot.ext9,
-          ext11: baseSlot.ext11,
-          ext13: baseSlot.ext13,
-        })
-      : null;
-    const baseChordDisplayName = baseSlot
-      ? buildChordHeaderSummary({
-          name: baseChordName,
-          plan: basePlan,
-          voicing: baseVoicing,
-          positionForm: baseSlot.positionForm,
-        })
-      : null;
+    const baseData = baseSlot ? buildNearSlotStudyEntry(baseSlot, basePlan, baseVoicing, baseSlotIdx) : null;
+    const baseChordName = baseData?.chordName || null;
+    const nearFretboardInfoText = `${baseChordName ? `Acorde activo: ${baseChordName}. ` : ""}Compara las digitaciones activas dentro del mismo rango. Relleno = color del acorde · borde = función · texto = nota/intervalo.`;
     const slotDataMaps = nearComputed.selected.map((v, idx) => {
       const notesMap = new Map();
       if (!nearSlots[idx]?.enabled || !v?.notes?.length) return { notesMap };
@@ -13259,7 +13561,6 @@ function ChordFretboard({
       return { notesMap };
     });
 
-    const activeCount = nearSlots.filter((s) => s?.enabled).length;
     const mobileVisibleFrets = isMobileLayout
       ? normalizeVisibleFrets([0, ...Array.from({ length: Math.max(0, nearTo - nearFrom + 1) }, (_, idx) => nearFrom + idx)], maxFret)
       : null;
@@ -13279,7 +13580,7 @@ function ChordFretboard({
         if (!nearSlots[slotIdx]?.enabled) continue;
         const n = slotDataMaps[slotIdx].notesMap.get(`${sIdx}:${fret}`);
         if (!n) continue;
-        items.push({ slotIdx, pc: n.pc, role: slotRoleOfPc(n.pc, nearSlots[slotIdx]) });
+        items.push({ slotIdx, pc: n.pc, role: slotRoleOfPc(n.pc, nearSlots[slotIdx], nearComputed.selected[slotIdx] || null) });
       }
       return items;
     };
@@ -13287,8 +13588,7 @@ function ChordFretboard({
     return (
       <PanelBlock
         level="subsection"
-        title="Mástil: acordes cercanos"
-        description={`${baseChordName ? `Acorde activo: ${baseChordName}. ` : ""}Acordes de la escala de ${harmonizedScale.tonicName} · ${harmonizedScale.scaleLabel}: ${harmonizedScale.names.join(" · ")}. Relleno = color del acorde · borde = función (1/3/5/7/otras) · texto = nota/intervalo.`}
+        title={<InfoTitle label="Mástil: acordes cercanos" info={nearFretboardInfoText} alwaysShow />}
         headerAside={<div className="flex flex-wrap items-end justify-end gap-3">
             <div className="flex items-end gap-1.5">
               <div className="text-xs font-semibold text-slate-700">Rango</div>
@@ -13302,14 +13602,6 @@ function ChordFretboard({
               </button>
 
               <div className="flex items-end gap-1.5">
-                <div>
-                  <div className="text-[10px] font-semibold text-slate-600">Inicio</div>
-                  <input
-                    className={UI_INPUT_SM + " w-14"}
-                    value={nearFrom}
-                    onChange={(e) => setNearWindowStart(parseInt(e.target.value || "0", 10))}
-                  />
-                </div>
                 <div>
                   <div className="text-[10px] font-semibold text-slate-600">Tamaño</div>
                   <input
@@ -13332,10 +13624,6 @@ function ChordFretboard({
               <div className="ml-1 text-xs text-slate-600 tabular-nums">
                 {nearFrom}–{nearTo}
               </div>
-            </div>
-
-            <div className="text-xs text-slate-600">
-              Activos: {activeCount ? nearSlots.map((s, i) => (s?.enabled ? `A${i + 1}` : null)).filter(Boolean).join(" · ") : "(ninguno)"}
             </div>
           </div>}
         className="mt-3"
@@ -14064,6 +14352,20 @@ function ChordFretboard({
     }, fallback);
     return `${Math.max(maxLen + 3, fallback)}ch`;
   };
+  const fnLabelWidthCh = (label, fallback = 8, padding = 2) => {
+    const len = Math.max(String(label || "").length + padding, fallback);
+    return `${len}ch`;
+  };
+  const fnMaxTextCh = (items, fallback = 8) => {
+    const maxLen = (items || []).reduce((acc, item) => {
+      const label = typeof item === "string" ? item : (item?.label ?? item?.value ?? "");
+      return Math.max(acc, String(label).length);
+    }, 0);
+    return `${Math.max(maxLen, fallback)}ch`;
+  };
+  const nearSelectWidthStyle = (items, fallback = 8) => (
+    isMobileLayout ? undefined : { width: `calc(${fnMaxTextCh(items, fallback)} + 25px)` }
+  );
   const chordFamilySelectWidth = fnMaxLabelCh(CHORD_FAMILIES, 10);
   const chordQualitySelectWidth = fnMaxLabelCh(CHORD_QUALITIES, 10);
   const chordSuspensionSelectWidth = fnMaxLabelCh(["Sus —", "sus2", "sus4"], 8);
@@ -14079,6 +14381,657 @@ function ChordFretboard({
   const UI_LABEL_SM = "block text-[11px] font-semibold text-slate-700";
   const UI_HELP_SM = "text-[11px] text-slate-500";
   const UI_EXT_GRID = "mt-1 grid grid-cols-3 gap-x-3 gap-y-1 text-xs";
+  const nearSlotDesktopEditorClass = "flex flex-wrap items-end gap-2";
+  const nearSlotDesktopVoicingClass = "min-w-[260px] flex-[1_1_320px]";
+  const nearSlotDesktopVoicingCompactClass = "min-w-[190px] flex-[1_1_210px]";
+
+  function renderNearSlotToneControl(slot, idx, disableAll, className = "min-w-0") {
+    return (
+      <div className={className}>
+        <label className={UI_LABEL_SM}>Tono</label>
+        <div className="mt-1 flex items-center gap-1.5">
+          <select
+            className={UI_SELECT_SM_TONE}
+            style={{ width: "50px" }}
+            value={chordUiLetterFromPc(slot.rootPc, !!slot.spellPreferSharps)}
+            onChange={(e) => {
+              const letter = e.target.value;
+              if (Object.prototype.hasOwnProperty.call(NATURAL_PC, letter)) {
+                updateNearSlot(idx, { rootPc: mod12(NATURAL_PC[letter]), selFrets: null });
+              }
+            }}
+            disabled={disableAll}
+          >
+            {LETTERS.map((l) => (
+              <option key={l} value={l}>{l}</option>
+            ))}
+          </select>
+          <button
+            type="button"
+            className={`${UI_BTN_SM} ${!disableAll && (!NATURAL_PCS.has(mod12(slot.rootPc)) && !slot.spellPreferSharps) ? "!bg-[#71a3c1] !text-slate-900 !border-[#71a3c1]" : ""}`}
+            title="Bajar 1 semitono"
+            onClick={() => {
+              const letter = chordUiLetterFromPc(slot.rootPc, false);
+              const nat = mod12(NATURAL_PC[letter]);
+              const cur = mod12(slot.rootPc);
+              if (cur !== nat) {
+                updateNearSlot(idx, { rootPc: nat, selFrets: null, spellPreferSharps: false });
+                return;
+              }
+              updateNearSlot(idx, { rootPc: mod12(nat - 1), selFrets: null, spellPreferSharps: false });
+            }}
+            disabled={disableAll}
+          >
+            b
+          </button>
+          <button
+            type="button"
+            className={`${UI_BTN_SM} ${!disableAll && (!NATURAL_PCS.has(mod12(slot.rootPc)) && slot.spellPreferSharps) ? "!bg-[#71a3c1] !text-slate-900 !border-[#71a3c1]" : ""}`}
+            title="Subir 1 semitono"
+            onClick={() => {
+              const letter = chordUiLetterFromPc(slot.rootPc, true);
+              const nat = mod12(NATURAL_PC[letter]);
+              const cur = mod12(slot.rootPc);
+              if (cur !== nat) {
+                updateNearSlot(idx, { rootPc: nat, selFrets: null, spellPreferSharps: true });
+                return;
+              }
+              updateNearSlot(idx, { rootPc: mod12(nat + 1), selFrets: null, spellPreferSharps: true });
+            }}
+            disabled={disableAll}
+          >
+            #
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  function renderNearSlotVoicingPicker(slot, idx, disableAll, options, errMsg, className = "min-w-0 flex-1") {
+    const family = nearSlotFamilyOf(slot);
+    const voicingOptionLabels = options.map((v) => `${v.frets}${family === "quartal" && v.quartalDegree != null ? ` · ${fnBuildQuartalDegreeLabel(v.quartalDegree)}` : ""} (min ${v.minFret} · dist ${v.reach ?? (v.span + 1)})`);
+    const voicingSelectClass = isMobileLayout ? `${UI_SELECT_SM} min-w-0 flex-1 max-w-[172px]` : UI_SELECT_SM_AUTO;
+    return (
+      <div className={className}>
+        <label className={UI_LABEL_SM}>Digitación en rango ({options.length} opciones)</label>
+        <div className="mt-1 flex items-center gap-1.5">
+          <button
+            type="button"
+            className={UI_BTN_SM}
+            title="Anterior"
+            onClick={() => {
+              if (!options.length) return;
+              const cur = slot.selFrets ?? options[0].frets;
+              let iCur = options.findIndex((v) => v.frets === cur);
+              if (iCur < 0) iCur = 0;
+              const iNew = (iCur - 1 + options.length) % options.length;
+              updateNearSlot(idx, { selFrets: options[iNew].frets });
+            }}
+            disabled={disableAll || !options.length}
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+
+          <select
+            className={voicingSelectClass}
+            value={slot.selFrets || "(auto)"}
+            onChange={(e) => {
+              const v = e.target.value;
+              updateNearSlot(idx, { selFrets: v === "(auto)" ? null : v });
+            }}
+            disabled={disableAll}
+          >
+            <option value="(auto)">(auto)</option>
+            {options.map((v, optionIdx) => (
+              <option key={v.frets} value={v.frets}>
+                {voicingOptionLabels[optionIdx]}
+              </option>
+            ))}
+          </select>
+
+          <button
+            type="button"
+            className={UI_BTN_SM}
+            title="Siguiente"
+            onClick={() => {
+              if (!options.length) return;
+              const cur = slot.selFrets ?? options[0].frets;
+              let iCur = options.findIndex((v) => v.frets === cur);
+              if (iCur < 0) iCur = 0;
+              const iNew = (iCur + 1) % options.length;
+              updateNearSlot(idx, { selFrets: options[iNew].frets });
+            }}
+            disabled={disableAll || !options.length}
+          >
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  function renderNearSlotDistControl(slot, idx, disableAll, className = "min-w-0") {
+    return (
+      <div className={className}>
+        <label className={UI_LABEL_SM}>Dist.</label>
+        <select
+          className={UI_SELECT_SM + " mt-1"}
+          style={{ width: "50px" }}
+          value={slot.maxDist || 4}
+          onChange={(e) => updateNearSlot(idx, { maxDist: parseInt(e.target.value, 10), selFrets: null })}
+          disabled={disableAll}
+        >
+          {[4, 5, 6].map((n) => (
+            <option key={n} value={n}>{n}</option>
+          ))}
+        </select>
+      </div>
+    );
+  }
+
+  function renderNearSlotQuartalEditor(slot, idx, disableAll, options, errMsg, { showMobileVoicing = true } = {}) {
+    return (
+      <div
+        className={isMobileLayout ? chordMobileEditorGridClass : nearSlotDesktopEditorClass}
+      >
+        {renderNearSlotToneControl(slot, idx, disableAll, isMobileLayout ? "min-w-0" : "shrink-0")}
+        <div className={isMobileLayout ? "min-w-0" : "shrink-0"}>
+          <label className={UI_LABEL_SM}>Familia</label>
+          <select
+            className={UI_SELECT_SM + " mt-1"}
+            style={nearSelectWidthStyle(CHORD_FAMILIES, 9)}
+            value={nearSlotFamilyOf(slot)}
+            onChange={(e) => updateNearSlot(idx, { family: e.target.value, selFrets: null })}
+            disabled={disableAll}
+          >
+            {CHORD_FAMILIES.map((item) => (
+              <option key={item.value} value={item.value}>{item.label}</option>
+            ))}
+          </select>
+        </div>
+        {slot.quartalReference === "scale" ? (
+          <div className={isMobileLayout ? "min-w-0" : "shrink-0"}>
+            <label className={UI_LABEL_SM}>Escala</label>
+            <select className={UI_SELECT_SM + " mt-1"} style={nearSelectWidthStyle(CHORD_QUARTAL_SCALE_NAMES, 8)} value={slot.quartalScaleName || "Mayor"} onChange={(e) => updateNearSlot(idx, { quartalScaleName: e.target.value, selFrets: null })} disabled={disableAll}>
+              {CHORD_QUARTAL_SCALE_NAMES.map((item) => (
+                <option key={item} value={item}>{item}</option>
+              ))}
+            </select>
+          </div>
+        ) : null}
+        <div className={isMobileLayout ? "min-w-0" : "shrink-0"}>
+          <label className={UI_LABEL_SM} title={`Desde raíz: construye el acorde cuartal partiendo de la tónica elegida.
+Diatónico a escala: toma la tónica elegida como centro tonal y genera acordes cuartales por grados de la escala que selecciones.
+Por eso el resultado puede no tener la misma raíz elegida.`}>Referencia</label>
+          <select className={UI_SELECT_SM + " mt-1"} style={nearSelectWidthStyle(CHORD_QUARTAL_REFERENCES, 11)} value={slot.quartalReference || "root"} onChange={(e) => updateNearSlot(idx, { quartalReference: e.target.value, selFrets: null })} disabled={disableAll} title={`Desde raíz: construye el acorde cuartal partiendo de la tónica elegida.
+Diatónico a escala: toma la tónica elegida como centro tonal y genera acordes cuartales por grados de la escala que selecciones.
+Por eso el resultado puede no tener la misma raíz elegida.`}>
+            {CHORD_QUARTAL_REFERENCES.map((item) => (
+              <option key={item.value} value={item.value}>{item.label}</option>
+            ))}
+          </select>
+        </div>
+        <div className={isMobileLayout ? "min-w-0" : "shrink-0"}>
+          <label className={UI_LABEL_SM} title={`Cerrado: las voces quedan apiladas por cuartas sin desplazar ninguna una octava extra.
+Abierto: una o más voces se redistribuyen por octava y la cadena deja de quedar compacta.`}>Apilado</label>
+          <select className={UI_SELECT_SM + " mt-1"} style={nearSelectWidthStyle(CHORD_QUARTAL_SPREADS, 8)} value={slot.quartalSpread || "closed"} onChange={(e) => updateNearSlot(idx, { quartalSpread: e.target.value, selFrets: null })} disabled={disableAll} title={`Cerrado: las voces quedan apiladas por cuartas sin desplazar ninguna una octava extra.
+Abierto: una o más voces se redistribuyen por octava y la cadena deja de quedar compacta.`}>
+            {CHORD_QUARTAL_SPREADS.map((item) => (
+              <option key={item.value} value={item.value}>{item.label}</option>
+            ))}
+          </select>
+        </div>
+        <div className={isMobileLayout ? "min-w-0" : "shrink-0"}>
+          <label className={UI_LABEL_SM}>Voces</label>
+          <select className={UI_SELECT_SM + " mt-1"} style={nearSelectWidthStyle(CHORD_QUARTAL_VOICES, 5)} value={slot.quartalVoices || "4"} onChange={(e) => updateNearSlot(idx, { quartalVoices: e.target.value, selFrets: null })} disabled={disableAll}>
+            {CHORD_QUARTAL_VOICES.map((item) => (
+              <option key={item.value} value={item.value}>{item.label}</option>
+            ))}
+          </select>
+        </div>
+        <div className={isMobileLayout ? "min-w-0" : "shrink-0"}>
+          <label className={UI_LABEL_SM} title={`Puro: todas las cuartas son justas (4J).
+Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>Tipo cuartal</label>
+          <select className={UI_SELECT_SM + " mt-1"} style={nearSelectWidthStyle(CHORD_QUARTAL_TYPES, 10)} value={slot.quartalType || "pure"} onChange={(e) => updateNearSlot(idx, { quartalType: e.target.value, selFrets: null })} disabled={disableAll} title={`Puro: todas las cuartas son justas (4J).
+Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
+            {CHORD_QUARTAL_TYPES.map((item) => (
+              <option key={item.value} value={item.value}>{item.label}</option>
+            ))}
+          </select>
+        </div>
+        {isMobileLayout ? showMobileVoicing ? (
+          <>
+            {renderNearSlotVoicingPicker(slot, idx, disableAll, options, errMsg, "min-w-0 flex-1")}
+            {renderNearSlotDistControl(slot, idx, disableAll, "min-w-0")}
+          </>
+        ) : null : (
+          <div className="ml-auto flex items-end gap-2">
+            {renderNearSlotVoicingPicker(slot, idx, disableAll, options, errMsg, nearSlotDesktopVoicingClass)}
+            {renderNearSlotDistControl(slot, idx, disableAll, "shrink-0")}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  function renderNearSlotGuideToneEditor(slot, idx, disableAll, options, errMsg, { showMobileVoicing = true } = {}) {
+    return (
+      <div
+        className={isMobileLayout ? chordMobileEditorGridClass : nearSlotDesktopEditorClass}
+      >
+        {renderNearSlotToneControl(slot, idx, disableAll, isMobileLayout ? "min-w-0" : "shrink-0")}
+        <div className={isMobileLayout ? "min-w-0" : "shrink-0"}>
+          <label className={UI_LABEL_SM}>Familia</label>
+          <select
+            className={UI_SELECT_SM + " mt-1"}
+            style={nearSelectWidthStyle(CHORD_FAMILIES, 9)}
+            value={nearSlotFamilyOf(slot)}
+            onChange={(e) => updateNearSlot(idx, { family: e.target.value, selFrets: null })}
+            disabled={disableAll}
+          >
+            {CHORD_FAMILIES.map((item) => (
+              <option key={item.value} value={item.value}>{item.label}</option>
+            ))}
+          </select>
+        </div>
+        <div className={isMobileLayout ? "min-w-0" : "shrink-0"}>
+          <label className={UI_LABEL_SM}>Calidad</label>
+          <select className={UI_SELECT_SM + " mt-1"} style={nearSelectWidthStyle(CHORD_GUIDE_TONE_QUALITIES, 8)} value={slot.guideToneQuality || "maj7"} onChange={(e) => updateNearSlot(idx, { guideToneQuality: e.target.value, selFrets: null })} disabled={disableAll}>
+            {CHORD_GUIDE_TONE_QUALITIES.map((item) => (
+              <option key={item.value} value={item.value}>{item.label}</option>
+            ))}
+          </select>
+        </div>
+        <div className={isMobileLayout ? "min-w-0" : "shrink-0"}>
+          <label className={UI_LABEL_SM}>Forma</label>
+          <select className={UI_SELECT_SM + " mt-1"} style={nearSelectWidthStyle(CHORD_GUIDE_TONE_FORMS, 7)} value={slot.guideToneForm || "closed"} onChange={(e) => updateNearSlot(idx, { guideToneForm: e.target.value, selFrets: null })} disabled={disableAll}>
+            {CHORD_GUIDE_TONE_FORMS.map((item) => (
+              <option key={item.value} value={item.value}>{item.label}</option>
+            ))}
+          </select>
+        </div>
+        <div className={isMobileLayout ? "min-w-0" : "shrink-0"}>
+          <label className={UI_LABEL_SM}>Inversión</label>
+          <select className={UI_SELECT_SM + " mt-1"} style={nearSelectWidthStyle(CHORD_GUIDE_TONE_INVERSIONS, 10)} value={slot.guideToneInversion || "all"} onChange={(e) => updateNearSlot(idx, { guideToneInversion: e.target.value, selFrets: null })} disabled={disableAll}>
+            {CHORD_GUIDE_TONE_INVERSIONS.map((item) => (
+              <option key={item.value} value={item.value}>{item.label}</option>
+            ))}
+          </select>
+        </div>
+        {isMobileLayout ? showMobileVoicing ? (
+          <>
+            {renderNearSlotVoicingPicker(slot, idx, disableAll, options, errMsg, "min-w-0 flex-1")}
+            {renderNearSlotDistControl(slot, idx, disableAll, "min-w-0")}
+          </>
+        ) : null : (
+          <div className="ml-auto flex items-end gap-2">
+            {renderNearSlotVoicingPicker(slot, idx, disableAll, options, errMsg, nearSlotDesktopVoicingClass)}
+            {renderNearSlotDistControl(slot, idx, disableAll, "shrink-0")}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  function renderNearSlotTertianEditor(slot, idx, disableAll, slotUi, options, errMsg, { showMobileVoicing = true } = {}) {
+    return (
+      <div
+        className={isMobileLayout ? chordMobileEditorTertianGridClass : nearSlotDesktopEditorClass}
+      >
+        {renderNearSlotToneControl(slot, idx, disableAll, isMobileLayout ? "min-w-0 col-span-2" : "shrink-0")}
+        <div className={isMobileLayout ? "min-w-0 order-1" : "shrink-0"}>
+          <label className={UI_LABEL_SM}>Familia</label>
+          <select
+            className={UI_SELECT_SM + " mt-1"}
+            style={nearSelectWidthStyle(CHORD_FAMILIES, 9)}
+            value={nearSlotFamilyOf(slot)}
+            onChange={(e) => updateNearSlot(idx, { family: e.target.value, selFrets: null })}
+            disabled={disableAll}
+          >
+            {CHORD_FAMILIES.map((item) => (
+              <option key={item.value} value={item.value}>{item.label}</option>
+            ))}
+          </select>
+        </div>
+        <div className={isMobileLayout ? "min-w-0 order-5 col-span-2" : "shrink-0"}>
+          <label className={UI_LABEL_SM}>Calidad / Sus</label>
+          <div className="mt-1 flex flex-nowrap gap-1.5">
+            <select className={UI_SELECT_SM_AUTO} style={nearSelectWidthStyle(CHORD_QUALITIES, 8)} value={slot.quality} onChange={(e) => updateNearSlot(idx, { quality: e.target.value, selFrets: null })} disabled={disableAll}>
+              {CHORD_QUALITIES.map((q) => (
+                <option key={q.value} value={q.value} disabled={(q.value === "hdim" && slot.structure === "triad" && !slot.ext7) || (q.value === "dom" && slot.structure === "triad" && !slot.ext7)}>{q.label}</option>
+              ))}
+            </select>
+            <select
+              className={UI_SELECT_SM_AUTO}
+              style={nearSelectWidthStyle(["Sus —", "sus2", "sus4"], 6)}
+              value={slot.suspension || "none"}
+              onChange={(e) => {
+                const v = e.target.value;
+                updateNearSlot(idx, { suspension: v, selFrets: null });
+                if (v !== "none" && (slot.quality === "dim" || slot.quality === "hdim")) {
+                  updateNearSlot(idx, { quality: "maj", selFrets: null });
+                }
+              }}
+              disabled={disableAll}
+              title="Suspensión: reemplaza la 3ª por 2ª o 4ª"
+            >
+              <option value="none">Sus —</option>
+              <option value="sus2">sus2</option>
+              <option value="sus4">sus4</option>
+            </select>
+          </div>
+        </div>
+        <div className={isMobileLayout ? "min-w-0 order-2" : "shrink-0"}>
+          <label className={UI_LABEL_SM}>Estructura</label>
+          <select
+            className={UI_SELECT_SM + " mt-1"}
+            style={nearSelectWidthStyle(CHORD_STRUCTURES, 9)}
+            value={slot.structure}
+            onChange={(e) => {
+              const val = e.target.value;
+              const patch = val === "triad"
+                ? { ext6: false, ext7: false, ext9: false, ext11: false, ext13: false }
+                : val === "chord"
+                  ? {}
+                  : { ext9: false, ext11: false, ext13: false };
+              updateNearSlot(idx, {
+                structure: val,
+                selFrets: null,
+                ...(val === "triad" || val === "tetrad" ? { inversion: "all", form: "open", positionForm: "open" } : {}),
+                ...patch,
+              });
+            }}
+            disabled={disableAll}
+          >
+            {CHORD_STRUCTURES.map((s) => (
+              <option key={s.value} value={s.value}>{s.label}</option>
+            ))}
+          </select>
+        </div>
+        <div className={isMobileLayout ? "min-w-0 order-4" : "shrink-0"}>
+          <label className={UI_LABEL_SM}>Forma</label>
+          {slotUi.usesManualForm ? (
+            <select
+              className={UI_SELECT_SM_AUTO + " mt-1"}
+              style={nearSelectWidthStyle(CHORD_FORMS, 9)}
+              value={slot.form}
+              onChange={(e) => {
+                const v = e.target.value;
+                updateNearSlot(idx, {
+                  form: v,
+                  positionForm: isDropForm(v) ? (slot.positionForm || "closed") : v,
+                  selFrets: null,
+                });
+              }}
+              disabled={disableAll}
+              title="Elige la disposición del acorde: cerrado, abierto o drop"
+            >
+              {CHORD_FORMS.map((form) => (
+                <option key={form.value} value={form.value} disabled={isDropForm(form.value) && !slotUi.dropEligible}>{form.label}</option>
+              ))}
+            </select>
+          ) : (
+            <div className="mt-1 inline-flex h-7 items-center rounded-xl border border-slate-200 bg-slate-100 px-2 text-xs text-slate-500">Automática</div>
+          )}
+        </div>
+        <div className={isMobileLayout ? "min-w-0 order-3" : "shrink-0"}>
+          <label className={UI_LABEL_SM}>Inversión</label>
+          <select className={UI_SELECT_SM_AUTO + " mt-1"} style={nearSelectWidthStyle(CHORD_INVERSIONS, 10)} value={slot.inversion} onChange={(e) => updateNearSlot(idx, { inversion: e.target.value, selFrets: null })} disabled={disableAll}>
+            {CHORD_INVERSIONS.map((inv) => (
+              <option key={inv.value} value={inv.value} disabled={!slotUi.allowThirdInversion && inv.value === "3"}>{inv.label}</option>
+            ))}
+          </select>
+        </div>
+        <div className={isMobileLayout ? "min-w-0 order-6 col-span-2" : "shrink-0"}>
+          <label className={UI_LABEL_SM}>Extensiones</label>
+          <div className={UI_EXT_GRID}>
+            {slotUi.ext.showSeven ? (
+              <label className="inline-flex items-center gap-2">
+                <input type="checkbox" checked={hasEffectiveSeventh({ structure: slot.structure, ext7: slot.ext7, ext6: slot.ext6, ext9: slot.ext9, ext11: slot.ext11, ext13: slot.ext13 })} onChange={(e) => updateNearSlot(idx, { ext7: e.target.checked, selFrets: null })} disabled={disableAll || !slotUi.ext.canToggleSeven} /> 7
+              </label>
+            ) : null}
+            {slotUi.ext.showSix ? (
+              <label className="inline-flex items-center gap-2">
+                <input type="checkbox" checked={!!slot.ext6} onChange={(e) => updateNearSlot(idx, { ext6: e.target.checked, selFrets: null })} disabled={disableAll || !slotUi.ext.canToggleSix} /> 6
+              </label>
+            ) : null}
+            {slotUi.ext.showNine ? (
+              <label className="inline-flex items-center gap-2">
+                <input type="checkbox" checked={!!slot.ext9} onChange={(e) => updateNearSlot(idx, { ext9: e.target.checked, selFrets: null })} disabled={disableAll || !slotUi.ext.canToggleNine} /> 9
+              </label>
+            ) : null}
+            {slotUi.ext.showEleven ? (
+              <label className="inline-flex items-center gap-2">
+                <input type="checkbox" checked={!!slot.ext11} onChange={(e) => updateNearSlot(idx, { ext11: e.target.checked, selFrets: null })} disabled={disableAll || !slotUi.ext.canToggleEleven} /> 11
+              </label>
+            ) : null}
+            {slotUi.ext.showThirteen ? (
+              <label className="inline-flex items-center gap-2">
+                <input type="checkbox" checked={!!slot.ext13} onChange={(e) => updateNearSlot(idx, { ext13: e.target.checked, selFrets: null })} disabled={disableAll || !slotUi.ext.canToggleThirteen} /> 13
+              </label>
+            ) : null}
+          </div>
+        </div>
+        {isMobileLayout ? showMobileVoicing ? (
+          <>
+            {renderNearSlotVoicingPicker(slot, idx, disableAll, options, errMsg, "min-w-0 flex-1")}
+            {renderNearSlotDistControl(slot, idx, disableAll, "min-w-0")}
+          </>
+        ) : null : (
+          <div className="ml-auto flex items-end gap-2">
+            {renderNearSlotVoicingPicker(slot, idx, disableAll, options, errMsg, nearSlotDesktopVoicingCompactClass)}
+            {renderNearSlotDistControl(slot, idx, disableAll, "shrink-0")}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  function renderNearSlotEditorFields(slot, idx, disableAll, slotUi, options, errMsg, opts = {}) {
+    if (nearSlotFamilyOf(slot) === "quartal") {
+      return renderNearSlotQuartalEditor(slot, idx, disableAll, options, errMsg, opts);
+    }
+    if (nearSlotFamilyOf(slot) === "guide_tones") {
+      return renderNearSlotGuideToneEditor(slot, idx, disableAll, options, errMsg, opts);
+    }
+    return renderNearSlotTertianEditor(slot, idx, disableAll, slotUi, options, errMsg, opts);
+  }
+
+  function buildNearSlotRenderData(slot, idx) {
+    const disableAll = !slot.enabled;
+    const r = nearComputed.ranked[idx];
+    const selectedVoicing = nearComputed.selected[idx] || null;
+    const slotData = buildNearSlotStudyEntry(slot, r?.plan || null, selectedVoicing, idx);
+    const notes = (slotData?.notes || spellChordNotesForSlot(slot)).join(", ");
+    const slotDisplayName = slotData?.summary || "";
+    const slotUi = r?.plan?.ui || buildChordUiRestrictions({
+      structure: slot.structure,
+      ext7: slot.ext7,
+      ext6: slot.ext6,
+      ext9: slot.ext9,
+      ext11: slot.ext11,
+      ext13: slot.ext13,
+    });
+    const rankedOptions = r?.ranked || [];
+    const options = [...rankedOptions]
+      .sort((a, b) => (a.minFret - b.minFret) || ((a.reach ?? (a.span + 1)) - (b.reach ?? (b.span + 1))) || (a.maxFret - b.maxFret) || a.frets.localeCompare(b.frets))
+      .slice(0, idx === 0 ? 60 : 40);
+    const errMsg = r?.err || null;
+    const badgeMeta = buildNearSlotNoteMeta(slot, selectedVoicing);
+    const badgeStripItems = badgeMeta ? badgeMeta.notes.map((note, noteIdx) => ({
+      note,
+      degree: badgeMeta.degreeLabels?.[noteIdx] || "",
+      role: chordBadgeRoleFromDegreeLabel(badgeMeta.degreeLabels?.[noteIdx] || "", badgeMeta.intervals?.[noteIdx] ?? 0),
+    })) : [];
+    const slotLabel = `Acorde ${idx + 1}`;
+    const titleText = `${slotLabel}${nearComputed.baseIdx === idx ? " (referencia)" : ""}`;
+
+    return {
+      disableAll,
+      errMsg,
+      options,
+      slotData,
+      slotUi,
+      badgeStripItems,
+      slotLabel,
+      titleText,
+      nearTitle: errMsg ? (
+        <span className="inline-flex flex-wrap items-center gap-1">
+          <span>{`${titleText} - `}</span>
+          <span className="text-rose-400">{errMsg}</span>
+        </span>
+      ) : titleText,
+      description: `${slotDisplayName} · Notas: ${notes}`,
+    };
+  }
+
+  function renderNearSlotOpenStringsToggle(slot, idx, disableAll, className = "") {
+    return (
+      <label
+        className={`inline-flex h-7 items-center gap-2 rounded-xl border px-2 text-xs font-semibold ${disableAll ? "cursor-not-allowed" : ""} ${className}`.trim()}
+        style={disableAll ? {
+          backgroundColor: "var(--control-disabled-bg)",
+          borderColor: "var(--control-disabled-border)",
+          color: "var(--control-disabled-text)",
+        } : undefined}
+        title="Permite usar cuerdas al aire como opción de voicing dentro del rango. La distancia se calcula solo con las notas pisadas."
+      >
+        <span>Permitir cuerdas al aire</span>
+        <input
+          type="checkbox"
+          checked={slot.allowOpenStrings === true}
+          onChange={(e) => updateNearSlot(idx, { allowOpenStrings: e.target.checked, selFrets: null })}
+          disabled={disableAll}
+          title="Permite usar cuerdas al aire como opción de voicing dentro del rango. La distancia se calcula solo con las notas pisadas."
+          className="h-4 w-4 rounded border-slate-300"
+        />
+      </label>
+    );
+  }
+
+  function renderMobileNearSlotCard(slot, idx, renderData) {
+    const { disableAll, options, errMsg, slotData, badgeStripItems, slotLabel, titleText, description } = renderData;
+    const titleMeta = titleText.startsWith(slotLabel) ? titleText.slice(slotLabel.length).trim() : "";
+    const mobileDescription = titleMeta ? `${titleMeta} · ${description}` : description;
+
+    return (
+      <PanelBlock
+        key={idx}
+        as="div"
+        level="subsection"
+        title={slotLabel}
+        description={mobileDescription}
+        disabledHeader={disableAll}
+        bodyClassName="overflow-visible"
+        headerAside={<div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              className={`${UI_BTN_SM} inline-flex items-center justify-center`}
+              title="Abre el análisis del acorde, del voicing y de sus tensiones."
+              onClick={() => {
+                setStudyTarget(String(idx));
+                setStudyOpen(true);
+              }}
+              disabled={disableAll}
+              aria-label={`Estudiar Acorde ${idx + 1}`}
+            >
+              <BookOpen className="h-4 w-4" />
+            </button>
+            <label className="inline-flex h-7 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-700 shadow-sm">
+              <input
+                type="checkbox"
+                checked={!!slot.enabled}
+                onChange={(e) => updateNearSlot(idx, { enabled: e.target.checked, selFrets: null })}
+                className="h-4 w-4 rounded border-slate-300"
+                title={`Activar/desactivar Acorde ${idx + 1}`}
+              />
+              <span>Activo</span>
+            </label>
+            <button
+              type="button"
+              className="inline-flex h-7 w-7 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 shadow-sm hover:bg-sky-50 hover:text-slate-900"
+              onClick={() => setMobileNearChordEditorIdx(idx)}
+              aria-label={`Editar Acorde ${idx + 1}`}
+            >
+              <ChevronRight className="h-4 w-4 shrink-0" />
+            </button>
+          </div>}
+      >
+        {errMsg ? (
+          <div className="mb-3 text-xs font-semibold text-rose-400">
+            {errMsg}
+          </div>
+        ) : null}
+        {badgeStripItems.length ? (
+          <div>
+            <ChordNoteBadgeStrip
+              items={badgeStripItems}
+              bassNote={slotData?.bassName || null}
+              colorMap={colors}
+            />
+          </div>
+        ) : null}
+        <div className={badgeStripItems.length ? "mt-3" : ""}>
+          {renderNearSlotOpenStringsToggle(slot, idx, disableAll)}
+        </div>
+        <div className="mt-3 flex flex-wrap items-end gap-2">
+          <div className="min-w-[210px] flex-1">
+            {renderNearSlotVoicingPicker(slot, idx, disableAll, options, errMsg)}
+          </div>
+          {renderNearSlotDistControl(slot, idx, disableAll, "shrink-0")}
+        </div>
+      </PanelBlock>
+    );
+  }
+
+  function renderMobileNearSlotEditorPortal() {
+    if (!isMobileLayout || mobileNearChordEditorIdx == null || typeof document === "undefined") return null;
+    const slot = nearSlots[mobileNearChordEditorIdx];
+    if (!slot) return null;
+
+    const { disableAll, options, errMsg, slotUi, titleText, description } = buildNearSlotRenderData(slot, mobileNearChordEditorIdx);
+    const editorPanel = (
+      <PanelBlock
+        level="subsection"
+        title={`Editar ${titleText}`}
+        description={description}
+        className="w-full max-h-[calc(100vh-6rem)] shadow-2xl"
+        bodyClassName="max-h-[calc(100vh-11rem)] overflow-y-auto overflow-x-visible"
+        headerAside={<button
+            type="button"
+            className="inline-flex h-7 w-7 items-center justify-center rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-700 shadow-sm hover:bg-sky-50"
+            onClick={() => setMobileNearChordEditorIdx(null)}
+            aria-label="Cerrar edición de acorde cercano"
+          >
+            <X className="h-4 w-4" />
+          </button>}
+      >
+        <div className="mb-3">
+          <label className={UI_LABEL_SM}>Color del acorde</label>
+          <div className="mt-1 inline-flex h-8 items-center gap-2 rounded-xl border border-slate-200 bg-white px-2 shadow-sm">
+            <span className="text-xs font-semibold text-slate-700">Fondo</span>
+            <input
+              type="color"
+              value={nearBgColors[mobileNearChordEditorIdx]}
+              onChange={(e) => setNearBgColor(mobileNearChordEditorIdx, e.target.value)}
+              className="h-6 w-10 cursor-pointer rounded-md border border-slate-200 bg-white"
+              disabled={disableAll}
+            />
+          </div>
+        </div>
+        {renderNearSlotEditorFields(slot, mobileNearChordEditorIdx, disableAll, slotUi, options, errMsg, { showMobileVoicing: false })}
+      </PanelBlock>
+    );
+
+    return createPortal(
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 xl:hidden">
+        <div className="w-full max-w-[430px]">
+          {editorPanel}
+        </div>
+      </div>,
+      document.body
+    );
+  }
 
   // Estado visual de b/# (solo para acordes): si la tónica es nota negra, resaltamos b o # según la ortografía.
   const chordAccidental = !NATURAL_PCS.has(mod12(chordRootPc));
@@ -14220,6 +15173,10 @@ function ChordFretboard({
     const selectedFrets = isQuartal ? chordQuartalSelectedFrets : isGuideTones ? guideToneSelectedFrets : chordSelectedFrets;
     const setIdx = isQuartal ? setChordQuartalVoicingIdx : isGuideTones ? setGuideToneVoicingIdx : setChordVoicingIdx;
     const setSelectedFrets = isQuartal ? setChordQuartalSelectedFrets : isGuideTones ? setGuideToneSelectedFrets : setChordSelectedFrets;
+    const voicingOptionLabels = voicings.map((v, i) => `${i + 1}. ${v.frets}${isQuartal && v.quartalDegree != null ? ` · ${fnBuildQuartalDegreeLabel(v.quartalDegree)}` : ""} (dist ${v.reach ?? (v.span + 1)})`);
+    const selectedOptionIdx = Math.max(0, voicings.findIndex((v) => v.frets === (selectedFrets || voicings[currentIdx]?.frets || "")));
+    const selectedVoicingLabel = voicingOptionLabels[selectedOptionIdx] || "Voicing";
+    const voicingSelectClass = isMobileLayout ? `${UI_SELECT_SM_COMPACT} min-w-0 flex-1` : UI_SELECT_SM_AUTO;
 
     const selectIdx = (nextIdx) => {
       if (!voicings.length) return;
@@ -14242,18 +15199,19 @@ function ChordFretboard({
             <ChevronLeft className="h-4 w-4" />
           </button>
           <select
-          className={chordVoicingSelectClass}
-          value={selectedFrets || voicings[currentIdx]?.frets || ""}
-          onChange={(e) => {
-            const frets = e.target.value;
-            const nextIdx = voicings.findIndex((v) => v.frets === frets);
-            if (nextIdx >= 0) selectIdx(nextIdx);
+            className={voicingSelectClass}
+            style={isMobileLayout ? undefined : { width: fnLabelWidthCh(selectedVoicingLabel, 20, 2), maxWidth: "218px" }}
+            value={selectedFrets || voicings[currentIdx]?.frets || ""}
+            onChange={(e) => {
+              const frets = e.target.value;
+              const nextIdx = voicings.findIndex((v) => v.frets === frets);
+              if (nextIdx >= 0) selectIdx(nextIdx);
             }}
             disabled={!voicings.length}
           >
             {voicings.map((v, i) => (
               <option key={`${v.frets}-${i}`} value={v.frets}>
-                {`${i + 1}. ${v.frets}${isQuartal && v.quartalDegree != null ? ` · ${fnBuildQuartalDegreeLabel(v.quartalDegree)}` : ""} (dist ${v.reach ?? (v.span + 1)})`}
+                {voicingOptionLabels[i]}
               </option>
             ))}
           </select>
@@ -14272,8 +15230,13 @@ function ChordFretboard({
     );
   }
 
-  function renderMobileChordDistControl(className = "") {
-    if (!isMobileLayout || chordDetectMode) return null;
+  function openMainChordStudy() {
+    setStudyTarget("main");
+    setStudyOpen(true);
+  }
+
+  function renderMainChordDistControl(className = "") {
+    if (chordDetectMode) return null;
     return (
       <div className={className}>
         <label className={UI_LABEL_SM}>Dist.</label>
@@ -14290,6 +15253,40 @@ function ChordFretboard({
     );
   }
 
+  function renderDesktopChordSummaryCard() {
+    if (isMobileLayout || chordDetectMode) return null;
+    return (
+      <div
+        className="rounded-2xl border border-slate-200 p-3 text-left shadow-sm ring-1 ring-slate-200"
+        style={{ backgroundColor: "var(--subsection-header-bg, #ebf2fa)" }}
+      >
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            <div className="text-sm font-semibold text-slate-800">Resumen del acorde</div>
+            <div className="mt-1 text-[13px] font-semibold leading-5 text-slate-600">{mobileChordSummaryFullText}</div>
+          </div>
+          <button
+            type="button"
+            className={UI_BTN_SM + " w-auto px-3"}
+            title="Abre el análisis del acorde, del voicing y de sus tensiones."
+            onClick={openMainChordStudy}
+          >
+            Estudiar
+          </button>
+        </div>
+        <div className="mt-4 flex flex-wrap items-end gap-3">
+          <div className="min-w-0 flex-1">
+            {renderChordBadgeStripBlock()}
+          </div>
+          <div className="ml-auto flex shrink-0 items-end gap-2">
+            {renderMainChordVoicingPicker("shrink-0")}
+            {renderMainChordDistControl("w-[50px] shrink-0")}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   function renderMobileChordSummaryCard() {
     return (
       <div
@@ -14297,22 +15294,22 @@ function ChordFretboard({
         style={{ backgroundColor: "var(--subsection-header-bg, #ebf2fa)" }}
       >
         <div className="flex items-start gap-2">
-          <button
-            type="button"
-            className="min-w-0 flex-1 text-left"
-            onClick={() => setMobileChordEditorOpen(true)}
-          >
-            <div className="text-sm font-semibold text-slate-800">Acorde</div>
-          </button>
+          <div className="flex min-w-0 flex-1 items-center gap-1.5">
+            <button
+              type="button"
+              className="min-w-0 flex-1 text-left"
+              onClick={() => setMobileChordEditorOpen(true)}
+            >
+              <div className="text-sm font-semibold text-slate-800">Acorde</div>
+            </button>
+            <InlineInfoButton label="Acorde" info={CHORD_EDITOR_INFO_TEXT} />
+          </div>
           <div className="flex shrink-0 items-center gap-1.5">
             <button
               type="button"
               className={UI_BTN_SM + " w-auto px-3"}
               title="Abre el análisis del acorde, del voicing y de sus tensiones."
-              onClick={() => {
-                setStudyTarget("main");
-                setStudyOpen(true);
-              }}
+              onClick={openMainChordStudy}
             >
               Estudiar
             </button>
@@ -14341,7 +15338,7 @@ function ChordFretboard({
           <div className="min-w-[210px] flex-1">
             {renderMainChordVoicingPicker()}
           </div>
-          {renderMobileChordDistControl("shrink-0")}
+          {renderMainChordDistControl("shrink-0")}
         </div>
       </div>
     );
@@ -14441,7 +15438,7 @@ function ChordFretboard({
   }
 
   function handleMobileSectionPointerDown(e) {
-    if (!isMobileLayout || mobileSectionTransition || mobileMenuOpen || mobileTonalContextOpen || mobileChordEditorOpen || mobileInfoPopover || manualOpen || studyOpen) return;
+    if (!isMobileLayout || mobileSectionTransition || mobileMenuOpen || mobileTonalContextOpen || mobileChordEditorOpen || mobileNearChordEditorIdx != null || mobileInfoPopover || manualOpen || studyOpen) return;
     if ((e.pointerType && e.pointerType !== "touch" && e.pointerType !== "pen") || isMobileSectionSwipeIgnored(e.target)) {
       mobileSectionPointerRef.current = null;
       return;
@@ -14931,7 +15928,7 @@ function ChordFretboard({
         {boardVisibility.chords ? (
           <div className="space-y-3">
             <PanelBlock
-              title="Acordes"
+              title={<InfoTitle label="Acordes" info={CHORDS_SECTION_INFO_TEXT} alwaysShow />}
               headerAside={<label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-700">
                   <input
                     type="checkbox"
@@ -14950,7 +15947,7 @@ function ChordFretboard({
                     as="fieldset"
                     disabled={!isMobileLayout && chordDetectMode}
                     level="subsection"
-                    title={isMobileLayout ? "Editar acorde" : chordControlsTitle}
+                    title={<InfoTitle label={isMobileLayout ? "Editar acorde" : chordControlsTitle} info={CHORD_EDITOR_INFO_TEXT} alwaysShow />}
                     className={isMobileLayout ? "w-full max-h-[calc(100vh-6rem)] shadow-2xl" : (chordDetectMode ? "opacity-70" : "")}
                     bodyClassName={isMobileLayout ? "max-h-[calc(100vh-11rem)] overflow-y-auto overflow-x-visible" : "overflow-x-auto"}
                     headerAside={isMobileLayout ? (
@@ -14962,15 +15959,30 @@ function ChordFretboard({
                       >
                         X
                       </button>
-                    ) : null}
+                    ) : (
+                      <button
+                        type="button"
+                        className={UI_BTN_SM + " w-auto px-3"}
+                        title="Abre el análisis del acorde, del voicing y de sus tensiones."
+                        onClick={openMainChordStudy}
+                      >
+                        Estudiar
+                      </button>
+                    )}
                   >
+                    {!isMobileLayout ? (
+                      <div className="mb-3">
+                        {renderChordBadgeStripBlock()}
+                      </div>
+                    ) : null}
                     {chordFamily === "quartal" ? (
-                      <div className={isMobileLayout ? chordMobileEditorGridClass : "grid min-w-max items-stretch gap-2 grid-cols-[96px_118px_110px_118px_90px_82px_118px_minmax(0,1fr)_44px]"}>
+                      <div className={isMobileLayout ? chordMobileEditorGridClass : nearSlotDesktopEditorClass}>
                     <div className="min-w-0">
                       <label className={UI_LABEL_SM}>Tono</label>
                       <div className="mt-1 flex items-center gap-1.5">
                         <select
                           className={UI_SELECT_SM_TONE}
+                          style={isMobileLayout ? undefined : { width: "50px" }}
                           value={chordUiLetterFromPc(chordRootPc, !!chordSpellPreferSharps)}
                           onChange={(e) => {
                             const letter = e.target.value;
@@ -15093,14 +16105,21 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
                         ))}
                       </select>
                     </div>
+                    {!isMobileLayout ? (
+                      <div className="ml-auto flex items-end gap-2">
+                        {renderMainChordVoicingPicker("shrink-0")}
+                        {renderMainChordDistControl("w-[50px] shrink-0")}
+                      </div>
+                    ) : null}
                       </div>
                     ) : chordFamily === "guide_tones" ? (
-                      <div className={isMobileLayout ? chordMobileEditorGridClass : "grid min-w-max items-stretch gap-2 grid-cols-[96px_130px_130px_130px_130px_240px_56px]"}>
+                      <div className={isMobileLayout ? chordMobileEditorGridClass : nearSlotDesktopEditorClass}>
                     <div className="min-w-0">
                       <label className={UI_LABEL_SM}>Tono</label>
                       <div className="mt-1 flex items-center gap-1.5">
                         <select
                           className={UI_SELECT_SM_TONE}
+                          style={isMobileLayout ? undefined : { width: "50px" }}
                           value={chordUiLetterFromPc(chordRootPc, !!chordSpellPreferSharps)}
                           onChange={(e) => {
                             const letter = e.target.value;
@@ -15185,20 +16204,24 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
                         ))}
                       </select>
                     </div>
+                    {!isMobileLayout ? (
+                      <div className="ml-auto flex items-end gap-2">
+                        {renderMainChordVoicingPicker("shrink-0")}
+                        {renderMainChordDistControl("w-[50px] shrink-0")}
+                      </div>
+                    ) : null}
 
                       </div>
                     ) : (
                       <div
-                        className={isMobileLayout ? chordMobileEditorTertianGridClass : "grid min-w-max items-stretch gap-2"}
-                        style={isMobileLayout ? undefined : {
-                          gridTemplateColumns: `96px ${chordFamilySelectWidth} max-content 90px ${chordFormSelectWidth} ${chordInversionSelectWidth} 130px 220px 56px`,
-                        }}
+                        className={isMobileLayout ? chordMobileEditorTertianGridClass : nearSlotDesktopEditorClass}
                       >
                     <div className={isMobileLayout ? "min-w-0 col-span-2" : "min-w-0"}>
                       <label className={UI_LABEL_SM}>Tono</label>
                       <div className="mt-1 flex items-center gap-1.5">
                         <select
                           className={UI_SELECT_SM_TONE}
+                          style={isMobileLayout ? undefined : { width: "50px" }}
                           value={chordUiLetterFromPc(chordRootPc, !!chordSpellPreferSharps)}
                           onChange={(e) => {
                             const letter = e.target.value;
@@ -15364,7 +16387,7 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
                           </option>
                         ))}
                       </select>
-                    </div>
+                        </div>
 
                     <div className={isMobileLayout ? "min-w-0 order-6 col-span-2" : "min-w-0"}>
                       <label className={UI_LABEL_SM}>Extensiones</label>
@@ -15453,6 +16476,12 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
                         ) : null}
                       </div>
                     </div>
+                    {!isMobileLayout ? (
+                      <div className="ml-auto flex items-end gap-2">
+                        {renderMainChordVoicingPicker("shrink-0")}
+                        {renderMainChordDistControl("w-[50px] shrink-0")}
+                      </div>
+                    ) : null}
                       </div>
                     )}
                   </PanelBlock>
@@ -15471,13 +16500,12 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
                 }
                 return chordEditorPanel;
               })()}
-
               {chordDetectMode ? (
                 <>
                   <ChordInvestigationFretboard />
                   <PanelBlock
                     level="subsection"
-                    title="Posibles acordes"
+                    title={<InfoTitle label="Posibles acordes" info={DETECTED_CHORDS_INFO_TEXT} alwaysShow />}
                     description={chordDetectSelectedNotes.length
                       ? "Selecciona una lectura para copiarla a la sección Acorde."
                       : "Añade notas en el mástil para ver lecturas posibles."}
@@ -15520,6 +16548,7 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
                 chordFamily === "quartal" ? (
                   <ChordFretboard
                     title="Mástil"
+                    infoText={CHORD_FRETBOARD_INFO_TEXT}
                     subtitle={`${chordQuartalUiText}${chordQuartalStepText ? ` · ${chordQuartalStepText}` : ""}.`}
                     voicing={activeQuartalVoicing}
                     voicingIdx={chordQuartalVoicingIdx}
@@ -15532,6 +16561,7 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
                 ) : chordFamily === "guide_tones" ? (
                   <GuideToneFretboard
                     title="Mástil"
+                    infoText={CHORD_FRETBOARD_INFO_TEXT}
                     voicing={activeGuideToneVoicing}
                     voicingIdx={guideToneVoicingIdx}
                     voicingTotal={Math.max(1, guideToneVoicings.length)}
@@ -15540,6 +16570,7 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
                 ) : (
                   <ChordFretboard
                     title="Mástil"
+                    infoText={CHORD_FRETBOARD_INFO_TEXT}
                     voicing={activeChordVoicing}
                     voicingIdx={chordVoicingIdx}
                     voicingTotal={Math.max(1, chordVoicings.length)}
@@ -15598,72 +16629,23 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
 
             <div className="space-y-2">
               {nearSlots.map((slot, idx) => {
-                const disableAll = !slot.enabled;
-                const notes = spellChordNotesForSlot(slot).join(", ");
-                const chordName = chordDisplayNameFromUI({
-                  rootPc: slot.rootPc,
-                  preferSharps: slot?.spellPreferSharps ?? preferSharpsFromMajorTonicPc(mod12(slot.rootPc)),
-                  quality: slot.quality,
-                  suspension: slot.suspension || "none",
-                  structure: slot.structure,
-                  ext7: slot.ext7,
-                  ext6: slot.ext6,
-                  ext9: slot.ext9,
-                  ext11: slot.ext11,
-                  ext13: slot.ext13,
-                });
+                const { disableAll, options, errMsg, slotData, slotUi, badgeStripItems, slotLabel, titleText, nearTitle, description } = buildNearSlotRenderData(slot, idx);
 
-                const r = nearComputed.ranked[idx];
-                const selectedVoicing = nearComputed.selected[idx] || null;
-                const slotDisplayName = buildChordHeaderSummary({
-                  name: chordName,
-                  plan: r?.plan,
-                  voicing: selectedVoicing,
-                  positionForm: slot.positionForm,
-                });
-                const slotUi = r?.plan?.ui || buildChordUiRestrictions({
-                  structure: slot.structure,
-                  ext7: slot.ext7,
-                  ext6: slot.ext6,
-                  ext9: slot.ext9,
-                  ext11: slot.ext11,
-                  ext13: slot.ext13,
-                });
-                const rankedOptions = r?.ranked || [];
-                const options = [...rankedOptions]
-                  .sort((a, b) => (a.minFret - b.minFret) || ((a.reach ?? (a.span + 1)) - (b.reach ?? (b.span + 1))) || (a.maxFret - b.maxFret) || a.frets.localeCompare(b.frets))
-                  .slice(0, idx === 0 ? 60 : 40);
-                const errMsg = r?.err || null;
+                if (isMobileLayout) {
+                  return renderMobileNearSlotCard(slot, idx, { disableAll, options, errMsg, slotData, slotUi, badgeStripItems, slotLabel, titleText, nearTitle, description });
+                }
 
                 return (
                   <PanelBlock
                     key={idx}
                     as="div"
                     level="subsection"
-                    title={`Acorde ${idx + 1}${nearComputed.baseIdx === idx ? " (referencia)" : ""}`}
-                    description={`${slotDisplayName} · Notas: ${notes}`}
+                    title={nearTitle}
+                    description={description}
                     disabledHeader={disableAll}
-                    bodyClassName="overflow-x-auto"
+                    bodyClassName="overflow-visible"
                     headerAside={<div className="flex items-center gap-2">
-                        <label
-                          className={`inline-flex h-7 items-center gap-2 rounded-xl border px-2 text-xs font-semibold ${disableAll ? "cursor-not-allowed" : ""}`}
-                          style={disableAll ? {
-                            backgroundColor: "var(--control-disabled-bg)",
-                            borderColor: "var(--control-disabled-border)",
-                            color: "var(--control-disabled-text)",
-                          } : undefined}
-                          title="Permite usar cuerdas al aire como opción de voicing dentro del rango. La distancia se calcula solo con las notas pisadas."
-                        >
-                          <span>Permitir cuerdas al aire</span>
-                          <input
-                            type="checkbox"
-                            checked={slot.allowOpenStrings === true}
-                            onChange={(e) => updateNearSlot(idx, { allowOpenStrings: e.target.checked, selFrets: null })}
-                            disabled={disableAll}
-                            title="Permite usar cuerdas al aire como opción de voicing dentro del rango. La distancia se calcula solo con las notas pisadas."
-                            className="h-4 w-4 rounded border-slate-300"
-                          />
-                        </label>
+                        {renderNearSlotOpenStringsToggle(slot, idx, disableAll)}
                         <button
                           type="button"
                           className={UI_BTN_SM + " w-auto px-3"}
@@ -15700,260 +16682,21 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
                           Activo
                         </label>
                       </div>}
-                  >
-                    <div
-                      className="grid min-w-max items-stretch gap-2"
-                      style={{ gridTemplateColumns: `96px 210px 90px ${chordFormSelectWidth} ${chordInversionSelectWidth} 130px 220px 56px` }}
                     >
-                      <div className="min-w-0">
-                        <label className={UI_LABEL_SM}>Tono</label>
-                        <div className="mt-1 flex items-center gap-1.5">
-                          <select
-                            className={UI_SELECT_SM_TONE}
-                            value={chordUiLetterFromPc(slot.rootPc, !!slot.spellPreferSharps)}
-                            onChange={(e) => {
-                              const letter = e.target.value;
-                              if (Object.prototype.hasOwnProperty.call(NATURAL_PC, letter)) {
-                                updateNearSlot(idx, { rootPc: mod12(NATURAL_PC[letter]), selFrets: null });
-                              }
-                            }}
-                            disabled={disableAll}
-                          >
-                            {LETTERS.map((l) => (
-                              <option key={l} value={l}>{l}</option>
-                            ))}
-                          </select>
-                          <button
-                            type="button"
-                            className={`${UI_BTN_SM} ${!disableAll && (!NATURAL_PCS.has(mod12(slot.rootPc)) && !slot.spellPreferSharps) ? "!bg-[#71a3c1] !text-slate-900 !border-[#71a3c1]" : ""}`}
-                            title="Bajar 1 semitono"
-                            onClick={() => {
-                              const letter = chordUiLetterFromPc(slot.rootPc, false);
-                              const nat = mod12(NATURAL_PC[letter]);
-                              const cur = mod12(slot.rootPc);
-                              if (cur !== nat) {
-                                updateNearSlot(idx, { rootPc: nat, selFrets: null, spellPreferSharps: false });
-                                return;
-                              }
-                              updateNearSlot(idx, { rootPc: mod12(nat - 1), selFrets: null, spellPreferSharps: false });
-                            }}
-                            disabled={disableAll}
-                          >b</button>
-                          <button
-                            type="button"
-                            className={`${UI_BTN_SM} ${!disableAll && (!NATURAL_PCS.has(mod12(slot.rootPc)) && slot.spellPreferSharps) ? "!bg-[#71a3c1] !text-slate-900 !border-[#71a3c1]" : ""}`}
-                            title="Subir 1 semitono"
-                            onClick={() => {
-                              const letter = chordUiLetterFromPc(slot.rootPc, true);
-                              const nat = mod12(NATURAL_PC[letter]);
-                              const cur = mod12(slot.rootPc);
-                              if (cur !== nat) {
-                                updateNearSlot(idx, { rootPc: nat, selFrets: null, spellPreferSharps: true });
-                                return;
-                              }
-                              updateNearSlot(idx, { rootPc: mod12(nat + 1), selFrets: null, spellPreferSharps: true });
-                            }}
-                            disabled={disableAll}
-                          >#</button>
-                        </div>
+                    {badgeStripItems.length ? (
+                      <div className="mb-3">
+                        <ChordNoteBadgeStrip
+                          items={badgeStripItems}
+                          bassNote={slotData?.bassName || null}
+                          colorMap={colors}
+                        />
                       </div>
-
-                      <div className="min-w-0">
-                        <label className={UI_LABEL_SM}>Calidad / Sus</label>
-                        <div className="mt-1 grid gap-1.5" style={{ gridTemplateColumns: "minmax(0,1.9fr) minmax(0,1fr)" }}>
-                          <select className={UI_SELECT_SM} value={slot.quality} onChange={(e) => updateNearSlot(idx, { quality: e.target.value, selFrets: null })} disabled={disableAll}>
-                            {CHORD_QUALITIES.map((q) => (
-                              <option key={q.value} value={q.value} disabled={(q.value === "hdim" && slot.structure === "triad" && !slot.ext7) || (q.value === "dom" && slot.structure === "triad" && !slot.ext7)}>{q.label}</option>
-                            ))}
-                          </select>
-                          <select
-                            className={UI_SELECT_SM}
-                            value={slot.suspension || "none"}
-                            onChange={(e) => {
-                              const v = e.target.value;
-                              updateNearSlot(idx, { suspension: v, selFrets: null });
-                              if (v !== "none" && (slot.quality === "dim" || slot.quality === "hdim")) {
-                                updateNearSlot(idx, { quality: "maj", selFrets: null });
-                              }
-                            }}
-                            disabled={disableAll}
-                            title="Suspensión: reemplaza la 3ª por 2ª o 4ª"
-                          >
-                            <option value="none">Sus —</option>
-                            <option value="sus2">sus2</option>
-                            <option value="sus4">sus4</option>
-                          </select>
-                        </div>
-                      </div>
-
-                      <div className="min-w-0">
-                        <label className={UI_LABEL_SM}>Estructura</label>
-                        <select
-                          className={UI_SELECT_SM + " mt-1"}
-                          value={slot.structure}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            const patch = val === "triad"
-                              ? { ext6: false, ext7: false, ext9: false, ext11: false, ext13: false }
-                              : val === "chord"
-                                ? {}
-                                : { ext9: false, ext11: false, ext13: false };
-                            updateNearSlot(idx, {
-                              structure: val,
-                              selFrets: null,
-                              ...(val === "triad" || val === "tetrad"
-                                ? { inversion: "all", form: "open", positionForm: "open" }
-                                : {}),
-                              ...patch,
-                            });
-                          }}
-                          disabled={disableAll}
-                        >
-                          {CHORD_STRUCTURES.map((s) => (
-                            <option key={s.value} value={s.value}>{s.label}</option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div className="min-w-0">
-                        <label className={UI_LABEL_SM}>Forma</label>
-                        {slotUi.usesManualForm ? (
-                          <select
-                            className={UI_SELECT_SM_AUTO + " mt-1"}
-                            style={{ width: chordFormSelectWidth }}
-                            value={slot.form}
-                            onChange={(e) => {
-                              const v = e.target.value;
-                              updateNearSlot(idx, {
-                                form: v,
-                                positionForm: isDropForm(v) ? (slot.positionForm || "closed") : v,
-                                selFrets: null,
-                              });
-                            }}
-                            disabled={disableAll}
-                            title="Elige la disposición del acorde: cerrado, abierto o drop"
-                          >
-                            {CHORD_FORMS.map((form) => (
-                              <option key={form.value} value={form.value} disabled={isDropForm(form.value) && !slotUi.dropEligible}>{form.label}</option>
-                            ))}
-                          </select>
-                        ) : (
-                          <div className="mt-1 flex h-7 items-center rounded-xl border border-slate-200 bg-slate-100 px-2 text-xs text-slate-500">Automática</div>
-                        )}
-                      </div>
-
-                      <div className="min-w-0">
-                        <label className={UI_LABEL_SM}>Inversión</label>
-                        <select
-                          className={UI_SELECT_SM_AUTO + " mt-1"}
-                          style={{ width: chordInversionSelectWidth }}
-                          value={slot.inversion}
-                          onChange={(e) => updateNearSlot(idx, { inversion: e.target.value, selFrets: null })}
-                          disabled={disableAll}
-                        >
-                          {CHORD_INVERSIONS.map((inv) => (
-                            <option key={inv.value} value={inv.value} disabled={!slotUi.allowThirdInversion && inv.value === "3"}>{inv.label}</option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div className="min-w-0">
-                        <label className={UI_LABEL_SM}>Extensiones</label>
-                        <div className={UI_EXT_GRID}>
-                          {slotUi.ext.showSeven ? (
-                            <label className="inline-flex items-center gap-2">
-                              <input type="checkbox" checked={hasEffectiveSeventh({ structure: slot.structure, ext7: slot.ext7, ext6: slot.ext6, ext9: slot.ext9, ext11: slot.ext11, ext13: slot.ext13 })} onChange={(e) => updateNearSlot(idx, { ext7: e.target.checked, selFrets: null })} disabled={disableAll || !slotUi.ext.canToggleSeven} /> 7
-                            </label>
-                          ) : null}
-                          {slotUi.ext.showSix ? (
-                            <label className="inline-flex items-center gap-2">
-                              <input type="checkbox" checked={!!slot.ext6} onChange={(e) => updateNearSlot(idx, { ext6: e.target.checked, selFrets: null })} disabled={disableAll || !slotUi.ext.canToggleSix} /> 6
-                            </label>
-                          ) : null}
-                          {slotUi.ext.showNine ? (
-                            <label className="inline-flex items-center gap-2">
-                              <input type="checkbox" checked={!!slot.ext9} onChange={(e) => updateNearSlot(idx, { ext9: e.target.checked, selFrets: null })} disabled={disableAll || !slotUi.ext.canToggleNine} /> 9
-                            </label>
-                          ) : null}
-                          {slotUi.ext.showEleven ? (
-                            <label className="inline-flex items-center gap-2">
-                              <input type="checkbox" checked={!!slot.ext11} onChange={(e) => updateNearSlot(idx, { ext11: e.target.checked, selFrets: null })} disabled={disableAll || !slotUi.ext.canToggleEleven} /> 11
-                            </label>
-                          ) : null}
-                          {slotUi.ext.showThirteen ? (
-                            <label className="inline-flex items-center gap-2">
-                              <input type="checkbox" checked={!!slot.ext13} onChange={(e) => updateNearSlot(idx, { ext13: e.target.checked, selFrets: null })} disabled={disableAll || !slotUi.ext.canToggleThirteen} /> 13
-                            </label>
-                          ) : null}
-                        </div>
-                      </div>
-
-                      <div className="min-w-0 flex-1">
-                        <label className={UI_LABEL_SM}>Digitación en rango ({options.length} opciones)</label>
-                        <div className="mt-1 flex items-center gap-1.5">
-                          <button
-                            type="button"
-                            className={UI_BTN_SM}
-                            title="Anterior"
-                            onClick={() => {
-                              if (!options.length) return;
-                              const cur = slot.selFrets ?? options[0].frets;
-                              let iCur = options.findIndex((v) => v.frets === cur);
-                              if (iCur < 0) iCur = 0;
-                              const iNew = (iCur - 1 + options.length) % options.length;
-                              updateNearSlot(idx, { selFrets: options[iNew].frets });
-                            }}
-                            disabled={disableAll || !options.length}
-                          >
-                            <ChevronLeft className="h-4 w-4" />
-                          </button>
-
-                          <select
-                            className={UI_SELECT_SM + " min-w-0 flex-1 max-w-[152px]"}
-                            value={slot.selFrets || "(auto)"}
-                            onChange={(e) => {
-                              const v = e.target.value;
-                              updateNearSlot(idx, { selFrets: v === "(auto)" ? null : v });
-                            }}
-                            disabled={disableAll}
-                          >
-                            <option value="(auto)">(auto)</option>
-                            {options.map((v) => (
-                              <option key={v.frets} value={v.frets}>{`${v.frets} (min ${v.minFret} · dist ${v.reach ?? (v.span + 1)})`}</option>
-                            ))}
-                          </select>
-
-                          <button
-                            type="button"
-                            className={UI_BTN_SM}
-                            title="Siguiente"
-                            onClick={() => {
-                              if (!options.length) return;
-                              const cur = slot.selFrets ?? options[0].frets;
-                              let iCur = options.findIndex((v) => v.frets === cur);
-                              if (iCur < 0) iCur = 0;
-                              const iNew = (iCur + 1) % options.length;
-                              updateNearSlot(idx, { selFrets: options[iNew].frets });
-                            }}
-                            disabled={disableAll || !options.length}
-                          >
-                            <ChevronRight className="h-4 w-4" />
-                          </button>
-                        </div>
-                        <div className="mt-1 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-600">
-                          {errMsg ? <div className="font-semibold text-rose-600">{errMsg}</div> : null}
-                        </div>
-                      </div>
-
-                      <div className="min-w-0">
-                        <label className={UI_LABEL_SM}>Dist.</label>
-                        <select className={UI_SELECT_SM + " mt-1 w-full"} value={slot.maxDist || 4} onChange={(e) => updateNearSlot(idx, { maxDist: parseInt(e.target.value, 10), selFrets: null })} disabled={disableAll}>
-                          {[4, 5, 6].map((n) => (
-                            <option key={n} value={n}>{n}</option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
+                    ) : null}
+                    {nearSlotFamilyOf(slot) === "quartal"
+                      ? renderNearSlotQuartalEditor(slot, idx, disableAll, options, errMsg)
+                      : nearSlotFamilyOf(slot) === "guide_tones"
+                        ? renderNearSlotGuideToneEditor(slot, idx, disableAll, options, errMsg)
+                        : renderNearSlotTertianEditor(slot, idx, disableAll, slotUi, options, errMsg)}
                   </PanelBlock>
                 );
               })}
@@ -16415,16 +17158,24 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
             onWheel={(e) => e.preventDefault()}
           />
         ) : null}
-        {isMobileLayout && mobileInfoPopover ? (
+        {isMobileLayout && mobileNearChordEditorIdx != null ? (
+          <div
+            className="fixed inset-0 z-40 touch-none overscroll-contain bg-slate-900/35 xl:hidden"
+            onClick={() => setMobileNearChordEditorIdx(null)}
+            onTouchMove={(e) => e.preventDefault()}
+            onWheel={(e) => e.preventDefault()}
+          />
+        ) : null}
+        {mobileInfoPopover ? (
           <>
             <div
-              className="fixed inset-0 z-40 touch-none overscroll-contain bg-slate-900/35 xl:hidden"
+              className="fixed inset-0 z-40 touch-none overscroll-contain bg-slate-900/35"
               onClick={() => setMobileInfoPopover(null)}
               onTouchMove={(e) => e.preventDefault()}
               onWheel={(e) => e.preventDefault()}
             />
             <div
-              className="fixed z-50 rounded-2xl border border-slate-300 bg-white shadow-2xl xl:hidden"
+              className="fixed z-50 rounded-2xl border border-slate-300 bg-white shadow-2xl"
               style={{ left: `${mobileInfoPopover.left}px`, top: `${mobileInfoPopover.top}px`, width: `${mobileInfoPopover.width}px` }}
             >
               <div
@@ -16440,13 +17191,19 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
                 >
                   <X className="h-4 w-4" />
                 </button>
-                <div className="p-4 pr-12 text-sm leading-6 text-slate-600">
-                  {mobileInfoPopover.text}
+                <div className="p-4 pr-12">
+                  {mobileInfoPopover.title ? (
+                    <div className="text-sm font-semibold text-slate-800">{mobileInfoPopover.title}</div>
+                  ) : null}
+                  <div className={`text-sm leading-6 text-slate-600 ${mobileInfoPopover.title ? "mt-2" : ""} whitespace-pre-line`.trim()}>
+                    {mobileInfoPopover.text}
+                  </div>
                 </div>
               </div>
             </div>
           </>
         ) : null}
+        {renderMobileNearSlotEditorPortal()}
         {isMobileLayout ? (
           <div className="pointer-events-none fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] z-30 flex justify-center px-3 xl:hidden">
             <div className="pointer-events-auto w-[min(92vw,430px)] rounded-[30px] border border-slate-200/80 bg-white/96 p-2 shadow-[0_14px_38px_rgba(15,23,42,0.16)] backdrop-blur-md">
