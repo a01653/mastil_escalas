@@ -1285,7 +1285,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "3.57";
+const APP_VERSION = "3.64";
 
 function chordDbUrl(keyName, suffix) {
   // Ruta RELATIVA dentro de /public (sin base) => chords-db/...
@@ -3388,7 +3388,10 @@ const CHORD_DETECT_FORMULAS = [
   { id: "sus2add13no5", intervals: [0, 2, 9], degreeLabels: ["1", "2", "13"], suffix: "sus2add13(no5)", ui: null, manualOnly: true },
   { id: "add11", intervals: [0, 4, 5, 7], degreeLabels: ["1", "3", "11", "5"], suffix: "add11", ui: { quality: "maj", suspension: "none", structure: "tetrad", inversion: "all", form: "open", positionForm: "open", ext7: false, ext6: false, ext9: false, ext11: true, ext13: false } },
   { id: "madd11", intervals: [0, 3, 5, 7], degreeLabels: ["1", "b3", "11", "5"], suffix: "m(add11)", ui: { quality: "min", suspension: "none", structure: "tetrad", inversion: "all", form: "open", positionForm: "open", ext7: false, ext6: false, ext9: false, ext11: true, ext13: false } },
+  { id: "maj7add11", intervals: [0, 4, 5, 7, 11], degreeLabels: ["1", "3", "11", "5", "7"], suffix: "maj7(add11)", ui: { quality: "maj", suspension: "none", structure: "chord", inversion: "all", form: "open", positionForm: "open", ext7: true, ext6: false, ext9: false, ext11: true, ext13: false } },
+  { id: "maj7sus4add9sharp11", intervals: [0, 2, 6, 7, 11], degreeLabels: ["1", "9", "#11", "4", "7"], suffix: "maj7sus4(add9,#11)", ui: null },
   { id: "madd11add13", intervals: [0, 3, 5, 7, 9], degreeLabels: ["1", "b3", "11", "5", "13"], suffix: "m(add11,13)", ui: { quality: "min", suspension: "none", structure: "chord", inversion: "all", form: "open", positionForm: "open", ext7: false, ext6: false, ext9: false, ext11: true, ext13: true } },
+  { id: "dom7add11add13no5", intervals: [0, 4, 5, 9, 10], degreeLabels: ["1", "3", "11", "13", "b7"], suffix: "7(add11,13,no5)", ui: null },
   { id: "maddb13", intervals: [0, 3, 7, 8], degreeLabels: ["1", "b3", "5", "b13"], suffix: "m(addb13)", ui: null },
   { id: "maj9", intervals: [0, 2, 4, 7, 11], degreeLabels: ["1", "9", "3", "5", "7"], suffix: "maj9", ui: { quality: "maj", suspension: "none", structure: "chord", inversion: "all", form: "open", positionForm: "open", ext7: true, ext6: false, ext9: true, ext11: false, ext13: false } },
   { id: "maj7add13", intervals: [0, 4, 7, 9, 11], degreeLabels: ["1", "3", "5", "13", "7"], suffix: "maj7(add13)", ui: null },
@@ -3429,6 +3432,8 @@ function detectFormulaRole(formula, interval) {
   const isSuspensionFormula = !formula?.quartal && formulaId.startsWith("sus");
   if (mod12(interval) === 0) return "root";
   if (isSuspensionFormula && (label === "2" || label === "4")) return "third";
+  if (label === "b2" || label === "#2") return "ninth";
+  if (label === "b6" || label === "#6") return "thirteenth";
   if (label.includes("13") || label === "6") return "thirteenth";
   if (label.includes("11")) return "eleventh";
   if (label.includes("9")) return "ninth";
@@ -3468,10 +3473,22 @@ function buildDetectedVisibleFormulaItems({ formula, noteNames, coreSelected }) 
     })
     .filter(Boolean)
     .sort((a, b) => {
-      if (a.order !== b.order) return a.order - b.order;
       if (a.intv !== b.intv) return a.intv - b.intv;
+      if (a.order !== b.order) return a.order - b.order;
       return a.idx - b.idx;
     });
+}
+
+function detectedCandidateBadgeNeedsChromaticOrderLabel(label) {
+  const s = String(label || "").toLowerCase();
+  return s === "b2" || s === "2" || s === "#2" || s === "b4" || s === "#4" || s === "b6" || s === "#6" || s === "bb7";
+}
+
+function detectedCandidateBadgeSortMode(candidate) {
+  if (!candidate) return "functional";
+  if (candidate?.formula?.quartal) return "source";
+  const labels = candidateVisibleDegreeLabels(candidate);
+  return labels.some(detectedCandidateBadgeNeedsChromaticOrderLabel) ? "chromatic" : "functional";
 }
 
 function isExtensionLikeDegreeLabel(label) {
@@ -3617,6 +3634,8 @@ function candidateFormulaComplexityPenalty(candidate) {
   const id = String(candidate?.formula?.id || "");
   if (["maj", "min", "sus2", "sus4"].includes(id)) return 0;
   if (["6", "m6", "add9", "madd9", "add11", "madd11", "sus2add13no5"].includes(id)) return 2;
+  if (["maj7add11"].includes(id)) return 5;
+  if (["maj7sus4add9sharp11", "dom7add11add13no5"].includes(id)) return 10;
   if (["madd11add13"].includes(id)) return 8;
   if (["maj7", "7", "m7", "m7b5", "dim7"].includes(id)) return 4;
   if (["maj9", "9", "m9", "7sharp9"].includes(id)) return 6;
@@ -3642,6 +3661,28 @@ function candidateProbabilityScore(candidate) {
     if (candidate.externalBassInterval != null) score += 2.5;
     if (candidate.bassPc === candidate.rootPc) score -= 1.5;
 
+    return Number(score.toFixed(2));
+  }
+
+  const formulaId = String(candidate?.formula?.id || "");
+  if (formulaId.startsWith("tertian_heuristic")) {
+    let score = candidate.exact ? 0.5 : 3;
+    const heuristicQuality = String(candidate?.formula?.ui?.quality || "");
+    const visibleLabels = candidateVisibleDegreeLabels(candidate);
+    const diminishedCore = heuristicQuality === "dim"
+      ? new Set(["1", "b3", "b5", "bb7"])
+      : heuristicQuality === "hdim"
+        ? new Set(["1", "b3", "b5", "b7"])
+        : null;
+    const diminishedExtras = diminishedCore
+      ? visibleLabels.filter((label) => !diminishedCore.has(String(label || ""))).length
+      : 0;
+
+    if (candidate.externalBassInterval != null) score += 1.5;
+    if (candidate.bassPc !== candidate.rootPc) score += 0.35;
+    if (heuristicQuality === "dim") score += 4.5;
+    if (heuristicQuality === "hdim") score += 2.5;
+    if (diminishedExtras) score += diminishedExtras * 2.5;
     return Number(score.toFixed(2));
   }
 
@@ -3809,6 +3850,200 @@ function buildQuartalManualCandidates(selectedNotes) {
   return Array.from(seen.values());
 }
 
+function formatHeuristicAddText(tokens) {
+  const safe = Array.isArray(tokens)
+    ? tokens.map((token) => String(token || "").trim()).filter(Boolean)
+    : [];
+  if (!safe.length) return "";
+
+  const needsRepeatedAdd = safe.some((token) => /^(bb|b|#)/i.test(token) || /^(2|4|6)$/.test(token));
+  if (needsRepeatedAdd) return safe.map((token) => `add${token}`).join(",");
+  return `add${safe.join(",")}`;
+}
+
+function buildHeuristicTertianCandidates(selectedNotes) {
+  const list = Array.isArray(selectedNotes) ? [...selectedNotes] : [];
+  if (list.length < 3) return [];
+
+  const ordered = [...list].sort((a, b) => a.pitch - b.pitch);
+  const bass = ordered[0];
+  const uniquePcs = Array.from(new Set(ordered.map((n) => mod12(n.pc))));
+  const out = [];
+  const seen = new Map();
+
+  for (const rootPc of uniquePcs) {
+    const preferSharps = preferSharpsFromMajorTonicPc(mod12(rootPc));
+    const intervals = Array.from(new Set(uniquePcs.map((pc) => mod12(pc - rootPc)))).sort((a, b) => a - b);
+    if (!intervals.includes(0)) continue;
+
+    const hasMajThird = intervals.includes(4);
+    const hasMinThird = intervals.includes(3);
+    const hasPerfectFifth = intervals.includes(7);
+    const hasFlatFifth = intervals.includes(6);
+    const hasMajSeventh = intervals.includes(11);
+    const hasMinSeventh = intervals.includes(10);
+    const hasDimSeventh = intervals.includes(9) && hasMinThird && hasFlatFifth && !hasMinSeventh && !hasMajSeventh;
+    const hasHeuristicSeventh = hasMajSeventh || hasMinSeventh || hasDimSeventh;
+    if (!hasMajThird && !hasMinThird) continue;
+    if (!hasPerfectFifth && !hasFlatFifth && !hasHeuristicSeventh) continue;
+
+    const has9 = intervals.includes(2);
+    const has11 = intervals.includes(5);
+    const has13 = intervals.includes(9) && !hasDimSeventh;
+    const hasBassTone = intervals.includes(mod12(bass.pc - rootPc));
+    const bassInterval = mod12(bass.pc - rootPc);
+
+    let quality = "maj";
+    let baseSuffix = "major";
+    const coreIntervals = [0];
+
+    if (hasMinThird && hasFlatFifth) {
+      if (hasMinSeventh) {
+        quality = "hdim";
+        baseSuffix = "m7(b5)";
+        coreIntervals.push(3, 6, 10);
+      } else if (hasDimSeventh) {
+        quality = "dim";
+        baseSuffix = "dim7";
+        coreIntervals.push(3, 6, 9);
+      } else {
+        quality = "dim";
+        baseSuffix = "dim";
+        coreIntervals.push(3, 6);
+      }
+    } else if (hasMinThird) {
+      quality = "min";
+      coreIntervals.push(3);
+      if (hasPerfectFifth) coreIntervals.push(7);
+      if (hasMajSeventh) {
+        baseSuffix = "m(maj7)";
+        coreIntervals.push(11);
+      } else if (hasMinSeventh) {
+        baseSuffix = "m7";
+        coreIntervals.push(10);
+      } else {
+        baseSuffix = "minor";
+      }
+    } else if (hasMajThird && hasFlatFifth && !hasPerfectFifth) {
+      quality = hasMinSeventh ? "dom" : "maj";
+      if (hasMajSeventh) {
+        baseSuffix = "maj7b5";
+        coreIntervals.push(4, 6, 11);
+      } else if (hasMinSeventh) {
+        baseSuffix = "7b5";
+        coreIntervals.push(4, 6, 10);
+      } else {
+        baseSuffix = "major(b5)";
+        coreIntervals.push(4, 6);
+      }
+    } else {
+      quality = hasMinSeventh ? "dom" : "maj";
+      coreIntervals.push(4);
+      if (hasPerfectFifth) coreIntervals.push(7);
+      if (hasMajSeventh) {
+        baseSuffix = "maj7";
+        coreIntervals.push(11);
+      } else if (hasMinSeventh) {
+        baseSuffix = "7";
+        coreIntervals.push(10);
+      } else {
+        baseSuffix = "major";
+      }
+    }
+
+    const coreSet = new Set(coreIntervals.map(mod12));
+    const addTokenForInterval = (intv) => {
+      const s = mod12(intv);
+      if (s === 2) return "9";
+      if (s === 5) return "11";
+      if (s === 9) return "13";
+      return intervalToChordToken(s, { ext6: false, ext9: false, ext11: false, ext13: false });
+    };
+
+    const addTokens = intervals
+      .filter((intv) => !coreSet.has(mod12(intv)))
+      .map((intv) => addTokenForInterval(intv));
+    if (!hasPerfectFifth && !hasFlatFifth) addTokens.push("no5");
+    const uniqueAddTokens = Array.from(new Set(addTokens.filter(Boolean)));
+    const addText = formatHeuristicAddText(uniqueAddTokens.filter((token) => token !== "no5"));
+
+    const suffix = uniqueAddTokens.length
+      ? `${baseSuffix}(${addText}${uniqueAddTokens.includes("no5") ? `${addText ? "," : ""}no5` : ""})`
+      : baseSuffix;
+
+    const noteNames = spellChordNotes({ rootPc, chordIntervals: intervals, preferSharps });
+    const slashBassChoice = bass.pc !== rootPc
+      ? `/${spellNoteFromChordInterval(rootPc, bassInterval, preferSharps)}`
+      : "";
+    const name = `${pcToName(rootPc, preferSharps)}${suffix}${slashBassChoice}`;
+    const degreeLabels = intervals.map((intv) => intervalToChordToken(intv, {
+      ext6: false,
+      ext9: has9,
+      ext11: has11,
+      ext13: has13,
+    }));
+    const visiblePairs = intervals.map((intv, idx) => `${degreeLabels[idx]}=${noteNames[idx] || ""}`);
+
+    const candidate = {
+      id: `tertian_heuristic|${rootPc}|${bassInterval}|${intervals.join(".")}|${preferSharps ? "sharp" : "flat"}`,
+      name,
+      rootPc,
+      bassPc: bass.pc,
+      preferSharps,
+      formula: {
+        id: `tertian_heuristic_${quality}_${intervals.length}`,
+        intervals,
+        degreeLabels,
+        suffix,
+        ui: {
+          quality,
+          suspension: "none",
+          structure: "chord",
+          inversion: "all",
+          form: "open",
+          positionForm: "open",
+          ext7: hasHeuristicSeventh,
+          ext6: false,
+          ext9: has9,
+          ext11: has11,
+          ext13: has13,
+        },
+      },
+      exact: true,
+      score: Number(((hasBassTone ? 0 : 1) + (bass.pc !== rootPc ? 0.5 : 0) + Math.max(0, intervals.length - 4) * 0.5).toFixed(2)),
+      uiPatch: {
+        rootPc,
+        spellPreferSharps: preferSharps,
+        quality,
+        suspension: "none",
+        structure: "chord",
+        inversion: "all",
+        form: "open",
+        positionForm: "open",
+        ext7: hasHeuristicSeventh,
+        ext6: false,
+        ext9: has9,
+        ext11: has11,
+        ext13: has13,
+      },
+      intervalPairsText: visiblePairs.join(", "),
+      visibleNotes: noteNames,
+      visibleIntervals: intervals,
+      missingLabels: [],
+      externalBassInterval: hasBassTone ? null : bassInterval,
+    };
+
+    candidate.probabilityScore = candidateProbabilityScore(candidate);
+    const dedupeKey = `${candidate.name}|${candidate.intervalPairsText}`;
+    const prev = seen.get(dedupeKey);
+    if (!prev || candidate.probabilityScore < prev.probabilityScore || (candidate.probabilityScore === prev.probabilityScore && candidate.score < prev.score)) {
+      seen.set(dedupeKey, candidate);
+    }
+  }
+
+  return Array.from(seen.values());
+}
+
 function analyzeDetectedChordCandidates(selectedNotes) {
   const list = Array.isArray(selectedNotes) ? [...selectedNotes] : [];
   if (!list.length) return [];
@@ -3915,6 +4150,7 @@ function analyzeDetectedChordCandidates(selectedNotes) {
 
   raw.push(...seen.values());
   raw.push(...buildQuartalManualCandidates(selectedNotes));
+  raw.push(...buildHeuristicTertianCandidates(selectedNotes));
 
   const exactSubsetSignatures = new Set(
     raw
@@ -7794,7 +8030,6 @@ function formatChordBadgeDegree(label) {
   const s = String(label || "");
   if (!s) return "";
   if (s === "1") return "1";
-  if (s === "b3") return "m3";
   return s;
 }
 
@@ -7804,11 +8039,11 @@ function chordBadgeRoleFromDegreeLabel(label, interval) {
   if (intv === 0 || s === "1") return "root";
   if (s === "3" || s === "b3" || s === "#3") return "third";
   if (s === "5" || s === "b5" || s === "#5") return "fifth";
-  if (s === "6") return "sixth";
+  if (s === "6" || s === "b6" || s === "#6") return "sixth";
   if (s.includes("7")) return "seventh";
   if (s.includes("13")) return "thirteenth";
-  if (s === "4" || s.includes("11")) return "eleventh";
-  if (s === "2" || s.includes("9")) return "ninth";
+  if (s === "4" || s === "b4" || s === "#4" || s.includes("11")) return "eleventh";
+  if (s === "2" || s === "b2" || s === "#2" || s.includes("9")) return "ninth";
   return "other";
 }
 
@@ -7852,9 +8087,6 @@ function buildChordBadgeItems({ notes, intervals, degreeLabels, ext6 = false, ex
     })
     .filter(Boolean)
     .sort((a, b) => {
-      const aOrder = chordBadgeRoleOrder(a.role);
-      const bOrder = chordBadgeRoleOrder(b.role);
-      if (aOrder !== bOrder) return aOrder - bOrder;
       return a.interval - b.interval;
     })
     .map(({ interval, ...item }) => item);
@@ -10198,6 +10430,7 @@ export default function FretboardScalesPage() {
   const chordDetectSelectedCandidateBadgeItems = useMemo(() => {
     if (!chordDetectSelectedCandidate) return [];
     const prefer = chordDetectSelectedCandidate.preferSharps ?? chordPreferSharps;
+    const sortMode = detectedCandidateBadgeSortMode(chordDetectSelectedCandidate);
 
     const entries = [];
 
@@ -10207,6 +10440,7 @@ export default function FretboardScalesPage() {
         if (!chordDetectSelectedCandidate.visibleIntervals.includes(interval)) return;
         const degreeRaw = String(chordDetectSelectedCandidate.formula.degreeLabels?.[idx] || "");
         entries.push({
+          sourceIdx: idx,
           order: detectedRoleOrder(detectFormulaRole(chordDetectSelectedCandidate.formula, interval)),
           interval,
           item: {
@@ -10219,6 +10453,8 @@ export default function FretboardScalesPage() {
     }
 
     entries.sort((a, b) => {
+      if (sortMode === "source") return a.sourceIdx - b.sourceIdx;
+      if (sortMode === "chromatic") return a.interval - b.interval;
       if (a.order !== b.order) return a.order - b.order;
       return a.interval - b.interval;
     });
