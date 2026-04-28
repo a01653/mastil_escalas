@@ -1,0 +1,1075 @@
+export const NOTES_SHARP = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+export const NOTES_FLAT = ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"];
+
+const LETTERS = ["C", "D", "E", "F", "G", "A", "B"];
+const NATURAL_PC = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+
+export function mod12(n) {
+  const x = n % 12;
+  return x < 0 ? x + 12 : x;
+}
+
+export function pcToName(pc, preferSharps = true) {
+  return (preferSharps ? NOTES_SHARP : NOTES_FLAT)[mod12(pc)];
+}
+
+export function noteNameToPc(token) {
+  const t = String(token || "").trim().toUpperCase();
+  if (!t) return null;
+
+  const letter = t[0];
+  if (!Object.prototype.hasOwnProperty.call(NATURAL_PC, letter)) return null;
+
+  let pc = NATURAL_PC[letter];
+  const accidental = t.slice(1);
+  if (accidental === "#") pc += 1;
+  else if (accidental === "B") pc -= 1;
+  else if (accidental === "##") pc += 2;
+  else if (accidental === "BB") pc -= 2;
+  else if (accidental) return null;
+
+  return mod12(pc);
+}
+
+export function intervalToDegreeToken(semi) {
+  return ["1", "b2", "2", "b3", "3", "4", "#4", "5", "b6", "6", "b7", "7"][mod12(semi)];
+}
+
+export function intervalToSimpleChordDegreeToken(semi) {
+  return ["1", "b2", "2", "b3", "3", "4", "b5", "5", "#5", "6", "b7", "7"][mod12(semi)];
+}
+
+export function intervalToChordToken(semi, { ext6 = false, ext9 = false, ext11 = false, ext13 = false } = {}) {
+  const s = mod12(semi);
+  if (s === 6) return "b5";
+  const base = intervalToDegreeToken(s);
+  if (ext13 && s === 9) return "13";
+  if (ext11 && s === 5) return "11";
+  if (ext9 && s === 2) return "9";
+  if (ext6 && s === 9) return "6";
+  return base;
+}
+
+function chordDegreeNumberFromInterval(interval) {
+  const s = mod12(interval);
+  if (s === 0) return 1;
+  if (s === 1 || s === 2) return 2;
+  if (s === 3 || s === 4) return 3;
+  if (s === 5) return 4;
+  if (s === 6 || s === 7) return 5;
+  if (s === 8 || s === 9) return 6;
+  if (s === 10 || s === 11) return 7;
+  return 1;
+}
+
+function spellPcWithLetter(targetPc, letter) {
+  const base = NATURAL_PC[letter];
+  let diff = ((targetPc - base + 6) % 12) - 6;
+  if (diff > 2) diff -= 12;
+  if (diff < -2) diff += 12;
+
+  let accidental = "";
+  if (diff === 1) accidental = "#";
+  else if (diff === 2) accidental = "##";
+  else if (diff === -1) accidental = "b";
+  else if (diff === -2) accidental = "bb";
+  else if (diff !== 0) accidental = diff > 0 ? "#".repeat(diff) : "b".repeat(-diff);
+
+  return `${letter}${accidental}`;
+}
+
+export function spellChordNotes({ rootPc, chordIntervals, preferSharps = true }) {
+  const rootName = pcToName(rootPc, preferSharps);
+  const rootIdx = Math.max(0, LETTERS.indexOf(rootName[0]));
+  return (Array.isArray(chordIntervals) ? chordIntervals : []).map((interval) => {
+    const degree = chordDegreeNumberFromInterval(interval);
+    const letter = LETTERS[(rootIdx + (degree - 1)) % 7];
+    return spellPcWithLetter(mod12(rootPc + interval), letter);
+  });
+}
+
+export function spellNoteFromChordInterval(rootPc, interval, preferSharps = true) {
+  return spellChordNotes({ rootPc, chordIntervals: [interval], preferSharps })[0];
+}
+
+export function preferSharpsFromMajorTonicPc(tonicPc) {
+  const flats = new Set([5, 10, 3, 8, 1]);
+  const sharps = new Set([7, 2, 9, 4, 11]);
+  if (flats.has(tonicPc)) return false;
+  if (sharps.has(tonicPc)) return true;
+  if (tonicPc === 6) return true;
+  return true;
+}
+
+export const CHORD_DETECT_FORMULAS = [
+  { id: "5", intervals: [0, 7], degreeLabels: ["1", "5"], suffix: "5", ui: null, manualOnly: true, allowDyad: true },
+  { id: "sus2no5", intervals: [0, 2], degreeLabels: ["1", "2"], suffix: "sus2(no5)", ui: null, manualOnly: true, allowDyad: true },
+  { id: "sus4no5", intervals: [0, 5], degreeLabels: ["1", "4"], suffix: "sus4(no5)", ui: null, manualOnly: true, allowDyad: true },
+  { id: "majno5", intervals: [0, 4], degreeLabels: ["1", "3"], suffix: "(no5)", ui: null, manualOnly: true, allowDyad: true },
+  { id: "minno5", intervals: [0, 3], degreeLabels: ["1", "b3"], suffix: "m(no5)", ui: null, manualOnly: true, allowDyad: true },
+  { id: "dom7no3no5", intervals: [0, 10], degreeLabels: ["1", "b7"], suffix: "7(no3,no5)", ui: null, manualOnly: true, allowDyad: true },
+  { id: "maj7no3no5", intervals: [0, 11], degreeLabels: ["1", "7"], suffix: "maj7(no3,no5)", ui: null, manualOnly: true, allowDyad: true },
+  { id: "flat5no3", intervals: [0, 6], degreeLabels: ["1", "b5"], suffix: "(b5,no3)", ui: null, manualOnly: true, allowDyad: true },
+  { id: "maj", intervals: [0, 4, 7], degreeLabels: ["1", "3", "5"], suffix: "", ui: { quality: "maj", suspension: "none", structure: "triad", inversion: "all", form: "open", positionForm: "open", ext7: false, ext6: false, ext9: false, ext11: false, ext13: false } },
+  { id: "min", intervals: [0, 3, 7], degreeLabels: ["1", "b3", "5"], suffix: "m", ui: { quality: "min", suspension: "none", structure: "triad", inversion: "all", form: "open", positionForm: "open", ext7: false, ext6: false, ext9: false, ext11: false, ext13: false } },
+  { id: "dim", intervals: [0, 3, 6], degreeLabels: ["1", "b3", "b5"], suffix: "dim", ui: { quality: "dim", suspension: "none", structure: "triad", inversion: "all", form: "open", positionForm: "open", ext7: false, ext6: false, ext9: false, ext11: false, ext13: false } },
+  { id: "sus2", intervals: [0, 2, 7], degreeLabels: ["1", "2", "5"], suffix: "sus2", ui: { quality: "maj", suspension: "sus2", structure: "triad", inversion: "all", form: "open", positionForm: "open", ext7: false, ext6: false, ext9: false, ext11: false, ext13: false } },
+  { id: "sus4", intervals: [0, 5, 7], degreeLabels: ["1", "4", "5"], suffix: "sus4", ui: { quality: "maj", suspension: "sus4", structure: "triad", inversion: "all", form: "open", positionForm: "open", ext7: false, ext6: false, ext9: false, ext11: false, ext13: false } },
+  { id: "6", intervals: [0, 4, 7, 9], degreeLabels: ["1", "3", "5", "6"], suffix: "6", ui: { quality: "maj", suspension: "none", structure: "tetrad", inversion: "all", form: "open", positionForm: "open", ext7: false, ext6: true, ext9: false, ext11: false, ext13: false } },
+  { id: "m6", intervals: [0, 3, 7, 9], degreeLabels: ["1", "b3", "5", "6"], suffix: "m6", ui: { quality: "min", suspension: "none", structure: "tetrad", inversion: "all", form: "open", positionForm: "open", ext7: false, ext6: true, ext9: false, ext11: false, ext13: false } },
+  { id: "add9", intervals: [0, 2, 4, 7], degreeLabels: ["1", "9", "3", "5"], suffix: "add9", ui: { quality: "maj", suspension: "none", structure: "tetrad", inversion: "all", form: "open", positionForm: "open", ext7: false, ext6: false, ext9: true, ext11: false, ext13: false } },
+  { id: "madd9", intervals: [0, 2, 3, 7], degreeLabels: ["1", "9", "b3", "5"], suffix: "m(add9)", ui: { quality: "min", suspension: "none", structure: "tetrad", inversion: "all", form: "open", positionForm: "open", ext7: false, ext6: false, ext9: true, ext11: false, ext13: false } },
+  { id: "sus2add13no5", intervals: [0, 2, 9], degreeLabels: ["1", "2", "13"], suffix: "sus2add13(no5)", ui: null, manualOnly: true },
+  { id: "add11", intervals: [0, 4, 5, 7], degreeLabels: ["1", "3", "11", "5"], suffix: "add11", ui: { quality: "maj", suspension: "none", structure: "tetrad", inversion: "all", form: "open", positionForm: "open", ext7: false, ext6: false, ext9: false, ext11: true, ext13: false } },
+  { id: "madd11", intervals: [0, 3, 5, 7], degreeLabels: ["1", "b3", "11", "5"], suffix: "m(add11)", ui: { quality: "min", suspension: "none", structure: "tetrad", inversion: "all", form: "open", positionForm: "open", ext7: false, ext6: false, ext9: false, ext11: true, ext13: false } },
+  { id: "maj7add11", intervals: [0, 4, 5, 7, 11], degreeLabels: ["1", "3", "11", "5", "7"], suffix: "maj7(add11)", ui: { quality: "maj", suspension: "none", structure: "chord", inversion: "all", form: "open", positionForm: "open", ext7: true, ext6: false, ext9: false, ext11: true, ext13: false } },
+  { id: "maj7sus4add9sharp11", intervals: [0, 2, 6, 7, 11], degreeLabels: ["1", "9", "#11", "4", "7"], suffix: "maj7sus4(add9,#11)", ui: null },
+  { id: "m6add11", intervals: [0, 3, 5, 7, 9], degreeLabels: ["1", "b3", "11", "5", "6"], suffix: "m6(add11)", ui: { quality: "min", suspension: "none", structure: "chord", inversion: "all", form: "open", positionForm: "open", ext7: false, ext6: true, ext9: false, ext11: true, ext13: false } },
+  { id: "m7no5", intervals: [0, 3, 10], degreeLabels: ["1", "b3", "b7"], suffix: "m7(no5)", ui: null, manualOnly: true },
+  { id: "dom7no5", intervals: [0, 4, 10], degreeLabels: ["1", "3", "b7"], suffix: "7(no5)", ui: null, manualOnly: true },
+  { id: "dom7add11add13no5", intervals: [0, 4, 5, 9, 10], degreeLabels: ["1", "3", "11", "13", "b7"], suffix: "7(add11,13,no5)", ui: null },
+  { id: "maddb13", intervals: [0, 3, 7, 8], degreeLabels: ["1", "b3", "5", "b13"], suffix: "m(addb13)", ui: null },
+  { id: "maj9", intervals: [0, 2, 4, 7, 11], degreeLabels: ["1", "9", "3", "5", "7"], suffix: "maj9", ui: { quality: "maj", suspension: "none", structure: "chord", inversion: "all", form: "open", positionForm: "open", ext7: true, ext6: false, ext9: true, ext11: false, ext13: false } },
+  { id: "maj7add13", intervals: [0, 4, 7, 9, 11], degreeLabels: ["1", "3", "5", "13", "7"], suffix: "maj7(add13)", ui: null },
+  { id: "maj7add13omit5", intervals: [0, 4, 9, 11], degreeLabels: ["1", "3", "13", "7"], suffix: "maj7(add13)", ui: null, manualOnly: true },
+  { id: "maj13", intervals: [0, 2, 4, 7, 9, 11], degreeLabels: ["1", "9", "3", "5", "13", "7"], suffix: "maj13", ui: { quality: "maj", suspension: "none", structure: "chord", inversion: "all", form: "open", positionForm: "open", ext7: true, ext6: false, ext9: true, ext11: false, ext13: true } },
+  { id: "maj13omit5", intervals: [0, 2, 4, 9, 11], degreeLabels: ["1", "9", "3", "13", "7"], suffix: "maj13", ui: null, manualOnly: true },
+  { id: "9", intervals: [0, 2, 4, 7, 10], degreeLabels: ["1", "9", "3", "5", "b7"], suffix: "9", ui: { quality: "dom", suspension: "none", structure: "chord", inversion: "all", form: "open", positionForm: "open", ext7: true, ext6: false, ext9: true, ext11: false, ext13: false } },
+  { id: "7sharp9", intervals: [0, 3, 4, 7, 10], degreeLabels: ["1", "#9", "3", "5", "b7"], suffix: "7(#9)", ui: null, manualOnly: true },
+  { id: "m9", intervals: [0, 2, 3, 7, 10], degreeLabels: ["1", "9", "b3", "5", "b7"], suffix: "m9", ui: { quality: "min", suspension: "none", structure: "chord", inversion: "all", form: "open", positionForm: "open", ext7: true, ext6: false, ext9: true, ext11: false, ext13: false } },
+  { id: "m7flat13", intervals: [0, 3, 7, 8, 10], degreeLabels: ["1", "b3", "5", "b13", "b7"], suffix: "m7(b13)", ui: null, manualOnly: true },
+  { id: "m7no5addb13", intervals: [0, 3, 8, 10], degreeLabels: ["1", "b3", "b13", "b7"], suffix: "m7(no5)(b13)", ui: null, manualOnly: true },
+  { id: "m11flat13", intervals: [0, 3, 5, 7, 8, 10], degreeLabels: ["1", "b3", "11", "5", "b13", "b7"], suffix: "m11(b13)", ui: null },
+  { id: "m11flat13omit3", intervals: [0, 5, 7, 8, 10], degreeLabels: ["1", "11", "5", "b13", "b7"], suffix: "m11(b13)", ui: null, manualOnly: true },
+  { id: "maj7", intervals: [0, 4, 7, 11], degreeLabels: ["1", "3", "5", "7"], suffix: "maj7", ui: { quality: "maj", suspension: "none", structure: "tetrad", inversion: "all", form: "open", positionForm: "open", ext7: true, ext6: false, ext9: false, ext11: false, ext13: false } },
+  { id: "7", intervals: [0, 4, 7, 10], degreeLabels: ["1", "3", "5", "b7"], suffix: "7", ui: { quality: "dom", suspension: "none", structure: "tetrad", inversion: "all", form: "open", positionForm: "open", ext7: true, ext6: false, ext9: false, ext11: false, ext13: false } },
+  { id: "m7", intervals: [0, 3, 7, 10], degreeLabels: ["1", "b3", "5", "b7"], suffix: "m7", ui: { quality: "min", suspension: "none", structure: "tetrad", inversion: "all", form: "open", positionForm: "open", ext7: true, ext6: false, ext9: false, ext11: false, ext13: false } },
+  { id: "mmaj7", intervals: [0, 3, 7, 11], degreeLabels: ["1", "b3", "5", "7"], suffix: "m(maj7)", ui: null },
+  { id: "mmaj7add13", intervals: [0, 3, 7, 9, 11], degreeLabels: ["1", "b3", "5", "13", "7"], suffix: "m(maj7,13)", ui: null },
+  { id: "m7b5", intervals: [0, 3, 6, 10], degreeLabels: ["1", "b3", "b5", "b7"], suffix: "m7(b5)", ui: { quality: "hdim", suspension: "none", structure: "tetrad", inversion: "all", form: "open", positionForm: "open", ext7: true, ext6: false, ext9: false, ext11: false, ext13: false } },
+  { id: "dim7", intervals: [0, 3, 6, 9], degreeLabels: ["1", "b3", "b5", "bb7"], suffix: "dim7", ui: { quality: "dim", suspension: "none", structure: "tetrad", inversion: "all", form: "open", positionForm: "open", ext7: true, ext6: false, ext9: false, ext11: false, ext13: false } },
+  { id: "maj7sharp5", intervals: [0, 4, 8, 11], degreeLabels: ["1", "3", "#5", "7"], suffix: "maj7#5", ui: null },
+  { id: "7sharp5", intervals: [0, 4, 8, 10], degreeLabels: ["1", "3", "#5", "b7"], suffix: "7#5", ui: null },
+  { id: "7flat5", intervals: [0, 4, 6, 10], degreeLabels: ["1", "3", "b5", "b7"], suffix: "7b5", ui: null },
+];
+
+function appendMissingDegreesToSuffix(baseSuffix, missingDegrees) {
+  if (!missingDegrees?.length) return baseSuffix;
+  const miss = missingDegrees.map((label) => `no${label}`).join(",");
+  if (!baseSuffix) return `(${miss})`;
+  if (baseSuffix.endsWith(")")) return `${baseSuffix.slice(0, -1)},${miss})`;
+  return `${baseSuffix}(${miss})`;
+}
+
+export function detectFormulaRole(formula, interval) {
+  const idx = formula?.intervals?.findIndex((value) => mod12(value) === mod12(interval));
+  const label = idx >= 0 ? String(formula.degreeLabels[idx] || "") : "";
+  const formulaId = String(formula?.id || "").toLowerCase();
+  const isSuspensionFormula = !formula?.quartal && formulaId.startsWith("sus");
+  if (mod12(interval) === 0) return "root";
+  if (isSuspensionFormula && (label === "2" || label === "4")) return "third";
+  if (label === "b2" || label === "#2") return "ninth";
+  if (label === "b6" || label === "#6" || label === "6") return "sixth";
+  if (label.includes("13")) return "thirteenth";
+  if (label.includes("11")) return "eleventh";
+  if (label.includes("9")) return "ninth";
+  if (label.includes("7")) return "seventh";
+  if (label.includes("5")) return "fifth";
+  if (label.includes("3") || label === "2" || label === "4") return "third";
+  return "other";
+}
+
+function detectedRoleOrder(role) {
+  switch (role) {
+    case "root": return 0;
+    case "third": return 1;
+    case "fifth": return 2;
+    case "sixth": return 3;
+    case "seventh": return 4;
+    case "ninth": return 5;
+    case "eleventh": return 6;
+    case "thirteenth": return 7;
+    default: return 8;
+  }
+}
+
+function detectedCandidateBadgeNeedsChromaticOrderLabel(label) {
+  const s = String(label || "").toLowerCase();
+  return s === "b2" || s === "2" || s === "#2" || s === "b4" || s === "#4" || s === "b6" || s === "#6" || s === "bb7";
+}
+
+function detectedDisplaySortMode(formula, labels) {
+  if (formula?.quartal) return "source";
+  return (Array.isArray(labels) ? labels : []).some(detectedCandidateBadgeNeedsChromaticOrderLabel) ? "chromatic" : "functional";
+}
+
+function sortDetectedDisplayEntries(entries, sortMode) {
+  return [...entries].sort((a, b) => {
+    if (sortMode === "source") return a.idx - b.idx;
+    if (sortMode === "chromatic") {
+      if (a.intv !== b.intv) return a.intv - b.intv;
+      return a.idx - b.idx;
+    }
+    if (a.order !== b.order) return a.order - b.order;
+    if (a.intv !== b.intv) return a.intv - b.intv;
+    return a.idx - b.idx;
+  });
+}
+
+function buildDetectedVisibleFormulaItems({ formula, noteNames, coreSelected }) {
+  const selectedSet = new Set((coreSelected || []).map(mod12));
+  const items = (formula?.intervals || [])
+    .map((intv, idx) => {
+      const interval = mod12(intv);
+      if (!selectedSet.has(interval)) return null;
+      return {
+        intv: interval,
+        idx,
+        label: String(formula?.degreeLabels?.[idx] || ""),
+        note: noteNames?.[idx] || "",
+        order: detectedRoleOrder(detectFormulaRole(formula, interval)),
+      };
+    })
+    .filter(Boolean);
+  return sortDetectedDisplayEntries(items, detectedDisplaySortMode(formula, items.map((item) => item.label)));
+}
+
+function isExtensionLikeDegreeLabel(label) {
+  const s = String(label || "").toLowerCase();
+  return s.includes("6") || s.includes("7") || s.includes("9") || s.includes("11") || s.includes("13");
+}
+
+function isOptionalSlashTensionInterval(interval) {
+  const intv = mod12(interval);
+  return intv === 1 || intv === 2 || intv === 5 || intv === 6 || intv === 8 || intv === 9;
+}
+
+function isThirdDegreeLabel(label) {
+  const s = String(label || "").toLowerCase();
+  return s === "3" || s === "b3" || s === "#3";
+}
+
+function isFifthDegreeLabel(label) {
+  return String(label || "").toLowerCase().includes("5");
+}
+
+function isSeventhDegreeLabel(label) {
+  return String(label || "").toLowerCase().includes("7");
+}
+
+function isSixthDegreeLabel(label) {
+  const s = String(label || "").toLowerCase();
+  return s === "6" || s.includes("13");
+}
+
+function suffixSemanticallyContainsDegree(suffix, label) {
+  const s = String(suffix || "").toLowerCase();
+  const l = String(label || "").toLowerCase();
+  return !!s && !!l && s.includes(l);
+}
+
+function candidateVisibleDegreeLabels(candidate) {
+  if (!candidate?.formula?.intervals?.length) return [];
+  return candidate.formula.intervals
+    .map((intv, idx) => candidate.visibleIntervals.includes(mod12(intv)) ? String(candidate.formula.degreeLabels[idx] || "") : null)
+    .filter(Boolean);
+}
+
+function candidateHasCompleteTriad(candidate) {
+  const labels = candidateVisibleDegreeLabels(candidate);
+  return candidate.visibleIntervals.includes(0)
+    && labels.some(isThirdDegreeLabel)
+    && labels.some(isFifthDegreeLabel);
+}
+
+function candidateIsMissingThirdSeventhLike(candidate) {
+  if (!(candidate?.missingLabels || []).some(isThirdDegreeLabel)) return false;
+  return candidateVisibleDegreeLabels(candidate).some((label) => isSeventhDegreeLabel(label) || isSixthDegreeLabel(label));
+}
+
+function allowMissingThirdCandidate(candidate) {
+  if (!candidate || candidate.missingLabels.length !== 1) return false;
+  if (!isThirdDegreeLabel(candidate.missingLabels[0])) return false;
+  if (candidate.externalBassInterval != null) return false;
+  const labels = candidateVisibleDegreeLabels(candidate);
+  return candidate.visibleIntervals.includes(0)
+    && labels.some(isFifthDegreeLabel)
+    && labels.some((label) => isSeventhDegreeLabel(label) || isSixthDegreeLabel(label));
+}
+
+function shouldFilterContradictoryPartialCoreCandidate(candidate) {
+  if (!candidate || candidate.exact || candidate.formula?.allowDyad) return false;
+  const id = String(candidate.formula?.id || "");
+  const missing = Array.isArray(candidate.missingLabels) ? candidate.missingLabels : [];
+  if (!missing.length) return false;
+
+  if (["dim", "dim7", "m7b5"].includes(id)) {
+    return missing.some((label) => isThirdDegreeLabel(label) || isFifthDegreeLabel(label) || isSeventhDegreeLabel(label));
+  }
+  if (["maj", "min"].includes(id)) {
+    return missing.some((label) => isThirdDegreeLabel(label) || isFifthDegreeLabel(label));
+  }
+  if (["7", "m7", "maj7"].includes(id)) {
+    return missing.some((label) => isThirdDegreeLabel(label) || isFifthDegreeLabel(label) || isSeventhDegreeLabel(label));
+  }
+  return false;
+}
+
+function candidateHeardIntervalSignature(candidate) {
+  const intervals = [...(candidate?.visibleIntervals || [])];
+  if (candidate?.externalBassInterval != null) intervals.push(mod12(candidate.externalBassInterval));
+  return Array.from(new Set(intervals.map(mod12))).sort((a, b) => a - b).join(",");
+}
+
+function shouldFilterExternalBassSubsetCandidate(candidate, exactCandidates) {
+  if (candidate?.formula?.quartal) return false;
+  if (!candidate || candidate.externalBassInterval == null) return false;
+  if (isOptionalSlashTensionInterval(candidate.externalBassInterval)) return false;
+  const wanted = new Set([...candidate.visibleIntervals, mod12(candidate.externalBassInterval)].map(mod12));
+  return exactCandidates.some((exact) => {
+    if (!exact?.exact) return false;
+    if (exact.rootPc !== candidate.rootPc || exact.bassPc !== candidate.bassPc) return false;
+    const exactIntervals = new Set((exact.visibleIntervals || []).map(mod12));
+    for (const interval of wanted) {
+      if (!exactIntervals.has(interval)) return false;
+    }
+    return true;
+  });
+}
+
+function shouldFilterExactSubsetCandidate(candidate, exactCandidates) {
+  if (candidate?.formula?.quartal || !candidate?.exact) return false;
+  const signature = candidateHeardIntervalSignature(candidate);
+  if (!signature) return false;
+  return exactCandidates.some((other) => {
+    if (!other?.exact || other === candidate) return false;
+    if (other.rootPc !== candidate.rootPc || other.bassPc !== candidate.bassPc) return false;
+    if (candidateHeardIntervalSignature(other) !== signature) return false;
+    const ownCount = (candidate.formula?.intervals || []).length;
+    const otherCount = (other.formula?.intervals || []).length;
+    if (otherCount !== ownCount) return otherCount > ownCount;
+    return (other.missingLabels?.length || 0) < (candidate.missingLabels?.length || 0);
+  });
+}
+
+function shouldFilterInexactCandidateShadowedByExact(candidate, exactCandidates) {
+  if (candidate?.formula?.quartal || !candidate || candidate.exact) return false;
+  if (candidate.externalBassInterval != null && isOptionalSlashTensionInterval(candidate.externalBassInterval)) return false;
+  const signature = candidateHeardIntervalSignature(candidate);
+  if (!signature) return false;
+  return exactCandidates.some((exact) => exact?.exact
+    && exact.rootPc === candidate.rootPc
+    && exact.bassPc === candidate.bassPc
+    && candidateHeardIntervalSignature(exact) === signature);
+}
+
+function candidateFormulaComplexityPenalty(candidate) {
+  const id = String(candidate?.formula?.id || "");
+  if (["maj", "min", "sus2", "sus4"].includes(id)) return 0;
+  if (["6", "m6", "add9", "madd9", "add11", "madd11", "sus2add13no5", "dom7no3no5", "maj7no3no5", "flat5no3"].includes(id)) return 2;
+  if (["maj7add11"].includes(id)) return 5;
+  if (["maj7sus4add9sharp11", "dom7add11add13no5"].includes(id)) return 10;
+  if (["m6add11"].includes(id)) return 5;
+  if (["maj7", "7", "m7", "m7b5", "dim7", "m7no5", "dom7no5"].includes(id)) return 4;
+  if (["maj9", "9", "m9", "7sharp9"].includes(id)) return 6;
+  if (["m7flat13", "m7no5addb13"].includes(id)) return 8;
+  if (["maj7add13", "maj7add13omit5", "maj13", "maj13omit5"].includes(id)) return 8;
+  if (["m11flat13", "m11flat13omit3"].includes(id)) return 10;
+  if (["mmaj7"].includes(id)) return 8;
+  if (["mmaj7add13"].includes(id)) return 5;
+  if (["maj7sharp5", "7sharp5", "7flat5", "maddb13"].includes(id)) return 12;
+  return 7;
+}
+
+const RARE_ENHARMONIC_SPELLINGS = new Set(["Cb", "Fb", "E#", "B#"]);
+
+function candidateRareEnharmonicPenalty(candidate) {
+  const notes = Array.isArray(candidate?.visibleNotes) ? candidate.visibleNotes : [];
+  const notePenalty = notes.reduce((sum, note) => sum + (RARE_ENHARMONIC_SPELLINGS.has(String(note || "")) ? 1.2 : 0), 0);
+  const bassPenalty = candidate?.externalBassInterval != null
+    ? (RARE_ENHARMONIC_SPELLINGS.has(String(spellNoteFromChordInterval(candidate.rootPc, candidate.externalBassInterval, !!candidate.preferSharps) || "")) ? 1.2 : 0)
+    : 0;
+  return notePenalty + bassPenalty;
+}
+
+function candidateHasAwkwardHeuristicCluster(candidate, visibleLabels) {
+  if (!String(candidate?.formula?.id || "").startsWith("tertian_heuristic")) return false;
+  const labels = (Array.isArray(visibleLabels) ? visibleLabels : []).map((label) => String(label || "").toLowerCase());
+  const hasB2 = labels.includes("b2");
+  const hasB6 = labels.includes("b6");
+  const hasFifth = labels.some((label) => label === "5" || label === "b5" || label === "#5");
+  const hasNo5 = String(candidate?.formula?.suffix || "").includes("no5");
+  return hasB2 && hasB6 && !hasFifth && hasNo5;
+}
+
+function candidateProbabilityScore(candidate) {
+  if (!candidate) return 999;
+
+  if (candidate?.formula?.quartal) {
+    const quartalSize = (candidate.formula?.intervals || []).length;
+    let score = candidate.formula?.quartalType === "pure" ? 5 : 7;
+    if (candidate.exact) score -= 2;
+    else score += 3;
+    if (quartalSize > 3) score -= (quartalSize - 3) * 1.1;
+    if (candidate.externalBassInterval != null) score += 2.5;
+    if (candidate.bassPc === candidate.rootPc) score -= 1.5;
+    return Number(score.toFixed(2));
+  }
+
+  const formulaId = String(candidate?.formula?.id || "");
+  if (formulaId.startsWith("tertian_heuristic")) {
+    let score = candidate.exact ? 0.5 : 3;
+    const heuristicQuality = String(candidate?.formula?.ui?.quality || "");
+    const visibleLabels = candidateVisibleDegreeLabels(candidate);
+    const diminishedCore = heuristicQuality === "dim"
+      ? new Set(["1", "b3", "b5", "bb7"])
+      : heuristicQuality === "hdim"
+        ? new Set(["1", "b3", "b5", "b7"])
+        : null;
+    const diminishedExtras = diminishedCore
+      ? visibleLabels.filter((label) => !diminishedCore.has(String(label || ""))).length
+      : 0;
+    if (candidate.externalBassInterval != null) score += 1.5;
+    if (candidate.bassPc !== candidate.rootPc) score += 0.35;
+    if (heuristicQuality === "dim") score += 4.5;
+    if (heuristicQuality === "hdim") score += 2.5;
+    if (diminishedExtras) score += diminishedExtras * 2.5;
+    score += candidateRareEnharmonicPenalty(candidate);
+    if (candidateHasAwkwardHeuristicCluster(candidate, visibleLabels)) score += 3.5;
+    return Number(score.toFixed(2));
+  }
+
+  let score = 0;
+  const formulaSize = (candidate.formula?.intervals || []).length;
+  const triadCore = candidateHasCompleteTriad(candidate);
+  const externalBass = candidate.externalBassInterval != null;
+  const visibleLabels = candidateVisibleDegreeLabels(candidate);
+  const hasAlteredFifth = visibleLabels.some((label) => {
+    const s = String(label || "").toLowerCase();
+    return s === "b5" || s === "#5";
+  });
+
+  score += candidateFormulaComplexityPenalty(candidate);
+  score += (candidate.missingLabels?.length || 0) * 9;
+  if (candidate.missingLabels?.some(isThirdDegreeLabel)) score += 5;
+  if (candidate.exact) score -= 2;
+  else score += 2;
+  if (triadCore) score -= 3;
+  if (hasAlteredFifth) score += 8;
+
+  if (externalBass) {
+    if (triadCore && formulaSize === 3 && (candidate.missingLabels?.length || 0) === 0) score -= 8;
+    else if (triadCore) score -= 2;
+    else score += 4;
+  } else if (candidate.bassPc !== candidate.rootPc) {
+    score += 1;
+  }
+
+  score += Math.max(0, formulaSize - 3) * 1.2;
+  score += ((candidate.name || "").match(/[?#b?]/g) || []).length * 0.15;
+  score += candidateRareEnharmonicPenalty(candidate);
+  return Number(score.toFixed(2));
+}
+
+export function buildQuartalStepText(step) {
+  return step === 6 ? "A4" : "4J";
+}
+
+export function buildQuartalChainsFromSelected({ rootPc, selectedPcs, allowMixed = true }) {
+  const pcs = Array.from(new Set((selectedPcs || []).map(mod12)));
+  const selectedSet = new Set(pcs);
+  if (!selectedSet.has(mod12(rootPc))) return [];
+
+  const out = [];
+  const seen = new Set();
+  const maxLen = Math.min(5, pcs.length);
+
+  const walk = (chain, steps) => {
+    if (chain.length >= 3) {
+      const key = `${chain.join(",")}|${steps.join(",")}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        out.push({ pcs: [...chain], steps: [...steps] });
+      }
+    }
+
+    if (chain.length >= maxLen) return;
+    const last = chain[chain.length - 1];
+    for (const step of allowMixed ? [5, 6] : [5]) {
+      const nextPc = mod12(last + step);
+      if (!selectedSet.has(nextPc) || chain.includes(nextPc)) continue;
+      walk([...chain, nextPc], [...steps, step]);
+    }
+  };
+
+  walk([mod12(rootPc)], []);
+  return out;
+}
+
+function buildQuartalManualCandidates(selectedNotes) {
+  const list = normalizeSelectedNotes(selectedNotes);
+  if (list.length < 3) return [];
+
+  const ordered = [...list].sort((a, b) => a.pitch - b.pitch);
+  const bass = ordered[0];
+  const uniquePcs = Array.from(new Set(ordered.map((note) => mod12(note.pc))));
+  const seen = new Map();
+
+  for (const rootPc of uniquePcs) {
+    const preferSharps = preferSharpsFromMajorTonicPc(mod12(rootPc));
+    const chains = buildQuartalChainsFromSelected({ rootPc, selectedPcs: uniquePcs, allowMixed: true });
+
+    for (const chain of chains) {
+      const chainSet = new Set(chain.pcs.map(mod12));
+      const extras = uniquePcs.filter((pc) => !chainSet.has(mod12(pc)));
+      if (extras.length > 1) continue;
+      if (extras.length === 1 && mod12(extras[0]) !== mod12(bass.pc)) continue;
+
+      const visibleIntervals = chain.pcs.map((pc) => mod12(pc - rootPc));
+      const degreeLabels = visibleIntervals.map((intv) => intervalToSimpleChordDegreeToken(intv));
+      const visibleNotes = spellChordNotes({ rootPc, chordIntervals: visibleIntervals, preferSharps });
+      const externalBassInterval = extras.length ? mod12(bass.pc - rootPc) : null;
+      const bassName = externalBassInterval == null ? pcToName(rootPc, preferSharps) : spellNoteFromChordInterval(rootPc, externalBassInterval, preferSharps);
+      const quartalType = chain.steps.every((step) => step === 5) ? "pure" : "mixed";
+      const rootName = pcToName(rootPc, preferSharps);
+      const stepText = chain.steps.map(buildQuartalStepText).join(" · ");
+      const intervalPairsText = `${visibleNotes.join(" – ")} · bajo en ${bassName}${stepText ? ` · ${stepText}` : ""}`;
+      const exact = extras.length === 0 && chain.pcs.length === uniquePcs.length;
+      const spreadKind = chain.steps.length
+        ? chain.steps.every((step, idx) => {
+            const left = ordered[idx];
+            const right = ordered[idx + 1];
+            return !!left && !!right && (right.pitch - left.pitch) === step;
+          }) ? "closed" : "open"
+        : "closed";
+
+      const candidate = {
+        id: `quartal|${quartalType}|${rootPc}|${externalBassInterval == null ? "in" : externalBassInterval}|${chain.pcs.join(".")}`,
+        name: `${quartalType === "mixed" ? "Cuartal mixto" : "Cuartal"} ${rootName}${bassName !== rootName ? `/${bassName}` : ""}`,
+        rootPc,
+        bassPc: bass.pc,
+        preferSharps,
+        formula: {
+          id: `quartal_${quartalType}_${visibleIntervals.length}`,
+          intervals: visibleIntervals,
+          degreeLabels,
+          suffix: "",
+          ui: null,
+          manualOnly: true,
+          quartal: true,
+          quartalType,
+          quartalSteps: [...chain.steps],
+        },
+        exact,
+        score: Number(((exact ? 6 : 10) + (quartalType === "mixed" ? 2 : 0) + (externalBassInterval != null ? 2 : 0) - Math.max(0, chain.pcs.length - 3)).toFixed(2)),
+        uiPatch: {
+          rootPc,
+          spellPreferSharps: preferSharps,
+          family: "quartal",
+          quartalType,
+          quartalVoices: String(chain.pcs.length),
+          quartalSpread: spreadKind,
+          quartalReference: "root",
+        },
+        intervalPairsText,
+        visibleNotes,
+        visibleIntervals,
+        missingLabels: [],
+        externalBassInterval,
+      };
+
+      candidate.probabilityScore = candidateProbabilityScore(candidate);
+      const dedupeKey = `${candidate.name}|${candidate.intervalPairsText}`;
+      const prev = seen.get(dedupeKey);
+      if (!prev || candidate.probabilityScore < prev.probabilityScore || (candidate.probabilityScore === prev.probabilityScore && candidate.score < prev.score)) {
+        seen.set(dedupeKey, candidate);
+      }
+    }
+  }
+
+  return Array.from(seen.values());
+}
+
+function formatHeuristicAddText(tokens) {
+  const safe = Array.isArray(tokens) ? tokens.map((token) => String(token || "").trim()).filter(Boolean) : [];
+  if (!safe.length) return "";
+  const needsRepeatedAdd = safe.some((token) => /^(bb|b|#)/i.test(token) || /^(2|4|6)$/.test(token));
+  return needsRepeatedAdd ? safe.map((token) => `add${token}`).join(",") : `add${safe.join(",")}`;
+}
+
+function appendDescriptorToChordSuffix(baseSuffix, descriptorText) {
+  const base = String(baseSuffix || "");
+  const descriptor = String(descriptorText || "").trim();
+  if (!descriptor) return base;
+  if (!base) return `(${descriptor})`;
+  if (base.endsWith(")")) return `${base.slice(0, -1)},${descriptor})`;
+  return `${base}(${descriptor})`;
+}
+
+function buildHeuristicTertianCandidates(selectedNotes) {
+  const list = normalizeSelectedNotes(selectedNotes);
+  if (list.length < 3) return [];
+
+  const ordered = [...list].sort((a, b) => a.pitch - b.pitch);
+  const bass = ordered[0];
+  const uniquePcs = Array.from(new Set(ordered.map((note) => mod12(note.pc))));
+  const seen = new Map();
+
+  for (const rootPc of uniquePcs) {
+    const preferSharps = preferSharpsFromMajorTonicPc(mod12(rootPc));
+    const intervals = Array.from(new Set(uniquePcs.map((pc) => mod12(pc - rootPc)))).sort((a, b) => a - b);
+    if (!intervals.includes(0)) continue;
+
+    const hasMajThird = intervals.includes(4);
+    const hasMinThird = intervals.includes(3);
+    const hasPerfectFifth = intervals.includes(7);
+    const hasFlatFifth = intervals.includes(6);
+    const hasMajSeventh = intervals.includes(11);
+    const hasMinSeventh = intervals.includes(10);
+    const hasDimSeventh = intervals.includes(9) && hasMinThird && hasFlatFifth && !hasMinSeventh && !hasMajSeventh;
+    const hasHeuristicSeventh = hasMajSeventh || hasMinSeventh || hasDimSeventh;
+    if (!hasMajThird && !hasMinThird) continue;
+    if (!hasPerfectFifth && !hasFlatFifth && !hasHeuristicSeventh) continue;
+
+    const has9 = intervals.includes(2);
+    const has11 = intervals.includes(5);
+    const has13 = intervals.includes(9) && !hasDimSeventh;
+    const useSixthLabel = has13 && !hasHeuristicSeventh;
+    const useThirteenthLabel = has13 && hasHeuristicSeventh;
+    const useEleventhLabel = has11 && (hasMajThird || hasMinThird || hasHeuristicSeventh);
+    const hasBassTone = intervals.includes(mod12(bass.pc - rootPc));
+    const bassInterval = mod12(bass.pc - rootPc);
+
+    let quality = "maj";
+    let baseSuffix = "";
+    const coreIntervals = [0];
+
+    if (hasMinThird && hasFlatFifth) {
+      if (hasMinSeventh) {
+        quality = "hdim";
+        baseSuffix = "m7(b5)";
+        coreIntervals.push(3, 6, 10);
+      } else if (hasDimSeventh) {
+        quality = "dim";
+        baseSuffix = "dim7";
+        coreIntervals.push(3, 6, 9);
+      } else {
+        quality = "dim";
+        baseSuffix = "dim";
+        coreIntervals.push(3, 6);
+      }
+    } else if (hasMinThird) {
+      quality = "min";
+      coreIntervals.push(3);
+      if (hasPerfectFifth) coreIntervals.push(7);
+      if (hasPerfectFifth && useSixthLabel) {
+        baseSuffix = "m6";
+        coreIntervals.push(9);
+      } else if (hasMajSeventh) {
+        baseSuffix = "m(maj7)";
+        coreIntervals.push(11);
+      } else if (hasMinSeventh) {
+        baseSuffix = "m7";
+        coreIntervals.push(10);
+      } else {
+        baseSuffix = "m";
+      }
+    } else if (hasMajThird && hasFlatFifth && !hasPerfectFifth) {
+      quality = hasMinSeventh ? "dom" : "maj";
+      if (hasMajSeventh) {
+        baseSuffix = "maj7b5";
+        coreIntervals.push(4, 6, 11);
+      } else if (hasMinSeventh) {
+        baseSuffix = "7b5";
+        coreIntervals.push(4, 6, 10);
+      } else {
+        baseSuffix = "(b5)";
+        coreIntervals.push(4, 6);
+      }
+    } else {
+      quality = hasMinSeventh ? "dom" : "maj";
+      coreIntervals.push(4);
+      if (hasPerfectFifth) coreIntervals.push(7);
+      if (hasPerfectFifth && useSixthLabel) {
+        baseSuffix = "6";
+        coreIntervals.push(9);
+      } else if (hasMajSeventh) {
+        baseSuffix = "maj7";
+        coreIntervals.push(11);
+      } else if (hasMinSeventh) {
+        baseSuffix = "7";
+        coreIntervals.push(10);
+      } else {
+        baseSuffix = "";
+      }
+    }
+
+    const coreSet = new Set(coreIntervals.map(mod12));
+    const addTokens = intervals
+      .filter((intv) => !coreSet.has(mod12(intv)))
+      .map((intv) => {
+        const s = mod12(intv);
+        if (s === 2) return hasMajThird || hasMinThird || hasHeuristicSeventh ? "9" : "2";
+        if (s === 5) return useEleventhLabel ? "11" : "4";
+        if (s === 9 && !hasDimSeventh) return useThirteenthLabel ? "13" : "6";
+        return intervalToChordToken(s);
+      });
+    if (!hasPerfectFifth && !hasFlatFifth) addTokens.push("no5");
+
+    const uniqueAddTokens = Array.from(new Set(addTokens.filter(Boolean)));
+    const addTextTokens = uniqueAddTokens.filter((token) => token !== "no5");
+    let addText = formatHeuristicAddText(addTextTokens);
+    if (baseSuffix === "m(maj7)" && addTextTokens.length === 1 && addTextTokens[0] === "13") {
+      addText = "13";
+    }
+    const suffixDescriptor = `${addText}${uniqueAddTokens.includes("no5") ? `${addText ? "," : ""}no5` : ""}`;
+    const suffix = appendDescriptorToChordSuffix(baseSuffix, suffixDescriptor);
+
+    const noteNames = spellChordNotes({ rootPc, chordIntervals: intervals, preferSharps });
+    const slashBassChoice = bass.pc !== rootPc ? `/${spellNoteFromChordInterval(rootPc, bassInterval, preferSharps)}` : "";
+    const formula = {
+      id: `tertian_heuristic_${quality}_${intervals.length}`,
+      intervals,
+      degreeLabels: intervals.map((intv) => intervalToChordToken(intv, { ext6: useSixthLabel, ext9: has9, ext11: useEleventhLabel, ext13: useThirteenthLabel })),
+      suffix,
+      ui: {
+        quality,
+        suspension: "none",
+        structure: "chord",
+        inversion: "all",
+        form: "open",
+        positionForm: "open",
+        ext7: hasHeuristicSeventh,
+        ext6: useSixthLabel,
+        ext9: has9,
+        ext11: useEleventhLabel,
+        ext13: useThirteenthLabel,
+      },
+    };
+    const visibleItems = buildDetectedVisibleFormulaItems({ formula, noteNames, coreSelected: intervals });
+    const candidate = {
+      id: `tertian_heuristic|${rootPc}|${bassInterval}|${intervals.join(".")}|${preferSharps ? "sharp" : "flat"}`,
+      name: `${pcToName(rootPc, preferSharps)}${suffix}${slashBassChoice}`,
+      rootPc,
+      bassPc: bass.pc,
+      preferSharps,
+      formula,
+      exact: true,
+      score: Number(((hasBassTone ? 0 : 1) + (bass.pc !== rootPc ? 0.5 : 0) + Math.max(0, intervals.length - 4) * 0.5).toFixed(2)),
+      uiPatch: {
+        rootPc,
+        spellPreferSharps: preferSharps,
+        quality,
+        suspension: "none",
+        structure: "chord",
+        inversion: "all",
+        form: "open",
+        positionForm: "open",
+        ext7: hasHeuristicSeventh,
+        ext6: useSixthLabel,
+        ext9: has9,
+        ext11: useEleventhLabel,
+        ext13: useThirteenthLabel,
+      },
+      intervalPairsText: visibleItems.map((item) => `${item.label}=${item.note}`).join(", "),
+      visibleNotes: visibleItems.map((item) => item.note),
+      visibleIntervals: intervals,
+      missingLabels: [],
+      externalBassInterval: hasBassTone ? null : bassInterval,
+    };
+
+    candidate.probabilityScore = candidateProbabilityScore(candidate);
+    const dedupeKey = `${candidate.name}|${candidate.intervalPairsText}`;
+    const prev = seen.get(dedupeKey);
+    if (!prev || candidate.probabilityScore < prev.probabilityScore || (candidate.probabilityScore === prev.probabilityScore && candidate.score < prev.score)) {
+      seen.set(dedupeKey, candidate);
+    }
+  }
+
+  return Array.from(seen.values());
+}
+
+function normalizeSelectedNotes(selectedNotes) {
+  const list = Array.isArray(selectedNotes) ? selectedNotes : [];
+  return list
+    .map((item, idx) => {
+      if (item && typeof item === "object" && Number.isFinite(item.pc)) {
+        return {
+          ...item,
+          pc: mod12(item.pc),
+          pitch: Number.isFinite(item.pitch) ? item.pitch : idx,
+        };
+      }
+      if (typeof item === "string") {
+        const pc = noteNameToPc(item);
+        return pc == null ? null : { pc, pitch: idx };
+      }
+      return null;
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.pitch - b.pitch);
+}
+
+function collectFormulaCandidates(selectedNotes) {
+  const list = normalizeSelectedNotes(selectedNotes);
+  if (!list.length) return [];
+
+  const bass = list[0];
+  const uniquePcs = Array.from(new Set(list.map((note) => mod12(note.pc))));
+  const seen = new Map();
+
+  for (const rootPc of uniquePcs) {
+    const preferSharps = preferSharpsFromMajorTonicPc(mod12(rootPc));
+    const bassInterval = mod12(bass.pc - rootPc);
+    const selectedIntervalsAll = Array.from(new Set(uniquePcs.map((pc) => mod12(pc - rootPc)))).sort((a, b) => a - b);
+
+    for (const formula of CHORD_DETECT_FORMULAS) {
+      const formulaIntervals = formula.intervals.map(mod12);
+      const formulaSet = new Set(formulaIntervals);
+      const externalBassInterval = formulaSet.has(bassInterval) ? null : bassInterval;
+      const coreSelected = externalBassInterval == null ? selectedIntervalsAll : selectedIntervalsAll.filter((interval) => interval !== externalBassInterval);
+      const extras = coreSelected.filter((interval) => !formulaSet.has(interval));
+      if (extras.length || !coreSelected.includes(0)) continue;
+
+      const matches = formulaIntervals.filter((interval) => coreSelected.includes(interval));
+      const missing = formulaIntervals.filter((interval) => !coreSelected.includes(interval));
+      const minRequiredMatches = formula.allowDyad ? Math.min(formulaIntervals.length, 2) : Math.min(formulaIntervals.length, 3);
+      if (matches.length < minRequiredMatches) continue;
+      if (formula.allowDyad) {
+        if (selectedIntervalsAll.length !== 2 || externalBassInterval != null || missing.length > 0) continue;
+      } else if (missing.length > 1) {
+        continue;
+      }
+
+      const missingLabels = formulaIntervals
+        .map((intv, idx) => !coreSelected.includes(intv) ? formula.degreeLabels[idx] : null)
+        .filter(Boolean);
+      const suffix = appendMissingDegreesToSuffix(formula.suffix, missingLabels);
+      const buildNameVariant = (preferSharpsChoice) => {
+        const noteNamesChoice = spellChordNotes({ rootPc, chordIntervals: formulaIntervals, preferSharps: preferSharpsChoice });
+        let slashBassChoice = "";
+        if (bass.pc !== rootPc) {
+          const bassIdx = formulaIntervals.findIndex((interval) => interval === bassInterval);
+          slashBassChoice = `/${bassIdx >= 0 ? noteNamesChoice[bassIdx] : spellNoteFromChordInterval(rootPc, bassInterval, preferSharpsChoice)}`;
+        }
+        return {
+          preferSharpsChoice,
+          noteNames: noteNamesChoice,
+          name: `${pcToName(rootPc, preferSharpsChoice)}${suffix}${slashBassChoice}`,
+        };
+      };
+
+      const spellings = [buildNameVariant(preferSharps)];
+      const alternate = buildNameVariant(!preferSharps);
+      if (alternate.name !== spellings[0].name) spellings.push(alternate);
+
+      const exact = missing.length === 0;
+      const slashPenalty = bass.pc === rootPc ? 0 : (externalBassInterval == null ? 1 : 3);
+      const score = (exact ? 0 : 20) + slashPenalty + missing.length * 6 + Math.max(0, 4 - matches.length) + (formula.allowDyad ? 14 : 0);
+
+      for (const spelling of spellings) {
+        const visibleItems = buildDetectedVisibleFormulaItems({ formula, noteNames: spelling.noteNames, coreSelected });
+        const visiblePairs = visibleItems.map((item) => `${item.label}=${item.note}`);
+        const candidate = {
+          id: `${formula.id}|${rootPc}|${externalBassInterval == null ? "in" : externalBassInterval}|${missingLabels.join(",")}|${spelling.preferSharpsChoice ? "sharp" : "flat"}`,
+          name: spelling.name,
+          rootPc,
+          bassPc: bass.pc,
+          preferSharps: spelling.preferSharpsChoice,
+          formula,
+          exact,
+          score,
+          uiPatch: formula.allowDyad ? null : (formula.ui ? { rootPc, spellPreferSharps: spelling.preferSharpsChoice, ...formula.ui } : null),
+          intervalPairsText: visiblePairs.join(", "),
+          visibleNotes: visibleItems.map((item) => item.note),
+          visibleIntervals: matches,
+          missingLabels,
+          externalBassInterval,
+        };
+
+        candidate.probabilityScore = candidateProbabilityScore(candidate);
+        const dedupeKey = `${candidate.name}|${candidate.intervalPairsText}`;
+        const prev = seen.get(dedupeKey);
+        if (!prev || candidate.probabilityScore < prev.probabilityScore || (candidate.probabilityScore === prev.probabilityScore && candidate.score < prev.score)) {
+          seen.set(dedupeKey, candidate);
+        }
+      }
+    }
+  }
+
+  return Array.from(seen.values());
+}
+
+function groupPriority(candidate) {
+  if (candidate?.formula?.quartal) {
+    const quartalSize = Array.isArray(candidate?.formula?.intervals) ? candidate.formula.intervals.length : 0;
+    if (candidate.exact && quartalSize >= 4) return -1;
+    return quartalSize >= 4 ? 1 : 2;
+  }
+  return 0;
+}
+
+export function rankChordReadings(readings) {
+  const list = Array.isArray(readings) ? [...readings] : [];
+  list.sort((a, b) => {
+    const aGroup = groupPriority(a);
+    const bGroup = groupPriority(b);
+    if (aGroup !== bGroup) return aGroup - bGroup;
+    if ((a.rankScore ?? 999) !== (b.rankScore ?? 999)) return (a.rankScore ?? 999) - (b.rankScore ?? 999);
+    if ((a.score ?? 999) !== (b.score ?? 999)) return (a.score ?? 999) - (b.score ?? 999);
+    return String(a.name || "").localeCompare(String(b.name || ""), "es", { sensitivity: "base" });
+  });
+  return list;
+}
+
+function dedupeRankedChordReadings(readings) {
+  const seen = new Map();
+  for (const reading of Array.isArray(readings) ? readings : []) {
+    const key = `${String(reading?.name || "")}|${String(reading?.intervalPairsText || "")}`;
+    const prev = seen.get(key);
+    if (!prev) {
+      seen.set(key, reading);
+      continue;
+    }
+
+    const prevRank = prev.rankScore ?? prev.probabilityScore ?? prev.score ?? 999;
+    const nextRank = reading.rankScore ?? reading.probabilityScore ?? reading.score ?? 999;
+    if (nextRank < prevRank || (nextRank === prevRank && (reading.score ?? 999) < (prev.score ?? 999))) {
+      seen.set(key, reading);
+    }
+  }
+  return Array.from(seen.values());
+}
+
+export function detectChordReadings(selectedNotes) {
+  const list = normalizeSelectedNotes(selectedNotes);
+  if (!list.length) return [];
+
+  const raw = [
+    ...collectFormulaCandidates(list),
+    ...buildQuartalManualCandidates(list),
+    ...buildHeuristicTertianCandidates(list),
+  ];
+
+  const exactSubsetSignatures = new Set(
+    raw
+      .filter((candidate) => candidate.exact)
+      .map((candidate) => `${candidate.rootPc}|${candidate.bassPc}|${candidate.visibleIntervals.slice().sort((a, b) => a - b).join(",")}`)
+  );
+  const exactCandidates = raw.filter((candidate) => candidate.exact);
+  const hasDirectExactDyad = exactCandidates.some((candidate) => candidate.formula?.allowDyad && candidate.externalBassInterval == null);
+
+  const filtered = raw.filter((candidate) => {
+    if (candidate.formula?.allowDyad) return true;
+    if (hasDirectExactDyad && candidate.externalBassInterval != null) return false;
+    if (candidate.missingLabels.some((label) => suffixSemanticallyContainsDegree(candidate.formula?.suffix, label))) return false;
+    if (candidate.exact) return !shouldFilterExactSubsetCandidate(candidate, exactCandidates);
+    if (shouldFilterContradictoryPartialCoreCandidate(candidate)) return false;
+    if (shouldFilterInexactCandidateShadowedByExact(candidate, exactCandidates)) return false;
+    if (shouldFilterExternalBassSubsetCandidate(candidate, exactCandidates)) return false;
+    if (candidate.missingLabels.some(isThirdDegreeLabel) && !allowMissingThirdCandidate(candidate)) return false;
+    if (candidate.missingLabels.length !== 1) return true;
+    const missingLabel = candidate.missingLabels[0];
+    if (!isExtensionLikeDegreeLabel(missingLabel)) return true;
+    const signature = `${candidate.rootPc}|${candidate.bassPc}|${candidate.visibleIntervals.slice().sort((a, b) => a - b).join(",")}`;
+    return !exactSubsetSignatures.has(signature);
+  });
+
+  const hasCleanerExactCandidate = exactCandidates.some((candidate) => candidate.exact);
+  filtered.forEach((candidate) => {
+    let extraPenalty = 0;
+    if (hasCleanerExactCandidate && candidateIsMissingThirdSeventhLike(candidate)) extraPenalty += 18;
+    candidate.rankScore = Number(((candidate.probabilityScore ?? 999) + extraPenalty).toFixed(2));
+  });
+
+  return rankChordReadings(dedupeRankedChordReadings(filtered)).slice(0, 12);
+}
+
+function formatChordBadgeDegree(label) {
+  return String(label || "");
+}
+
+function chordBadgeRoleFromDegreeLabel(label, interval) {
+  const s = String(label || "").toLowerCase();
+  const intv = mod12(interval ?? 0);
+  if (intv === 0 || s === "1") return "root";
+  if (s === "3" || s === "b3" || s === "#3") return "third";
+  if (s === "5" || s === "b5" || s === "#5") return "fifth";
+  if (s === "6" || s === "b6" || s === "#6") return "sixth";
+  if (s.includes("7")) return "seventh";
+  if (s.includes("13")) return "thirteenth";
+  if (s === "4" || s === "b4" || s === "#4" || s.includes("11")) return "eleventh";
+  if (s === "2" || s === "b2" || s === "#2" || s.includes("9")) return "ninth";
+  return "other";
+}
+
+export function buildChordLegend(candidate, preferSharpsFallback = true) {
+  if (!candidate) return [];
+  const prefer = candidate.preferSharps ?? preferSharpsFallback;
+  const noteNames = spellChordNotes({
+    rootPc: candidate.rootPc,
+    chordIntervals: candidate.formula?.intervals || [],
+    preferSharps: prefer,
+  });
+  const visibleItems = buildDetectedVisibleFormulaItems({
+    formula: candidate.formula,
+    noteNames,
+    coreSelected: candidate.visibleIntervals,
+  });
+  return visibleItems.map((item) => ({
+    note: item.note,
+    degree: formatChordBadgeDegree(item.label),
+    role: chordBadgeRoleFromDegreeLabel(item.label, item.intv),
+  }));
+}
+
+export function buildDetectedCandidateBadgeItems(candidate, preferSharpsFallback = true) {
+  return buildChordLegend(candidate, preferSharpsFallback);
+}
+
+export function formatChordName(reading) {
+  return String(reading?.name || "");
+}
+
+export function pickDefaultChordCandidate({ candidates, previousCandidate = null, prioritizeContext = false } = {}) {
+  const list = Array.isArray(candidates) ? candidates : [];
+  if (!list.length) return null;
+  if (!prioritizeContext) return list[0] || null;
+  if (!previousCandidate) return list[0] || null;
+
+  const exactMatch = list.find((candidate) => candidate?.id && previousCandidate?.id && candidate.id === previousCandidate.id) || null;
+  return exactMatch || list[0] || null;
+}
+
+export function buildSyntheticSelectedNotes(noteNames, bassName = null) {
+  const source = Array.isArray(noteNames) ? noteNames : [];
+  const parsed = source
+    .map((note, idx) => {
+      const pc = noteNameToPc(note);
+      return pc == null ? null : { note: String(note), pc, pitch: idx, inputIdx: idx };
+    })
+    .filter(Boolean);
+  if (!parsed.length) return [];
+  if (bassName == null) return parsed;
+
+  const bassPc = noteNameToPc(bassName);
+  if (bassPc == null) return parsed;
+  const bassIdx = parsed.findIndex((note) => note.pc === bassPc);
+  if (bassIdx <= 0) return parsed.map((note, idx) => ({ ...note, pitch: idx }));
+
+  const ordered = [parsed[bassIdx], ...parsed.filter((_, idx) => idx !== bassIdx)];
+  return ordered.map((note, idx) => ({ ...note, pitch: idx }));
+}
+
+export function analyzeSelectedNotes(noteNames, bassName = null) {
+  const selectedNotes = buildSyntheticSelectedNotes(noteNames, bassName);
+  const readings = detectChordReadings(selectedNotes).map((reading) => ({
+    ...reading,
+    legend: buildChordLegend(reading, reading.preferSharps),
+  }));
+  return {
+    selectedNotes,
+    readings,
+    primary: readings[0] || null,
+  };
+}
