@@ -38,7 +38,8 @@ import { Blocks, BookOpen, ChevronLeft, ChevronRight, HelpCircle, Info, Menu, Mu
 
 const NOTES_SHARP = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 const NOTES_FLAT = ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"];
-const MOBILE_LAYOUT_MEDIA_QUERY = "(max-width: 1279px)";
+const MOBILE_LAYOUT_WIDTH_MEDIA_QUERY = "(max-width: 767px)";
+const MOBILE_LAYOUT_TOUCH_MEDIA_QUERY = "(pointer: coarse) and (hover: none)";
 const MOBILE_SECTION_OPTIONS = [
   { value: "scale", label: "Escala" },
   { value: "patterns", label: "Patrones" },
@@ -1284,7 +1285,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "3.53";
+const APP_VERSION = "3.57";
 
 function chordDbUrl(keyName, suffix) {
   // Ruta RELATIVA dentro de /public (sin base) => chords-db/...
@@ -3387,6 +3388,7 @@ const CHORD_DETECT_FORMULAS = [
   { id: "sus2add13no5", intervals: [0, 2, 9], degreeLabels: ["1", "2", "13"], suffix: "sus2add13(no5)", ui: null, manualOnly: true },
   { id: "add11", intervals: [0, 4, 5, 7], degreeLabels: ["1", "3", "11", "5"], suffix: "add11", ui: { quality: "maj", suspension: "none", structure: "tetrad", inversion: "all", form: "open", positionForm: "open", ext7: false, ext6: false, ext9: false, ext11: true, ext13: false } },
   { id: "madd11", intervals: [0, 3, 5, 7], degreeLabels: ["1", "b3", "11", "5"], suffix: "m(add11)", ui: { quality: "min", suspension: "none", structure: "tetrad", inversion: "all", form: "open", positionForm: "open", ext7: false, ext6: false, ext9: false, ext11: true, ext13: false } },
+  { id: "madd11add13", intervals: [0, 3, 5, 7, 9], degreeLabels: ["1", "b3", "11", "5", "13"], suffix: "m(add11,13)", ui: { quality: "min", suspension: "none", structure: "chord", inversion: "all", form: "open", positionForm: "open", ext7: false, ext6: false, ext9: false, ext11: true, ext13: true } },
   { id: "maddb13", intervals: [0, 3, 7, 8], degreeLabels: ["1", "b3", "5", "b13"], suffix: "m(addb13)", ui: null },
   { id: "maj9", intervals: [0, 2, 4, 7, 11], degreeLabels: ["1", "9", "3", "5", "7"], suffix: "maj9", ui: { quality: "maj", suspension: "none", structure: "chord", inversion: "all", form: "open", positionForm: "open", ext7: true, ext6: false, ext9: true, ext11: false, ext13: false } },
   { id: "maj7add13", intervals: [0, 4, 7, 9, 11], degreeLabels: ["1", "3", "5", "13", "7"], suffix: "maj7(add13)", ui: null },
@@ -3615,6 +3617,7 @@ function candidateFormulaComplexityPenalty(candidate) {
   const id = String(candidate?.formula?.id || "");
   if (["maj", "min", "sus2", "sus4"].includes(id)) return 0;
   if (["6", "m6", "add9", "madd9", "add11", "madd11", "sus2add13no5"].includes(id)) return 2;
+  if (["madd11add13"].includes(id)) return 8;
   if (["maj7", "7", "m7", "m7b5", "dim7"].includes(id)) return 4;
   if (["maj9", "9", "m9", "7sharp9"].includes(id)) return 6;
   if (["m7flat13", "m7no5addb13"].includes(id)) return 8;
@@ -8171,11 +8174,16 @@ export default function FretboardScalesPage() {
 
   useEffect(() => {
     if (typeof window === "undefined" || typeof window.matchMedia !== "function") return undefined;
-    const media = window.matchMedia(MOBILE_LAYOUT_MEDIA_QUERY);
-    const sync = () => setIsMobileLayout(media.matches);
+    const widthMedia = window.matchMedia(MOBILE_LAYOUT_WIDTH_MEDIA_QUERY);
+    const touchMedia = window.matchMedia(MOBILE_LAYOUT_TOUCH_MEDIA_QUERY);
+    const sync = () => setIsMobileLayout(widthMedia.matches || touchMedia.matches);
     sync();
-    media.addEventListener("change", sync);
-    return () => media.removeEventListener("change", sync);
+    widthMedia.addEventListener("change", sync);
+    touchMedia.addEventListener("change", sync);
+    return () => {
+      widthMedia.removeEventListener("change", sync);
+      touchMedia.removeEventListener("change", sync);
+    };
   }, []);
 
   useEffect(() => {
@@ -10993,6 +11001,12 @@ export default function FretboardScalesPage() {
           ? detectCandidate.formula.degreeLabels
           : null;
         const mainSpelledNotes = spellChordNotes({ rootPc: mainRootPc, chordIntervals: mainIntervals, preferSharps: mainPreferSharps });
+        const detectedPlan = detectCandidate.uiPatch
+          ? buildChordEnginePlan({
+              ...detectCandidate.uiPatch,
+              form: detectCandidate.uiPatch.form || "open",
+            })
+          : chordEnginePlan;
         const mainPcToSpelledName = (pc) => {
           const interval = mod12(pc - mainRootPc);
           const idx = mainIntervals.findIndex((x) => mod12(x) === interval);
@@ -11008,12 +11022,12 @@ export default function FretboardScalesPage() {
           chordName: detectCandidate.name,
           notes: mainSpelledNotes,
           intervals: mainDegreeLabels || mainIntervals.map((i) => intervalToChordToken(i, { ext6: chordExt6, ext9: chordExt9 && chordStructure !== "triad", ext11: chordExt11 && chordStructure !== "triad", ext13: chordExt13 && chordStructure !== "triad" })),
-          plan: chordEnginePlan,
+          plan: detectedPlan,
           voicing: currentMainVoicing,
-          positionForm: chordPositionForm,
+          positionForm: detectCandidate.uiPatch?.positionForm || chordPositionForm,
           bassName: currentMainVoicing ? mainPcToSpelledName(currentMainVoicing.bassPc) : pcToName(chordBassPc, mainPreferSharps),
           inversionLabel: currentMainVoicing
-            ? actualInversionLabelFromVoicing(chordEnginePlan, currentMainVoicing)
+            ? actualInversionLabelFromVoicing(detectedPlan, currentMainVoicing)
             : CHORD_INVERSIONS.find((x) => x.value === chordInversion)?.label || "Fundamental",
         };
       }
