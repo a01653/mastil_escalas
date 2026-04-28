@@ -158,3 +158,42 @@ En este proyecto, el orden de prioridad es:
 4. Consistencia visual y funcional
 5. Simplicidad técnica
 6. Preferencia literal del usuario, si entra en conflicto con lo anterior
+
+
+## Validación obligatoria tras cualquier cambio
+
+Después de cualquier modificación de código, especialmente en:
+
+- src/App.jsx
+- src/music/chordDetectionEngine.js
+- src/music/chordDetectionEngine.test.js
+- cualquier fichero relacionado con acordes, escalas, notas, intervalos o UI musical
+
+hay que ejecutar obligatoriamente:
+
+npm test
+npm run build
+
+Si el cambio afecta a formato, imports, estructura general o puede provocar warnings de calidad, ejecutar también:
+
+npm run lint
+
+No se puede dar el trabajo por terminado si alguno de estos comandos falla.
+
+Además, si el cambio afecta a la detección musical, nomenclatura de acordes, ranking o leyenda visual:
+
+1) Añadir o actualizar tests antes de validar.
+2) Ejecutar npm test.
+3) Ejecutar npm run build.
+4) Revisar visualmente en preview si el cambio afecta a la interfaz:
+
+npm run preview
+
+Codex debe indicar al final de cada entrega:
+
+- Qué ficheros modificó.
+- Qué tests añadió o cambió.
+- Resultado de npm test.
+- Resultado de npm run build.
+- Si ejecutó npm run preview o no.
+- APP_VERSION actualizado.
