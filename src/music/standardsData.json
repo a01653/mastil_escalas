@@ -1,0 +1,726 @@
+{
+  "collectionLabel": "Catálogo de estudio de standards",
+  "items": [
+    {
+      "id": "after-youve-gone",
+      "title": "After You've Gone",
+      "composers": ["Turner Layton", "Henry Creamer"],
+      "year": 1918,
+      "defaultKey": "Bb",
+      "form": "Mapa reducido · 16 compases",
+      "overview": "Visión global reducida de un estándar mayor con caída I - VI7 - II - V y paso por subdominante mayor/menor.",
+      "practiceFocus": ["Turnarounds clásicos", "Dominantes secundarios", "Resoluciones a I y IV"],
+      "scaleHints": ["Bb mayor", "Cm dórica", "F mixolidia"],
+      "phrases": [
+        {
+          "section": "Tramo 1",
+          "bars": "1-4",
+          "label": "Inicio",
+          "function": "I - VI7 - II - V",
+          "focus": "Cadena básica de estándar mayor.",
+          "chords": ["Bb6", "G7", "Cm7", "F7"]
+        },
+        {
+          "section": "Tramo 2",
+          "bars": "5-8",
+          "label": "Tensión secundaria",
+          "function": "I - III7 - VI7 - II",
+          "focus": "Movimiento por terceras con dominantes secundarios.",
+          "chords": ["Bb6", "D7", "G7", "Cm7"]
+        },
+        {
+          "section": "Tramo 3",
+          "bars": "9-12",
+          "label": "Subdominante menor",
+          "function": "IV - iv - I - VI7",
+          "focus": "Contraste entre subdominante mayor y menor.",
+          "chords": ["Eb6", "Ebm6", "Bb6", "G7"]
+        },
+        {
+          "section": "Tramo 4",
+          "bars": "13-16",
+          "label": "Salida",
+          "function": "II - V - I - V",
+          "focus": "Cierre clásico con turnaround abierto.",
+          "chords": ["Cm7", "F7", "Bb6", "F7"]
+        }
+      ]
+    },
+    {
+      "id": "blue-skies",
+      "title": "Blue Skies",
+      "composers": ["Irving Berlin"],
+      "year": 1926,
+      "defaultKey": "F",
+      "form": "Mapa reducido · 16 compases",
+      "overview": "Mapa reducido con tonicizaciones claras y contraste entre tónica luminosa e intercambio modal sobre el IV menor.",
+      "practiceFocus": ["Tonicizaciones", "I - VI - II - V", "Intercambio modal iv"],
+      "scaleHints": ["F mayor", "G dórica", "C mixolidia"],
+      "phrases": [
+        {
+          "section": "Tramo 1",
+          "bars": "1-4",
+          "label": "Presentación",
+          "function": "I - VI7 - II - V",
+          "focus": "Armazón principal del tema.",
+          "chords": ["F6", "D7", "Gm7", "C7"]
+        },
+        {
+          "section": "Tramo 2",
+          "bars": "5-8",
+          "label": "Subdominante",
+          "function": "I - I7 - IV - iv",
+          "focus": "Paso de tónica a subdominante con intercambio modal.",
+          "chords": ["F6", "F7", "Bb6", "Bbm6"]
+        },
+        {
+          "section": "Tramo 3",
+          "bars": "9-12",
+          "label": "Reafirmación",
+          "function": "I - VI7 - II - V",
+          "focus": "Repetición útil para automatizar voicings funcionales.",
+          "chords": ["F6", "D7", "Gm7", "C7"]
+        },
+        {
+          "section": "Tramo 4",
+          "bars": "13-16",
+          "label": "Salida",
+          "function": "I - III7 - VI7 - II",
+          "focus": "Salida abierta para enlazar con otro coro.",
+          "chords": ["F6", "A7", "D7", "Gm7"]
+        }
+      ]
+    },
+    {
+      "id": "tea-for-two",
+      "title": "Tea for Two",
+      "composers": ["Vincent Youmans", "Irving Caesar"],
+      "year": 1924,
+      "defaultKey": "Ab",
+      "form": "Mapa reducido · 16 compases",
+      "overview": "Mapa de trabajo para seguir dominantes secundarios y el encadenamiento por ciclo de quintas sin perder la referencia de I.",
+      "practiceFocus": ["Ciclo de quintas", "Dominantes secundarios", "Cambios rápidos de centro tonal"],
+      "scaleHints": ["Ab mayor", "Bb dórica", "Eb mixolidia"],
+      "phrases": [
+        {
+          "section": "Tramo 1",
+          "bars": "1-4",
+          "label": "Presentación",
+          "function": "I - VI7 - II - V",
+          "focus": "Núcleo armónico básico.",
+          "chords": ["Ab6", "F7", "Bbm7", "Eb7"]
+        },
+        {
+          "section": "Tramo 2",
+          "bars": "5-8",
+          "label": "Cadena secundaria",
+          "function": "III7 - VI7 - II - V",
+          "focus": "Dominantes encadenados sobre el mismo patrón.",
+          "chords": ["C7", "F7", "Bbm7", "Eb7"]
+        },
+        {
+          "section": "Tramo 3",
+          "bars": "9-12",
+          "label": "Subdominante",
+          "function": "IV - #IVdim - I - VI7",
+          "focus": "Paso cromático hacia la tónica.",
+          "chords": ["Db6", "Ddim7", "Ab6", "F7"]
+        },
+        {
+          "section": "Tramo 4",
+          "bars": "13-16",
+          "label": "Remate",
+          "function": "II - V - I - VI7",
+          "focus": "Final muy práctico para comping en swing medio.",
+          "chords": ["Bbm7", "Eb7", "Ab6", "F7"]
+        }
+      ]
+    },
+    {
+      "id": "softly-morning-sunrise",
+      "title": "Softly, As In A Morning Sunrise",
+      "composers": ["Sigmund Romberg", "Oscar Hammerstein II"],
+      "year": 1928,
+      "defaultKey": "Cm",
+      "form": "Mapa reducido · 16 compases",
+      "overview": "Visión global reducida de un centro menor con salida al relativo mayor y retorno funcional al i.",
+      "practiceFocus": ["Centro menor", "Dórica menor", "Dominantes hacia Eb"],
+      "scaleHints": ["Cm dórica", "F mixolidia", "Eb mayor"],
+      "phrases": [
+        {
+          "section": "Tramo 1",
+          "bars": "1-4",
+          "label": "Centro menor",
+          "function": "i - i - iiø - V",
+          "focus": "Mantener pedal menor antes de la dominante.",
+          "chords": ["Cm7", "Cm7", "Dm7b5", "G7"]
+        },
+        {
+          "section": "Tramo 2",
+          "bars": "5-8",
+          "label": "Relativo mayor",
+          "function": "III - VI7 - II - V",
+          "focus": "Salida hacia Eb mayor.",
+          "chords": ["Ebmaj7", "C7", "Fm7", "Bb7"]
+        },
+        {
+          "section": "Tramo 3",
+          "bars": "9-12",
+          "label": "Vuelta al menor",
+          "function": "i - VI7 - iiø - V",
+          "focus": "Color mixto entre menor modal y funcional.",
+          "chords": ["Cm7", "A7", "Dm7b5", "G7"]
+        },
+        {
+          "section": "Tramo 4",
+          "bars": "13-16",
+          "label": "Turnaround menor",
+          "function": "i - iv - iiø - V",
+          "focus": "Buen bloque para practicar notas guía en contexto menor.",
+          "chords": ["Cm7", "Fm7", "Dm7b5", "G7"]
+        }
+      ]
+    },
+    {
+      "id": "autumn-leaves",
+      "title": "Autumn Leaves",
+      "composers": ["Joseph Kosma", "Jacques Prevert", "Johnny Mercer"],
+      "year": 1945,
+      "defaultKey": "Gm",
+      "form": "Mapa reducido · 16 compases",
+      "overview": "Recorre el vaivén entre relativo mayor y centro menor con una cadena de ii-V-I muy clara para comping y análisis funcional.",
+      "practiceFocus": ["ii-V-I mayor y menor", "Relativo mayor", "Resolución de sensible en menor"],
+      "scaleHints": ["G menor", "Bb mayor", "C dórica", "D mixolidia"],
+      "phrases": [
+        {
+          "section": "Tramo 1",
+          "bars": "1-4",
+          "label": "Relativo mayor",
+          "function": "ii - V - I - IV",
+          "focus": "Leer el arranque como cadencia en Bb antes de volver al menor.",
+          "chords": ["Cm7", "F7", "Bbmaj7", "Ebmaj7"]
+        },
+        {
+          "section": "Tramo 2",
+          "bars": "5-8",
+          "label": "Regreso al menor",
+          "function": "iiø - V - i - i",
+          "focus": "Sentir la tensión de Aø hacia D7 antes de caer en Gm.",
+          "chords": ["Am7b5", "D7", "Gm6", "Gm6"]
+        },
+        {
+          "section": "Tramo 3",
+          "bars": "9-12",
+          "label": "Repetición funcional",
+          "function": "ii - V - I - IV",
+          "focus": "Consolidar notas guía sobre la misma secuencia.",
+          "chords": ["Cm7", "F7", "Bbmaj7", "Ebmaj7"]
+        },
+        {
+          "section": "Tramo 4",
+          "bars": "13-16",
+          "label": "Salida",
+          "function": "iiø - V - i - V",
+          "focus": "Dejar el final abierto para enlazar con otro coro.",
+          "chords": ["Am7b5", "D7", "Gm6", "D7"]
+        }
+      ]
+    },
+    {
+      "id": "all-of-me",
+      "title": "All of Me",
+      "composers": ["Gerald Marks", "Seymour Simons"],
+      "year": 1931,
+      "defaultKey": "C",
+      "form": "ABAC · 32 compases",
+      "overview": "Standard mayor con dominantes encadenados, contraste modal en la sección C y remate con compases partidos al final.",
+      "practiceFocus": ["Dominantes secundarios", "Contraste mayor / menor en la sección C", "Selección de cambios en compases partidos"],
+      "scaleHints": ["C mayor", "A menor", "D dórica", "G mixolidia", "F mayor / F menor sobre la C"],
+      "realForm": {
+        "sections": [
+          {
+            "id": "A1",
+            "label": "A",
+            "bars": "1-8",
+            "measures": [
+              { "bar": 1, "chords": ["CΔ7"] },
+              { "bar": 2, "repeat": true },
+              { "bar": 3, "chords": ["E7"] },
+              { "bar": 4, "repeat": true },
+              { "bar": 5, "chords": ["A7"] },
+              { "bar": 6, "repeat": true },
+              { "bar": 7, "chords": ["D-7"] },
+              { "bar": 8, "repeat": true }
+            ]
+          },
+          {
+            "id": "B",
+            "label": "B",
+            "bars": "9-16",
+            "measures": [
+              { "bar": 9, "chords": ["E7"] },
+              { "bar": 10, "repeat": true },
+              { "bar": 11, "chords": ["A-7"] },
+              { "bar": 12, "repeat": true },
+              { "bar": 13, "chords": ["D7"] },
+              { "bar": 14, "repeat": true },
+              { "bar": 15, "chords": ["D-7"] },
+              { "bar": 16, "chords": ["G7"] }
+            ]
+          },
+          {
+            "id": "A2",
+            "label": "A",
+            "bars": "17-24",
+            "measures": [
+              { "bar": 17, "chords": ["CΔ7"] },
+              { "bar": 18, "repeat": true },
+              { "bar": 19, "chords": ["E7"] },
+              { "bar": 20, "repeat": true },
+              { "bar": 21, "chords": ["A7"] },
+              { "bar": 22, "repeat": true },
+              { "bar": 23, "chords": ["D-7"] },
+              { "bar": 24, "repeat": true }
+            ]
+          },
+          {
+            "id": "C",
+            "label": "C",
+            "bars": "25-32",
+            "measures": [
+              { "bar": 25, "chords": ["FΔ7"] },
+              { "bar": 26, "chords": ["F-6"] },
+              { "bar": 27, "chords": ["E-7"] },
+              { "bar": 28, "chords": ["A7"] },
+              { "bar": 29, "chords": ["D-7"] },
+              { "bar": 30, "chords": ["G7"] },
+              { "bar": 31, "chords": ["C6", "Ebo7"] },
+              { "bar": 32, "chords": ["D-7", "G7"] }
+            ]
+          }
+        ]
+      },
+      "phrases": [
+        {
+          "section": "A1",
+          "bars": "1-4",
+          "label": "Reposo y primera dominante",
+          "function": "IΔ - IΔ - III7 - III7",
+          "focus": "No corras el arranque: los dos primeros compases son reposo real antes de que E7 empiece a tirar de la forma.",
+          "measures": [
+            { "bar": 1, "chords": ["CΔ7"] },
+            { "bar": 2, "repeat": true },
+            { "bar": 3, "chords": ["E7"] },
+            { "bar": 4, "repeat": true }
+          ]
+        },
+        {
+          "section": "A1",
+          "bars": "5-8",
+          "label": "Caída a ii",
+          "function": "VI7 - VI7 - ii - ii",
+          "focus": "Escucha A7 como una preparación amplia hacia D-7, no como un acorde aislado.",
+          "measures": [
+            { "bar": 5, "chords": ["A7"] },
+            { "bar": 6, "repeat": true },
+            { "bar": 7, "chords": ["D-7"] },
+            { "bar": 8, "repeat": true }
+          ]
+        },
+        {
+          "section": "B",
+          "bars": "9-12",
+          "label": "Dominante del puente",
+          "function": "III7 - III7 - vi - vi",
+          "focus": "El puente cambia el color al caer en A-7; compensa la tensión anterior con un comping más estable.",
+          "measures": [
+            { "bar": 9, "chords": ["E7"] },
+            { "bar": 10, "repeat": true },
+            { "bar": 11, "chords": ["A-7"] },
+            { "bar": 12, "repeat": true }
+          ]
+        },
+        {
+          "section": "B",
+          "bars": "13-16",
+          "label": "Cadencia hacia A",
+          "function": "II7 - II7 - ii - V",
+          "focus": "D7 prepara la vuelta; el último D-7 - G7 ya funciona como puerta directa a la reexposición.",
+          "measures": [
+            { "bar": 13, "chords": ["D7"] },
+            { "bar": 14, "repeat": true },
+            { "bar": 15, "chords": ["D-7"] },
+            { "bar": 16, "chords": ["G7"] }
+          ]
+        },
+        {
+          "section": "A2",
+          "bars": "17-20",
+          "label": "Reexposición",
+          "function": "IΔ - IΔ - III7 - III7",
+          "focus": "La forma vuelve casi literal; aprovecha para repetir voicings o variar solo una voz.",
+          "measures": [
+            { "bar": 17, "chords": ["CΔ7"] },
+            { "bar": 18, "repeat": true },
+            { "bar": 19, "chords": ["E7"] },
+            { "bar": 20, "repeat": true }
+          ]
+        },
+        {
+          "section": "A2",
+          "bars": "21-24",
+          "label": "Caída a ii otra vez",
+          "function": "VI7 - VI7 - ii - ii",
+          "focus": "Mantén el peso rítmico de A7 y deja respirar el D-7 porque prepara la sección C.",
+          "measures": [
+            { "bar": 21, "chords": ["A7"] },
+            { "bar": 22, "repeat": true },
+            { "bar": 23, "chords": ["D-7"] },
+            { "bar": 24, "repeat": true }
+          ]
+        },
+        {
+          "section": "C",
+          "bars": "25-28",
+          "label": "Contraste mayor / menor",
+          "function": "IVΔ - iv6 - iii - VI7",
+          "focus": "Aquí cambia el color del tema: FΔ7 y F-6 deben sentirse como contraste expresivo antes de volver a la función dominante.",
+          "measures": [
+            { "bar": 25, "chords": ["FΔ7"] },
+            { "bar": 26, "chords": ["F-6"] },
+            { "bar": 27, "chords": ["E-7"] },
+            { "bar": 28, "chords": ["A7"] }
+          ]
+        },
+        {
+          "section": "C",
+          "bars": "29-30",
+          "label": "Precadencia",
+          "function": "ii - V",
+          "focus": "D-7 y G7 vuelven a centrar el oído antes del cierre partido.",
+          "measures": [
+            { "bar": 29, "chords": ["D-7"] },
+            { "bar": 30, "chords": ["G7"] }
+          ]
+        },
+        {
+          "section": "C",
+          "bars": "31-32",
+          "label": "Cierre partido",
+          "function": "I6 - #Idim - ii - V",
+          "focus": "Este remate ya pide pensar por eventos, no por compás entero: puedes escoger 4 cambios concretos y llevarlos a Acordes cercanos.",
+          "measures": [
+            { "bar": 31, "chords": ["C6", "Ebo7"] },
+            { "bar": 32, "chords": ["D-7", "G7"] }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "fly-me-to-the-moon",
+      "title": "Fly Me to the Moon",
+      "composers": ["Bart Howard"],
+      "year": 1954,
+      "defaultKey": "C",
+      "form": "Mapa reducido · 16 compases",
+      "overview": "Secuencia muy clara por cuartas que sirve para practicar continuidad armónica y voz líder en contexto estándar.",
+      "practiceFocus": ["Ciclo por cuartas", "ii-V-I", "Relativo menor"],
+      "scaleHints": ["C mayor", "A eólica", "D dórica", "G mixolidia"],
+      "phrases": [
+        {
+          "section": "Tramo 1",
+          "bars": "1-4",
+          "label": "Descenso funcional",
+          "function": "vi - ii - V - I",
+          "focus": "Sentir la secuencia como una preparación constante hacia C.",
+          "chords": ["Am7", "Dm7", "G7", "Cmaj7"]
+        },
+        {
+          "section": "Tramo 2",
+          "bars": "5-8",
+          "label": "Puente al relativo",
+          "function": "IV - iiø - V - vi",
+          "focus": "Encadenar Bø y E7 sin perder el peso de Am.",
+          "chords": ["Fmaj7", "Bm7b5", "E7", "Am7"]
+        },
+        {
+          "section": "Tramo 3",
+          "bars": "9-12",
+          "label": "Reafirmación",
+          "function": "ii - V - I - VI7",
+          "focus": "Volver a C y preparar la salida con A7.",
+          "chords": ["Dm7", "G7", "Cmaj7", "A7"]
+        },
+        {
+          "section": "Tramo 4",
+          "bars": "13-16",
+          "label": "Salida",
+          "function": "ii - V - I - III7",
+          "focus": "Dejar el final abierto hacia Am o a un nuevo ciclo.",
+          "chords": ["Dm7", "G7", "Cmaj7", "E7"]
+        }
+      ]
+    },
+    {
+      "id": "honeysuckle-rose",
+      "title": "Honeysuckle Rose",
+      "composers": ["Thomas 'Fats' Waller", "Andy Razaf"],
+      "year": 1929,
+      "defaultKey": "F",
+      "form": "Mapa reducido · 16 compases",
+      "overview": "Swing mayor muy útil para fijar la relación entre tónica, dominante secundaria y subdominante en una forma muy cantable.",
+      "practiceFocus": ["Swing en mayor", "I - VI - II - V", "Paso por subdominante"],
+      "scaleHints": ["F mayor", "G dórica", "C mixolidia", "Bb mayor"],
+      "phrases": [
+        {
+          "section": "Tramo 1",
+          "bars": "1-4",
+          "label": "Presentación",
+          "function": "I - VI7 - ii - V",
+          "focus": "Automatizar la caída funcional en F.",
+          "chords": ["F6", "D7", "Gm7", "C7"]
+        },
+        {
+          "section": "Tramo 2",
+          "bars": "5-8",
+          "label": "Repetición",
+          "function": "I - VI7 - ii - V",
+          "focus": "Reforzar comping homogéneo sobre el mismo ciclo.",
+          "chords": ["F6", "D7", "Gm7", "C7"]
+        },
+        {
+          "section": "Tramo 3",
+          "bars": "9-12",
+          "label": "Subdominante",
+          "function": "I7 - IV - #IVdim - I",
+          "focus": "Escuchar el cromatismo del paso por Bdim.",
+          "chords": ["F7", "Bb6", "Bdim7", "F6"]
+        },
+        {
+          "section": "Tramo 4",
+          "bars": "13-16",
+          "label": "Remate",
+          "function": "VI7 - II7 - ii - V",
+          "focus": "Buen final para enganchar con el principio.",
+          "chords": ["D7", "G7", "Gm7", "C7"]
+        }
+      ]
+    },
+    {
+      "id": "i-got-rhythm",
+      "title": "I Got Rhythm",
+      "composers": ["George Gershwin", "Ira Gershwin"],
+      "year": 1930,
+      "defaultKey": "Bb",
+      "form": "Rhythm changes · mapa reducido",
+      "overview": "Resumen funcional de unos rhythm changes en Bb, útil para relacionar el A con el turnaround clásico y el puente dominantes.",
+      "practiceFocus": ["Rhythm changes", "Turnaround mayor", "Puente de dominantes"],
+      "scaleHints": ["Bb mayor", "Cm dórica", "F mixolidia", "Dominantes por tonos"],
+      "phrases": [
+        {
+          "section": "A1",
+          "bars": "1-4",
+          "label": "Turnaround base",
+          "function": "I - VI7 - ii - V",
+          "focus": "Base absoluta de los cambios.",
+          "chords": ["Bb6", "G7", "Cm7", "F7"]
+        },
+        {
+          "section": "A2",
+          "bars": "5-8",
+          "label": "Repetición",
+          "function": "I - VI7 - ii - V",
+          "focus": "Mantener continuidad rítmica sobre la misma célula.",
+          "chords": ["Bb6", "G7", "Cm7", "F7"]
+        },
+        {
+          "section": "B",
+          "bars": "9-12",
+          "label": "Puente",
+          "function": "III7 - III7 - VI7 - VI7",
+          "focus": "Hacer oír el puente como cadena de dominantes estáticos.",
+          "chords": ["D7", "D7", "G7", "G7"]
+        },
+        {
+          "section": "B2",
+          "bars": "13-16",
+          "label": "Regreso",
+          "function": "II7 - II7 - V7 - V7",
+          "focus": "Preparar el regreso al A con claridad.",
+          "chords": ["C7", "C7", "F7", "F7"]
+        }
+      ]
+    },
+    {
+      "id": "satin-doll",
+      "title": "Satin Doll",
+      "composers": ["Duke Ellington", "Billy Strayhorn", "Johnny Mercer"],
+      "year": 1953,
+      "defaultKey": "C",
+      "form": "Mapa reducido · 8 compases",
+      "overview": "Ideal para trabajar compases con dos acordes y cadenas ii-V que cambian de centro con rapidez.",
+      "practiceFocus": ["Dos acordes por compás", "ii-V encadenados", "Comping con poco movimiento"],
+      "scaleHints": ["C mayor", "D dórica", "G mixolidia", "A mixolidia"],
+      "phrases": [
+        {
+          "section": "Tramo 1",
+          "bars": "1-2",
+          "label": "Cadena inicial",
+          "function": "ii-V | iii-VI",
+          "focus": "Dos mini cadencias consecutivas en dos compases.",
+          "measures": [
+            { "bar": 1, "chords": ["Dm7", "G7"] },
+            { "bar": 2, "chords": ["Em7", "A7"] }
+          ]
+        },
+        {
+          "section": "Tramo 2",
+          "bars": "3-4",
+          "label": "Resolución y giro",
+          "function": "ii-V | ii-V/IV",
+          "focus": "Mantener el swing mientras cambia el destino tonal.",
+          "measures": [
+            { "bar": 3, "chords": ["Dm7", "G7"] },
+            { "bar": 4, "chords": ["Gm7", "C7"] }
+          ]
+        },
+        {
+          "section": "Tramo 3",
+          "bars": "5-6",
+          "label": "Reposo",
+          "function": "I | VI7",
+          "focus": "Contrastar reposo en F con reimpulso de A7.",
+          "measures": [
+            { "bar": 5, "chords": ["Fmaj7"] },
+            { "bar": 6, "chords": ["A7"] }
+          ]
+        },
+        {
+          "section": "Tramo 4",
+          "bars": "7-8",
+          "label": "Salida",
+          "function": "ii-V | ii-V",
+          "focus": "Frase final lista para conectar con otro coro.",
+          "measures": [
+            { "bar": 7, "chords": ["Dm7", "G7"] },
+            { "bar": 8, "chords": ["Gm7", "C7"] }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "there-will-never-be-another-you",
+      "title": "There Will Never Be Another You",
+      "composers": ["Harry Warren", "Mack Gordon"],
+      "year": 1942,
+      "defaultKey": "Eb",
+      "form": "Mapa reducido · 8 compases",
+      "overview": "Resume una armonía muy estándar en Eb con varios compases de dos acordes y un paso claro por IV y subdominante menor.",
+      "practiceFocus": ["Dos acordes por compás", "ii-V-I", "Subdominante menor"],
+      "scaleHints": ["Eb mayor", "F dórica", "Bb mixolidia", "Ab mayor"],
+      "phrases": [
+        {
+          "section": "Tramo 1",
+          "bars": "1-2",
+          "label": "Presentación",
+          "function": "I | vii-III7",
+          "focus": "Cambiar del reposo en Eb a un dominante interno sin perder pulso.",
+          "measures": [
+            { "bar": 1, "chords": ["Ebmaj7"] },
+            { "bar": 2, "chords": ["Dm7", "G7"] }
+          ]
+        },
+        {
+          "section": "Tramo 2",
+          "bars": "3-4",
+          "label": "Caída funcional",
+          "function": "vi | II7",
+          "focus": "Preparar el paso al IV con continuidad de voces.",
+          "measures": [
+            { "bar": 3, "chords": ["Cm7"] },
+            { "bar": 4, "chords": ["F7"] }
+          ]
+        },
+        {
+          "section": "Tramo 3",
+          "bars": "5-6",
+          "label": "Subdominante",
+          "function": "V/IV | iv-V/IV",
+          "focus": "Escuchar el color de Bbm7-Eb7 hacia Ab.",
+          "measures": [
+            { "bar": 5, "chords": ["Bbmaj7"] },
+            { "bar": 6, "chords": ["Bbm7", "Eb7"] }
+          ]
+        },
+        {
+          "section": "Tramo 4",
+          "bars": "7-8",
+          "label": "Salida",
+          "function": "IV | viiø/V-V",
+          "focus": "Preparar un regreso elegante desde Ab hacia G7/D7.",
+          "measures": [
+            { "bar": 7, "chords": ["Abmaj7"] },
+            { "bar": 8, "chords": ["Am7b5", "D7"] }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "misty",
+      "title": "Misty",
+      "composers": ["Erroll Garner", "Johnny Burke"],
+      "year": 1954,
+      "defaultKey": "Eb",
+      "form": "Mapa reducido · 8 compases",
+      "overview": "Buen terreno para estudiar balances entre acordes de reposo amplios y compases partidos en dos dominantes o ii-V.",
+      "practiceFocus": ["Balada en mayor", "Dos acordes por compás", "Subdominante menor"],
+      "scaleHints": ["Eb mayor", "Ab mayor", "F dórica", "Bb mixolidia"],
+      "phrases": [
+        {
+          "section": "Tramo 1",
+          "bars": "1-2",
+          "label": "Apertura",
+          "function": "I | v- I7",
+          "focus": "Cambiar de un gran reposo a una pequeña preparación cromática.",
+          "measures": [
+            { "bar": 1, "chords": ["Ebmaj7"] },
+            { "bar": 2, "chords": ["Bbm7", "Eb7"] }
+          ]
+        },
+        {
+          "section": "Tramo 2",
+          "bars": "3-4",
+          "label": "Subdominante",
+          "function": "IV | iv-bVII7",
+          "focus": "Notar el paso de Ab mayor a Abm/Db7 como color de balada.",
+          "measures": [
+            { "bar": 3, "chords": ["Abmaj7"] },
+            { "bar": 4, "chords": ["Abm6", "Db7"] }
+          ]
+        },
+        {
+          "section": "Tramo 3",
+          "bars": "5-6",
+          "label": "Relanzamiento",
+          "function": "I-VI7 | ii-V",
+          "focus": "Cuatro cambios claros dentro de dos compases.",
+          "measures": [
+            { "bar": 5, "chords": ["Ebmaj7", "C7"] },
+            { "bar": 6, "chords": ["Fm7", "Bb7"] }
+          ]
+        },
+        {
+          "section": "Tramo 4",
+          "bars": "7-8",
+          "label": "Salida",
+          "function": "iii-VI7 | ii-V",
+          "focus": "Mantener la línea de notas guía en un final muy estándar.",
+          "measures": [
+            { "bar": 7, "chords": ["Gm7", "C7"] },
+            { "bar": 8, "chords": ["Fm7", "Bb7"] }
+          ]
+        }
+      ]
+    }
+  ]
+}

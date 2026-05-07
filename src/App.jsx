@@ -8,6 +8,9 @@ import {
   detectFormulaRole as detectFormulaRolePure,
   pickDefaultChordCandidate as pickDefaultChordCandidatePure,
 } from "./music/chordDetectionEngine.js";
+import { buildNearSlotsFromChordSymbols, flattenStandardPhraseChordSymbols, getStandardPhraseMeasures, getStandardRealChartSections } from "./music/standardsCatalog.js";
+import { loadOpenbookStandardFromPath, OPENBOOK_STANDARD_INDEX } from "./music/openbookCatalog.js";
+import STANDARDS_DATA from "./music/standardsData.json";
 
 // Mástil interactivo
 // - Escalas: pentatónicas (mayor/menor), mayor/menor natural, modos
@@ -53,6 +56,7 @@ const MOBILE_SECTION_OPTIONS = [
   { value: "route", label: "Ruta" },
   { value: "chords", label: "Acordes" },
   { value: "nearChords", label: "Acordes cercanos" },
+  { value: "standards", label: "Standards" },
 ];
 const MOBILE_BOTTOM_NAV_OPTIONS = [
   { value: "scale", label: "Escala", icon: Music },
@@ -60,12 +64,18 @@ const MOBILE_BOTTOM_NAV_OPTIONS = [
   { value: "route", label: "Ruta", icon: Route },
   { value: "chords", label: "Acordes", icon: ChordDiagramIcon },
   { value: "nearChords", label: "Cercanos", icon: Waypoints },
+  { value: "standards", label: "Standards", icon: BookOpen },
 ];
 const MOBILE_SECTION_SWIPE_COMMIT_RATIO = 0.5;
 const SCALE_INFO_TEXT = "Escala + (opcional) extras. Resalta raíz/3ª/5ª.";
 const PATTERNS_INFO_TEXT = "Patrones: 5 boxes (pentatónicas), 7 3NPS (7 notas) y CAGED. Ruta: sigue la escala en orden y se restringe a patrones";
 const NEAR_CHORDS_INFO_TEXT = "Selecciona hasta 4 acordes y busca digitaciones dentro de un rango. Ordena por cercanía al primer acorde activo. Los acordes se ajustan automáticamente según la nota raíz y la escala activas.";
 const NEAR_AUTO_SCALE_INFO_TEXT = "Con Auto escala ON, los acordes cercanos se rellenan y actualizan según la nota raíz, la escala y la armonización activas. Con OFF, cada acorde queda bajo edición manual.";
+const STANDARDS_INFO_TEXT = [
+  "Standards reúne charts armónicos sin melodía y reducciones de estudio pensadas para trabajar repertorio dentro del flujo de esta app.",
+  "Cuando un tema tenga chart real, verás la forma completa compás a compás y podrás seleccionar hasta 4 cambios para cargarlos en Acordes cercanos.",
+  "Debajo se mantiene la reducción pedagógica para aislar funciones, voicings, ii-V-I y conducción de voces sin perder la visión global del tema.",
+].join("\n");
 const CHORDS_SECTION_INFO_TEXT = [
   "Acordes construye el acorde principal y muestra digitaciones reales sobre el mástil.",
   "Investigar en mástil bloquea el editor superior y te deja seleccionar una nota por cuerda directamente en el diapasón.",
@@ -92,7 +102,7 @@ const DETECTED_CHORDS_INFO_TEXT = [
   "El selector elige qué lectura queda activa.",
   "Copiar en Acorde pasa esa lectura al constructor superior cuando es compatible.",
 ].join("\n");
-const PRIMARY_BOARD_SECTIONS = ["scale", "patterns", "route", "chords", "nearChords"];
+const PRIMARY_BOARD_SECTIONS = ["scale", "patterns", "route", "chords", "nearChords", "standards"];
 const TONAL_CONTEXT_TOOLTIP = "Afecta a Escala, Patrones, Ruta y al contexto armónico usado en análisis y acordes cercanos.";
 const MOBILE_VERTICAL_STRING_ORDER = [5, 4, 3, 2, 1, 0];
 const WEB_FRET_LABEL_COL_PX = 110;
@@ -142,6 +152,7 @@ function normalizeBoardVisibility(value = {}, preferredPrimary = null) {
     route: false,
     chords: false,
     nearChords: false,
+    standards: false,
     configuration: !!value.configuration,
   };
   const activePrimary = PRIMARY_BOARD_SECTIONS.includes(preferredPrimary)
@@ -1292,7 +1303,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "3.74";
+const APP_VERSION = "3.75";
 
 function chordDbUrl(keyName, suffix) {
   // Ruta RELATIVA dentro de /public (sin base) => chords-db/...
@@ -7424,6 +7435,16 @@ export default function FretboardScalesPage() {
   const [mobileTonalContextOpen, setMobileTonalContextOpen] = useState(false);
   const [mobileChordEditorOpen, setMobileChordEditorOpen] = useState(false);
   const [mobileNearChordEditorIdx, setMobileNearChordEditorIdx] = useState(null);
+  const standardsData = STANDARDS_DATA;
+  const [standardsQuery, setStandardsQuery] = useState("");
+  const [selectedStandardId, setSelectedStandardId] = useState(null);
+  const [standardsFullViewOpen, setStandardsFullViewOpen] = useState(false);
+  const [standardsStudyOpen, setStandardsStudyOpen] = useState(false);
+  const [standardsRealSelectionIds, setStandardsRealSelectionIds] = useState([]);
+  const [standardsLoadedMap, setStandardsLoadedMap] = useState({});
+  const [standardsLoadingId, setStandardsLoadingId] = useState(null);
+  const [standardsError, setStandardsError] = useState(null);
+  const [standardsNotice, setStandardsNotice] = useState(null);
   const [showKingBoxes, setShowKingBoxes] = useState(false);
   const [kingBoxMode, setKingBoxMode] = useState("bb");
   const [kingBoxColors, setKingBoxColors] = useState({
@@ -7514,7 +7535,7 @@ export default function FretboardScalesPage() {
     setMobileSectionMotion("none");
     resetMobileSectionSlide();
     setMobileActiveSection(firstVisible);
-  }, [isMobileLayout]);
+  }, [isMobileLayout, showBoards]);
 
   useEffect(() => {
     if (chordDetectMode && mobileChordEditorOpen) {
@@ -8173,6 +8194,7 @@ export default function FretboardScalesPage() {
           route: sanitizeBoolValue(saved.showBoards.route, prev.route),
           chords: sanitizeBoolValue(saved.showBoards.chords, prev.chords),
           nearChords: sanitizeBoolValue(saved.showBoards.nearChords, prev.nearChords),
+          standards: sanitizeBoolValue(saved.showBoards.standards, prev.standards),
           configuration: sanitizeBoolValue(saved.showBoards.configuration, prev.configuration),
         }));
       }
@@ -9705,6 +9727,151 @@ export default function FretboardScalesPage() {
       }
       return next;
     }));
+  }
+
+  function buildEmptyNearSlot(rootPcValue = chordRootPc, spellPreferSharpsValue = chordSpellPreferSharps) {
+    return {
+      enabled: false,
+      family: "tertian",
+      rootPc: rootPcValue,
+      quality: "maj",
+      suspension: "none",
+      structure: "triad",
+      inversion: "all",
+      form: "open",
+      positionForm: "open",
+      ext7: false,
+      ext6: false,
+      ext9: false,
+      ext11: false,
+      ext13: false,
+      quartalType: "pure",
+      quartalVoices: "4",
+      quartalSpread: "closed",
+      quartalReference: "root",
+      quartalScaleName: "Mayor",
+      guideToneQuality: "maj7",
+      guideToneForm: "closed",
+      guideToneInversion: "all",
+      spellPreferSharps: spellPreferSharpsValue,
+      maxDist: 4,
+      allowOpenStrings: false,
+      selFrets: null,
+    };
+  }
+
+  function buildStandardPhraseRangeLabel(phrase) {
+    const bits = [];
+    if (phrase?.section) bits.push(phrase.section);
+    if (phrase?.bars) bits.push(`compases ${phrase.bars}`);
+    if (phrase?.label) bits.push(phrase.label);
+    return bits.join(" · ") || "fragmento";
+  }
+
+  function buildStandardPhraseMeasures(phrase) {
+    return getStandardPhraseMeasures(phrase);
+  }
+
+  function buildStandardTimelineEntries(standard) {
+    const phrases = Array.isArray(standard?.phrases) ? standard.phrases : [];
+    return phrases.flatMap((phrase, phraseIdx) => {
+      const measures = buildStandardPhraseMeasures(phrase);
+      return measures.map((measure, measureIdx) => ({
+        id: `${standard?.id || "standard"}-${phraseIdx}-${measureIdx}`,
+        phrase,
+        phraseIdx,
+        measureIdx,
+        startsPhrase: measureIdx === 0,
+        barLabel: measure.barLabel,
+        symbols: measure.chords,
+        phraseLabel: buildStandardPhraseRangeLabel(phrase),
+      }));
+    });
+  }
+
+  function applyStandardChordSetToNearChords(standard, label, symbols) {
+    const title = standard?.title || "el standard";
+    const cleanSymbols = Array.isArray(symbols) ? symbols.filter(Boolean) : [];
+    const loadedSymbols = cleanSymbols.slice(0, 4);
+    const truncated = cleanSymbols.length > loadedSymbols.length;
+
+    if (!cleanSymbols.length) {
+      setStandardsNotice({ type: "error", text: `No encuentro acordes para cargar desde ${title}.` });
+      return;
+    }
+
+    try {
+      const parsedSlots = buildNearSlotsFromChordSymbols(loadedSymbols, 4);
+      pendingNearRestoreRef.current = Array.from({ length: 4 }, () => ({ active: true, frets: null }));
+      setNearAutoScaleSync(false);
+      setNearSlots((prev) => prev.map((slot, idx) => {
+        if (idx < parsedSlots.length) {
+          return sanitizeNearSlotValue(
+            {
+              ...buildEmptyNearSlot(parsedSlots[idx].rootPc, parsedSlots[idx].spellPreferSharps),
+              ...parsedSlots[idx],
+              enabled: true,
+              selFrets: null,
+            },
+            slot
+          );
+        }
+        return sanitizeNearSlotValue(buildEmptyNearSlot(rootPc, preferSharps), slot);
+      }));
+      setStandardsNotice({
+        type: "success",
+        text: `${title} · ${label}: cargado en Acordes cercanos. Auto escala se ha desactivado para respetar la armonía del standard.${truncated ? " Solo se han cargado los 4 primeros cambios porque Acordes cercanos admite 4." : ""}`,
+      });
+    } catch (e) {
+      setStandardsNotice({ type: "error", text: `No pude cargar ${label}: ${String(e?.message || e)}` });
+    }
+  }
+
+  function applyStandardPhraseToNearChords(standard, phrase) {
+    applyStandardChordSetToNearChords(
+      standard,
+      buildStandardPhraseRangeLabel(phrase),
+      flattenStandardPhraseChordSymbols(phrase, 4)
+    );
+  }
+
+  function applyStandardMeasureToNearChords(standard, phrase, measureIdx) {
+    const measures = buildStandardPhraseMeasures(phrase);
+    const measure = measures[measureIdx];
+    if (!measure?.chords?.length) {
+      setStandardsNotice({ type: "error", text: "No encuentro ese compás para cargarlo." });
+      return;
+    }
+    const label = [phrase?.section, measure.barLabel, phrase?.label].filter(Boolean).join(" · ");
+    applyStandardChordSetToNearChords(standard, label, measure.chords);
+  }
+
+  function toggleStandardRealEventSelection(eventId) {
+    if (!eventId) return;
+    if (standardsRealSelectionIds.includes(eventId)) {
+      setStandardsRealSelectionIds((prev) => prev.filter((id) => id !== eventId));
+      return;
+    }
+    if (standardsRealSelectionIds.length >= 4) {
+      setStandardsNotice({
+        type: "error",
+        text: "El chart real permite seleccionar hasta 4 cambios a la vez para enviarlos a Acordes cercanos.",
+      });
+      return;
+    }
+    setStandardsRealSelectionIds((prev) => [...prev, eventId]);
+  }
+
+  function applySelectedStandardRealEventsToNearChords() {
+    if (!selectedStandard || !selectedStandardRealSelection.length) {
+      setStandardsNotice({ type: "error", text: "Selecciona al menos un cambio del chart real antes de cargarlo." });
+      return;
+    }
+    applyStandardChordSetToNearChords(
+      selectedStandard,
+      "selección del chart real",
+      selectedStandardRealSelection.map((event) => event.loadSymbol || event.symbol)
+    );
   }
 
   function nearSlotFamilyOf(slot) {
@@ -14423,6 +14590,7 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
         route: mobileActiveSection === "route",
         chords: mobileActiveSection === "chords",
         nearChords: mobileActiveSection === "nearChords",
+        standards: mobileActiveSection === "standards",
         configuration: mobileMenuOpen,
       }
     : showBoards;
@@ -14433,6 +14601,176 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
   const selectedQuickPresetIndex = Math.max(0, Math.min(QUICK_PRESET_COUNT - 1, parseInt(selectedQuickPresetSlot, 10) || 0));
   const selectedQuickPreset = quickPresets[selectedQuickPresetIndex] || null;
   const tonalContextSummary = `${pcToName(rootPc, preferSharps)} ${scaleName} · armonización ${harmonyMode === "functional_minor" ? "funcional menor" : "diatónica"}`;
+  const standardsOverrideItems = useMemo(
+    () => (Array.isArray(standardsData?.items) ? standardsData.items : []),
+    [standardsData]
+  );
+  const standardsOverrideMap = useMemo(
+    () => new Map(standardsOverrideItems.map((item) => [item.id, item])),
+    [standardsOverrideItems]
+  );
+  const standardsItems = useMemo(() => {
+    const openbookItems = OPENBOOK_STANDARD_INDEX.map((item) => {
+      const override = standardsOverrideMap.get(item.id) || null;
+      return {
+        id: item.id,
+        title: override?.title || item.title,
+        defaultKey: override?.defaultKey || "",
+        form: override?.form || "Chart real OpenBook",
+        composers: Array.isArray(override?.composers) ? override.composers : [],
+        year: override?.year || null,
+        overview: override?.overview || "",
+        practiceFocus: Array.isArray(override?.practiceFocus) ? override.practiceFocus : [],
+        scaleHints: Array.isArray(override?.scaleHints) ? override.scaleHints : [],
+        phrases: Array.isArray(override?.phrases) ? override.phrases : [],
+        realForm: override?.realForm || null,
+        sourcePath: item.sourcePath,
+        sourceLabel: item.sourceLabel,
+        hasOpenbookSource: true,
+        manualOverride: override,
+      };
+    });
+    const seenIds = new Set(openbookItems.map((item) => item.id));
+    const manualOnlyItems = standardsOverrideItems
+      .filter((item) => !seenIds.has(item.id))
+      .map((item) => ({
+        ...item,
+        sourcePath: null,
+        sourceLabel: "Local",
+        hasOpenbookSource: false,
+        manualOverride: item,
+      }));
+    return [...openbookItems, ...manualOnlyItems].sort((a, b) => a.title.localeCompare(b.title, "es", { sensitivity: "base" }));
+  }, [standardsOverrideItems, standardsOverrideMap]);
+  const standardsQueryNormalized = standardsQuery.trim().toLowerCase();
+  const filteredStandards = useMemo(() => {
+    if (!standardsQueryNormalized) return standardsItems;
+    return standardsItems.filter((item) => {
+      const haystack = [
+        item?.title,
+        item?.defaultKey,
+        item?.form,
+        item?.sourceLabel,
+        ...(Array.isArray(item?.composers) ? item.composers : []),
+        ...(Array.isArray(item?.practiceFocus) ? item.practiceFocus : []),
+        ...(Array.isArray(item?.scaleHints) ? item.scaleHints : []),
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(standardsQueryNormalized);
+    });
+  }, [standardsItems, standardsQueryNormalized]);
+  useEffect(() => {
+    if (!standardsItems.length) return;
+    if (standardsItems.some((item) => item?.id === selectedStandardId)) return;
+    const preferred = standardsItems.find((item) => item.id === "all-of-me") || standardsItems[0];
+    if (preferred) setSelectedStandardId(preferred.id);
+  }, [selectedStandardId, standardsItems]);
+  const selectedCatalogStandard = useMemo(() => {
+    if (standardsQueryNormalized && !filteredStandards.length) return null;
+    const activeItems = filteredStandards.length ? filteredStandards : standardsItems;
+    return activeItems.find((item) => item?.id === selectedStandardId) || activeItems[0] || null;
+  }, [filteredStandards, standardsItems, selectedStandardId, standardsQueryNormalized]);
+  const selectedLoadedStandard = selectedCatalogStandard ? standardsLoadedMap[selectedCatalogStandard.id] || null : null;
+  const selectedStandard = useMemo(() => {
+    if (!selectedCatalogStandard) return null;
+    const override = selectedCatalogStandard.manualOverride || null;
+    const loaded = selectedLoadedStandard || null;
+    return {
+      ...selectedCatalogStandard,
+      title: override?.title || loaded?.title || selectedCatalogStandard.title,
+      defaultKey: override?.defaultKey || loaded?.defaultKey || selectedCatalogStandard.defaultKey || "",
+      form: override?.form || loaded?.form || selectedCatalogStandard.form || "",
+      composers: Array.isArray(override?.composers) && override.composers.length
+        ? override.composers
+        : Array.isArray(loaded?.composers) && loaded.composers.length
+          ? loaded.composers
+          : selectedCatalogStandard.composers,
+      year: override?.year || loaded?.year || selectedCatalogStandard.year || null,
+      overview: override?.overview || loaded?.overview || selectedCatalogStandard.overview,
+      practiceFocus: Array.isArray(override?.practiceFocus) && override.practiceFocus.length
+        ? override.practiceFocus
+        : Array.isArray(loaded?.practiceFocus) && loaded.practiceFocus.length
+          ? loaded.practiceFocus
+          : selectedCatalogStandard.practiceFocus,
+      scaleHints: Array.isArray(override?.scaleHints) && override.scaleHints.length
+        ? override.scaleHints
+        : Array.isArray(loaded?.scaleHints) && loaded.scaleHints.length
+          ? loaded.scaleHints
+          : selectedCatalogStandard.scaleHints,
+      realForm: override?.realForm || loaded?.realForm || selectedCatalogStandard.realForm || null,
+      phrases: Array.isArray(override?.phrases) && override.phrases.length
+        ? override.phrases
+        : Array.isArray(loaded?.phrases) && loaded.phrases.length
+          ? loaded.phrases
+          : selectedCatalogStandard.phrases,
+    };
+  }, [selectedCatalogStandard, selectedLoadedStandard]);
+  useEffect(() => {
+    const item = selectedCatalogStandard;
+    if (!item?.hasOpenbookSource || !item?.sourcePath) {
+      setStandardsLoadingId(null);
+      setStandardsError(null);
+      return undefined;
+    }
+    if (standardsLoadedMap[item.id]) {
+      setStandardsLoadingId(null);
+      setStandardsError(null);
+      return undefined;
+    }
+
+    let cancelled = false;
+    setStandardsLoadingId(item.id);
+    setStandardsError(null);
+
+    loadOpenbookStandardFromPath(item.sourcePath, item)
+      .then((detail) => {
+        if (cancelled) return;
+        setStandardsLoadedMap((prev) => ({ ...prev, [item.id]: detail }));
+        setStandardsLoadingId((current) => (current === item.id ? null : current));
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        setStandardsError(`No pude leer ${item.title} desde OpenBook: ${String(error?.message || error)}`);
+        setStandardsLoadingId((current) => (current === item.id ? null : current));
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedCatalogStandard, standardsLoadedMap]);
+  const selectedStandardRealSections = useMemo(() => getStandardRealChartSections(selectedStandard), [selectedStandard]);
+  const selectedStandardHasRealChart = selectedStandardRealSections.length > 0;
+  const selectedStandardRealEvents = useMemo(
+    () => selectedStandardRealSections.flatMap((section, sectionIdx) => (
+      section.measures.flatMap((measure, measureIdx) => (
+        (Array.isArray(measure.chordEvents) ? measure.chordEvents : measure.chords.map((symbol) => ({ display: symbol, load: symbol }))).map((event, symbolIdx) => ({
+          id: `${selectedStandard?.id || "standard"}-${section.id}-${sectionIdx}-${measureIdx}-${symbolIdx}`,
+          section,
+          sectionIdx,
+          measure,
+          measureIdx,
+          symbol: event.display,
+          loadSymbol: event.load,
+          symbolIdx,
+        }))
+      ))
+    )),
+    [selectedStandard, selectedStandardRealSections]
+  );
+  const selectedStandardRealEventMap = useMemo(
+    () => new Map(selectedStandardRealEvents.map((event) => [event.id, event])),
+    [selectedStandardRealEvents]
+  );
+  const selectedStandardRealSelection = useMemo(
+    () => standardsRealSelectionIds.map((id) => selectedStandardRealEventMap.get(id)).filter(Boolean),
+    [standardsRealSelectionIds, selectedStandardRealEventMap]
+  );
+  const selectedStandardTimeline = selectedStandard ? buildStandardTimelineEntries(selectedStandard) : [];
+  useEffect(() => {
+    setStandardsRealSelectionIds((prev) => prev.filter((id) => selectedStandardRealEventMap.has(id)));
+  }, [selectedStandardRealEventMap]);
   const themeSoftBg = themeObjectBg;
   const themeHoverBg = themeObjectBg;
   const themeDisabledControlText = isDark(themeDisabledControlBg) ? "#f8fafc" : "#64748b";
@@ -14812,7 +15150,7 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
   }
 
   function handleMobileSectionPointerDown(e) {
-    if (!isMobileLayout || mobileSectionTransition || mobileMenuOpen || mobileTonalContextOpen || mobileChordEditorOpen || mobileNearChordEditorIdx != null || mobileInfoPopover || manualOpen || studyOpen) return;
+    if (!isMobileLayout || mobileSectionTransition || mobileMenuOpen || mobileTonalContextOpen || mobileChordEditorOpen || mobileNearChordEditorIdx != null || mobileInfoPopover || manualOpen || studyOpen || standardsFullViewOpen) return;
     if ((e.pointerType && e.pointerType !== "touch" && e.pointerType !== "pen") || isMobileSectionSwipeIgnored(e.target)) {
       mobileSectionPointerRef.current = null;
       return;
@@ -15191,6 +15529,554 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
     );
   }
 
+  function renderStandardRealSelectionBar(isOverlay = false) {
+    const wrapperClass = isOverlay
+      ? "rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm"
+      : "rounded-2xl border border-slate-200 bg-white px-3 py-3 shadow-sm";
+
+    return (
+      <div className={wrapperClass}>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Selección del chart real</div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              className={UI_BTN_SM + " w-auto px-3"}
+              onClick={applySelectedStandardRealEventsToNearChords}
+              disabled={!selectedStandardRealSelection.length}
+            >
+              Cargar selección
+            </button>
+            <button
+              type="button"
+              className={UI_BTN_SM + " w-auto px-3"}
+              onClick={() => setStandardsRealSelectionIds([])}
+              disabled={!standardsRealSelectionIds.length}
+            >
+              Limpiar
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-3 flex flex-wrap gap-2">
+          {selectedStandardRealSelection.length ? selectedStandardRealSelection.map((event, idx) => (
+            <button
+              key={event.id}
+              type="button"
+              className="inline-flex items-center gap-2 rounded-2xl border border-sky-200 bg-sky-50 px-3 py-2 text-left shadow-sm transition-colors hover:bg-sky-100"
+              onClick={() => toggleStandardRealEventSelection(event.id)}
+              title="Quitar este cambio de la selección"
+            >
+              <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-sky-600 px-1.5 text-[11px] font-semibold text-white">
+                {idx + 1}
+              </span>
+              <span className="text-sm font-semibold text-slate-800">{event.symbol}</span>
+              <span className="text-xs text-slate-500">{event.section.label} · {event.measure.barLabel}</span>
+            </button>
+          )) : (
+            <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-500">
+              Aún no has seleccionado cambios del chart.
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  function renderStandardRealChartSections(isOverlay = false) {
+    if (!selectedStandardHasRealChart) return null;
+
+    const buildMeasureRows = (measures) => {
+      const rows = [];
+      for (let idx = 0; idx < measures.length; idx += 4) {
+        rows.push(measures.slice(idx, idx + 4));
+      }
+      return rows;
+    };
+
+    return (
+      <div className={`space-y-3 ${isOverlay ? "sm:space-y-4" : ""}`}>
+        {selectedStandardRealSections.map((section, sectionIdx) => (
+          <div key={`${selectedStandard?.id || "standard"}-${section.id}-${sectionIdx}`} className={`rounded-2xl border border-slate-300 bg-white shadow-sm ${isOverlay ? "p-4" : "p-3"}`}>
+            <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 pb-2">
+              <span className="rounded-lg border border-slate-300 bg-slate-50 px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-700">
+                {section.label}
+              </span>
+              <span className="text-xs font-semibold text-slate-500">
+                {section.bars ? `Compases ${section.bars}` : `${section.measures.length} compases`}
+              </span>
+            </div>
+
+            <div className="mt-3 space-y-2 overflow-x-auto">
+              {buildMeasureRows(section.measures).map((row, rowIdx) => (
+                <div key={`${section.id}-row-${rowIdx}`} className={`grid ${isOverlay ? "min-w-[600px]" : "min-w-[560px]"} grid-cols-4 overflow-hidden rounded-2xl border border-slate-200 bg-[#fbfdff]`}>
+                  {Array.from({ length: 4 }, (_, colIdx) => {
+                    const measure = row[colIdx] || null;
+                    const measureIdx = rowIdx * 4 + colIdx;
+                    if (!measure) {
+                      return <div key={`${section.id}-row-${rowIdx}-empty-${colIdx}`} className={`${isOverlay ? "min-h-[68px]" : "min-h-[60px]"} border-l border-slate-200 bg-slate-50/60 first:border-l-0`} />;
+                    }
+                    const chordEvents = Array.isArray(measure.chordEvents)
+                      ? measure.chordEvents
+                      : measure.chords.map((symbol) => ({ display: symbol, load: symbol }));
+                    return (
+                      <div
+                        key={`${selectedStandard?.id || "standard"}-${section.id}-${sectionIdx}-${measure.barLabel}-${measureIdx}`}
+                        className={`${isOverlay ? "min-h-[68px] px-3 py-2" : "min-h-[60px] px-2.5 py-1.5"} border-l border-slate-200 first:border-l-0`}
+                      >
+                        <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                          {measure.barLabel.replace("Compás ", "")}
+                        </div>
+                        <div className={`${isOverlay ? "mt-2 min-h-[36px]" : "mt-1.5 min-h-[32px]"} flex flex-wrap items-center gap-1`}>
+                          {measure.repeat && chordEvents.length === 1 ? (() => {
+                            const eventId = `${selectedStandard?.id || "standard"}-${section.id}-${sectionIdx}-${measureIdx}-0`;
+                            const selectedOrder = standardsRealSelectionIds.indexOf(eventId);
+                            const selected = selectedOrder >= 0;
+                            return (
+                              <button
+                                type="button"
+                                className={`inline-flex ${isOverlay ? "h-9 min-w-[44px] text-[26px]" : "h-8 min-w-[40px] text-2xl"} items-center justify-center rounded-xl border px-2.5 font-semibold leading-none transition-colors ${selected ? "border-sky-300 bg-sky-100 text-slate-900" : "border-slate-200 bg-white text-slate-400 hover:bg-sky-50"}`}
+                                onClick={() => toggleStandardRealEventSelection(eventId)}
+                                title={`${selected ? "Quitar" : "Añadir"} ${chordEvents[0].display}`}
+                              >
+                                %
+                              </button>
+                            );
+                          })() : chordEvents.map((event, eventIdx) => {
+                            const eventId = `${selectedStandard?.id || "standard"}-${section.id}-${sectionIdx}-${measureIdx}-${eventIdx}`;
+                            const selectedOrder = standardsRealSelectionIds.indexOf(eventId);
+                            const selected = selectedOrder >= 0;
+                            return (
+                              <button
+                                key={`${eventId}-${event.display}`}
+                                type="button"
+                                className={`inline-flex items-center gap-1 rounded-xl border ${isOverlay ? "px-2.5 py-1.5 text-sm" : "px-2 py-1 text-[13px]"} font-semibold shadow-sm transition-colors ${selected ? "border-sky-300 bg-sky-100 text-slate-900" : "border-slate-200 bg-white text-slate-800 hover:bg-sky-50"}`}
+                                onClick={() => toggleStandardRealEventSelection(eventId)}
+                                title={selected ? "Quitar de la selección" : "Añadir a la selección"}
+                              >
+                                <span>{event.display}</span>
+                                {selected ? (
+                                  <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-sky-600 px-1 text-[10px] font-semibold text-white">
+                                    {selectedOrder + 1}
+                                  </span>
+                                ) : null}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  function StandardsFullViewOverlay() {
+    if (!standardsFullViewOpen || !selectedStandard) return null;
+
+    const overlayTitle = selectedStandardHasRealChart ? "Vista completa del chart real" : "Vista completa de la reducción";
+    const overlayNote = selectedStandardHasRealChart
+      ? "Aquí ves el folio armónico completo sin melodía. Puedes seleccionar hasta 4 cambios concretos y cargarlos juntos en Acordes cercanos."
+      : "Mapa armónico generado desde la reducción pedagógica del tema. Si un compás tiene dos acordes, se muestran juntos y se cargan en ese mismo orden.";
+
+    return createPortal(
+      <div
+        className="fixed inset-0 z-[130] bg-slate-900/45 p-3 sm:p-4"
+        onClick={() => setStandardsFullViewOpen(false)}
+      >
+        <div className="mx-auto flex h-full max-w-6xl items-start justify-center">
+          <div
+            className="mt-2 flex max-h-[92vh] w-full flex-col overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-slate-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3 border-b border-slate-200 bg-[#c7d8e5] px-4 py-3">
+              <div className="min-w-0">
+                <div className="text-base font-semibold text-slate-800">{overlayTitle}</div>
+                <div className="mt-1 text-sm text-slate-700">{selectedStandard.title} · {selectedStandard.defaultKey} · {selectedStandard.form}</div>
+              </div>
+              <button
+                type="button"
+                className={UI_BTN_SM + " w-auto px-3"}
+                onClick={() => setStandardsFullViewOpen(false)}
+              >
+                Cerrar
+              </button>
+            </div>
+
+            <div className="overflow-y-auto p-4">
+              {selectedStandardHasRealChart ? (
+                <div className="space-y-4">
+                  {renderStandardRealSelectionBar(true)}
+                  {renderStandardRealChartSections(true)}
+                </div>
+              ) : (
+                <>
+                  <div className="rounded-2xl border border-sky-200 bg-sky-50 px-3 py-2 text-sm leading-6 text-slate-700">
+                    {overlayNote}
+                  </div>
+
+                  <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                    {selectedStandardTimeline.map((entry) => (
+                      <button
+                        key={entry.id}
+                        type="button"
+                        className="rounded-2xl border border-slate-200 bg-white px-3 py-3 text-left shadow-sm transition-colors hover:bg-sky-50"
+                        title={`Cargar ${entry.barLabel}`}
+                        onClick={() => applyStandardMeasureToNearChords(selectedStandard, entry.phrase, entry.measureIdx)}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                              {entry.barLabel}
+                            </div>
+                            {entry.startsPhrase ? (
+                              <div className="mt-1 text-[11px] font-semibold text-sky-700">
+                                {entry.phrase.section}
+                              </div>
+                            ) : null}
+                          </div>
+                          {entry.startsPhrase ? (
+                            <span className="rounded-xl border border-sky-200 bg-sky-50 px-2 py-1 text-[11px] font-semibold text-sky-700">
+                              {entry.phrase.label}
+                            </span>
+                          ) : null}
+                        </div>
+                        <div className="mt-3 flex flex-wrap gap-1.5">
+                          {entry.symbols.map((symbol, idx) => (
+                            <span key={`${entry.id}-${symbol}-${idx}`} className="rounded-xl border border-slate-200 bg-slate-50 px-2 py-1 text-sm font-semibold text-slate-800">
+                              {symbol}
+                            </span>
+                          ))}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>,
+      document.body
+    );
+  }
+
+  function renderStandardsPanel() {
+    const collectionLabel = standardsData?.collectionLabel || "Colección inicial";
+    const noticeClass = standardsNotice?.type === "error"
+      ? "border-rose-200 bg-rose-50 text-rose-700"
+      : "border-emerald-200 bg-emerald-50 text-emerald-700";
+    const canOpenStandardsFullView = isMobileLayout;
+
+    return (
+      <PanelBlock
+        title={<InfoTitle label="Standards de jazz" info={STANDARDS_INFO_TEXT} alwaysShow />}
+        titleTooltip={!isMobileLayout ? STANDARDS_INFO_TEXT : ""}
+        bodyClassName="space-y-3"
+      >
+        {standardsNotice ? (
+          <div className={`rounded-2xl border px-3 py-2 text-sm ${noticeClass}`}>
+            {standardsNotice.text}
+          </div>
+        ) : null}
+
+        <div className="grid gap-3 xl:grid-cols-[290px_minmax(0,1fr)]">
+          <PanelBlock
+            level="subsection"
+            title="Catálogo"
+            description={collectionLabel}
+            bodyClassName="space-y-3"
+          >
+            <div>
+              <label className={UI_LABEL_SM}>Buscar</label>
+              <input
+                className={UI_INPUT_SM + " mt-1 w-full"}
+                value={standardsQuery}
+                onChange={(e) => setStandardsQuery(e.target.value)}
+                placeholder="Título, tono o forma..."
+              />
+            </div>
+
+            {!filteredStandards.length ? (
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-600">
+                No encuentro standards con ese filtro.
+              </div>
+            ) : null}
+
+            {filteredStandards.length ? (
+              <div className="space-y-2">
+                {filteredStandards.map((item) => {
+                  const selected = item.id === selectedStandard?.id;
+                  const hasRealChart = !!item?.hasOpenbookSource || (Array.isArray(item?.realForm?.sections) && item.realForm.sections.length > 0);
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      className={`w-full rounded-2xl border px-3 py-3 text-left shadow-sm transition-colors ${selected ? "border-sky-300 bg-sky-50" : "border-slate-200 bg-white hover:bg-sky-50"}`}
+                      onClick={() => {
+                        setSelectedStandardId(item.id);
+                        setStandardsFullViewOpen(false);
+                        setStandardsStudyOpen(false);
+                        setStandardsRealSelectionIds([]);
+                        setStandardsNotice(null);
+                      }}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="text-sm font-semibold text-slate-800">{item.title}</div>
+                          <div className="mt-1 text-xs text-slate-600">
+                            {[item.defaultKey, item.form, item.sourceLabel].filter(Boolean).join(" · ")}
+                          </div>
+                        </div>
+                        <div className="flex flex-col items-end gap-1">
+                          <span className="rounded-xl border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-600">
+                            {item.year || "s/f"}
+                          </span>
+                          <span className={`rounded-xl px-2 py-1 text-[10px] font-semibold ${hasRealChart ? "border border-emerald-200 bg-emerald-50 text-emerald-700" : "border border-amber-200 bg-amber-50 text-amber-700"}`}>
+                            {hasRealChart ? "Chart real" : "Reducción"}
+                          </span>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            ) : null}
+          </PanelBlock>
+
+          {selectedStandard ? (
+            <div className="space-y-3">
+              <PanelBlock
+                level="subsection"
+                title={selectedStandard.title}
+                description={selectedStandard.overview || undefined}
+                headerAside={
+                  <div className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700">
+                    {selectedStandard.defaultKey} · {selectedStandard.form}
+                  </div>
+                }
+                bodyClassName="space-y-3"
+              >
+                <div className="flex flex-wrap gap-2 text-xs text-slate-600">
+                  <span className="rounded-xl border border-slate-200 bg-slate-50 px-2 py-1">
+                    {Array.isArray(selectedStandard.composers) ? selectedStandard.composers.join(" · ") : "Autor no indicado"}
+                  </span>
+                  <span className="rounded-xl border border-slate-200 bg-slate-50 px-2 py-1">
+                    {selectedStandard.year || "Año no indicado"}
+                  </span>
+                </div>
+              </PanelBlock>
+
+              <PanelBlock
+                level="subsection"
+                title="Chart real"
+                headerAside={canOpenStandardsFullView ? (
+                  <button
+                    type="button"
+                    className={UI_BTN_SM + " inline-flex w-auto items-center gap-1.5 px-3"}
+                    onClick={() => setStandardsFullViewOpen(true)}
+                  >
+                    <BookOpen className="h-4 w-4" />
+                    Ver en grande
+                  </button>
+                ) : null}
+              >
+                {standardsLoadingId === selectedStandard.id && !selectedStandardHasRealChart ? (
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-600">
+                    Cargando chart desde OpenBook...
+                  </div>
+                ) : standardsError && !selectedStandardHasRealChart ? (
+                  <div className="rounded-2xl border border-rose-200 bg-rose-50 px-3 py-3 text-sm leading-6 text-rose-700">
+                    {standardsError}
+                  </div>
+                ) : selectedStandardHasRealChart ? (
+                  <div className="space-y-3">
+                    {renderStandardRealSelectionBar(false)}
+                    {renderStandardRealChartSections(false)}
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="rounded-2xl border border-amber-200 bg-amber-50 px-3 py-3 text-sm leading-6 text-amber-900">
+                      Este tema no tiene todavía un chart real cargado compás a compás. Lo que aparece debajo es una reducción de estudio y no debe leerse como la forma exacta del standard.
+                    </div>
+                    <div className="text-sm text-slate-600">
+                      Mientras no exista ese chart, puedes abrir la reducción completa o trabajar desde los tramos pedagógicos de abajo.
+                    </div>
+                  </div>
+                )}
+              </PanelBlock>
+
+              <PanelBlock
+                level="subsection"
+                title="Reducción de estudio"
+                description="Cada tarjeta resume un tramo de trabajo. Puedes cargar el tramo completo o aislar un compás; si ese compás lleva dos acordes, se cargarán ambos en orden."
+              >
+                <div className="grid gap-3 md:grid-cols-2">
+                  {(Array.isArray(selectedStandard.phrases) ? selectedStandard.phrases : []).map((phrase, idx) => {
+                    const measures = buildStandardPhraseMeasures(phrase);
+                    return (
+                      <div key={`${selectedStandard.id}-map-${idx}`} className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                              {phrase.section}{phrase.bars ? ` · compases ${phrase.bars}` : ""}
+                            </div>
+                            <div className="mt-1 text-sm font-semibold text-slate-800">{phrase.label}</div>
+                          </div>
+                          <button
+                            type="button"
+                            className={UI_BTN_SM + " w-auto shrink-0 px-3"}
+                            title="Cargar este tramo en Acordes cercanos"
+                            onClick={() => applyStandardPhraseToNearChords(selectedStandard, phrase)}
+                          >
+                            Cargar tramo
+                          </button>
+                        </div>
+
+                        <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                          {measures.map((measure, measureIdx) => (
+                            <button
+                              key={`${selectedStandard.id}-${idx}-${measure.barLabel}-${measureIdx}`}
+                              type="button"
+                              className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-left shadow-sm transition-colors hover:bg-sky-50"
+                              title={`Cargar ${measure.barLabel}`}
+                              onClick={() => applyStandardMeasureToNearChords(selectedStandard, phrase, measureIdx)}
+                            >
+                              <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                                {measure.barLabel}
+                              </div>
+                              <div className="mt-2 flex flex-wrap gap-1.5">
+                                {measure.chords.map((symbol, symbolIdx) => (
+                                  <span key={`${selectedStandard.id}-${idx}-${measureIdx}-${symbol}-${symbolIdx}`} className="rounded-xl border border-slate-200 bg-white px-2 py-1 text-sm font-semibold text-slate-800">
+                                    {symbol}
+                                  </span>
+                                ))}
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+
+                        {phrase.function ? (
+                          <div className="mt-3 text-xs leading-5 text-slate-600">
+                            <b>Función:</b> {phrase.function}
+                          </div>
+                        ) : null}
+                      </div>
+                    );
+                  })}
+                </div>
+              </PanelBlock>
+
+              <PanelBlock
+                level="subsection"
+                title="Estudio guiado"
+                description="Ideas de práctica para entender por qué funciona cada tramo de la reducción sin perder la visión global."
+                headerAside={(
+                  <button
+                    type="button"
+                    className={UI_BTN_SM + " inline-flex w-auto items-center gap-1.5 px-3"}
+                    onClick={() => setStandardsStudyOpen((value) => !value)}
+                  >
+                    <ChevronRight className={`h-4 w-4 transition-transform ${standardsStudyOpen ? "rotate-90" : ""}`} />
+                    {standardsStudyOpen ? "Ocultar estudio" : "Abrir estudio"}
+                  </button>
+                )}
+              >
+                {standardsStudyOpen ? (
+                  <div className="space-y-3">
+                    <div className="rounded-2xl border border-sky-200 bg-sky-50 px-3 py-2 text-sm leading-6 text-slate-700">
+                      Las pistas de escala y los focos de abajo son orientativos. La idea es ayudarte a estudiar el tramo, no sustituir un análisis compás a compás.
+                    </div>
+
+                    {Array.isArray(selectedStandard.practiceFocus) && selectedStandard.practiceFocus.length ? (
+                      <div className="grid gap-2 md:grid-cols-3">
+                        {selectedStandard.practiceFocus.map((item) => (
+                          <div key={item} className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+                            {item}
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+
+                    {Array.isArray(selectedStandard.scaleHints) && selectedStandard.scaleHints.length ? (
+                      <div className="space-y-2">
+                        <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Pistas de escala</div>
+                        <div className="flex flex-wrap gap-2">
+                          {selectedStandard.scaleHints.map((hint) => (
+                            <span key={hint} className="rounded-xl border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-semibold text-slate-700">
+                              {hint}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+
+                    <div className="grid gap-3 md:grid-cols-2">
+                      {(Array.isArray(selectedStandard.phrases) ? selectedStandard.phrases : []).map((phrase, idx) => (
+                        <div key={`${selectedStandard.id}-study-${idx}`} className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+                          <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                            {phrase.section}{phrase.bars ? ` · compases ${phrase.bars}` : ""}
+                          </div>
+                          <div className="mt-1 text-sm font-semibold text-slate-800">{phrase.label}</div>
+
+                          <div className="mt-3 space-y-2">
+                            {buildStandardPhraseMeasures(phrase).map((measure, measureIdx) => (
+                              <div key={`${selectedStandard.id}-${idx}-study-${measure.barLabel}-${measureIdx}`} className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2">
+                                <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{measure.barLabel}</div>
+                                <div className="mt-2 flex flex-wrap gap-1.5">
+                                  {measure.chords.map((symbol, symbolIdx) => (
+                                    <span key={`${selectedStandard.id}-${idx}-study-${measureIdx}-${symbol}-${symbolIdx}`} className="rounded-xl border border-slate-200 bg-white px-2 py-1 text-sm font-semibold text-slate-700">
+                                      {symbol}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+
+                          {phrase.function ? (
+                            <div className="mt-3 text-xs leading-5 text-slate-600">
+                              <b>Función:</b> {phrase.function}
+                            </div>
+                          ) : null}
+
+                          {phrase.focus ? (
+                            <div className="mt-1 text-xs leading-5 text-slate-600">
+                              <b>Foco:</b> {phrase.focus}
+                            </div>
+                          ) : null}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-sm text-slate-600">
+                    Ábrelo si quieres ver comentarios pedagógicos, focos de práctica y pistas de escala para cada tramo.
+                  </div>
+                )}
+              </PanelBlock>
+            </div>
+          ) : (
+            <PanelBlock
+              level="subsection"
+              title="Ficha"
+              description="Selecciona un tema para distinguir entre chart real y reducción de estudio."
+            >
+              <div className="text-sm text-slate-600">Aquí aparecerá primero el estado del chart real y, debajo, la reducción de estudio con sus tramos y su análisis.</div>
+            </PanelBlock>
+          )}
+        </div>
+      </PanelBlock>
+    );
+  }
+
   function boardVisibilityForSection(section) {
     return {
       scale: section === "scale",
@@ -15198,6 +16084,7 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
       route: section === "route",
       chords: section === "chords",
       nearChords: section === "nearChords",
+      standards: section === "standards",
       configuration: false,
     };
   }
@@ -16080,6 +16967,8 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
           </PanelBlock>
         ) : null}
 
+        {boardVisibility.standards ? renderStandardsPanel() : null}
+
         {(boardVisibility.chords || boardVisibility.nearChords) ? <StudyPanel /> : null}
       </div>
     );
@@ -16185,6 +17074,9 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
               </ToggleButton>
               <ToggleButton active={effectiveBoards.nearChords} onClick={() => selectBoardView("nearChords")} title="Muestra el panel de acordes cercanos">
                 <NavIconLabel icon={Waypoints} label="Acordes cercanos" />
+              </ToggleButton>
+              <ToggleButton active={effectiveBoards.standards} onClick={() => selectBoardView("standards")} title="Muestra la sección de standards de jazz">
+                <NavIconLabel icon={BookOpen} label="Standards" />
               </ToggleButton>
               <ToggleButton active={effectiveBoards.configuration} onClick={() => selectBoardView("configuration")} title="Muestra u oculta la configuración general">
                 <NavIconLabel icon={Settings} label="Configuración" />
@@ -16577,11 +17469,12 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
             </div>
           </>
         ) : null}
+        <StandardsFullViewOverlay />
         {renderMobileNearSlotEditorPortal()}
         {isMobileLayout ? (
           <div className="pointer-events-none fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] z-30 flex justify-center px-3 xl:hidden">
             <div className="pointer-events-auto w-[min(92vw,430px)] rounded-[30px] border border-slate-200/80 bg-white/96 p-2 shadow-[0_14px_38px_rgba(15,23,42,0.16)] backdrop-blur-md">
-              <div className="grid grid-cols-5 gap-1.5">
+              <div className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${MOBILE_BOTTOM_NAV_OPTIONS.length}, minmax(0, 1fr))` }}>
               {MOBILE_BOTTOM_NAV_OPTIONS.map((option) => (
                 <button
                   key={option.value}
