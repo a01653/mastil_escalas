@@ -1,0 +1,481 @@
+{
+  "id": "the-pink-panther",
+  "title": "The Pink Panther",
+  "composers": [
+    "Henry Mancini"
+  ],
+  "year": 1963,
+  "defaultKey": "Em",
+  "form": "A · 16 compases",
+  "overview": "",
+  "practiceFocus": [],
+  "scaleHints": [],
+  "realForm": {
+    "sections": [
+      {
+        "id": "section-1",
+        "label": "A",
+        "bars": "1-16",
+        "timeSignature": "FOUR_FOUR",
+        "measures": [
+          {
+            "bar": 1,
+            "chords": [
+              "E-"
+            ],
+            "chordEvents": [
+              {
+                "display": "E-",
+                "load": "Em"
+              }
+            ],
+            "repeat": false
+          },
+          {
+            "bar": 2,
+            "chords": [
+              "E-"
+            ],
+            "chordEvents": [
+              {
+                "display": "E-",
+                "load": "Em"
+              }
+            ],
+            "repeat": false
+          },
+          {
+            "bar": 3,
+            "chords": [
+              "C7#11"
+            ],
+            "chordEvents": [
+              {
+                "display": "C7#11",
+                "load": "C7"
+              }
+            ],
+            "repeat": false
+          },
+          {
+            "bar": 4,
+            "chords": [
+              "C7#11"
+            ],
+            "chordEvents": [
+              {
+                "display": "C7#11",
+                "load": "C7"
+              }
+            ],
+            "repeat": false
+          },
+          {
+            "bar": 5,
+            "chords": [
+              "E-"
+            ],
+            "chordEvents": [
+              {
+                "display": "E-",
+                "load": "Em"
+              }
+            ],
+            "repeat": false
+          },
+          {
+            "bar": 6,
+            "chords": [
+              "E-"
+            ],
+            "chordEvents": [
+              {
+                "display": "E-",
+                "load": "Em"
+              }
+            ],
+            "repeat": false
+          },
+          {
+            "bar": 7,
+            "chords": [
+              "F7#11"
+            ],
+            "chordEvents": [
+              {
+                "display": "F7#11",
+                "load": "F7"
+              }
+            ],
+            "repeat": false
+          },
+          {
+            "bar": 8,
+            "chords": [
+              "F7#11"
+            ],
+            "chordEvents": [
+              {
+                "display": "F7#11",
+                "load": "F7"
+              }
+            ],
+            "repeat": false
+          },
+          {
+            "bar": 9,
+            "chords": [
+              "E-"
+            ],
+            "chordEvents": [
+              {
+                "display": "E-",
+                "load": "Em"
+              }
+            ],
+            "repeat": false
+          },
+          {
+            "bar": 10,
+            "chords": [
+              "E-"
+            ],
+            "chordEvents": [
+              {
+                "display": "E-",
+                "load": "Em"
+              }
+            ],
+            "repeat": false
+          },
+          {
+            "bar": 11,
+            "chords": [
+              "C7#11"
+            ],
+            "chordEvents": [
+              {
+                "display": "C7#11",
+                "load": "C7"
+              }
+            ],
+            "repeat": false
+          },
+          {
+            "bar": 12,
+            "chords": [
+              "C7#11"
+            ],
+            "chordEvents": [
+              {
+                "display": "C7#11",
+                "load": "C7"
+              }
+            ],
+            "repeat": false
+          },
+          {
+            "bar": 13,
+            "chords": [
+              "E-"
+            ],
+            "chordEvents": [
+              {
+                "display": "E-",
+                "load": "Em"
+              }
+            ],
+            "repeat": false
+          },
+          {
+            "bar": 14,
+            "chords": [
+              "C7#11",
+              "B7#9"
+            ],
+            "chordEvents": [
+              {
+                "display": "C7#11",
+                "load": "C7"
+              },
+              {
+                "display": "B7#9",
+                "load": "B7"
+              }
+            ],
+            "repeat": false
+          },
+          {
+            "bar": 15,
+            "chords": [
+              "E-"
+            ],
+            "chordEvents": [
+              {
+                "display": "E-",
+                "load": "Em"
+              }
+            ],
+            "repeat": false
+          },
+          {
+            "bar": 16,
+            "chords": [
+              "E-"
+            ],
+            "chordEvents": [
+              {
+                "display": "E-",
+                "load": "Em"
+              }
+            ],
+            "repeat": false
+          }
+        ]
+      }
+    ]
+  },
+  "phrases": [
+    {
+      "section": "A",
+      "bars": "1-4",
+      "label": "Tramo 1",
+      "measures": [
+        {
+          "bar": 1,
+          "repeat": false,
+          "chordEvents": [
+            {
+              "display": "E-",
+              "load": "Em"
+            }
+          ],
+          "chords": [
+            "E-"
+          ]
+        },
+        {
+          "bar": 2,
+          "repeat": false,
+          "chordEvents": [
+            {
+              "display": "E-",
+              "load": "Em"
+            }
+          ],
+          "chords": [
+            "E-"
+          ]
+        },
+        {
+          "bar": 3,
+          "repeat": false,
+          "chordEvents": [
+            {
+              "display": "C7#11",
+              "load": "C7"
+            }
+          ],
+          "chords": [
+            "C7#11"
+          ]
+        },
+        {
+          "bar": 4,
+          "repeat": false,
+          "chordEvents": [
+            {
+              "display": "C7#11",
+              "load": "C7"
+            }
+          ],
+          "chords": [
+            "C7#11"
+          ]
+        }
+      ]
+    },
+    {
+      "section": "A",
+      "bars": "5-8",
+      "label": "Tramo 2",
+      "measures": [
+        {
+          "bar": 5,
+          "repeat": false,
+          "chordEvents": [
+            {
+              "display": "E-",
+              "load": "Em"
+            }
+          ],
+          "chords": [
+            "E-"
+          ]
+        },
+        {
+          "bar": 6,
+          "repeat": false,
+          "chordEvents": [
+            {
+              "display": "E-",
+              "load": "Em"
+            }
+          ],
+          "chords": [
+            "E-"
+          ]
+        },
+        {
+          "bar": 7,
+          "repeat": false,
+          "chordEvents": [
+            {
+              "display": "F7#11",
+              "load": "F7"
+            }
+          ],
+          "chords": [
+            "F7#11"
+          ]
+        },
+        {
+          "bar": 8,
+          "repeat": false,
+          "chordEvents": [
+            {
+              "display": "F7#11",
+              "load": "F7"
+            }
+          ],
+          "chords": [
+            "F7#11"
+          ]
+        }
+      ]
+    },
+    {
+      "section": "A",
+      "bars": "9-12",
+      "label": "Tramo 3",
+      "measures": [
+        {
+          "bar": 9,
+          "repeat": false,
+          "chordEvents": [
+            {
+              "display": "E-",
+              "load": "Em"
+            }
+          ],
+          "chords": [
+            "E-"
+          ]
+        },
+        {
+          "bar": 10,
+          "repeat": false,
+          "chordEvents": [
+            {
+              "display": "E-",
+              "load": "Em"
+            }
+          ],
+          "chords": [
+            "E-"
+          ]
+        },
+        {
+          "bar": 11,
+          "repeat": false,
+          "chordEvents": [
+            {
+              "display": "C7#11",
+              "load": "C7"
+            }
+          ],
+          "chords": [
+            "C7#11"
+          ]
+        },
+        {
+          "bar": 12,
+          "repeat": false,
+          "chordEvents": [
+            {
+              "display": "C7#11",
+              "load": "C7"
+            }
+          ],
+          "chords": [
+            "C7#11"
+          ]
+        }
+      ]
+    },
+    {
+      "section": "A",
+      "bars": "13-16",
+      "label": "Tramo 4",
+      "measures": [
+        {
+          "bar": 13,
+          "repeat": false,
+          "chordEvents": [
+            {
+              "display": "E-",
+              "load": "Em"
+            }
+          ],
+          "chords": [
+            "E-"
+          ]
+        },
+        {
+          "bar": 14,
+          "repeat": false,
+          "chordEvents": [
+            {
+              "display": "C7#11",
+              "load": "C7"
+            },
+            {
+              "display": "B7#9",
+              "load": "B7"
+            }
+          ],
+          "chords": [
+            "C7#11",
+            "B7#9"
+          ]
+        },
+        {
+          "bar": 15,
+          "repeat": false,
+          "chordEvents": [
+            {
+              "display": "E-",
+              "load": "Em"
+            }
+          ],
+          "chords": [
+            "E-"
+          ]
+        },
+        {
+          "bar": 16,
+          "repeat": false,
+          "chordEvents": [
+            {
+              "display": "E-",
+              "load": "Em"
+            }
+          ],
+          "chords": [
+            "E-"
+          ]
+        }
+      ]
+    }
+  ]
+}

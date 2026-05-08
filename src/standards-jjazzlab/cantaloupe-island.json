@@ -1,0 +1,471 @@
+{
+  "id": "cantaloupe-island",
+  "title": "Cantaloupe Island",
+  "composers": [
+    "Herbie Hancock"
+  ],
+  "year": 1964,
+  "defaultKey": "Fm",
+  "form": "A · 16 compases",
+  "overview": "",
+  "practiceFocus": [],
+  "scaleHints": [],
+  "realForm": {
+    "sections": [
+      {
+        "id": "section-1",
+        "label": "A",
+        "bars": "1-16",
+        "timeSignature": "FOUR_FOUR",
+        "measures": [
+          {
+            "bar": 1,
+            "chords": [
+              "F-11"
+            ],
+            "chordEvents": [
+              {
+                "display": "F-11",
+                "load": "Fm11"
+              }
+            ],
+            "repeat": false
+          },
+          {
+            "bar": 2,
+            "chords": [
+              "F-11"
+            ],
+            "chordEvents": [
+              {
+                "display": "F-11",
+                "load": "Fm11"
+              }
+            ],
+            "repeat": false
+          },
+          {
+            "bar": 3,
+            "chords": [
+              "F-11"
+            ],
+            "chordEvents": [
+              {
+                "display": "F-11",
+                "load": "Fm11"
+              }
+            ],
+            "repeat": false
+          },
+          {
+            "bar": 4,
+            "chords": [
+              "F-11"
+            ],
+            "chordEvents": [
+              {
+                "display": "F-11",
+                "load": "Fm11"
+              }
+            ],
+            "repeat": false
+          },
+          {
+            "bar": 5,
+            "chords": [
+              "Db7#11"
+            ],
+            "chordEvents": [
+              {
+                "display": "Db7#11",
+                "load": "Db7"
+              }
+            ],
+            "repeat": false
+          },
+          {
+            "bar": 6,
+            "chords": [
+              "Db7#11"
+            ],
+            "chordEvents": [
+              {
+                "display": "Db7#11",
+                "load": "Db7"
+              }
+            ],
+            "repeat": false
+          },
+          {
+            "bar": 7,
+            "chords": [
+              "Db7#11"
+            ],
+            "chordEvents": [
+              {
+                "display": "Db7#11",
+                "load": "Db7"
+              }
+            ],
+            "repeat": false
+          },
+          {
+            "bar": 8,
+            "chords": [
+              "Db7#11"
+            ],
+            "chordEvents": [
+              {
+                "display": "Db7#11",
+                "load": "Db7"
+              }
+            ],
+            "repeat": false
+          },
+          {
+            "bar": 9,
+            "chords": [
+              "D-11"
+            ],
+            "chordEvents": [
+              {
+                "display": "D-11",
+                "load": "Dm11"
+              }
+            ],
+            "repeat": false
+          },
+          {
+            "bar": 10,
+            "chords": [
+              "D-11"
+            ],
+            "chordEvents": [
+              {
+                "display": "D-11",
+                "load": "Dm11"
+              }
+            ],
+            "repeat": false
+          },
+          {
+            "bar": 11,
+            "chords": [
+              "D-11"
+            ],
+            "chordEvents": [
+              {
+                "display": "D-11",
+                "load": "Dm11"
+              }
+            ],
+            "repeat": false
+          },
+          {
+            "bar": 12,
+            "chords": [
+              "D-11"
+            ],
+            "chordEvents": [
+              {
+                "display": "D-11",
+                "load": "Dm11"
+              }
+            ],
+            "repeat": false
+          },
+          {
+            "bar": 13,
+            "chords": [
+              "F-11"
+            ],
+            "chordEvents": [
+              {
+                "display": "F-11",
+                "load": "Fm11"
+              }
+            ],
+            "repeat": false
+          },
+          {
+            "bar": 14,
+            "chords": [
+              "F-11"
+            ],
+            "chordEvents": [
+              {
+                "display": "F-11",
+                "load": "Fm11"
+              }
+            ],
+            "repeat": false
+          },
+          {
+            "bar": 15,
+            "chords": [
+              "F-11"
+            ],
+            "chordEvents": [
+              {
+                "display": "F-11",
+                "load": "Fm11"
+              }
+            ],
+            "repeat": false
+          },
+          {
+            "bar": 16,
+            "chords": [
+              "F-11"
+            ],
+            "chordEvents": [
+              {
+                "display": "F-11",
+                "load": "Fm11"
+              }
+            ],
+            "repeat": false
+          }
+        ]
+      }
+    ]
+  },
+  "phrases": [
+    {
+      "section": "A",
+      "bars": "1-4",
+      "label": "Tramo 1",
+      "measures": [
+        {
+          "bar": 1,
+          "repeat": false,
+          "chordEvents": [
+            {
+              "display": "F-11",
+              "load": "Fm11"
+            }
+          ],
+          "chords": [
+            "F-11"
+          ]
+        },
+        {
+          "bar": 2,
+          "repeat": false,
+          "chordEvents": [
+            {
+              "display": "F-11",
+              "load": "Fm11"
+            }
+          ],
+          "chords": [
+            "F-11"
+          ]
+        },
+        {
+          "bar": 3,
+          "repeat": false,
+          "chordEvents": [
+            {
+              "display": "F-11",
+              "load": "Fm11"
+            }
+          ],
+          "chords": [
+            "F-11"
+          ]
+        },
+        {
+          "bar": 4,
+          "repeat": false,
+          "chordEvents": [
+            {
+              "display": "F-11",
+              "load": "Fm11"
+            }
+          ],
+          "chords": [
+            "F-11"
+          ]
+        }
+      ]
+    },
+    {
+      "section": "A",
+      "bars": "5-8",
+      "label": "Tramo 2",
+      "measures": [
+        {
+          "bar": 5,
+          "repeat": false,
+          "chordEvents": [
+            {
+              "display": "Db7#11",
+              "load": "Db7"
+            }
+          ],
+          "chords": [
+            "Db7#11"
+          ]
+        },
+        {
+          "bar": 6,
+          "repeat": false,
+          "chordEvents": [
+            {
+              "display": "Db7#11",
+              "load": "Db7"
+            }
+          ],
+          "chords": [
+            "Db7#11"
+          ]
+        },
+        {
+          "bar": 7,
+          "repeat": false,
+          "chordEvents": [
+            {
+              "display": "Db7#11",
+              "load": "Db7"
+            }
+          ],
+          "chords": [
+            "Db7#11"
+          ]
+        },
+        {
+          "bar": 8,
+          "repeat": false,
+          "chordEvents": [
+            {
+              "display": "Db7#11",
+              "load": "Db7"
+            }
+          ],
+          "chords": [
+            "Db7#11"
+          ]
+        }
+      ]
+    },
+    {
+      "section": "A",
+      "bars": "9-12",
+      "label": "Tramo 3",
+      "measures": [
+        {
+          "bar": 9,
+          "repeat": false,
+          "chordEvents": [
+            {
+              "display": "D-11",
+              "load": "Dm11"
+            }
+          ],
+          "chords": [
+            "D-11"
+          ]
+        },
+        {
+          "bar": 10,
+          "repeat": false,
+          "chordEvents": [
+            {
+              "display": "D-11",
+              "load": "Dm11"
+            }
+          ],
+          "chords": [
+            "D-11"
+          ]
+        },
+        {
+          "bar": 11,
+          "repeat": false,
+          "chordEvents": [
+            {
+              "display": "D-11",
+              "load": "Dm11"
+            }
+          ],
+          "chords": [
+            "D-11"
+          ]
+        },
+        {
+          "bar": 12,
+          "repeat": false,
+          "chordEvents": [
+            {
+              "display": "D-11",
+              "load": "Dm11"
+            }
+          ],
+          "chords": [
+            "D-11"
+          ]
+        }
+      ]
+    },
+    {
+      "section": "A",
+      "bars": "13-16",
+      "label": "Tramo 4",
+      "measures": [
+        {
+          "bar": 13,
+          "repeat": false,
+          "chordEvents": [
+            {
+              "display": "F-11",
+              "load": "Fm11"
+            }
+          ],
+          "chords": [
+            "F-11"
+          ]
+        },
+        {
+          "bar": 14,
+          "repeat": false,
+          "chordEvents": [
+            {
+              "display": "F-11",
+              "load": "Fm11"
+            }
+          ],
+          "chords": [
+            "F-11"
+          ]
+        },
+        {
+          "bar": 15,
+          "repeat": false,
+          "chordEvents": [
+            {
+              "display": "F-11",
+              "load": "Fm11"
+            }
+          ],
+          "chords": [
+            "F-11"
+          ]
+        },
+        {
+          "bar": 16,
+          "repeat": false,
+          "chordEvents": [
+            {
+              "display": "F-11",
+              "load": "Fm11"
+            }
+          ],
+          "chords": [
+            "F-11"
+          ]
+        }
+      ]
+    }
+  ]
+}

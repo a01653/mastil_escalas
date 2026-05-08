@@ -1,0 +1,360 @@
+{
+  "id": "señor-blues",
+  "title": "Señor Blues",
+  "composers": [
+    "Horace Silver"
+  ],
+  "year": 1956,
+  "defaultKey": "Ebm",
+  "form": "A · 12 compases",
+  "overview": "",
+  "practiceFocus": [],
+  "scaleHints": [],
+  "realForm": {
+    "sections": [
+      {
+        "id": "section-1",
+        "label": "A",
+        "bars": "1-12",
+        "timeSignature": "FOUR_FOUR",
+        "measures": [
+          {
+            "bar": 1,
+            "chords": [
+              "Eb-6/9"
+            ],
+            "chordEvents": [
+              {
+                "display": "Eb-6/9",
+                "load": "Ebm6"
+              }
+            ],
+            "repeat": false
+          },
+          {
+            "bar": 2,
+            "chords": [
+              "Eb-6/9"
+            ],
+            "chordEvents": [
+              {
+                "display": "Eb-6/9",
+                "load": "Ebm6"
+              }
+            ],
+            "repeat": false
+          },
+          {
+            "bar": 3,
+            "chords": [
+              "Eb-6/9"
+            ],
+            "chordEvents": [
+              {
+                "display": "Eb-6/9",
+                "load": "Ebm6"
+              }
+            ],
+            "repeat": false
+          },
+          {
+            "bar": 4,
+            "chords": [
+              "Eb-6/9"
+            ],
+            "chordEvents": [
+              {
+                "display": "Eb-6/9",
+                "load": "Ebm6"
+              }
+            ],
+            "repeat": false
+          },
+          {
+            "bar": 5,
+            "chords": [
+              "B7#11"
+            ],
+            "chordEvents": [
+              {
+                "display": "B7#11",
+                "load": "B7"
+              }
+            ],
+            "repeat": false
+          },
+          {
+            "bar": 6,
+            "chords": [
+              "B7#11"
+            ],
+            "chordEvents": [
+              {
+                "display": "B7#11",
+                "load": "B7"
+              }
+            ],
+            "repeat": false
+          },
+          {
+            "bar": 7,
+            "chords": [
+              "Eb-6/9"
+            ],
+            "chordEvents": [
+              {
+                "display": "Eb-6/9",
+                "load": "Ebm6"
+              }
+            ],
+            "repeat": false
+          },
+          {
+            "bar": 8,
+            "chords": [
+              "Eb-6/9"
+            ],
+            "chordEvents": [
+              {
+                "display": "Eb-6/9",
+                "load": "Ebm6"
+              }
+            ],
+            "repeat": false
+          },
+          {
+            "bar": 9,
+            "chords": [
+              "Bb9"
+            ],
+            "chordEvents": [
+              {
+                "display": "Bb9",
+                "load": "Bb9"
+              }
+            ],
+            "repeat": false
+          },
+          {
+            "bar": 10,
+            "chords": [
+              "Ab9"
+            ],
+            "chordEvents": [
+              {
+                "display": "Ab9",
+                "load": "Ab9"
+              }
+            ],
+            "repeat": false
+          },
+          {
+            "bar": 11,
+            "chords": [
+              "Eb-6/9"
+            ],
+            "chordEvents": [
+              {
+                "display": "Eb-6/9",
+                "load": "Ebm6"
+              }
+            ],
+            "repeat": false
+          },
+          {
+            "bar": 12,
+            "chords": [
+              "Eb-6/9"
+            ],
+            "chordEvents": [
+              {
+                "display": "Eb-6/9",
+                "load": "Ebm6"
+              }
+            ],
+            "repeat": false
+          }
+        ]
+      }
+    ]
+  },
+  "phrases": [
+    {
+      "section": "A",
+      "bars": "1-4",
+      "label": "Tramo 1",
+      "measures": [
+        {
+          "bar": 1,
+          "repeat": false,
+          "chordEvents": [
+            {
+              "display": "Eb-6/9",
+              "load": "Ebm6"
+            }
+          ],
+          "chords": [
+            "Eb-6/9"
+          ]
+        },
+        {
+          "bar": 2,
+          "repeat": false,
+          "chordEvents": [
+            {
+              "display": "Eb-6/9",
+              "load": "Ebm6"
+            }
+          ],
+          "chords": [
+            "Eb-6/9"
+          ]
+        },
+        {
+          "bar": 3,
+          "repeat": false,
+          "chordEvents": [
+            {
+              "display": "Eb-6/9",
+              "load": "Ebm6"
+            }
+          ],
+          "chords": [
+            "Eb-6/9"
+          ]
+        },
+        {
+          "bar": 4,
+          "repeat": false,
+          "chordEvents": [
+            {
+              "display": "Eb-6/9",
+              "load": "Ebm6"
+            }
+          ],
+          "chords": [
+            "Eb-6/9"
+          ]
+        }
+      ]
+    },
+    {
+      "section": "A",
+      "bars": "5-8",
+      "label": "Tramo 2",
+      "measures": [
+        {
+          "bar": 5,
+          "repeat": false,
+          "chordEvents": [
+            {
+              "display": "B7#11",
+              "load": "B7"
+            }
+          ],
+          "chords": [
+            "B7#11"
+          ]
+        },
+        {
+          "bar": 6,
+          "repeat": false,
+          "chordEvents": [
+            {
+              "display": "B7#11",
+              "load": "B7"
+            }
+          ],
+          "chords": [
+            "B7#11"
+          ]
+        },
+        {
+          "bar": 7,
+          "repeat": false,
+          "chordEvents": [
+            {
+              "display": "Eb-6/9",
+              "load": "Ebm6"
+            }
+          ],
+          "chords": [
+            "Eb-6/9"
+          ]
+        },
+        {
+          "bar": 8,
+          "repeat": false,
+          "chordEvents": [
+            {
+              "display": "Eb-6/9",
+              "load": "Ebm6"
+            }
+          ],
+          "chords": [
+            "Eb-6/9"
+          ]
+        }
+      ]
+    },
+    {
+      "section": "A",
+      "bars": "9-12",
+      "label": "Tramo 3",
+      "measures": [
+        {
+          "bar": 9,
+          "repeat": false,
+          "chordEvents": [
+            {
+              "display": "Bb9",
+              "load": "Bb9"
+            }
+          ],
+          "chords": [
+            "Bb9"
+          ]
+        },
+        {
+          "bar": 10,
+          "repeat": false,
+          "chordEvents": [
+            {
+              "display": "Ab9",
+              "load": "Ab9"
+            }
+          ],
+          "chords": [
+            "Ab9"
+          ]
+        },
+        {
+          "bar": 11,
+          "repeat": false,
+          "chordEvents": [
+            {
+              "display": "Eb-6/9",
+              "load": "Ebm6"
+            }
+          ],
+          "chords": [
+            "Eb-6/9"
+          ]
+        },
+        {
+          "bar": 12,
+          "repeat": false,
+          "chordEvents": [
+            {
+              "display": "Eb-6/9",
+              "load": "Ebm6"
+            }
+          ],
+          "chords": [
+            "Eb-6/9"
+          ]
+        }
+      ]
+    }
+  ]
+}

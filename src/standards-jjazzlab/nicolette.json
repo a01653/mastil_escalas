@@ -1,0 +1,1252 @@
+{
+  "id": "nicolette",
+  "title": "Nicolette",
+  "composers": [
+    "Kenny Wheeler"
+  ],
+  "year": 2004,
+  "defaultKey": "Bb",
+  "form": "A (1ª vuelta / 2ª vuelta) · B · C (1ª vuelta / 2ª vuelta) · C · 38 compases",
+  "overview": "",
+  "practiceFocus": [],
+  "scaleHints": [],
+  "realForm": {
+    "sections": [
+      {
+        "id": "section-1",
+        "label": "A · 1ª vuelta",
+        "bars": "1-8",
+        "timeSignature": "FOUR_FOUR",
+        "measures": [
+          {
+            "bar": 1,
+            "chords": [
+              "E-9"
+            ],
+            "chordEvents": [
+              {
+                "display": "E-9",
+                "load": "Em9"
+              }
+            ],
+            "repeat": false
+          },
+          {
+            "bar": 2,
+            "chords": [
+              "Bb7#5#9"
+            ],
+            "chordEvents": [
+              {
+                "display": "Bb7#5#9",
+                "load": "Bb7"
+              }
+            ],
+            "repeat": false
+          },
+          {
+            "bar": 3,
+            "chords": [
+              "Eb-9"
+            ],
+            "chordEvents": [
+              {
+                "display": "Eb-9",
+                "load": "Ebm9"
+              }
+            ],
+            "repeat": false
+          },
+          {
+            "bar": 4,
+            "chords": [
+              "BbΔ7#11/A"
+            ],
+            "chordEvents": [
+              {
+                "display": "BbΔ7#11/A",
+                "load": "Bbmaj7"
+              }
+            ],
+            "repeat": false
+          },
+          {
+            "bar": 5,
+            "chords": [
+              "GΔ7#11/F#"
+            ],
+            "chordEvents": [
+              {
+                "display": "GΔ7#11/F#",
+                "load": "Gmaj7"
+              }
+            ],
+            "repeat": false
+          },
+          {
+            "bar": 6,
+            "chords": [
+              "Go7",
+              "A#o7"
+            ],
+            "chordEvents": [
+              {
+                "display": "Go7",
+                "load": "Gdim7"
+              },
+              {
+                "display": "A#o7",
+                "load": "A#dim7"
+              }
+            ],
+            "repeat": false
+          },
+          {
+            "bar": 7,
+            "chords": [
+              "B-11"
+            ],
+            "chordEvents": [
+              {
+                "display": "B-11",
+                "load": "Bm11"
+              }
+            ],
+            "repeat": false
+          },
+          {
+            "bar": 8,
+            "chords": [
+              "E7#9#11"
+            ],
+            "chordEvents": [
+              {
+                "display": "E7#9#11",
+                "load": "E7"
+              }
+            ],
+            "repeat": false
+          }
+        ]
+      },
+      {
+        "id": "section-2",
+        "label": "A · 2ª vuelta",
+        "bars": "1-8",
+        "timeSignature": "FOUR_FOUR",
+        "measures": [
+          {
+            "bar": 1,
+            "chords": [
+              "E-9"
+            ],
+            "chordEvents": [
+              {
+                "display": "E-9",
+                "load": "Em9"
+              }
+            ],
+            "repeat": false
+          },
+          {
+            "bar": 2,
+            "chords": [
+              "Bb7#5#9"
+            ],
+            "chordEvents": [
+              {
+                "display": "Bb7#5#9",
+                "load": "Bb7"
+              }
+            ],
+            "repeat": false
+          },
+          {
+            "bar": 3,
+            "chords": [
+              "Eb-9"
+            ],
+            "chordEvents": [
+              {
+                "display": "Eb-9",
+                "load": "Ebm9"
+              }
+            ],
+            "repeat": false
+          },
+          {
+            "bar": 4,
+            "chords": [
+              "BbΔ7#11/A"
+            ],
+            "chordEvents": [
+              {
+                "display": "BbΔ7#11/A",
+                "load": "Bbmaj7"
+              }
+            ],
+            "repeat": false
+          },
+          {
+            "bar": 5,
+            "chords": [
+              "GΔ7#11/F#"
+            ],
+            "chordEvents": [
+              {
+                "display": "GΔ7#11/F#",
+                "load": "Gmaj7"
+              }
+            ],
+            "repeat": false
+          },
+          {
+            "bar": 6,
+            "chords": [
+              "Go7",
+              "A#o7"
+            ],
+            "chordEvents": [
+              {
+                "display": "Go7",
+                "load": "Gdim7"
+              },
+              {
+                "display": "A#o7",
+                "load": "A#dim7"
+              }
+            ],
+            "repeat": false
+          },
+          {
+            "bar": 7,
+            "chords": [
+              "B-11"
+            ],
+            "chordEvents": [
+              {
+                "display": "B-11",
+                "load": "Bm11"
+              }
+            ],
+            "repeat": false
+          },
+          {
+            "bar": 8,
+            "chords": [
+              "E7#9#11"
+            ],
+            "chordEvents": [
+              {
+                "display": "E7#9#11",
+                "load": "E7"
+              }
+            ],
+            "repeat": false
+          }
+        ]
+      },
+      {
+        "id": "section-3",
+        "label": "B",
+        "bars": "9-16",
+        "timeSignature": "FOUR_FOUR",
+        "measures": [
+          {
+            "bar": 9,
+            "chords": [
+              "E-11",
+              "E-11/D"
+            ],
+            "chordEvents": [
+              {
+                "display": "E-11",
+                "load": "Em11"
+              },
+              {
+                "display": "E-11/D",
+                "load": "Em11"
+              }
+            ],
+            "repeat": false
+          },
+          {
+            "bar": 10,
+            "chords": [
+              "C#-7b5",
+              "Go7"
+            ],
+            "chordEvents": [
+              {
+                "display": "C#-7b5",
+                "load": "C#m7b5"
+              },
+              {
+                "display": "Go7",
+                "load": "Gdim7"
+              }
+            ],
+            "repeat": false
+          },
+          {
+            "bar": 11,
+            "chords": [
+              "G#-7b5"
+            ],
+            "chordEvents": [
+              {
+                "display": "G#-7b5",
+                "load": "G#m7b5"
+              }
+            ],
+            "repeat": false
+          },
+          {
+            "bar": 12,
+            "chords": [
+              "C#7#5#9"
+            ],
+            "chordEvents": [
+              {
+                "display": "C#7#5#9",
+                "load": "C#7"
+              }
+            ],
+            "repeat": false
+          },
+          {
+            "bar": 13,
+            "chords": [
+              "F#-11"
+            ],
+            "chordEvents": [
+              {
+                "display": "F#-11",
+                "load": "F#m11"
+              }
+            ],
+            "repeat": false
+          },
+          {
+            "bar": 14,
+            "chords": [
+              "AΔ7#11/G#"
+            ],
+            "chordEvents": [
+              {
+                "display": "AΔ7#11/G#",
+                "load": "Amaj7"
+              }
+            ],
+            "repeat": false
+          },
+          {
+            "bar": 15,
+            "chords": [
+              "C#Δ7#11",
+              "F#Δ7#11"
+            ],
+            "chordEvents": [
+              {
+                "display": "C#Δ7#11",
+                "load": "C#maj7"
+              },
+              {
+                "display": "F#Δ7#11",
+                "load": "F#maj7"
+              }
+            ],
+            "repeat": false
+          },
+          {
+            "bar": 16,
+            "chords": [
+              "BΔ7#11",
+              "DΔ7#11/E"
+            ],
+            "chordEvents": [
+              {
+                "display": "BΔ7#11",
+                "load": "Bmaj7"
+              },
+              {
+                "display": "DΔ7#11/E",
+                "load": "Dmaj7"
+              }
+            ],
+            "repeat": false
+          }
+        ]
+      },
+      {
+        "id": "section-4",
+        "label": "C",
+        "bars": "17-26",
+        "timeSignature": "FOUR_FOUR",
+        "measures": [
+          {
+            "bar": 17,
+            "chords": [
+              "E-9"
+            ],
+            "chordEvents": [
+              {
+                "display": "E-9",
+                "load": "Em9"
+              }
+            ],
+            "repeat": false
+          },
+          {
+            "bar": 18,
+            "chords": [
+              "Bb7#5#9"
+            ],
+            "chordEvents": [
+              {
+                "display": "Bb7#5#9",
+                "load": "Bb7"
+              }
+            ],
+            "repeat": false
+          },
+          {
+            "bar": 19,
+            "chords": [
+              "Eb-9"
+            ],
+            "chordEvents": [
+              {
+                "display": "Eb-9",
+                "load": "Ebm9"
+              }
+            ],
+            "repeat": false
+          },
+          {
+            "bar": 20,
+            "chords": [
+              "BbΔ7#11/A"
+            ],
+            "chordEvents": [
+              {
+                "display": "BbΔ7#11/A",
+                "load": "Bbmaj7"
+              }
+            ],
+            "repeat": false
+          },
+          {
+            "bar": 21,
+            "chords": [
+              "GΔ7#11/F#"
+            ],
+            "chordEvents": [
+              {
+                "display": "GΔ7#11/F#",
+                "load": "Gmaj7"
+              }
+            ],
+            "repeat": false
+          },
+          {
+            "bar": 22,
+            "chords": [
+              "Go7",
+              "A#o7"
+            ],
+            "chordEvents": [
+              {
+                "display": "Go7",
+                "load": "Gdim7"
+              },
+              {
+                "display": "A#o7",
+                "load": "A#dim7"
+              }
+            ],
+            "repeat": false
+          },
+          {
+            "bar": 23,
+            "chords": [
+              "B-11"
+            ],
+            "chordEvents": [
+              {
+                "display": "B-11",
+                "load": "Bm11"
+              }
+            ],
+            "repeat": false
+          },
+          {
+            "bar": 24,
+            "chords": [
+              "E7b9#11",
+              "E13#11"
+            ],
+            "chordEvents": [
+              {
+                "display": "E7b9#11",
+                "load": "E7"
+              },
+              {
+                "display": "E13#11",
+                "load": "E13"
+              }
+            ],
+            "repeat": false
+          },
+          {
+            "bar": 25,
+            "chords": [
+              "E-11"
+            ],
+            "chordEvents": [
+              {
+                "display": "E-11",
+                "load": "Em11"
+              }
+            ],
+            "repeat": false
+          },
+          {
+            "bar": 26,
+            "chords": [
+              "BbΔ7#11/A"
+            ],
+            "chordEvents": [
+              {
+                "display": "BbΔ7#11/A",
+                "load": "Bbmaj7"
+              }
+            ],
+            "repeat": false
+          }
+        ]
+      },
+      {
+        "id": "section-5",
+        "label": "C · 1ª vuelta",
+        "bars": "27-28",
+        "timeSignature": "FOUR_FOUR",
+        "measures": [
+          {
+            "bar": 27,
+            "chords": [
+              "BbΔ7#11",
+              "EbΔ7#11"
+            ],
+            "chordEvents": [
+              {
+                "display": "BbΔ7#11",
+                "load": "Bbmaj7"
+              },
+              {
+                "display": "EbΔ7#11",
+                "load": "Ebmaj7"
+              }
+            ],
+            "repeat": false
+          },
+          {
+            "bar": 28,
+            "chords": [
+              "D9sus",
+              "B-7"
+            ],
+            "chordEvents": [
+              {
+                "display": "D9sus",
+                "load": "D7sus4"
+              },
+              {
+                "display": "B-7",
+                "load": "Bm7"
+              }
+            ],
+            "repeat": false
+          }
+        ]
+      },
+      {
+        "id": "section-6",
+        "label": "C · 2ª vuelta",
+        "bars": "27-28",
+        "timeSignature": "FOUR_FOUR",
+        "measures": [
+          {
+            "bar": 27,
+            "chords": [
+              "BbΔ7#11",
+              "EbΔ7#11"
+            ],
+            "chordEvents": [
+              {
+                "display": "BbΔ7#11",
+                "load": "Bbmaj7"
+              },
+              {
+                "display": "EbΔ7#11",
+                "load": "Ebmaj7"
+              }
+            ],
+            "repeat": false
+          },
+          {
+            "bar": 28,
+            "chords": [
+              "D9sus",
+              "B-7"
+            ],
+            "chordEvents": [
+              {
+                "display": "D9sus",
+                "load": "D7sus4"
+              },
+              {
+                "display": "B-7",
+                "load": "Bm7"
+              }
+            ],
+            "repeat": false
+          }
+        ]
+      }
+    ]
+  },
+  "phrases": [
+    {
+      "section": "A · 1ª vuelta",
+      "bars": "1-4",
+      "label": "Tramo 1",
+      "measures": [
+        {
+          "bar": 1,
+          "repeat": false,
+          "chordEvents": [
+            {
+              "display": "E-9",
+              "load": "Em9"
+            }
+          ],
+          "chords": [
+            "E-9"
+          ]
+        },
+        {
+          "bar": 2,
+          "repeat": false,
+          "chordEvents": [
+            {
+              "display": "Bb7#5#9",
+              "load": "Bb7"
+            }
+          ],
+          "chords": [
+            "Bb7#5#9"
+          ]
+        },
+        {
+          "bar": 3,
+          "repeat": false,
+          "chordEvents": [
+            {
+              "display": "Eb-9",
+              "load": "Ebm9"
+            }
+          ],
+          "chords": [
+            "Eb-9"
+          ]
+        },
+        {
+          "bar": 4,
+          "repeat": false,
+          "chordEvents": [
+            {
+              "display": "BbΔ7#11/A",
+              "load": "Bbmaj7"
+            }
+          ],
+          "chords": [
+            "BbΔ7#11/A"
+          ]
+        }
+      ]
+    },
+    {
+      "section": "A · 1ª vuelta",
+      "bars": "5-8",
+      "label": "Tramo 2",
+      "measures": [
+        {
+          "bar": 5,
+          "repeat": false,
+          "chordEvents": [
+            {
+              "display": "GΔ7#11/F#",
+              "load": "Gmaj7"
+            }
+          ],
+          "chords": [
+            "GΔ7#11/F#"
+          ]
+        },
+        {
+          "bar": 6,
+          "repeat": false,
+          "chordEvents": [
+            {
+              "display": "Go7",
+              "load": "Gdim7"
+            },
+            {
+              "display": "A#o7",
+              "load": "A#dim7"
+            }
+          ],
+          "chords": [
+            "Go7",
+            "A#o7"
+          ]
+        },
+        {
+          "bar": 7,
+          "repeat": false,
+          "chordEvents": [
+            {
+              "display": "B-11",
+              "load": "Bm11"
+            }
+          ],
+          "chords": [
+            "B-11"
+          ]
+        },
+        {
+          "bar": 8,
+          "repeat": false,
+          "chordEvents": [
+            {
+              "display": "E7#9#11",
+              "load": "E7"
+            }
+          ],
+          "chords": [
+            "E7#9#11"
+          ]
+        }
+      ]
+    },
+    {
+      "section": "A · 2ª vuelta",
+      "bars": "1-4",
+      "label": "Tramo 1",
+      "measures": [
+        {
+          "bar": 1,
+          "repeat": false,
+          "chordEvents": [
+            {
+              "display": "E-9",
+              "load": "Em9"
+            }
+          ],
+          "chords": [
+            "E-9"
+          ]
+        },
+        {
+          "bar": 2,
+          "repeat": false,
+          "chordEvents": [
+            {
+              "display": "Bb7#5#9",
+              "load": "Bb7"
+            }
+          ],
+          "chords": [
+            "Bb7#5#9"
+          ]
+        },
+        {
+          "bar": 3,
+          "repeat": false,
+          "chordEvents": [
+            {
+              "display": "Eb-9",
+              "load": "Ebm9"
+            }
+          ],
+          "chords": [
+            "Eb-9"
+          ]
+        },
+        {
+          "bar": 4,
+          "repeat": false,
+          "chordEvents": [
+            {
+              "display": "BbΔ7#11/A",
+              "load": "Bbmaj7"
+            }
+          ],
+          "chords": [
+            "BbΔ7#11/A"
+          ]
+        }
+      ]
+    },
+    {
+      "section": "A · 2ª vuelta",
+      "bars": "5-8",
+      "label": "Tramo 2",
+      "measures": [
+        {
+          "bar": 5,
+          "repeat": false,
+          "chordEvents": [
+            {
+              "display": "GΔ7#11/F#",
+              "load": "Gmaj7"
+            }
+          ],
+          "chords": [
+            "GΔ7#11/F#"
+          ]
+        },
+        {
+          "bar": 6,
+          "repeat": false,
+          "chordEvents": [
+            {
+              "display": "Go7",
+              "load": "Gdim7"
+            },
+            {
+              "display": "A#o7",
+              "load": "A#dim7"
+            }
+          ],
+          "chords": [
+            "Go7",
+            "A#o7"
+          ]
+        },
+        {
+          "bar": 7,
+          "repeat": false,
+          "chordEvents": [
+            {
+              "display": "B-11",
+              "load": "Bm11"
+            }
+          ],
+          "chords": [
+            "B-11"
+          ]
+        },
+        {
+          "bar": 8,
+          "repeat": false,
+          "chordEvents": [
+            {
+              "display": "E7#9#11",
+              "load": "E7"
+            }
+          ],
+          "chords": [
+            "E7#9#11"
+          ]
+        }
+      ]
+    },
+    {
+      "section": "B",
+      "bars": "9-12",
+      "label": "Tramo 1",
+      "measures": [
+        {
+          "bar": 9,
+          "repeat": false,
+          "chordEvents": [
+            {
+              "display": "E-11",
+              "load": "Em11"
+            },
+            {
+              "display": "E-11/D",
+              "load": "Em11"
+            }
+          ],
+          "chords": [
+            "E-11",
+            "E-11/D"
+          ]
+        },
+        {
+          "bar": 10,
+          "repeat": false,
+          "chordEvents": [
+            {
+              "display": "C#-7b5",
+              "load": "C#m7b5"
+            },
+            {
+              "display": "Go7",
+              "load": "Gdim7"
+            }
+          ],
+          "chords": [
+            "C#-7b5",
+            "Go7"
+          ]
+        },
+        {
+          "bar": 11,
+          "repeat": false,
+          "chordEvents": [
+            {
+              "display": "G#-7b5",
+              "load": "G#m7b5"
+            }
+          ],
+          "chords": [
+            "G#-7b5"
+          ]
+        },
+        {
+          "bar": 12,
+          "repeat": false,
+          "chordEvents": [
+            {
+              "display": "C#7#5#9",
+              "load": "C#7"
+            }
+          ],
+          "chords": [
+            "C#7#5#9"
+          ]
+        }
+      ]
+    },
+    {
+      "section": "B",
+      "bars": "13-16",
+      "label": "Tramo 2",
+      "measures": [
+        {
+          "bar": 13,
+          "repeat": false,
+          "chordEvents": [
+            {
+              "display": "F#-11",
+              "load": "F#m11"
+            }
+          ],
+          "chords": [
+            "F#-11"
+          ]
+        },
+        {
+          "bar": 14,
+          "repeat": false,
+          "chordEvents": [
+            {
+              "display": "AΔ7#11/G#",
+              "load": "Amaj7"
+            }
+          ],
+          "chords": [
+            "AΔ7#11/G#"
+          ]
+        },
+        {
+          "bar": 15,
+          "repeat": false,
+          "chordEvents": [
+            {
+              "display": "C#Δ7#11",
+              "load": "C#maj7"
+            },
+            {
+              "display": "F#Δ7#11",
+              "load": "F#maj7"
+            }
+          ],
+          "chords": [
+            "C#Δ7#11",
+            "F#Δ7#11"
+          ]
+        },
+        {
+          "bar": 16,
+          "repeat": false,
+          "chordEvents": [
+            {
+              "display": "BΔ7#11",
+              "load": "Bmaj7"
+            },
+            {
+              "display": "DΔ7#11/E",
+              "load": "Dmaj7"
+            }
+          ],
+          "chords": [
+            "BΔ7#11",
+            "DΔ7#11/E"
+          ]
+        }
+      ]
+    },
+    {
+      "section": "C",
+      "bars": "17-20",
+      "label": "Tramo 1",
+      "measures": [
+        {
+          "bar": 17,
+          "repeat": false,
+          "chordEvents": [
+            {
+              "display": "E-9",
+              "load": "Em9"
+            }
+          ],
+          "chords": [
+            "E-9"
+          ]
+        },
+        {
+          "bar": 18,
+          "repeat": false,
+          "chordEvents": [
+            {
+              "display": "Bb7#5#9",
+              "load": "Bb7"
+            }
+          ],
+          "chords": [
+            "Bb7#5#9"
+          ]
+        },
+        {
+          "bar": 19,
+          "repeat": false,
+          "chordEvents": [
+            {
+              "display": "Eb-9",
+              "load": "Ebm9"
+            }
+          ],
+          "chords": [
+            "Eb-9"
+          ]
+        },
+        {
+          "bar": 20,
+          "repeat": false,
+          "chordEvents": [
+            {
+              "display": "BbΔ7#11/A",
+              "load": "Bbmaj7"
+            }
+          ],
+          "chords": [
+            "BbΔ7#11/A"
+          ]
+        }
+      ]
+    },
+    {
+      "section": "C",
+      "bars": "21-24",
+      "label": "Tramo 2",
+      "measures": [
+        {
+          "bar": 21,
+          "repeat": false,
+          "chordEvents": [
+            {
+              "display": "GΔ7#11/F#",
+              "load": "Gmaj7"
+            }
+          ],
+          "chords": [
+            "GΔ7#11/F#"
+          ]
+        },
+        {
+          "bar": 22,
+          "repeat": false,
+          "chordEvents": [
+            {
+              "display": "Go7",
+              "load": "Gdim7"
+            },
+            {
+              "display": "A#o7",
+              "load": "A#dim7"
+            }
+          ],
+          "chords": [
+            "Go7",
+            "A#o7"
+          ]
+        },
+        {
+          "bar": 23,
+          "repeat": false,
+          "chordEvents": [
+            {
+              "display": "B-11",
+              "load": "Bm11"
+            }
+          ],
+          "chords": [
+            "B-11"
+          ]
+        },
+        {
+          "bar": 24,
+          "repeat": false,
+          "chordEvents": [
+            {
+              "display": "E7b9#11",
+              "load": "E7"
+            },
+            {
+              "display": "E13#11",
+              "load": "E13"
+            }
+          ],
+          "chords": [
+            "E7b9#11",
+            "E13#11"
+          ]
+        }
+      ]
+    },
+    {
+      "section": "C",
+      "bars": "25-26",
+      "label": "Tramo 3",
+      "measures": [
+        {
+          "bar": 25,
+          "repeat": false,
+          "chordEvents": [
+            {
+              "display": "E-11",
+              "load": "Em11"
+            }
+          ],
+          "chords": [
+            "E-11"
+          ]
+        },
+        {
+          "bar": 26,
+          "repeat": false,
+          "chordEvents": [
+            {
+              "display": "BbΔ7#11/A",
+              "load": "Bbmaj7"
+            }
+          ],
+          "chords": [
+            "BbΔ7#11/A"
+          ]
+        }
+      ]
+    },
+    {
+      "section": "C · 1ª vuelta",
+      "bars": "27-28",
+      "label": "Tramo 1",
+      "measures": [
+        {
+          "bar": 27,
+          "repeat": false,
+          "chordEvents": [
+            {
+              "display": "BbΔ7#11",
+              "load": "Bbmaj7"
+            },
+            {
+              "display": "EbΔ7#11",
+              "load": "Ebmaj7"
+            }
+          ],
+          "chords": [
+            "BbΔ7#11",
+            "EbΔ7#11"
+          ]
+        },
+        {
+          "bar": 28,
+          "repeat": false,
+          "chordEvents": [
+            {
+              "display": "D9sus",
+              "load": "D7sus4"
+            },
+            {
+              "display": "B-7",
+              "load": "Bm7"
+            }
+          ],
+          "chords": [
+            "D9sus",
+            "B-7"
+          ]
+        }
+      ]
+    },
+    {
+      "section": "C · 2ª vuelta",
+      "bars": "27-28",
+      "label": "Tramo 1",
+      "measures": [
+        {
+          "bar": 27,
+          "repeat": false,
+          "chordEvents": [
+            {
+              "display": "BbΔ7#11",
+              "load": "Bbmaj7"
+            },
+            {
+              "display": "EbΔ7#11",
+              "load": "Ebmaj7"
+            }
+          ],
+          "chords": [
+            "BbΔ7#11",
+            "EbΔ7#11"
+          ]
+        },
+        {
+          "bar": 28,
+          "repeat": false,
+          "chordEvents": [
+            {
+              "display": "D9sus",
+              "load": "D7sus4"
+            },
+            {
+              "display": "B-7",
+              "load": "Bm7"
+            }
+          ],
+          "chords": [
+            "D9sus",
+            "B-7"
+          ]
+        }
+      ]
+    }
+  ]
+}
