@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Blocks, BookOpen, ChevronLeft, ChevronRight, Eraser, HelpCircle, Info, Menu, Music, Play, Route, Search, Settings, Volume2, VolumeX, Waypoints, X } from "lucide-react";
 import {
@@ -6,9 +6,10 @@ import {
   CHORD_DETECT_FORMULAS as CHORD_DETECT_FORMULAS_PURE,
   detectChordReadings as detectChordReadingsPure,
   detectFormulaRole as detectFormulaRolePure,
-  pickDefaultChordCandidate as pickDefaultChordCandidatePure,
+  resolveDetectedCandidateFromContext as resolveDetectedCandidateFromContextPure,
 } from "./music/chordDetectionEngine.js";
 import { chordDbKeyNameFromPc } from "./music/chordDbCatalog.js";
+import { describeRelativeTertianChord } from "./music/studyRelativeChord.js";
 import { buildNearSlotsFromChordSymbols, getStandardRealChartSections } from "./music/standardsCatalog.js";
 import { JJAZZLAB_COLLECTION_LABEL, loadJJazzLabStandardFromPath, JJAZZLAB_STANDARD_INDEX } from "./music/jjazzlabCatalog.js";
 
@@ -443,7 +444,7 @@ function normalizeVisibleFrets(frets, maxFret) {
   ).sort((a, b) => a - b);
 }
 
-function fretGridColsForFrets(displayFrets, isMobileLayout = false) {
+function _fretGridColsForFrets(displayFrets, isMobileLayout = false) {
   if (isMobileLayout) {
     return `${MOBILE_CHORD_FRET_LABEL_COL} ${MOBILE_CHORD_FRET_ZERO_WIDTH} repeat(${displayFrets.length}, ${MOBILE_CHORD_FRET_CELL_WIDTH})`;
   }
@@ -655,7 +656,7 @@ function noteNameToPc(token) {
   if (!t) return null;
 
   const letter = t[0];
-  if (!NATURAL_PC.hasOwnProperty(letter)) return null;
+  if (!Object.prototype.hasOwnProperty.call(NATURAL_PC, letter)) return null;
 
   let pc = NATURAL_PC[letter];
   const accidental = t.slice(1);
@@ -1318,7 +1319,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "3.87";
+const APP_VERSION = "3.99";
 
 function chordDbUrl(keyName, suffix) {
   // Ruta RELATIVA dentro de /public (sin base) => chords-db/...
@@ -1911,7 +1912,7 @@ function positionFormFromEffectiveForm(form, fallback = "closed") {
   return isOpenForm(form) ? "open" : "closed";
 }
 
-function dropFormFromEffectiveForm(form) {
+function _dropFormFromEffectiveForm(form) {
   return isDropForm(form) ? form : "none";
 }
 
@@ -4081,7 +4082,7 @@ function seventhOffsetForQuality(quality) {
   return 10;
 }
 
-function chordBassInterval({ quality, suspension, structure, inversion, chordIntervals, ext7, ext6, ext9, ext11, ext13 }) {
+function chordBassInterval({ quality, suspension, structure, inversion, ext7, ext6, ext9, ext11, ext13 }) {
   const sus = suspension || "none";
   const third = sus === "sus2" ? 2 : sus === "sus4" ? 5 : quality === "maj" || quality === "dom" ? 4 : 3;
   const fifth = sus !== "none" ? 7 : quality === "dim" || quality === "hdim" ? 6 : 7;
@@ -4502,7 +4503,7 @@ const PENTA_BOX_OFFSETS = [
   [[1, 3], [1, 3], [0, 2], [0, 3], [0, 3], [1, 3]],
 ];
 
-function buildPentBoxPatternsMerged({ rootPc, maxFret }) {
+function _buildPentBoxPatternsMerged({ rootPc, maxFret }) {
   // Legacy (no usado en rutas/patrones actuales; mantenido por compatibilidad)
   const rootFrets = findRootFretsOnLowE(rootPc, maxFret);
 
@@ -4529,7 +4530,7 @@ function buildPentBoxPatternsMerged({ rootPc, maxFret }) {
 }
 
 // 2NPS: 5 patrones para cualquier escala de 5 notas (pentatónicas mayor/menor)
-function build2NpsPatternsMerged({ rootPc, scaleIntervals, maxFret }) {
+function _build2NpsPatternsMerged({ rootPc, scaleIntervals, maxFret }) {
   if (scaleIntervals.length !== 5) return [];
 
   const rootFrets = findRootFretsOnLowE(rootPc, maxFret);
@@ -4652,7 +4653,7 @@ function build3NpsPatternsMerged({ rootPc, scaleIntervals, maxFret }) {
 // Patrones como *instancias* (clave para evitar saltos absurdos)
 // ------------------------
 
-function build2NpsPatternInstances({ rootPc, scaleIntervals, maxFret }) {
+function _build2NpsPatternInstances({ rootPc, scaleIntervals, maxFret }) {
   if (scaleIntervals.length !== 5) return [];
 
   const rootFrets = findRootFretsOnLowE(rootPc, maxFret);
@@ -4918,7 +4919,7 @@ function pickCagedViewPatterns({ instances, maxFret }) {
   return chosen;
 }
 
-function mergeCagedInstancesToPatterns(instances) {
+function _mergeCagedInstancesToPatterns(instances) {
   const patterns = CAGED_DEFS.map((d) => ({ idx: d.typeIdx, name: `CAGED ${d.name}`, cells: new Set() }));
   for (const inst of instances) {
     const p = patterns[inst.typeIdx];
@@ -5399,7 +5400,7 @@ function routeLabTemplateCorridorHits(cells, startPos, endPos) {
   return hits;
 }
 
-function buildRouteLabTemplateContext({ rootPc, scaleName, scaleIntervals, maxFret, startPos, endPos }) {
+function _buildRouteLabTemplateContext({ rootPc, scaleName, scaleIntervals, maxFret, startPos, endPos }) {
   const family = routeLabTemplateFamily(scaleName, scaleIntervals);
   if (!family || !startPos || !endPos) {
     return { enabled: false, family: null, instances: [], preferredIds: new Set(), membership: new Map(), anchorById: new Map(), stringCountById: new Map() };
@@ -5677,11 +5678,11 @@ function evaluateRouteLabFixedTest(test, tuning = ROUTE_LAB_DEFAULT_TUNING) {
   };
 }
 
-function runRouteLabFixedTests(tuning = ROUTE_LAB_DEFAULT_TUNING) {
+function _runRouteLabFixedTests(tuning = ROUTE_LAB_DEFAULT_TUNING) {
   return ROUTE_LAB_FIXED_TESTS.map((test) => evaluateRouteLabFixedTest(test, tuning));
 }
 
-function summarizeRouteLabFixedResults(results) {
+function _summarizeRouteLabFixedResults(results) {
   const total = results.length;
   const passed = results.filter((x) => x.ok && !x.warning).length;
   const warning = results.filter((x) => x.warning).length;
@@ -5710,7 +5711,7 @@ function buildRouteLabScalePositions({ rootPc, scaleName, maxFret }) {
   return { intervals, positions };
 }
 
-function buildRouteLabBenchmarkCases() {
+function _buildRouteLabBenchmarkCases() {
   const out = [];
 
   for (const spec of ROUTE_LAB_BENCHMARK_SPECS) {
@@ -5802,7 +5803,7 @@ function evaluateRouteLabBenchmarkCase(test, tuning = ROUTE_LAB_DEFAULT_TUNING) 
   };
 }
 
-function summarizeRouteLabBenchmark(cases, tuning = ROUTE_LAB_DEFAULT_TUNING) {
+function _summarizeRouteLabBenchmark(cases, tuning = ROUTE_LAB_DEFAULT_TUNING) {
   const results = cases.map((test) => evaluateRouteLabBenchmarkCase(test, tuning));
   const byScaleMap = new Map();
 
@@ -6898,7 +6899,6 @@ function buildMusicStaffSvgMarkup({ events, preferSharps, clefMode = "guitar", b
     lineGap,
     staffTop,
     staffBottom,
-    signatureType,
     signatureGlyph,
     signatureSteps,
     signatureWidth,
@@ -7031,7 +7031,7 @@ function buildPdfChordBadgeStripHtml({ items, bassNote, colorMap }) {
   const safeItems = Array.isArray(items) ? items.filter(Boolean) : [];
   if (!safeItems.length && !bassNote) return "";
 
-  const itemHtml = safeItems.map((item, idx) => {
+  const itemHtml = safeItems.map((item) => {
     const bg = (colorMap && colorMap[item.role]) || (colorMap && colorMap.other) || "#0ea5e9";
     const fg = isDark(bg) ? "#ffffff" : "#0f172a";
     return (
@@ -7155,7 +7155,7 @@ function chordFormulaBadgeRoleFromDegreeLabel(label, interval) {
   return chordBadgeRoleFromDegreeLabel(label, interval);
 }
 
-function chordBadgeRoleOrder(role) {
+function _chordBadgeRoleOrder(role) {
   switch (role) {
     case "root": return 0;
     case "third": return 1;
@@ -7191,17 +7191,20 @@ function buildChordBadgeItems({ notes, intervals, degreeLabels, ext6 = false, ex
     .sort((a, b) => {
       return a.interval - b.interval;
     })
-    .map(({ interval, ...item }) => item);
+    .map((item) => ({ note: item.note, degree: item.degree, role: item.role }));
 }
 
-function ChordNoteBadgeStrip({ items, bassNote, bassLabel = "Bajo", colorMap }) {
+function ChordNoteBadgeStrip({ items, bassNote, bassLabel = "Bajo", colorMap, wrap = true, className = "" }) {
   const safeItems = Array.isArray(items) ? items.filter(Boolean) : [];
   if (!safeItems.length && !bassNote) return null;
+  const outerClassName = wrap
+    ? "flex flex-wrap items-end gap-x-3 gap-y-2"
+    : "flex min-w-max flex-nowrap items-end gap-3";
 
   return (
-    <div className="flex flex-wrap items-end gap-x-3 gap-y-2">
+    <div className={`${outerClassName} ${className}`.trim()}>
       {safeItems.length ? (
-        <div className="flex flex-wrap items-end gap-x-3 gap-y-2">
+        <div className={wrap ? "flex flex-wrap items-end gap-x-3 gap-y-2" : "flex flex-nowrap items-end gap-3"}>
           {safeItems.map((item, idx) => {
             const bg = (colorMap && colorMap[item.role]) || (colorMap && colorMap.other) || "#0ea5e9";
             const fg = isDark(bg) ? "#ffffff" : "#0f172a";
@@ -7514,12 +7517,19 @@ export default function FretboardScalesPage() {
 
   const [chordDetectMode, setChordDetectMode] = useState(false);
   const [chordDetectClickAudio, setChordDetectClickAudio] = useState(false);
-  const [chordDetectPrioritizeContext, setChordDetectPrioritizeContext] = useState(false);
+  const [chordDetectPrioritizeContext, setChordDetectPrioritizeContext] = useState(true);
+  const [chordDetectPrioritizeContextTouched, setChordDetectPrioritizeContextTouched] = useState(false);
   const [chordDetectSelectedKeys, setChordDetectSelectedKeys] = useState([]);
   const [chordDetectCandidateId, setChordDetectCandidateId] = useState(null);
   const [chordDetectWindowStart, setChordDetectWindowStart] = useState(1);
   const lastChordDetectCandidateRef = useRef(null);
-  const [chordDetectPlayingKey, setChordDetectPlayingKey] = useState(null);
+  const pendingChordDetectCandidateRef = useRef(null);
+  const chordDetectPanelRef = useRef(null);
+  const chordDetectInvestigationAreaRef = useRef(null);
+  const chordDetectViewportFramesRef = useRef([]);
+  const chordDetectViewportTimersRef = useRef([]);
+  const [chordDetectPlayingKeys, setChordDetectPlayingKeys] = useState([]);
+  const [chordDetectClearMinHeight, setChordDetectClearMinHeight] = useState(null);
   const chordDetectPlaybackTimersRef = useRef([]);
 
   useEffect(() => {
@@ -7679,7 +7689,7 @@ export default function FretboardScalesPage() {
   // Voicings de acordes (digitaciones tocables) desde dataset externo
   const [chordDb, setChordDb] = useState(null);
   const [chordDbError, setChordDbError] = useState(null);
-  const [chordDbLastUrl, setChordDbLastUrl] = useState(null);
+  const [, setChordDbLastUrl] = useState(null);
   const [chordVoicingIdx, setChordVoicingIdx] = useState(0);
   const [chordSelectedFrets, setChordSelectedFrets] = useState(null);
   const [chordMaxDist, setChordMaxDist] = useState(4);
@@ -8033,6 +8043,7 @@ export default function FretboardScalesPage() {
     chordAllowOpenStrings,
     chordDetectWindowStart,
     chordDetectPrioritizeContext,
+    chordDetectPrioritizeContextTouched,
     nearWindowStart,
     nearWindowSize,
     nearAutoScaleSync,
@@ -8114,6 +8125,7 @@ export default function FretboardScalesPage() {
     chordAllowOpenStrings,
     chordDetectWindowStart,
     chordDetectPrioritizeContext,
+    chordDetectPrioritizeContextTouched,
     nearWindowStart,
     nearWindowSize,
     nearAutoScaleSync,
@@ -8158,6 +8170,7 @@ export default function FretboardScalesPage() {
         try {
           setQuickPresets(sanitizePresetCollection(JSON.parse(presetRaw)));
         } catch {
+          // Preset corrupto: se ignora y se mantiene el valor por defecto.
         }
       }
 
@@ -8167,6 +8180,7 @@ export default function FretboardScalesPage() {
           const parsedNotice = JSON.parse(queuedNotice);
           if (parsedNotice && typeof parsedNotice === "object") setConfigNotice(parsedNotice);
         } catch {
+          // Aviso de sesión corrupto: no debe bloquear la carga de la app.
         }
         window.sessionStorage.removeItem(UI_STATUS_SESSION_KEY);
       }
@@ -8261,7 +8275,17 @@ export default function FretboardScalesPage() {
       if ("chordMaxDist" in saved) setChordMaxDist(sanitizeOneOf(Number(saved.chordMaxDist), [4, 5, 6], 4));
       if ("chordAllowOpenStrings" in saved) setChordAllowOpenStrings(sanitizeBoolValue(saved.chordAllowOpenStrings, false));
       if ("chordDetectWindowStart" in saved) setChordDetectWindowStart(sanitizeNumberValue(saved.chordDetectWindowStart, 1, 1, 24));
-      if ("chordDetectPrioritizeContext" in saved) setChordDetectPrioritizeContext(sanitizeBoolValue(saved.chordDetectPrioritizeContext, false));
+      if ("chordDetectPrioritizeContextTouched" in saved) {
+        const restoredTouched = sanitizeBoolValue(saved.chordDetectPrioritizeContextTouched, false);
+        setChordDetectPrioritizeContextTouched(restoredTouched);
+        if ("chordDetectPrioritizeContext" in saved) {
+          setChordDetectPrioritizeContext(sanitizeBoolValue(saved.chordDetectPrioritizeContext, true));
+        }
+      } else {
+        // Legacy configs used false as a default, which broke continuity in the fretboard investigator.
+        setChordDetectPrioritizeContext(true);
+        setChordDetectPrioritizeContextTouched(false);
+      }
 
       if ("nearWindowStart" in saved) setNearWindowStart(sanitizeNumberValue(saved.nearWindowStart, 1, 0, 24));
       if ("nearWindowSize" in saved) setNearWindowSize(sanitizeNumberValue(saved.nearWindowSize, 6, 1, 24));
@@ -8335,6 +8359,7 @@ export default function FretboardScalesPage() {
       if (typeof window === "undefined") return;
       window.localStorage.setItem(UI_STORAGE_KEY, JSON.stringify(persistedUiPayload));
     } catch {
+      // Si localStorage falla, la sesión puede continuar sin persistencia.
     }
   }, [storageHydrated, persistedUiPayload]);
 
@@ -8343,6 +8368,7 @@ export default function FretboardScalesPage() {
       if (typeof window === "undefined") return;
       window.localStorage.setItem(UI_PRESETS_STORAGE_KEY, JSON.stringify(quickPresets));
     } catch {
+      // Si localStorage falla, los presets solo se mantienen en memoria.
     }
   }, [quickPresets]);
 
@@ -8357,6 +8383,7 @@ export default function FretboardScalesPage() {
       if (typeof window === "undefined") return;
       window.sessionStorage.setItem(UI_STATUS_SESSION_KEY, JSON.stringify({ type, text }));
     } catch {
+      // Si sessionStorage falla, simplemente no se muestra aviso tras recargar.
     }
   }
 
@@ -8419,10 +8446,11 @@ export default function FretboardScalesPage() {
       queueReloadNotice("info", "Configuración restablecida.");
       window.location.reload();
     } catch {
+      // El usuario puede cancelar o el navegador puede bloquear la recarga.
     }
   }
 
-  function resetRouteLabTuning() {
+  function _resetRouteLabTuning() {
     setRouteLabSwitchWhenSameStringForwardPenalty(ROUTE_LAB_DEFAULT_TUNING.switchWhenSameStringForwardPenalty);
     setRouteLabWorseThanSameStringGoalBase(ROUTE_LAB_DEFAULT_TUNING.worseThanSameStringGoalBase);
     setRouteLabWorseThanSameStringGoalScale(ROUTE_LAB_DEFAULT_TUNING.worseThanSameStringGoalScale);
@@ -8510,7 +8538,7 @@ export default function FretboardScalesPage() {
   const autoPreferSharps = useMemo(() => computeAutoPreferSharps({ rootPc, scaleName }), [rootPc, scaleName]);
   const preferSharps = accMode === "auto" ? autoPreferSharps : accMode === "sharps";
 
-  const noteOptions = useMemo(() => {
+  const _noteOptions = useMemo(() => {
     const list = preferSharps ? NOTES_SHARP : NOTES_FLAT;
     return list.map((n, i) => ({ label: n, pc: i }));
   }, [preferSharps]);
@@ -8530,7 +8558,7 @@ export default function FretboardScalesPage() {
     return idx >= 0 ? localSpelledChordNotes[idx] : pcToName(pc, chordPreferSharps);
   };
 
-  const chordNoteOptions = useMemo(() => {
+  const _chordNoteOptions = useMemo(() => {
     const list = chordPreferSharps ? NOTES_SHARP : NOTES_FLAT;
     return list.map((n, i) => ({ label: n, pc: i }));
   }, [chordPreferSharps]);
@@ -8839,7 +8867,7 @@ export default function FretboardScalesPage() {
   );
   const chordBassPc = useMemo(() => mod12(chordRootPc + chordBassInt), [chordRootPc, chordBassInt]);
 
-  const chordPcs = useMemo(() => new Set(chordIntervals.map((i) => mod12(chordRootPc + i))), [chordIntervals, chordRootPc]);
+  const _chordPcs = useMemo(() => new Set(chordIntervals.map((i) => mod12(chordRootPc + i))), [chordIntervals, chordRootPc]);
 
   // Carga de digitaciones tocables (voicings)
   // Solo se necesita JSON cuando la estructura es "Acorde" (voicings completos).
@@ -9310,38 +9338,41 @@ export default function FretboardScalesPage() {
     [chordDetectCandidates, chordDetectCandidateId]
   );
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (chordDetectSelectedCandidate) {
       lastChordDetectCandidateRef.current = chordDetectSelectedCandidate;
+      pendingChordDetectCandidateRef.current = null;
     }
   }, [chordDetectSelectedCandidate]);
 
   useEffect(() => {
+    if (!chordDetectMode) setChordDetectClearMinHeight(null);
+  }, [chordDetectMode]);
+
+  useLayoutEffect(() => {
     if (chordDetectSelectedKeys.length) return;
     lastChordDetectCandidateRef.current = null;
+    pendingChordDetectCandidateRef.current = null;
   }, [chordDetectSelectedKeys.length]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!chordDetectMode) return;
+    const nextId = resolveDetectedCandidateFromContextPure({
+      candidates: chordDetectCandidates,
+      currentCandidateId: chordDetectCandidateId,
+      pendingCandidate: pendingChordDetectCandidateRef.current,
+      lastCandidate: lastChordDetectCandidateRef.current,
+      prioritizeContext: chordDetectPrioritizeContext,
+    })?.id || null;
     if (!chordDetectCandidates.length) {
       if (chordDetectCandidateId !== null) setChordDetectCandidateId(null);
       return;
     }
-    if (chordDetectCandidateId && !chordDetectCandidates.some((c) => c.id === chordDetectCandidateId)) {
-      setChordDetectCandidateId(null);
-    }
-  }, [chordDetectMode, chordDetectCandidates, chordDetectCandidateId]);
-
-  useEffect(() => {
-    if (!chordDetectMode) return;
-    const referenceCandidate = chordDetectSelectedCandidate || lastChordDetectCandidateRef.current || null;
-    const nextId = pickDefaultChordCandidatePure({
-      candidates: chordDetectCandidates,
-      previousCandidate: referenceCandidate,
-      prioritizeContext: chordDetectPrioritizeContext,
-    })?.id || null;
     if ((chordDetectCandidateId || null) !== nextId) {
       setChordDetectCandidateId(nextId);
+    }
+    if (pendingChordDetectCandidateRef.current && nextId) {
+      pendingChordDetectCandidateRef.current = null;
     }
   }, [chordDetectMode, chordDetectSelectionSignature, chordDetectCandidates, chordDetectPrioritizeContext]);
 
@@ -9368,6 +9399,7 @@ export default function FretboardScalesPage() {
       try {
         await vCtx.resume();
       } catch {
+        // El gesto de usuario puede no habilitar audio en todos los navegadores.
       }
     }
 
@@ -9393,8 +9425,12 @@ export default function FretboardScalesPage() {
     vOsc.start(vStartTime);
     vOsc.stop(vStartTime + vDuration);
     vOsc.onended = () => {
-      try { vOsc.disconnect(); } catch {}
-      try { vGain.disconnect(); } catch {}
+      try { vOsc.disconnect(); } catch {
+        // El nodo puede estar ya desconectado.
+      }
+      try { vGain.disconnect(); } catch {
+        // El nodo puede estar ya desconectado.
+      }
     };
   }
 
@@ -9404,10 +9440,82 @@ export default function FretboardScalesPage() {
     fnScheduleChordDetectMidi(vCtx, pitchAt(sIdx, fret), vCtx.currentTime, 1.2);
   }
 
+  function clearChordDetectViewportStabilizers() {
+    if (typeof window === "undefined") return;
+    chordDetectViewportFramesRef.current.forEach((frameId) => window.cancelAnimationFrame(frameId));
+    chordDetectViewportFramesRef.current = [];
+    chordDetectViewportTimersRef.current.forEach((timerId) => window.clearTimeout(timerId));
+    chordDetectViewportTimersRef.current = [];
+  }
+
+  function focusChordDetectPanelWithoutScroll() {
+    if (typeof document === "undefined") return;
+    const panel = chordDetectPanelRef.current;
+    if (panel instanceof HTMLElement && typeof panel.focus === "function") {
+      try {
+        panel.focus({ preventScroll: true });
+        return;
+      } catch {
+        // Older browsers may not support the preventScroll option.
+      }
+      try {
+        panel.focus();
+        return;
+      } catch {
+        // If focus fails, blur the active control below.
+      }
+    }
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+  }
+
+  function preserveChordDetectViewportScroll({ blurActive = false, focusPanel = false } = {}) {
+    if (typeof window === "undefined" || typeof document === "undefined") return;
+
+    const scrollX = window.scrollX || document.documentElement.scrollLeft || 0;
+    const scrollY = window.scrollY || document.documentElement.scrollTop || 0;
+    if (focusPanel) {
+      focusChordDetectPanelWithoutScroll();
+    } else if (blurActive && document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+
+    clearChordDetectViewportStabilizers();
+
+    const restore = () => {
+      const currentX = window.scrollX || document.documentElement.scrollLeft || 0;
+      const currentY = window.scrollY || document.documentElement.scrollTop || 0;
+      if (Math.abs(currentX - scrollX) > 1 || Math.abs(currentY - scrollY) > 1) {
+        window.scrollTo(scrollX, scrollY);
+      }
+    };
+
+    const restoreFrames = (remaining) => {
+      const frameId = window.requestAnimationFrame(() => {
+        chordDetectViewportFramesRef.current = chordDetectViewportFramesRef.current.filter((id) => id !== frameId);
+        restore();
+        if (remaining > 1) restoreFrames(remaining - 1);
+      });
+      chordDetectViewportFramesRef.current.push(frameId);
+    };
+
+    [0, 60, 140, 320, 700].forEach((delay) => {
+      const timerId = window.setTimeout(() => {
+        restore();
+        chordDetectViewportTimersRef.current = chordDetectViewportTimersRef.current.filter((id) => id !== timerId);
+      }, delay);
+      chordDetectViewportTimersRef.current.push(timerId);
+    });
+
+    restore();
+    restoreFrames(12);
+  }
+
   function clearChordDetectPlaybackVisuals() {
     chordDetectPlaybackTimersRef.current.forEach((timerId) => window.clearTimeout(timerId));
     chordDetectPlaybackTimersRef.current = [];
-    setChordDetectPlayingKey(null);
+    setChordDetectPlayingKeys([]);
   }
 
   async function fnPlayChordDetectSelection() {
@@ -9416,8 +9524,8 @@ export default function FretboardScalesPage() {
     if (!vCtx) return;
 
     const vNotes = chordDetectPlaybackNotes;
-    const vStep = 0.26;
-    const vDuration = 0.85;
+    const vStep = 0.14;
+    const vDuration = 0.5;
     const vNow = vCtx.currentTime;
 
     clearChordDetectPlaybackVisuals();
@@ -9425,15 +9533,37 @@ export default function FretboardScalesPage() {
     vNotes.forEach((vNote, vIdx) => {
       fnScheduleChordDetectMidi(vCtx, vNote.pitch, vNow + (vIdx * vStep), vDuration);
       const timerId = window.setTimeout(() => {
-        setChordDetectPlayingKey(vNote.key);
+        setChordDetectPlayingKeys([vNote.key]);
       }, Math.max(0, Math.round(vIdx * vStep * 1000)));
       chordDetectPlaybackTimersRef.current.push(timerId);
     });
 
     const clearTimerId = window.setTimeout(() => {
-      setChordDetectPlayingKey(null);
+      setChordDetectPlayingKeys([]);
       chordDetectPlaybackTimersRef.current = [];
     }, Math.max(0, Math.round(((vNotes.length - 1) * vStep * 1000) + (vDuration * 1000))));
+    chordDetectPlaybackTimersRef.current.push(clearTimerId);
+  }
+
+  async function fnPlayChordDetectVoicingTogether() {
+    if (!chordDetectPlaybackNotes.length) return;
+    const vCtx = await fnGetChordDetectAudioCtx();
+    if (!vCtx) return;
+
+    const vNotes = chordDetectPlaybackNotes;
+    const vDuration = 1.25;
+    const vNow = vCtx.currentTime;
+
+    clearChordDetectPlaybackVisuals();
+    vNotes.forEach((vNote) => {
+      fnScheduleChordDetectMidi(vCtx, vNote.pitch, vNow, vDuration);
+    });
+    setChordDetectPlayingKeys(vNotes.map((vNote) => vNote.key));
+
+    const clearTimerId = window.setTimeout(() => {
+      setChordDetectPlayingKeys([]);
+      chordDetectPlaybackTimersRef.current = [];
+    }, Math.max(0, Math.round(vDuration * 1000)));
     chordDetectPlaybackTimersRef.current.push(clearTimerId);
   }
 
@@ -9449,20 +9579,40 @@ export default function FretboardScalesPage() {
   }, []);
 
   useEffect(() => {
-    if (chordDetectPlayingKey && !chordDetectSelectedKeys.includes(chordDetectPlayingKey)) {
+    if (chordDetectPlayingKeys.some((key) => !chordDetectSelectedKeys.includes(key))) {
       clearChordDetectPlaybackVisuals();
     }
-  }, [chordDetectPlayingKey, chordDetectSelectedKeys]);
+  }, [chordDetectPlayingKeys, chordDetectSelectedKeys]);
 
-  function clearChordDetectSelection() {
+  useEffect(() => () => {
+    clearChordDetectViewportStabilizers();
+  }, []);
+
+  function clearChordDetectSelection(e = null) {
+    e?.preventDefault?.();
+    e?.stopPropagation?.();
+    if (!chordDetectSelectedKeys.length) return;
+    const areaHeight = chordDetectInvestigationAreaRef.current?.getBoundingClientRect?.().height ?? null;
+    if (Number.isFinite(areaHeight) && areaHeight > 0) {
+      setChordDetectClearMinHeight(Math.ceil(areaHeight));
+    }
+    preserveChordDetectViewportScroll({ focusPanel: true });
     clearChordDetectPlaybackVisuals();
+    pendingChordDetectCandidateRef.current = null;
     setChordDetectSelectedKeys([]);
     setChordDetectCandidateId(null);
     lastChordDetectCandidateRef.current = null;
   }
 
   function selectDetectedCandidate(candidate) {
+    lastChordDetectCandidateRef.current = candidate || null;
+    pendingChordDetectCandidateRef.current = candidate || null;
     setChordDetectCandidateId(candidate?.id || null);
+  }
+
+  function updateChordDetectPrioritizeContext(value) {
+    setChordDetectPrioritizeContext(!!value);
+    setChordDetectPrioritizeContextTouched(true);
   }
 
   function applyDetectedCandidate(candidate) {
@@ -9514,6 +9664,12 @@ export default function FretboardScalesPage() {
 
   function toggleChordDetectCell(sIdx, fret) {
     if (chordDetectClickAudio) fnPlayChordDetectNote(sIdx, fret);
+    pendingChordDetectCandidateRef.current = chordDetectSelectedCandidate || lastChordDetectCandidateRef.current || null;
+    const areaHeight = chordDetectInvestigationAreaRef.current?.getBoundingClientRect?.().height ?? null;
+    if (Number.isFinite(areaHeight) && areaHeight > 0) {
+      setChordDetectClearMinHeight(Math.ceil(areaHeight));
+    }
+    preserveChordDetectViewportScroll();
     const key = `${sIdx}:${fret}`;
     setChordDetectSelectedKeys((prev) => {
       if (prev.includes(key)) return prev.filter((x) => x !== key);
@@ -9570,7 +9726,7 @@ export default function FretboardScalesPage() {
     [chordDetectSelectedNotes, chordDetectSelectedCandidate, chordRootPc, maxFret]
   );
 
-  const chordDetectSelectedCandidateNotesText = useMemo(() => {
+  const _chordDetectSelectedCandidateNotesText = useMemo(() => {
     if (!chordDetectSelectedCandidate) return "";
     const coreNotes = Array.isArray(chordDetectSelectedCandidate.visibleNotes)
       ? chordDetectSelectedCandidate.visibleNotes.filter(Boolean)
@@ -10656,6 +10812,19 @@ export default function FretboardScalesPage() {
     const [studySubstitutionSectionIdx, setStudySubstitutionSectionIdx] = useState(0);
     const substitutionTabLabels = ["Diatónicas", "Cromáticas y jazz", "Por préstamo", "Estructura y color", "Avanzadas y extras"];
     const d = studyData;
+    const studyRelativeChord = describeRelativeTertianChord({
+      rootPc: d?.rootPc ?? chordRootPc,
+      preferSharps: d?.preferSharps ?? chordPreferSharps,
+      quality: d?.plan?.quality,
+      suspension: d?.plan?.suspension || "none",
+      intervals: d?.plan?.intervals || [],
+      ext7: !!d?.plan?.ext7,
+      ext6: !!d?.plan?.ext6,
+      ext9: !!d?.plan?.ext9,
+      ext11: !!d?.plan?.ext11,
+      ext13: !!d?.plan?.ext13,
+      layer: d?.plan?.layer || "tertian",
+    });
     const rules = explainStudyRules(d?.plan);
     const naming = buildChordNamingExplanation(d?.plan);
     const voicingAnalysis = analyzeVoicingVsPlan(d?.plan, d?.voicing, d?.preferSharps ?? chordPreferSharps);
@@ -10668,7 +10837,7 @@ export default function FretboardScalesPage() {
         )
       : "";
     const quartalStepText = isQuartalStudy && Array.isArray(d?.plan?.quartalSteps) && d.plan.quartalSteps.length
-      ? d.plan.quartalSteps.map(buildQuartalStepText).join(" · ")
+      ? d.plan.quartalSteps.map((v) => (v === 6 ? "A4" : "4J")).join(" · ")
       : "—";
     const quartalDegreeText = isQuartalStudy && typeof d?.plan?.quartalDegree === "number"
       ? fnBuildQuartalDegreeLabel(d.plan.quartalDegree)
@@ -11074,7 +11243,9 @@ export default function FretboardScalesPage() {
             <div className="text-sm font-semibold text-slate-800">
               <InfoTitle label="Modo estudio" info={CHORD_STUDY_INFO_TEXT} alwaysShow />
             </div>
-            <div className="text-xs text-slate-600">{d?.title} · {d?.chordName}</div>
+            <div className="text-xs text-slate-600">
+              {d?.title} · {d?.chordName}{studyRelativeChord ? ` · ${studyRelativeChord.shortText}` : ""}
+            </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {studyOpen ? (
@@ -11095,6 +11266,7 @@ export default function FretboardScalesPage() {
               <div className="text-xs font-semibold text-slate-700">Identidad</div>
               <div className="mt-2 space-y-1 text-xs text-slate-600">
                 <div><b>Nombre:</b> {d?.chordName}</div>
+                <div><b>Relativo:</b> {studyRelativeChord ? `${studyRelativeChord.kind} · ${studyRelativeChord.label}` : "—"}</div>
                 <div><b>Capa:</b> {chordEngineLayerLabel(d?.plan)}</div>
                 <div><b>Generador:</b> {chordEngineGeneratorLabel(d?.plan)}</div>
               </div>
@@ -11610,7 +11782,7 @@ export default function FretboardScalesPage() {
   }, [storageHydrated, nearAutoScaleSync, harmonizedScale]);
 
 
-  const spelledChordNotes = useMemo(
+  const _spelledChordNotes = useMemo(
     () => spellChordNotes({ rootPc: chordRootPc, chordIntervals, preferSharps: chordPreferSharps }),
     [chordRootPc, chordIntervals, chordPreferSharps]
   );
@@ -12091,10 +12263,10 @@ export default function FretboardScalesPage() {
     );
   }
 
-  function NavIconLabel({ icon: Icon, label }) {
+  function NavIconLabel({ icon, label }) {
     return (
       <span className="inline-flex items-center gap-1.5">
-        <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+        {React.createElement(icon, { className: "h-4 w-4 shrink-0", "aria-hidden": "true" })}
         <span>{label}</span>
       </span>
     );
@@ -12105,7 +12277,9 @@ export default function FretboardScalesPage() {
     event.stopPropagation();
     const rect = event.currentTarget.getBoundingClientRect();
     const viewportWidth = window.innerWidth || 360;
-    const width = Math.min(360, Math.max(240, viewportWidth - 24));
+    const width = isMobileLayout
+      ? Math.min(360, Math.max(240, viewportWidth - 24))
+      : Math.min(620, Math.max(420, viewportWidth - 48));
     const centeredLeft = (viewportWidth - width) / 2;
     const left = Math.max(12, Math.min(centeredLeft, viewportWidth - width - 12));
     setMobileInfoPopover({
@@ -12261,7 +12435,7 @@ export default function FretboardScalesPage() {
   // COMPONENTES UI INTERNOS
   // --------------------------------------------------------------------------
 
-  function Circle({ pc, role, fret, sIdx, badge, kingTags = [] }) {
+  function Circle({ pc, role, fret, badge, kingTags = [] }) {
     const baseRole = role === "extra" ? "extra" : role;
     const tagList = Array.isArray(kingTags) ? kingTags : [];
     const baseStyle = circleStyle(baseRole);
@@ -12580,7 +12754,7 @@ function ChordFretboard({
 }
 
 
-  function ChordInvestigationCircle({ pc, fret, sIdx, candidate, isBass, isPlaying = false, compactOpen = false }) {
+  function ChordInvestigationCircle({ pc, fret, candidate, isBass, isPlaying = false, compactOpen = false }) {
     const role = buildDetectedCandidateRoleForPc(pc, candidate);
     const bg = colors[role] || colors.other;
     const dark = isDark(bg);
@@ -12730,11 +12904,11 @@ function ChordFretboard({
         m.set(`${n.sIdx}:${n.fret}`, {
           pc: n.pc,
           isBass: n.key === bassKey,
-          isPlaying: n.key === chordDetectPlayingKey,
+          isPlaying: chordDetectPlayingKeys.includes(n.key),
         });
       }
       return m;
-    }, [chordDetectPlayingKey, chordDetectSelectedNotes]);
+    }, [chordDetectPlayingKeys, chordDetectSelectedNotes]);
 
     const selectedStrings = useMemo(
       () => new Set(chordDetectSelectedNotes.map((n) => n.sIdx)),
@@ -12744,33 +12918,34 @@ function ChordFretboard({
       chordDetectSelectedCandidate
         ? `Notas de la escala: ${chordDetectSelectedCandidateScaleNotesText}.`
         : "Pulsa en el mástil para añadir o quitar notas y detectar acordes posibles.",
-      "Solo puede haber una nota por cuerda; si pulsas otra en la misma cuerda, sustituye la anterior.",
-      "Arriba a la derecha tienes tres iconos: altavoz, play y limpiar.",
+      "Arriba a la derecha tienes cuatro iconos: altavoz, play secuencial, play simultáneo y limpiar.",
       "El altavoz activa o desactiva el sonido al pulsar; si aparece tachado, el sonido inmediato está apagado.",
       "Play reproduce la selección actual cuerda a cuerda, de 6ª a 1ª, y resalta la nota que está sonando en cada momento.",
-      "Priorizar contexto armónico intenta mantener la lectura anterior solo si esa misma lectura sigue existiendo entre los candidatos actuales.",
+      "El botón con la nota musical dispara todo el voicing a la vez, como un acorde bloque.",
+      "Priorizar contexto armónico intenta mantener la lectura funcional anterior cuando el cambio es pequeño, aunque cambie la etiqueta exacta.",
       "Si está desactivado, la selección automática siempre toma el primer candidato del motor y no depende del orden de pulsación.",
       "Limpiar borra la selección manual y la lectura elegida.",
-      "Cuando un icono está disponible, cambia de color al pasar el ratón para dejar claro que se puede pulsar.",
-      "En móvil, las flechas de Trastes solo desplazan el rango visible; no cambian las notas seleccionadas.",
     ].join("\n");
     const chordDetectIconButtonBaseClass = "inline-flex h-8 w-8 items-center justify-center rounded-xl border shadow-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-200 enabled:cursor-pointer disabled:cursor-not-allowed disabled:opacity-50";
 
     return (
       <PanelBlock
+        ref={chordDetectPanelRef}
+        tabIndex={-1}
         level="subsection"
         title={<InfoTitle label="Selección manual" info={manualSelectionInfoText} alwaysShow />}
         titleTooltip={!isMobileLayout ? manualSelectionInfoText : ""}
+        className="focus:outline-none"
         headerClassName="items-start"
         description={(
           <div className="flex flex-col items-start gap-2">
             <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-700">
-              <input
-                type="checkbox"
-                checked={chordDetectPrioritizeContext}
-                onChange={(e) => setChordDetectPrioritizeContext(e.target.checked)}
-                className="h-4 w-4 rounded border-slate-300"
-              />
+                <input
+                  type="checkbox"
+                  checked={chordDetectPrioritizeContext}
+                  onChange={(e) => updateChordDetectPrioritizeContext(e.target.checked)}
+                  className="h-4 w-4 rounded border-slate-300"
+                />
               Priorizar contexto armónico
             </label>
             {isMobileLayout ? (
@@ -12825,11 +13000,24 @@ function ChordFretboard({
             </button>
             <button
               type="button"
-              className={`${chordDetectIconButtonBaseClass} border-slate-200 bg-white text-slate-600 enabled:hover:border-rose-300 enabled:hover:bg-rose-50 enabled:hover:text-rose-700`}
+              className={`${chordDetectIconButtonBaseClass} border-slate-200 bg-white text-slate-600 enabled:hover:border-indigo-300 enabled:hover:bg-indigo-50 enabled:hover:text-indigo-700`}
+              title="Reproducir todo el voicing a la vez"
+              aria-label="Reproducir todo el voicing a la vez"
+              onClick={() => fnPlayChordDetectVoicingTogether()}
+              disabled={!chordDetectSelectedKeys.length}
+            >
+              <Music className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              className={`${chordDetectIconButtonBaseClass} ${chordDetectSelectedKeys.length ? "border-slate-200 bg-white text-slate-600 enabled:hover:border-rose-300 enabled:hover:bg-rose-50 enabled:hover:text-rose-700" : "cursor-not-allowed border-slate-200 bg-white text-slate-300 opacity-50"}`}
               title="Limpiar selección manual"
               aria-label="Limpiar selección manual"
+              aria-disabled={!chordDetectSelectedKeys.length}
+              onMouseDown={(e) => {
+                if (chordDetectSelectedKeys.length) e.preventDefault();
+              }}
               onClick={clearChordDetectSelection}
-              disabled={!chordDetectSelectedKeys.length}
             >
               <Eraser className="h-4 w-4" />
             </button>
@@ -12837,15 +13025,20 @@ function ChordFretboard({
         )}
       >
 
-        {chordDetectSelectedCandidate ? (
-          <div className="mb-3">
-            <ChordNoteBadgeStrip
-              items={chordDetectSelectedCandidateBadgeItems}
-              bassNote={chordDetectSelectedCandidateBassNote}
-              colorMap={colors}
-            />
-          </div>
-        ) : null}
+        <div className="mb-3 min-h-[56px]">
+          {chordDetectSelectedCandidate ? (
+            <div className="overflow-x-auto pb-1">
+              <ChordNoteBadgeStrip
+                items={chordDetectSelectedCandidateBadgeItems}
+                bassNote={chordDetectSelectedCandidateBassNote}
+                colorMap={colors}
+                wrap={false}
+              />
+            </div>
+          ) : (
+            <div aria-hidden="true" className="h-[56px]" />
+          )}
+        </div>
 
         {isMobileLayout ? (
           <MobileMainFretboard
@@ -13030,7 +13223,7 @@ function ChordFretboard({
     return { left: "50%", top: "50%", transform: "translate(-50%, -50%)" };
   }
 
-  function Mini({ slotIdx, pc, role, fret, sIdx, size = "m" }) {
+  function Mini({ slotIdx, pc, role, size = "m" }) {
     const slot = nearSlots[slotIdx];
     const voicing = nearComputed.selected[slotIdx] || null;
     const chordBg = nearBgColors[slotIdx] || "#94a3b8";
@@ -13814,7 +14007,7 @@ function ChordFretboard({
                 <div>Solo puede haber una nota por cuerda. Si pulsas otra en la misma cuerda, sustituye a la anterior.</div>
                 <div>La app propone lecturas posibles del acorde y puedes copiar una a la sección de arriba.</div>
                 <div>Arriba a la derecha tienes los iconos de altavoz, <b>Play</b> y limpiar; el altavoz tachado indica que el sonido al pulsar está apagado y <b>Play</b> recorre la selección cuerda a cuerda, de 6ª a 1ª, mientras va resaltando cada nota.</div>
-                <div><b>Priorizar contexto armónico</b> solo intenta mantener la lectura anterior si esa misma lectura sigue existiendo; si está apagado, siempre se elige el primer candidato del motor.</div>
+                <div><b>Priorizar contexto armónico</b> intenta mantener la familia funcional anterior aunque cambie la etiqueta exacta; si está apagado, siempre se elige el primer candidato del motor.</div>
               </div>
             </section>
 
@@ -13897,7 +14090,7 @@ function ChordFretboard({
   const chordInversionSelectWidth = fnMaxLabelCh(CHORD_INVERSIONS, 10);
   const chordSelectClass = isMobileLayout ? UI_SELECT_SM_COMPACT : UI_SELECT_SM;
   const chordAutoSelectClass = isMobileLayout ? UI_SELECT_SM_COMPACT : UI_SELECT_SM_AUTO;
-  const chordVoicingSelectClass = isMobileLayout ? UI_SELECT_SM_COMPACT : `${UI_SELECT_SM} min-w-0 flex-1`;
+  const _chordVoicingSelectClass = isMobileLayout ? UI_SELECT_SM_COMPACT : `${UI_SELECT_SM} min-w-0 flex-1`;
   const chordMobileEditorGridClass = "grid min-w-0 items-start justify-items-start gap-2 [grid-template-columns:repeat(auto-fit,minmax(150px,1fr))]";
   const chordMobileEditorTertianGridClass = "grid min-w-0 items-start gap-2 [grid-template-columns:minmax(0,1fr)_minmax(0,1fr)]";
   const UI_BTN_SM = "h-7 w-7 rounded-xl border border-slate-200 bg-white text-xs font-semibold shadow-sm hover:bg-sky-50 disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed";
@@ -14909,7 +15102,7 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
     );
   }
 
-  function renderDesktopChordSummaryCard() {
+  function _renderDesktopChordSummaryCard() {
     if (isMobileLayout || chordDetectMode) return null;
     return (
       <div
@@ -15142,6 +15335,7 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
     try {
       e.currentTarget.releasePointerCapture?.(e.pointerId);
     } catch {
+      // Si el puntero ya fue liberado, no hay nada que corregir.
     }
     if (!start || start.pointerId !== e.pointerId || start.verticalScroll) {
       resetMobileSectionSlide();
@@ -16708,7 +16902,10 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
                 return chordEditorPanel;
               })()}
               {chordDetectMode ? (
-                <>
+                <div
+                  ref={chordDetectInvestigationAreaRef}
+                  style={chordDetectClearMinHeight ? { minHeight: chordDetectClearMinHeight } : undefined}
+                >
                   <ChordInvestigationFretboard />
                   <PanelBlock
                     level="subsection"
@@ -16750,7 +16947,7 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
                       )}
                     </div>
                   </PanelBlock>
-                </>
+                </div>
               ) : (
                 chordFamily === "quartal" ? (
                   <ChordFretboard
@@ -17299,6 +17496,7 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
                 try {
                   e.currentTarget.releasePointerCapture?.(e.pointerId);
                 } catch {
+                  // Si el puntero ya fue liberado, no hay nada que corregir.
                 }
                 resetMobileSectionSlide();
               }}

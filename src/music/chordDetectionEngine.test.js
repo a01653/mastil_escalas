@@ -8,6 +8,7 @@ import {
   pickDefaultChordCandidate,
   pcToName,
   preferSharpsFromMajorTonicPc,
+  resolveDetectedCandidateFromContext,
   spellNoteFromChordInterval,
 } from "./chordDetectionEngine.js";
 
@@ -162,6 +163,22 @@ describe("chordDetectionEngine", () => {
     expect(reading.intervalPairsText).toBe("1=E, b3=G, 5=B, 7=D#, 13=C#");
     expect(legendNotes(reading)).toEqual(["E", "G", "B", "D#", "C#"]);
     expect(legendDegrees(reading)).toEqual(["1", "b3", "5", "7", "13"]);
+  });
+
+  test("x5658x propone la lectura funcional Dm7(b5,add11,no3)", () => {
+    const result = detectedReadingsFromPositions([
+      { sIdx: 4, fret: 5 },
+      { sIdx: 3, fret: 6 },
+      { sIdx: 2, fret: 5 },
+      { sIdx: 1, fret: 8 },
+    ]);
+
+    expect(result[0]?.name).toBe("Dm7(b5,add11,no3)");
+
+    const reading = result.find((candidate) => candidate.name === "Dm7(b5,add11,no3)");
+    expect(reading).toBeTruthy();
+    expect(reading.intervalPairsText).toBe("1=D, b5=Ab, b7=C, 11=G");
+    expect(reading.visibleNotes).toEqual(["D", "Ab", "C", "G"]);
   });
 
   test("snapshots del caso obligatorio", () => {
@@ -380,6 +397,144 @@ describe("chordDetectionEngine", () => {
       previousCandidate: null,
       prioritizeContext: true,
     })?.name).toBe("Cuartal mixto D");
+  });
+
+  test("con contexto x5658x -> x5656x recuerda la familia semidisminuida previa", () => {
+    const previousCandidate = detectedReadingsFromPositions([
+      { sIdx: 4, fret: 5 },
+      { sIdx: 3, fret: 6 },
+      { sIdx: 2, fret: 5 },
+      { sIdx: 1, fret: 8 },
+    ])[0];
+    const finalCandidates = detectedReadingsFromPositions([
+      { sIdx: 4, fret: 5 },
+      { sIdx: 3, fret: 6 },
+      { sIdx: 2, fret: 5 },
+      { sIdx: 1, fret: 6 },
+    ]);
+
+    expect(previousCandidate?.name).toBe("Dm7(b5,add11,no3)");
+    expect(pickDefaultChordCandidate({
+      candidates: finalCandidates,
+      previousCandidate,
+      prioritizeContext: true,
+    })?.name).toBe("Dm7(b5)");
+  });
+
+  test("con contexto Ab6(no5)/Ebb -> x5658x mantiene la lectura en Ab/Ebb", () => {
+    const previousCandidate = detectedReadingsFromPositions([
+      { sIdx: 4, fret: 5 },
+      { sIdx: 3, fret: 6 },
+      { sIdx: 2, fret: 5 },
+      { sIdx: 1, fret: 6 },
+    ]).find((candidate) => candidate.name === "Ab6(no5)/Ebb");
+    const finalCandidates = detectedReadingsFromPositions([
+      { sIdx: 4, fret: 5 },
+      { sIdx: 3, fret: 6 },
+      { sIdx: 2, fret: 5 },
+      { sIdx: 1, fret: 8 },
+    ]);
+
+    expect(previousCandidate?.name).toBe("Ab6(no5)/Ebb");
+    expect(pickDefaultChordCandidate({
+      candidates: finalCandidates,
+      previousCandidate,
+      prioritizeContext: true,
+    })?.name).toBe("Abmaj7b5/Ebb");
+  });
+
+  test("la resolución contextual del selector conserva Dm al pasar x5658x -> x5656x", () => {
+    const previousCandidate = detectedReadingsFromPositions([
+      { sIdx: 4, fret: 5 },
+      { sIdx: 3, fret: 6 },
+      { sIdx: 2, fret: 5 },
+      { sIdx: 1, fret: 8 },
+    ]).find((candidate) => candidate.name === "Dm7(b5,add11,no3)");
+    const finalCandidates = detectedReadingsFromPositions([
+      { sIdx: 4, fret: 5 },
+      { sIdx: 3, fret: 6 },
+      { sIdx: 2, fret: 5 },
+      { sIdx: 1, fret: 6 },
+    ]);
+
+    expect(resolveDetectedCandidateFromContext({
+      candidates: finalCandidates,
+      currentCandidateId: previousCandidate?.id || null,
+      pendingCandidate: previousCandidate,
+      lastCandidate: previousCandidate,
+      prioritizeContext: true,
+    })?.name).toBe("Dm7(b5)");
+  });
+
+  test("la resolución contextual del selector conserva Ab al pasar Ab6(no5)/Ebb -> x5658x", () => {
+    const previousCandidate = detectedReadingsFromPositions([
+      { sIdx: 4, fret: 5 },
+      { sIdx: 3, fret: 6 },
+      { sIdx: 2, fret: 5 },
+      { sIdx: 1, fret: 6 },
+    ]).find((candidate) => candidate.name === "Ab6(no5)/Ebb");
+    const finalCandidates = detectedReadingsFromPositions([
+      { sIdx: 4, fret: 5 },
+      { sIdx: 3, fret: 6 },
+      { sIdx: 2, fret: 5 },
+      { sIdx: 1, fret: 8 },
+    ]);
+
+    expect(resolveDetectedCandidateFromContext({
+      candidates: finalCandidates,
+      currentCandidateId: previousCandidate?.id || null,
+      pendingCandidate: previousCandidate,
+      lastCandidate: previousCandidate,
+      prioritizeContext: true,
+    })?.name).toBe("Abmaj7b5/Ebb");
+  });
+
+  test("la resolución contextual corrige una preselección prematura del primer candidato al volver x5658x -> x5656x", () => {
+    const previousCandidate = detectedReadingsFromPositions([
+      { sIdx: 4, fret: 5 },
+      { sIdx: 3, fret: 6 },
+      { sIdx: 2, fret: 5 },
+      { sIdx: 1, fret: 8 },
+    ]).find((candidate) => candidate.name === "Dm7(b5,add11,no3)");
+    const finalCandidates = detectedReadingsFromPositions([
+      { sIdx: 4, fret: 5 },
+      { sIdx: 3, fret: 6 },
+      { sIdx: 2, fret: 5 },
+      { sIdx: 1, fret: 6 },
+    ]);
+    const prematureFirst = finalCandidates.find((candidate) => candidate.name === "Fm6/D");
+
+    expect(resolveDetectedCandidateFromContext({
+      candidates: finalCandidates,
+      currentCandidateId: prematureFirst?.id || null,
+      pendingCandidate: previousCandidate,
+      lastCandidate: previousCandidate,
+      prioritizeContext: true,
+    })?.name).toBe("Dm7(b5)");
+  });
+
+  test("la resolución contextual corrige una preselección prematura del primer candidato al pasar Ab6(no5)/Ebb -> x5658x", () => {
+    const previousCandidate = detectedReadingsFromPositions([
+      { sIdx: 4, fret: 5 },
+      { sIdx: 3, fret: 6 },
+      { sIdx: 2, fret: 5 },
+      { sIdx: 1, fret: 6 },
+    ]).find((candidate) => candidate.name === "Ab6(no5)/Ebb");
+    const finalCandidates = detectedReadingsFromPositions([
+      { sIdx: 4, fret: 5 },
+      { sIdx: 3, fret: 6 },
+      { sIdx: 2, fret: 5 },
+      { sIdx: 1, fret: 8 },
+    ]);
+    const prematureFirst = finalCandidates.find((candidate) => candidate.name === "Dm7(b5,add11,no3)");
+
+    expect(resolveDetectedCandidateFromContext({
+      candidates: finalCandidates,
+      currentCandidateId: prematureFirst?.id || null,
+      pendingCandidate: previousCandidate,
+      lastCandidate: previousCandidate,
+      prioritizeContext: true,
+    })?.name).toBe("Abmaj7b5/Ebb");
   });
 
   test("invariantes básicas de nomenclatura y bajo en casos curados", () => {

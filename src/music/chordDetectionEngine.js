@@ -128,6 +128,7 @@ export const CHORD_DETECT_FORMULAS = [
   { id: "m7no5", intervals: [0, 3, 10], degreeLabels: ["1", "b3", "b7"], suffix: "m7(no5)", ui: null, manualOnly: true },
   { id: "dom7no5", intervals: [0, 4, 10], degreeLabels: ["1", "3", "b7"], suffix: "7(no5)", ui: null, manualOnly: true },
   { id: "dom7add11add13no5", intervals: [0, 4, 5, 9, 10], degreeLabels: ["1", "3", "11", "13", "b7"], suffix: "7(add11,13,no5)", ui: null },
+  { id: "m7b5add11omit3", intervals: [0, 5, 6, 10], degreeLabels: ["1", "11", "b5", "b7"], suffix: "m7(b5,add11,no3)", ui: null, manualOnly: true },
   { id: "maddb13", intervals: [0, 3, 7, 8], degreeLabels: ["1", "b3", "5", "b13"], suffix: "m(addb13)", ui: null },
   { id: "maj9", intervals: [0, 2, 4, 7, 11], degreeLabels: ["1", "9", "3", "5", "7"], suffix: "maj9", ui: { quality: "maj", suspension: "none", structure: "chord", inversion: "all", form: "open", positionForm: "open", ext7: true, ext6: false, ext9: true, ext11: false, ext13: false } },
   { id: "maj7add13", intervals: [0, 4, 7, 9, 11], degreeLabels: ["1", "3", "5", "13", "7"], suffix: "maj7(add13)", ui: null },
@@ -366,7 +367,7 @@ function shouldFilterInexactCandidateShadowedByExact(candidate, exactCandidates)
 function candidateFormulaComplexityPenalty(candidate) {
   const id = String(candidate?.formula?.id || "");
   if (["maj", "min", "sus2", "sus4"].includes(id)) return 0;
-  if (["6", "m6", "add9", "madd9", "add11", "madd11", "sus2add13no5", "dom7no3no5", "maj7no3no5", "flat5no3"].includes(id)) return 2;
+  if (["6", "m6", "add9", "madd9", "add11", "madd11", "sus2add13no5", "dom7no3no5", "maj7no3no5", "flat5no3", "m7b5add11omit3"].includes(id)) return 2;
   if (["maj7add11"].includes(id)) return 5;
   if (["maj7sus4add9sharp11", "dom7add11add13no5"].includes(id)) return 10;
   if (["m6add11"].includes(id)) return 5;
@@ -383,11 +384,18 @@ function candidateFormulaComplexityPenalty(candidate) {
 
 const RARE_ENHARMONIC_SPELLINGS = new Set(["Cb", "Fb", "E#", "B#"]);
 
+function noteEnharmonicPenalty(note) {
+  const spelled = String(note || "");
+  if (!spelled) return 0;
+  if (spelled.includes("bb") || spelled.includes("##")) return 2.4;
+  return RARE_ENHARMONIC_SPELLINGS.has(spelled) ? 1.2 : 0;
+}
+
 function candidateRareEnharmonicPenalty(candidate) {
   const notes = Array.isArray(candidate?.visibleNotes) ? candidate.visibleNotes : [];
-  const notePenalty = notes.reduce((sum, note) => sum + (RARE_ENHARMONIC_SPELLINGS.has(String(note || "")) ? 1.2 : 0), 0);
+  const notePenalty = notes.reduce((sum, note) => sum + noteEnharmonicPenalty(note), 0);
   const bassPenalty = candidate?.externalBassInterval != null
-    ? (RARE_ENHARMONIC_SPELLINGS.has(String(spellNoteFromChordInterval(candidate.rootPc, candidate.externalBassInterval, !!candidate.preferSharps) || "")) ? 1.2 : 0)
+    ? noteEnharmonicPenalty(spellNoteFromChordInterval(candidate.rootPc, candidate.externalBassInterval, !!candidate.preferSharps))
     : 0;
   return notePenalty + bassPenalty;
 }
@@ -400,6 +408,20 @@ function candidateHasAwkwardHeuristicCluster(candidate, visibleLabels) {
   const hasFifth = labels.some((label) => label === "5" || label === "b5" || label === "#5");
   const hasNo5 = String(candidate?.formula?.suffix || "").includes("no5");
   return hasB2 && hasB6 && !hasFifth && hasNo5;
+}
+
+function candidateHasStructuralAlteredFifth(candidate) {
+  const id = String(candidate?.formula?.id || "");
+  return [
+    "dim",
+    "dim7",
+    "m7b5",
+    "m7b5add11omit3",
+    "flat5no3",
+    "7flat5",
+    "maj7sharp5",
+    "7sharp5",
+  ].includes(id);
 }
 
 function candidateProbabilityScore(candidate) {
@@ -455,7 +477,7 @@ function candidateProbabilityScore(candidate) {
   if (candidate.exact) score -= 2;
   else score += 2;
   if (triadCore) score -= 3;
-  if (hasAlteredFifth) score += 8;
+  if (hasAlteredFifth && !candidateHasStructuralAlteredFifth(candidate)) score += 8;
 
   if (externalBass) {
     if (triadCore && formulaSize === 3 && (candidate.missingLabels?.length || 0) === 0) score -= 8;
@@ -903,7 +925,7 @@ function collectFormulaCandidates(selectedNotes) {
 function groupPriority(candidate) {
   if (candidate?.formula?.quartal) {
     const quartalSize = Array.isArray(candidate?.formula?.intervals) ? candidate.formula.intervals.length : 0;
-    if (candidate.exact && quartalSize >= 4) return -1;
+    if (candidate.exact && quartalSize >= 4 && candidate.bassPc === candidate.rootPc) return -1;
     return quartalSize >= 4 ? 1 : 2;
   }
   return 0;
@@ -1031,6 +1053,67 @@ export function formatChordName(reading) {
   return String(reading?.name || "");
 }
 
+function candidateContextFamily(candidate) {
+  if (!candidate) return "";
+  if (candidate?.formula?.quartal) {
+    return `quartal:${String(candidate.formula?.quartalType || "")}`;
+  }
+
+  const id = String(candidate?.formula?.id || "").toLowerCase();
+  const quality = String(candidate?.uiPatch?.quality || candidate?.formula?.ui?.quality || "").toLowerCase();
+  const suspension = String(candidate?.uiPatch?.suspension || candidate?.formula?.ui?.suspension || "").toLowerCase();
+
+  if (id.includes("m7b5") || quality === "hdim") return "hdim";
+  if (id.startsWith("dim") || quality === "dim") return "dim";
+  if (suspension === "sus2") return "sus2";
+  if (suspension === "sus4") return "sus4";
+  if (quality === "min") return "min";
+  if (quality === "dom") return "dom";
+  if (quality === "maj") return "maj";
+  return "";
+}
+
+function candidateContextIntervalSet(candidate) {
+  const set = new Set((candidate?.visibleIntervals || []).map(mod12));
+  if (candidate?.externalBassInterval != null) {
+    set.add(mod12(candidate.externalBassInterval));
+  }
+  return set;
+}
+
+function candidateContextDistance(previousCandidate, candidate) {
+  if (!previousCandidate || !candidate) return 999;
+  if (candidate.rootPc !== previousCandidate.rootPc) return 999;
+
+  const previousFamily = candidateContextFamily(previousCandidate);
+  const nextFamily = candidateContextFamily(candidate);
+  if (!previousFamily || previousFamily !== nextFamily) return 999;
+
+  const prevSet = candidateContextIntervalSet(previousCandidate);
+  const nextSet = candidateContextIntervalSet(candidate);
+  const union = new Set([...prevSet, ...nextSet]);
+  let diffCount = 0;
+  union.forEach((interval) => {
+    if (prevSet.has(interval) !== nextSet.has(interval)) diffCount += 1;
+  });
+
+  let score = diffCount;
+  if (candidate.bassPc !== previousCandidate.bassPc) score += 3;
+  if (
+    candidate.bassPc === previousCandidate.bassPc &&
+    (candidate.externalBassInterval ?? null) !== (previousCandidate.externalBassInterval ?? null)
+  ) {
+    const previousBassInterval = previousCandidate.externalBassInterval == null
+      ? mod12(previousCandidate.bassPc - previousCandidate.rootPc)
+      : mod12(previousCandidate.externalBassInterval);
+    const nextBassInterval = candidate.externalBassInterval == null
+      ? mod12(candidate.bassPc - candidate.rootPc)
+      : mod12(candidate.externalBassInterval);
+    if (previousBassInterval !== nextBassInterval) score += 1;
+  }
+  return score;
+}
+
 export function pickDefaultChordCandidate({ candidates, previousCandidate = null, prioritizeContext = false } = {}) {
   const list = Array.isArray(candidates) ? candidates : [];
   if (!list.length) return null;
@@ -1038,7 +1121,49 @@ export function pickDefaultChordCandidate({ candidates, previousCandidate = null
   if (!previousCandidate) return list[0] || null;
 
   const exactMatch = list.find((candidate) => candidate?.id && previousCandidate?.id && candidate.id === previousCandidate.id) || null;
-  return exactMatch || list[0] || null;
+  if (exactMatch) return exactMatch;
+
+  const contextual = list
+    .map((candidate) => ({ candidate, distance: candidateContextDistance(previousCandidate, candidate) }))
+    .filter((entry) => entry.distance <= 2)
+    .sort((a, b) => {
+      if (a.distance !== b.distance) return a.distance - b.distance;
+      if ((a.candidate.rankScore ?? 999) !== (b.candidate.rankScore ?? 999)) return (a.candidate.rankScore ?? 999) - (b.candidate.rankScore ?? 999);
+      return (a.candidate.score ?? 999) - (b.candidate.score ?? 999);
+    })[0]?.candidate || null;
+
+  return contextual || list[0] || null;
+}
+
+export function resolveDetectedCandidateFromContext({
+  candidates,
+  currentCandidateId = null,
+  pendingCandidate = null,
+  lastCandidate = null,
+  prioritizeContext = false,
+} = {}) {
+  const list = Array.isArray(candidates) ? candidates : [];
+  if (!list.length) return null;
+
+  if (pendingCandidate) {
+    return pickDefaultChordCandidate({
+      candidates: list,
+      previousCandidate: pendingCandidate,
+      prioritizeContext,
+    }) || list[0] || null;
+  }
+
+  const currentCandidate = currentCandidateId
+    ? list.find((candidate) => candidate?.id === currentCandidateId) || null
+    : null;
+  if (currentCandidate) return currentCandidate;
+
+  const previousCandidate = lastCandidate || null;
+  return pickDefaultChordCandidate({
+    candidates: list,
+    previousCandidate,
+    prioritizeContext,
+  }) || list[0] || null;
 }
 
 export function buildSyntheticSelectedNotes(noteNames, bassName = null) {
