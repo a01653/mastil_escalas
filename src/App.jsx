@@ -1,4 +1,4 @@
-import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Blocks, BookOpen, ChevronLeft, ChevronRight, Eraser, HelpCircle, Info, Menu, Music, Play, Route, Search, Settings, Volume2, VolumeX, Waypoints, X } from "lucide-react";
 import {
@@ -1319,7 +1319,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "3.99";
+const APP_VERSION = "4.00";
 
 function chordDbUrl(keyName, suffix) {
   // Ruta RELATIVA dentro de /public (sin base) => chords-db/...
@@ -7730,7 +7730,7 @@ export default function FretboardScalesPage() {
     });
   }, [nearWindowSize, maxFret]);
 
-    const [nearSlots, setNearSlots] = useState(() => {
+  const [nearSlots, setNearSlots] = useState(() => {
     const base = {
       enabled: true,
       family: chordFamily,
@@ -7791,6 +7791,18 @@ export default function FretboardScalesPage() {
 
     return [base, mkEmpty(), mkEmpty(), mkEmpty()];
   });
+  const nearSlotsDropEligibilitySignature = useMemo(
+    () => nearSlots.map((s) => `${s?.family || "tertian"}|${s?.form}|${s?.structure}|${s?.ext7 ? 1 : 0}|${s?.ext6 ? 1 : 0}|${s?.ext9 ? 1 : 0}|${s?.ext11 ? 1 : 0}|${s?.ext13 ? 1 : 0}`).join(";"),
+    [nearSlots]
+  );
+  const nearSlotsExtensionSignature = useMemo(
+    () => nearSlots.map((s) => `${s?.family || "tertian"}|${s?.structure}|${s?.ext6 ? 1 : 0}|${s?.ext7 ? 1 : 0}|${s?.ext9 ? 1 : 0}|${s?.ext11 ? 1 : 0}|${s?.ext13 ? 1 : 0}`).join(";"),
+    [nearSlots]
+  );
+  const nearSlotsQualitySignature = useMemo(
+    () => nearSlots.map((s) => `${s?.family || "tertian"}|${s?.quality}|${s?.structure}|${s?.ext7 ? 1 : 0}`).join(";"),
+    [nearSlots]
+  );
 
   useEffect(() => {
     setNearSlots((prev) => {
@@ -7812,7 +7824,7 @@ export default function FretboardScalesPage() {
       });
       return changed ? next : prev;
     });
-  }, [nearSlots.map((s) => `${s?.family || "tertian"}|${s?.form}|${s?.structure}|${s?.ext7 ? 1 : 0}|${s?.ext6 ? 1 : 0}|${s?.ext9 ? 1 : 0}|${s?.ext11 ? 1 : 0}|${s?.ext13 ? 1 : 0}`).join(";")]);
+  }, [nearSlotsDropEligibilitySignature]);
 
   useEffect(() => {
     if (!storageHydrated) return;
@@ -7856,7 +7868,7 @@ export default function FretboardScalesPage() {
       });
       return changed ? next : prev;
     });
-  }, [nearSlots.map((s) => `${s?.family || "tertian"}|${s?.structure}|${s?.ext6 ? 1 : 0}|${s?.ext7 ? 1 : 0}|${s?.ext9 ? 1 : 0}|${s?.ext11 ? 1 : 0}|${s?.ext13 ? 1 : 0}`).join(";")]);
+  }, [storageHydrated, nearSlotsExtensionSignature]);
 
   useEffect(() => {
     setNearSlots((prev) => {
@@ -7875,7 +7887,7 @@ export default function FretboardScalesPage() {
       });
       return changed ? next : prev;
     });
-  }, [nearSlots.map((s) => `${s?.family || "tertian"}|${s?.quality}|${s?.structure}|${s?.ext7 ? 1 : 0}`).join(";")]);
+  }, [nearSlotsQualitySignature]);
 
   const [nearBgColors, setNearBgColors] = useState([
     "#8ACAF4", // Acorde 1 (base)  RGB(138,202,244)
@@ -8103,6 +8115,8 @@ export default function FretboardScalesPage() {
     chordQuartalSpread,
     chordQuartalReference,
     chordQuartalScaleName,
+    chordQuartalVoicingIdx,
+    chordQuartalSelectedFrets,
     guideToneQuality,
     guideToneForm,
     guideToneInversion,
@@ -8134,6 +8148,14 @@ export default function FretboardScalesPage() {
     routeStartCode,
     routeEndCode,
     routeMaxPerString,
+    routeLabStartCode,
+    routeLabEndCode,
+    routeLabMaxPerString,
+    routeLabSwitchWhenSameStringForwardPenalty,
+    routeLabWorseThanSameStringGoalBase,
+    routeLabWorseThanSameStringGoalScale,
+    routeLabCorridorPenalty,
+    routeLabOvershootNearEndAlt,
     routeMode,
     routePreferNps,
     routePreferVertical,
@@ -8551,12 +8573,12 @@ export default function FretboardScalesPage() {
   const chordPreferSharps = chordSpellPreferSharps;
 
   // Deletreo armónico del acorde: evita cosas como D–Gb–A (debe ser D–F#–A)
-  const chordPcToSpelledName = (pc) => {
+  const chordPcToSpelledName = useCallback((pc) => {
     const interval = mod12(pc - chordRootPc);
     const localSpelledChordNotes = spellChordNotes({ rootPc: chordRootPc, chordIntervals, preferSharps: chordPreferSharps });
     const idx = chordIntervals.findIndex((x) => mod12(x) === interval);
     return idx >= 0 ? localSpelledChordNotes[idx] : pcToName(pc, chordPreferSharps);
-  };
+  }, [chordRootPc, chordIntervals, chordPreferSharps]);
 
   const _chordNoteOptions = useMemo(() => {
     const list = chordPreferSharps ? NOTES_SHARP : NOTES_FLAT;
@@ -8756,7 +8778,7 @@ export default function FretboardScalesPage() {
       setGuideToneVoicingIdx(idx);
     }
     if (nextFrets !== guideToneSelectedFrets) setGuideToneSelectedFrets(nextFrets);
-  }, [guideToneVoicingIdx, guideToneVoicingsSig, guideToneSelectedFrets]);
+  }, [guideToneVoicingIdx, guideToneVoicings, guideToneVoicingsSig, guideToneSelectedFrets]);
 
   useEffect(() => {
     const current = guideToneVoicings[guideToneVoicingIdx] || guideToneVoicings[0] || null;
@@ -8951,7 +8973,7 @@ export default function FretboardScalesPage() {
     return () => {
       alive = false;
     };
-  }, [showBoards.chords, chordRootPc, chordSuffix, chordStructure]);
+  }, [showBoards.chords, chordRootPc, chordSuffix, chordStructure, chordExt7, chordExt6, chordExt9, chordExt11, chordExt13]);
 
   // Si se cierra el panel, limpia el último URL mostrado
   useEffect(() => {
@@ -9274,7 +9296,7 @@ export default function FretboardScalesPage() {
       setChordVoicingIdx(idx);
     }
     if (nextFrets !== chordSelectedFrets) setChordSelectedFrets(nextFrets);
-  }, [storageHydrated, chordVoicingsSig, chordSelectedFrets]);
+  }, [storageHydrated, chordVoicings, chordVoicingsSig, chordVoicingIdx, chordSelectedFrets]);
 
   useEffect(() => {
     if (!storageHydrated) return;
@@ -9291,7 +9313,7 @@ export default function FretboardScalesPage() {
       return;
     }
     if (current) lastChordVoicingRef.current = current;
-  }, [storageHydrated, chordVoicingIdx, chordVoicingsSig, chordSelectedFrets]);
+  }, [storageHydrated, chordVoicingIdx, chordVoicings, chordVoicingsSig, chordSelectedFrets]);
 
   const activeChordVoicing = chordVoicings[chordVoicingIdx] || chordVoicings[0] || null;
 
@@ -9374,7 +9396,7 @@ export default function FretboardScalesPage() {
     if (pendingChordDetectCandidateRef.current && nextId) {
       pendingChordDetectCandidateRef.current = null;
     }
-  }, [chordDetectMode, chordDetectSelectionSignature, chordDetectCandidates, chordDetectPrioritizeContext]);
+  }, [chordDetectMode, chordDetectSelectionSignature, chordDetectCandidates, chordDetectCandidateId, chordDetectPrioritizeContext]);
 
   // --------------------------------------------------------------------------
   // HELPERS LOCALES: DETECCIÓN DE ACORDES (audio y selección)
@@ -10017,11 +10039,11 @@ export default function FretboardScalesPage() {
     if (closeMobileCatalog) setMobileStandardsCatalogOpen(false);
   }
 
-  function nearSlotFamilyOf(slot) {
+  const nearSlotFamilyOf = useCallback((slot) => {
     return sanitizeOneOf(String(slot?.family || "tertian"), CHORD_FAMILIES.map((item) => item.value), "tertian");
-  }
+  }, []);
 
-  function buildNearSlotQuartalPitchSets(slot) {
+  const buildNearSlotQuartalPitchSets = useCallback((slot) => {
     return fnBuildQuartalPitchSets({
       rootPc: mod12(slot?.rootPc || 0),
       voices: slot?.quartalVoices || "4",
@@ -10029,9 +10051,9 @@ export default function FretboardScalesPage() {
       reference: slot?.quartalReference || "root",
       scaleName: slot?.quartalScaleName || "Mayor",
     });
-  }
+  }, []);
 
-  function buildNearSlotNoteMeta(slot, voicing = null) {
+  const buildNearSlotNoteMeta = useCallback((slot, voicing = null) => {
     const family = nearSlotFamilyOf(slot);
 
     if (family === "quartal") {
@@ -10077,9 +10099,9 @@ export default function FretboardScalesPage() {
     }));
     const notes = spellChordNotes({ rootPc, chordIntervals: intervals, preferSharps });
     return { family, rootPc, preferSharps, intervals, degreeLabels, notes };
-  }
+  }, [buildNearSlotQuartalPitchSets, nearSlotFamilyOf]);
 
-  function buildNearSlotStudyEntry(slot, plan, voicing, idx) {
+  const buildNearSlotStudyEntry = useCallback((slot, plan, voicing, idx) => {
     if (!slot) return null;
 
     const family = nearSlotFamilyOf(slot);
@@ -10197,14 +10219,14 @@ export default function FretboardScalesPage() {
       positionForm: slot?.positionForm || positionFormFromEffectiveForm(slot?.form, "closed"),
       bassName: voicing ? pcToName(voicing.bassPc, noteMeta.preferSharps) : pcToName(mod12(noteMeta.rootPc + (plan?.bassInterval || 0)), noteMeta.preferSharps),
       inversionLabel: CHORD_INVERSIONS.find((item) => item.value === (slot?.inversion || "root"))?.label || "Fundamental",
-      summary: buildChordHeaderSummary({
-        name: chordName,
-        plan,
-        voicing,
-        positionForm: slot?.positionForm,
-      }),
+        summary: buildChordHeaderSummary({
+          name: chordName,
+          plan,
+          voicing,
+          positionForm: slot?.positionForm,
+        }),
     };
-  }
+  }, [buildNearSlotNoteMeta, nearSlotFamilyOf]);
 
   function spellChordNotesForSlot(slot) {
     return buildNearSlotNoteMeta(slot).notes;
@@ -10621,7 +10643,7 @@ export default function FretboardScalesPage() {
     });
 
     return { baseIdx, ranked, selected };
-  }, [nearSlots, nearFrom, nearTo, maxFret, chordDbCache, chordDbCacheErr]);
+  }, [nearSlots, nearFrom, nearTo, maxFret, chordDbCache, chordDbCacheErr, nearSlotFamilyOf, buildNearSlotQuartalPitchSets]);
 
   const nearRankSig = useMemo(
     () => nearComputed.ranked.map((entry) => (entry?.ranked || []).map((v) => v.frets).join(",")).join("|"),
@@ -10802,7 +10824,7 @@ export default function FretboardScalesPage() {
     const plan = nearComputed.ranked[idx]?.plan || null;
     const voicing = nearComputed.selected[idx] || null;
     return buildNearSlotStudyEntry(slot, plan, voicing, idx);
-  }, [studyTarget, chordDetectMode, chordDetectSelectedCandidate, chordDetectSelectedNotes, chordFamily, chordRootPc, chordPreferSharps, chordQuality, chordSuspension, chordStructure, chordExt7, chordExt6, chordExt9, chordExt11, chordExt13, chordIntervals, chordDegreeLabels, chordEnginePlan, activeChordVoicing, chordBassPc, chordInversion, maxFret, chordQuartalPitchSets, activeQuartalVoicing, chordQuartalCurrentRootPc, chordQuartalDisplayName, chordQuartalSpread, chordQuartalType, chordQuartalReference, guideToneDef, activeGuideToneVoicing, guideToneDisplayName, guideToneForm, guideToneInversion, guideToneQuality, guideToneBassNote, nearSlots, nearComputed]);
+  }, [studyTarget, chordDetectMode, chordDetectSelectedCandidate, chordDetectSelectedNotes, chordFamily, chordRootPc, chordPreferSharps, chordQuality, chordSuspension, chordStructure, chordExt7, chordExt6, chordExt9, chordExt11, chordExt13, chordIntervals, chordDegreeLabels, chordEnginePlan, activeChordVoicing, chordBassPc, chordInversion, chordPositionForm, maxFret, chordQuartalPitchSets, activeQuartalVoicing, chordQuartalCurrentRootPc, chordQuartalDisplayName, chordQuartalSpread, chordQuartalType, chordQuartalReference, chordQuartalScaleName, guideToneDef, activeGuideToneVoicing, guideToneDisplayName, guideToneForm, guideToneInversion, guideToneQuality, guideToneBassNote, nearSlots, nearComputed, buildNearSlotStudyEntry]);
 
   // --------------------------------------------------------------------------
   // COMPONENTES UI INTERNOS: PANEL DE ESTUDIO
@@ -10867,7 +10889,7 @@ export default function FretboardScalesPage() {
     });
     useEffect(() => {
       setStudySubstitutionSectionIdx(0);
-    }, [studyTarget, d?.title, d?.chordName]);
+    }, [d?.title, d?.chordName]);
     useEffect(() => {
       setStudySubstitutionSectionIdx((prev) => {
         const maxIdx = Math.max(0, substitutionSections.length - 1);
@@ -11561,7 +11583,7 @@ export default function FretboardScalesPage() {
 
       return changed ? next : prev;
     });
-  }, [storageHydrated, nearRankSig]);
+  }, [storageHydrated, nearComputed.ranked, nearRankSig]);
 
   useEffect(() => {
     if (!storageHydrated) return;
@@ -11573,7 +11595,7 @@ export default function FretboardScalesPage() {
       }
       if (v) lastNearVoicingsRef.current[i] = v;
     });
-  }, [storageHydrated, nearSelectedSig]);
+  }, [storageHydrated, nearComputed.selected, nearSelectedSig]);
 
 
   const spelledScaleNotes = useMemo(() => spellScaleNotes({ rootPc, scaleIntervals, preferSharps }), [rootPc, scaleIntervals, preferSharps]);
@@ -11657,9 +11679,10 @@ export default function FretboardScalesPage() {
       names: (MANUAL_SCALE_TETRAD_PRESETS[normalizeScaleName(scaleName)] || (withSeventh && scaleTetradHarmony.length)) ? scaleTetradHarmony.map((x) => x.noteName) : degrees.map((d) => d.name),
     };
   }, [
-    nearSlots.map((s) => `${s?.enabled ? 1 : 0}|${s?.family || "tertian"}|${s?.structure}|${s?.ext7 ? 1 : 0}`).join(";"),
+    nearSlots,
     scaleIntervals,
     spelledScaleNotes,
+    scaleTetradHarmony,
     rootPc,
     harmonyMode,
     preferSharps,
@@ -12896,24 +12919,19 @@ function ChordFretboard({
   }
 
   function ChordInvestigationFretboard() {
-    const selectedMap = useMemo(() => {
-      const m = new Map();
-      if (!chordDetectSelectedNotes.length) return m;
+    const selectedMap = new Map();
+    if (chordDetectSelectedNotes.length) {
       const bassKey = chordDetectSelectedNotes[0]?.key || null;
       for (const n of chordDetectSelectedNotes) {
-        m.set(`${n.sIdx}:${n.fret}`, {
+        selectedMap.set(`${n.sIdx}:${n.fret}`, {
           pc: n.pc,
           isBass: n.key === bassKey,
           isPlaying: chordDetectPlayingKeys.includes(n.key),
         });
       }
-      return m;
-    }, [chordDetectPlayingKeys, chordDetectSelectedNotes]);
+    }
 
-    const selectedStrings = useMemo(
-      () => new Set(chordDetectSelectedNotes.map((n) => n.sIdx)),
-      [chordDetectSelectedNotes]
-    );
+    const selectedStrings = new Set(chordDetectSelectedNotes.map((n) => n.sIdx));
     const manualSelectionInfoText = [
       chordDetectSelectedCandidate
         ? `Notas de la escala: ${chordDetectSelectedCandidateScaleNotesText}.`
@@ -13281,14 +13299,11 @@ function ChordFretboard({
       ? normalizeVisibleFrets([0, ...Array.from({ length: Math.max(0, nearTo - nearFrom + 1) }, (_, idx) => nearFrom + idx)], maxFret)
       : null;
 
-    const usedStrings = useMemo(() => {
-      const out = new Set();
-      nearComputed.selected.forEach((v, idx) => {
-        if (!nearSlots[idx]?.enabled || !v?.notes?.length) return;
-        v.notes.forEach((n) => out.add(n.sIdx));
-      });
-      return out;
-    }, [nearComputed.selected, nearSlots]);
+    const usedStrings = new Set();
+    nearComputed.selected.forEach((v, idx) => {
+      if (!nearSlots[idx]?.enabled || !v?.notes?.length) return;
+      v.notes.forEach((n) => usedStrings.add(n.sIdx));
+    });
 
     const getItemsForCell = (sIdx, fret) => {
       const items = [];
