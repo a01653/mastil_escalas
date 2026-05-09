@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Blocks, BookOpen, ChevronLeft, ChevronRight, Eraser, HelpCircle, Info, Menu, Music, Play, Route, Search, Settings, Volume2, VolumeX, Waypoints, X } from "lucide-react";
 import {
@@ -1319,7 +1319,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "4.00";
+const APP_VERSION = "4.01";
 
 function chordDbUrl(keyName, suffix) {
   // Ruta RELATIVA dentro de /public (sin base) => chords-db/...
@@ -8573,12 +8573,12 @@ export default function FretboardScalesPage() {
   const chordPreferSharps = chordSpellPreferSharps;
 
   // Deletreo armónico del acorde: evita cosas como D–Gb–A (debe ser D–F#–A)
-  const chordPcToSpelledName = useCallback((pc) => {
+  const chordPcToSpelledName = (pc) => {
     const interval = mod12(pc - chordRootPc);
     const localSpelledChordNotes = spellChordNotes({ rootPc: chordRootPc, chordIntervals, preferSharps: chordPreferSharps });
     const idx = chordIntervals.findIndex((x) => mod12(x) === interval);
     return idx >= 0 ? localSpelledChordNotes[idx] : pcToName(pc, chordPreferSharps);
-  }, [chordRootPc, chordIntervals, chordPreferSharps]);
+  };
 
   const _chordNoteOptions = useMemo(() => {
     const list = chordPreferSharps ? NOTES_SHARP : NOTES_FLAT;
@@ -10039,11 +10039,11 @@ export default function FretboardScalesPage() {
     if (closeMobileCatalog) setMobileStandardsCatalogOpen(false);
   }
 
-  const nearSlotFamilyOf = useCallback((slot) => {
+  function nearSlotFamilyOf(slot) {
     return sanitizeOneOf(String(slot?.family || "tertian"), CHORD_FAMILIES.map((item) => item.value), "tertian");
-  }, []);
+  }
 
-  const buildNearSlotQuartalPitchSets = useCallback((slot) => {
+  function buildNearSlotQuartalPitchSets(slot) {
     return fnBuildQuartalPitchSets({
       rootPc: mod12(slot?.rootPc || 0),
       voices: slot?.quartalVoices || "4",
@@ -10051,9 +10051,9 @@ export default function FretboardScalesPage() {
       reference: slot?.quartalReference || "root",
       scaleName: slot?.quartalScaleName || "Mayor",
     });
-  }, []);
+  }
 
-  const buildNearSlotNoteMeta = useCallback((slot, voicing = null) => {
+  function buildNearSlotNoteMeta(slot, voicing = null) {
     const family = nearSlotFamilyOf(slot);
 
     if (family === "quartal") {
@@ -10099,9 +10099,9 @@ export default function FretboardScalesPage() {
     }));
     const notes = spellChordNotes({ rootPc, chordIntervals: intervals, preferSharps });
     return { family, rootPc, preferSharps, intervals, degreeLabels, notes };
-  }, [buildNearSlotQuartalPitchSets, nearSlotFamilyOf]);
+  }
 
-  const buildNearSlotStudyEntry = useCallback((slot, plan, voicing, idx) => {
+  function buildNearSlotStudyEntry(slot, plan, voicing, idx) {
     if (!slot) return null;
 
     const family = nearSlotFamilyOf(slot);
@@ -10226,7 +10226,7 @@ export default function FretboardScalesPage() {
           positionForm: slot?.positionForm,
         }),
     };
-  }, [buildNearSlotNoteMeta, nearSlotFamilyOf]);
+  }
 
   function spellChordNotesForSlot(slot) {
     return buildNearSlotNoteMeta(slot).notes;
@@ -10643,7 +10643,7 @@ export default function FretboardScalesPage() {
     });
 
     return { baseIdx, ranked, selected };
-  }, [nearSlots, nearFrom, nearTo, maxFret, chordDbCache, chordDbCacheErr, nearSlotFamilyOf, buildNearSlotQuartalPitchSets]);
+  }, [nearSlots, nearFrom, nearTo, maxFret, chordDbCache, chordDbCacheErr]);
 
   const nearRankSig = useMemo(
     () => nearComputed.ranked.map((entry) => (entry?.ranked || []).map((v) => v.frets).join(",")).join("|"),
@@ -10824,7 +10824,7 @@ export default function FretboardScalesPage() {
     const plan = nearComputed.ranked[idx]?.plan || null;
     const voicing = nearComputed.selected[idx] || null;
     return buildNearSlotStudyEntry(slot, plan, voicing, idx);
-  }, [studyTarget, chordDetectMode, chordDetectSelectedCandidate, chordDetectSelectedNotes, chordFamily, chordRootPc, chordPreferSharps, chordQuality, chordSuspension, chordStructure, chordExt7, chordExt6, chordExt9, chordExt11, chordExt13, chordIntervals, chordDegreeLabels, chordEnginePlan, activeChordVoicing, chordBassPc, chordInversion, chordPositionForm, maxFret, chordQuartalPitchSets, activeQuartalVoicing, chordQuartalCurrentRootPc, chordQuartalDisplayName, chordQuartalSpread, chordQuartalType, chordQuartalReference, chordQuartalScaleName, guideToneDef, activeGuideToneVoicing, guideToneDisplayName, guideToneForm, guideToneInversion, guideToneQuality, guideToneBassNote, nearSlots, nearComputed, buildNearSlotStudyEntry]);
+  }, [studyTarget, chordDetectMode, chordDetectSelectedCandidate, chordDetectSelectedNotes, chordFamily, chordRootPc, chordPreferSharps, chordQuality, chordSuspension, chordStructure, chordExt7, chordExt6, chordExt9, chordExt11, chordExt13, chordIntervals, chordDegreeLabels, chordEnginePlan, activeChordVoicing, chordBassPc, chordInversion, chordPositionForm, maxFret, chordQuartalPitchSets, activeQuartalVoicing, chordQuartalCurrentRootPc, chordQuartalDisplayName, chordQuartalSpread, chordQuartalType, chordQuartalReference, chordQuartalScaleName, guideToneDef, activeGuideToneVoicing, guideToneDisplayName, guideToneForm, guideToneInversion, guideToneQuality, guideToneBassNote, nearSlots, nearComputed]);
 
   // --------------------------------------------------------------------------
   // COMPONENTES UI INTERNOS: PANEL DE ESTUDIO
