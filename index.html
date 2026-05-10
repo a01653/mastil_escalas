@@ -8,6 +8,51 @@
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      (function () {
+        var root = document.getElementById("root");
+        var panelStyle = "min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;background:#f8fafc;color:#0f172a;font-family:Segoe UI,system-ui,sans-serif;";
+        var cardStyle = "width:min(720px,100%);border-radius:20px;border:1px solid #cbd5e1;background:#fff;box-shadow:0 20px 50px rgba(15,23,42,.10);padding:24px;";
+        var detailStyle = "margin-top:12px;white-space:pre-wrap;word-break:break-word;border-radius:12px;background:#e2e8f0;padding:12px;font-size:12px;line-height:1.5;color:#0f172a;";
+
+        function escapeHtml(value) {
+          return String(value || "")
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#39;");
+        }
+
+        function renderStatus(message, detail) {
+          if (!root) return;
+          root.innerHTML =
+            '<div style="' + panelStyle + '">' +
+              '<div style="' + cardStyle + '">' +
+                '<div style="font-size:24px;font-weight:700;margin-bottom:12px;">' + escapeHtml(message) + '</div>' +
+                '<div style="font-size:15px;line-height:1.6;color:#334155;">' +
+                  'Si ves este panel, el HTML cargo pero React todavia no pudo montar la app.' +
+                '</div>' +
+                (detail ? '<pre style="' + detailStyle + '">' + escapeHtml(detail) + '</pre>' : '') +
+              '</div>' +
+            '</div>';
+        }
+
+        window.__MASTIL_BOOT_RENDER_ERROR__ = renderStatus;
+        window.addEventListener("error", function (event) {
+          var message = event && (event.message || (event.error && event.error.message)) || "Error temprano al cargar la app.";
+          var detail = event && event.error && event.error.stack ? event.error.stack : message;
+          renderStatus("La app encontro un error antes de arrancar", detail);
+        }, true);
+        window.addEventListener("unhandledrejection", function (event) {
+          var reason = event && event.reason;
+          var message = reason && reason.message ? reason.message : String(reason || "Promesa rechazada sin controlar.");
+          var detail = reason && reason.stack ? reason.stack : message;
+          renderStatus("La app encontro un error antes de arrancar", detail);
+        });
+        renderStatus("Cargando Mastil de Escalas...", "");
+      })();
+    </script>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
