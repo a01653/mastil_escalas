@@ -50,6 +50,17 @@ export function intervalToChordToken(semi, { ext6 = false, ext9 = false, ext11 =
   return base;
 }
 
+function degreeNumberFromLabel(label) {
+  const s = String(label || "").replace(/^b+|^#+/, "");
+  const num = parseInt(s, 10);
+  if (!Number.isFinite(num)) return null;
+  if (num === 9) return 2;
+  if (num === 11) return 4;
+  if (num === 13) return 6;
+  if (num >= 1 && num <= 7) return num;
+  return null;
+}
+
 function chordDegreeNumberFromInterval(interval) {
   const s = mod12(interval);
   if (s === 0) return 1;
@@ -78,11 +89,13 @@ function spellPcWithLetter(targetPc, letter) {
   return `${letter}${accidental}`;
 }
 
-export function spellChordNotes({ rootPc, chordIntervals, preferSharps = true }) {
+export function spellChordNotes({ rootPc, chordIntervals, preferSharps = true, degreeLabels = null }) {
   const rootName = pcToName(rootPc, preferSharps);
   const rootIdx = Math.max(0, LETTERS.indexOf(rootName[0]));
-  return (Array.isArray(chordIntervals) ? chordIntervals : []).map((interval) => {
-    const degree = chordDegreeNumberFromInterval(interval);
+  return (Array.isArray(chordIntervals) ? chordIntervals : []).map((interval, i) => {
+    const label = Array.isArray(degreeLabels) ? degreeLabels[i] : null;
+    const fromLabel = label != null ? degreeNumberFromLabel(label) : null;
+    const degree = fromLabel != null ? fromLabel : chordDegreeNumberFromInterval(interval);
     const letter = LETTERS[(rootIdx + (degree - 1)) % 7];
     return spellPcWithLetter(mod12(rootPc + interval), letter);
   });
@@ -152,6 +165,9 @@ export const CHORD_DETECT_FORMULAS = [
   { id: "maj7sharp5", intervals: [0, 4, 8, 11], degreeLabels: ["1", "3", "#5", "7"], suffix: "maj7#5", ui: null },
   { id: "7sharp5", intervals: [0, 4, 8, 10], degreeLabels: ["1", "3", "#5", "b7"], suffix: "7#5", ui: null },
   { id: "7flat5", intervals: [0, 4, 6, 10], degreeLabels: ["1", "3", "b5", "b7"], suffix: "7b5", ui: null },
+  { id: "7sharp9no5", intervals: [0, 3, 4, 10], degreeLabels: ["1", "#9", "3", "b7"], suffix: "7(#9)", ui: null },
+  { id: "dom13sharp11", intervals: [0, 2, 4, 6, 9, 10], degreeLabels: ["1", "9", "3", "#11", "13", "b7"], suffix: "13(#11,9)", ui: null },
+  { id: "mmaj9", intervals: [0, 2, 3, 7, 11], degreeLabels: ["1", "9", "b3", "5", "7"], suffix: "m(maj9)", ui: null },
 ];
 
 function appendMissingDegreesToSuffix(baseSuffix, missingDegrees) {
@@ -372,7 +388,8 @@ function candidateFormulaComplexityPenalty(candidate) {
   if (["maj7sus4add9sharp11", "dom7add11add13no5"].includes(id)) return 10;
   if (["m6add11"].includes(id)) return 5;
   if (["maj7", "7", "m7", "m7b5", "dim7", "m7no5", "dom7no5"].includes(id)) return 4;
-  if (["maj9", "9", "m9", "7sharp9"].includes(id)) return 6;
+  if (["maj9", "9", "m9", "7sharp9", "7sharp9no5", "mmaj9"].includes(id)) return 6;
+  if (["dom13sharp11"].includes(id)) return 8;
   if (["m7flat13", "m7no5addb13"].includes(id)) return 8;
   if (["maj7add13", "maj7add13omit5", "maj13", "maj13omit5"].includes(id)) return 8;
   if (["m11flat13", "m11flat13omit3"].includes(id)) return 10;
@@ -745,7 +762,10 @@ function buildHeuristicTertianCandidates(selectedNotes) {
       addText = "13";
     }
     const suffixDescriptor = `${addText}${uniqueAddTokens.includes("no5") ? `${addText ? "," : ""}no5` : ""}`;
-    const suffix = appendDescriptorToChordSuffix(baseSuffix, suffixDescriptor);
+    let suffix = appendDescriptorToChordSuffix(baseSuffix, suffixDescriptor);
+    if (baseSuffix === "m(maj7)" && addTextTokens.length === 1 && addTextTokens[0] === "9" && !uniqueAddTokens.includes("no5")) {
+      suffix = "m(maj9)";
+    }
 
     const noteNames = spellChordNotes({ rootPc, chordIntervals: intervals, preferSharps });
     const slashBassChoice = bass.pc !== rootPc ? `/${spellNoteFromChordInterval(rootPc, bassInterval, preferSharps)}` : "";
@@ -868,7 +888,7 @@ function collectFormulaCandidates(selectedNotes) {
         .filter(Boolean);
       const suffix = appendMissingDegreesToSuffix(formula.suffix, missingLabels);
       const buildNameVariant = (preferSharpsChoice) => {
-        const noteNamesChoice = spellChordNotes({ rootPc, chordIntervals: formulaIntervals, preferSharps: preferSharpsChoice });
+        const noteNamesChoice = spellChordNotes({ rootPc, chordIntervals: formulaIntervals, preferSharps: preferSharpsChoice, degreeLabels: formula.degreeLabels });
         let slashBassChoice = "";
         if (bass.pc !== rootPc) {
           const bassIdx = formulaIntervals.findIndex((interval) => interval === bassInterval);
@@ -963,6 +983,55 @@ function dedupeRankedChordReadings(readings) {
   return Array.from(seen.values());
 }
 
+function isSoWhatVoicing(selectedNotes) {
+  const sorted = [...selectedNotes].sort((a, b) => a.pitch - b.pitch);
+  if (sorted.length !== 5) return false;
+  return (
+    sorted[1].pitch - sorted[0].pitch === 5 &&
+    sorted[2].pitch - sorted[1].pitch === 5 &&
+    sorted[3].pitch - sorted[2].pitch === 5 &&
+    sorted[4].pitch - sorted[3].pitch === 4
+  );
+}
+
+function isSoWhatCandidate(candidate, selectedNotes) {
+  if (!isSoWhatVoicing(selectedNotes)) return false;
+  const labels = new Set(candidateVisibleDegreeLabels(candidate));
+  const hasMinor11Color =
+    labels.has("1") &&
+    labels.has("b3") &&
+    labels.has("5") &&
+    labels.has("b7") &&
+    (labels.has("11") || labels.has("4"));
+  const name = String(candidate?.name || "");
+  const isExpectedName =
+    name.includes("m7(add11)") ||
+    name.includes("m11") ||
+    name.includes("m7(add4)");
+  return hasMinor11Color && isExpectedName;
+}
+
+function decorateSpecialAliases(candidate, selectedNotes) {
+  const visibleLabels = new Set(candidateVisibleDegreeLabels(candidate));
+  const aliases = [];
+
+  if (visibleLabels.has("1") && visibleLabels.has("#9") && visibleLabels.has("3") && visibleLabels.has("b7")) {
+    aliases.push("Hendrix chord");
+  }
+  if (visibleLabels.has("1") && visibleLabels.has("9") && visibleLabels.has("3") && visibleLabels.has("#11") && visibleLabels.has("13") && visibleLabels.has("b7")) {
+    aliases.push("Mystic chord");
+  }
+  if (visibleLabels.has("1") && visibleLabels.has("9") && visibleLabels.has("b3") && visibleLabels.has("5") && visibleLabels.has("7")) {
+    aliases.push("James Bond chord");
+  }
+  if (isSoWhatCandidate(candidate, selectedNotes)) {
+    aliases.push("So What chord");
+  }
+
+  if (!aliases.length) return candidate;
+  return { ...candidate, aliases, displayName: `${candidate.name} · ${aliases.join(" · ")}` };
+}
+
 export function detectChordReadings(selectedNotes) {
   const list = normalizeSelectedNotes(selectedNotes);
   if (!list.length) return [];
@@ -1004,7 +1073,8 @@ export function detectChordReadings(selectedNotes) {
     candidate.rankScore = Number(((candidate.probabilityScore ?? 999) + extraPenalty).toFixed(2));
   });
 
-  return rankChordReadings(dedupeRankedChordReadings(filtered)).slice(0, 12);
+  const ranked = rankChordReadings(dedupeRankedChordReadings(filtered)).slice(0, 12);
+  return ranked.map((candidate) => decorateSpecialAliases(candidate, list));
 }
 
 function formatChordBadgeDegree(label) {
@@ -1032,6 +1102,7 @@ export function buildChordLegend(candidate, preferSharpsFallback = true) {
     rootPc: candidate.rootPc,
     chordIntervals: candidate.formula?.intervals || [],
     preferSharps: prefer,
+    degreeLabels: candidate.formula?.degreeLabels,
   });
   const visibleItems = buildDetectedVisibleFormulaItems({
     formula: candidate.formula,
@@ -1050,7 +1121,7 @@ export function buildDetectedCandidateBadgeItems(candidate, preferSharpsFallback
 }
 
 export function formatChordName(reading) {
-  return String(reading?.name || "");
+  return String(reading?.displayName || reading?.name || "");
 }
 
 function candidateContextFamily(candidate) {

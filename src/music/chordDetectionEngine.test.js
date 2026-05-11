@@ -589,4 +589,82 @@ describe("chordDetectionEngine", () => {
       }
     }
   });
+
+  test("x3234x detecta C7(#9) con alias Hendrix chord", () => {
+    // C(sIdx4,f3) E(sIdx3,f2) Bb(sIdx2,f3) D#(sIdx1,f4), bajo C
+    const result = analyzeSelectedNotes(["C", "E", "Bb", "D#"], "C");
+    const hendrix = result.readings.find((r) => r.name === "C7(#9)");
+    expect(hendrix, "debe existir lectura C7(#9)").toBeTruthy();
+    expect(hendrix.aliases).toContain("Hendrix chord");
+    expect(hendrix.displayName).toBe("C7(#9) · Hendrix chord");
+    expect(legendDegrees(hendrix)).toContain("#9");
+    expect(legendNotes(hendrix)).toContain("D#");
+  });
+
+  test("8989aa detecta C13(#11,9) con alias Mystic chord y #11=F#", () => {
+    // C(sIdx5,f8) F#(sIdx4,f9) Bb(sIdx3,f8) E(sIdx2,f9) A(sIdx1,f10) D(sIdx0,f10), bajo C
+    const result = analyzeSelectedNotes(["C", "F#", "Bb", "E", "A", "D"], "C");
+    const mystic = result.readings.find((r) => r.name === "C13(#11,9)");
+    expect(mystic, "debe existir lectura C13(#11,9)").toBeTruthy();
+    expect(mystic.aliases).toContain("Mystic chord");
+    expect(mystic.displayName).toBe("C13(#11,9) · Mystic chord");
+    expect(legendDegrees(mystic)).toContain("#11");
+    expect(legendNotes(mystic)).toContain("F#");
+    expect(legendNotes(mystic)).not.toContain("Gb");
+  });
+
+  test("021002 detecta Em(maj9) con alias James Bond chord", () => {
+    // E(sIdx5,f0) B(sIdx4,f2) D#(sIdx3,f1) G(sIdx2,f0) B(sIdx1,f0) F#(sIdx0,f2), bajo E
+    const result = analyzeSelectedNotes(["E", "B", "D#", "G", "F#"], "E");
+    const jamesBond = result.readings.find((r) => r.name === "Em(maj9)");
+    expect(jamesBond, "debe existir lectura Em(maj9)").toBeTruthy();
+    expect(jamesBond.aliases).toContain("James Bond chord");
+    expect(jamesBond.displayName).toBe("Em(maj9) · James Bond chord");
+    expect(legendDegrees(jamesBond)).toContain("9");
+    expect(legendDegrees(jamesBond)).toContain("7");
+    const tagged = result.readings.filter((r) => r.aliases?.includes("James Bond chord"));
+    expect(tagged.map((r) => r.name)).toEqual(["Em(maj9)"]);
+    expect(result.primary?.name).toBe("Em(maj9)");
+    expect(result.primary?.displayName).toBe("Em(maj9) · James Bond chord");
+  });
+
+  test("x55565 detecta Dm7(add11) con alias So What chord", () => {
+    const readings = detectedReadingsFromPositions([
+      { sIdx: 4, fret: 5 },
+      { sIdx: 3, fret: 5 },
+      { sIdx: 2, fret: 5 },
+      { sIdx: 1, fret: 6 },
+      { sIdx: 0, fret: 5 },
+    ]);
+    const soWhat = readings.find((r) => r.name === "Dm7(add11)");
+    expect(soWhat, "debe existir lectura Dm7(add11)").toBeTruthy();
+    expect(soWhat.aliases).toContain("So What chord");
+    expect(soWhat.displayName).toBe("Dm7(add11) · So What chord");
+  });
+
+  test("x55565 no marca So What chord en todos los candidatos", () => {
+    const readings = detectedReadingsFromPositions([
+      { sIdx: 4, fret: 5 },
+      { sIdx: 3, fret: 5 },
+      { sIdx: 2, fret: 5 },
+      { sIdx: 1, fret: 6 },
+      { sIdx: 0, fret: 5 },
+    ]);
+    const tagged = readings.filter((r) => r.aliases?.includes("So What chord"));
+    expect(tagged).toHaveLength(1);
+    expect(tagged[0].name).toBe("Dm7(add11)");
+  });
+
+  test("x3434x sigue siendo Cm7(b5) sin alias especiales", () => {
+    const readings = detectedReadingsFromPositions([
+      { sIdx: 4, fret: 3 },
+      { sIdx: 3, fret: 4 },
+      { sIdx: 2, fret: 3 },
+      { sIdx: 1, fret: 4 },
+    ]);
+    const cm7b5 = readings.find((r) => r.name === "Cm7(b5)");
+    expect(cm7b5, "debe existir lectura Cm7(b5)").toBeTruthy();
+    expect(cm7b5.aliases ?? []).toHaveLength(0);
+    expect(cm7b5.displayName).toBeUndefined();
+  });
 });

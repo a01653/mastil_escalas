@@ -4,6 +4,7 @@ import { Blocks, BookOpen, ChevronLeft, ChevronRight, Eraser, HelpCircle, Info, 
 import {
   buildDetectedCandidateBadgeItems as buildDetectedCandidateBadgeItemsPure,
   detectChordReadings as detectChordReadingsPure,
+  formatChordName as formatChordNamePure,
   resolveDetectedCandidateFromContext as resolveDetectedCandidateFromContextPure,
 } from "./music/chordDetectionEngine.js";
 import { chordDbKeyNameFromPc } from "./music/chordDbCatalog.js";
@@ -349,7 +350,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "4.05";
+const APP_VERSION = "4.09";
 
 function chordDbUrl(keyName, suffix) {
   // Ruta RELATIVA dentro de /public (sin base) => chords-db/...
@@ -10024,7 +10025,7 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
                               className="mt-0.5 h-4 w-4"
                             />
                             <div className="min-w-0">
-                              <div className="font-semibold text-slate-800">{cand.name}</div>
+                              <div className="font-semibold text-slate-800">{formatChordNamePure(cand)}</div>
                               <div>{cand.intervalPairsText}</div>
                             </div>
                           </label>
