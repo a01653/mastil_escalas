@@ -667,4 +667,167 @@ describe("chordDetectionEngine", () => {
     expect(cm7b5.aliases ?? []).toHaveLength(0);
     expect(cm7b5.displayName).toBeUndefined();
   });
+
+  // ---------------------------------------------------------------------------
+  // Batería dom7sus4 / dom7sus2
+  // ---------------------------------------------------------------------------
+
+  test("xx5768 (G,D,F,C) primario debe ser G7sus4, no Dm7(add11,no5)/G", () => {
+    // sIdx3=D str fret5=G, sIdx2=G str fret7=D, sIdx1=B str fret6=F, sIdx0=E str fret8=C
+    const readings = detectedReadingsFromPositions([
+      { sIdx: 3, fret: 5 },
+      { sIdx: 2, fret: 7 },
+      { sIdx: 1, fret: 6 },
+      { sIdx: 0, fret: 8 },
+    ]);
+    expect(readings[0]?.name).toBe("G7sus4");
+
+    const g7sus4 = readings.find((r) => r.name === "G7sus4");
+    expect(g7sus4, "debe existir lectura G7sus4").toBeTruthy();
+    expect(g7sus4.formula.id).toBe("dom7sus4");
+    expect(g7sus4.formula.degreeLabels).toEqual(["1", "4", "5", "b7"]);
+    expect(g7sus4.rootPc).toBe(7);
+    expect(g7sus4.bassPc).toBe(7);
+    expect(g7sus4.exact).toBe(true);
+
+    const names = readings.map((r) => r.name);
+    expect(names).toContain("Dm7(add11,no5)/G");
+  });
+
+  test("dom7sus4 se detecta en las 12 transposiciones", () => {
+    expectNamedReadingAcrossTranspositions({
+      notes: ["G", "C", "D", "F"],
+      bass: "G",
+      expectedNameForRootPc: (rootPc) => `${preferredRootName(rootPc)}7sus4`,
+      requiredDegrees: ["1", "4", "5", "b7"],
+    });
+  });
+
+  test("dom7sus2 (G,A,D,F) se detecta como G7sus2", () => {
+    const result = analyzeSelectedNotes(["G", "A", "D", "F"], "G");
+    const reading = getReading(result, "G7sus2");
+    expect(reading.formula.id).toBe("dom7sus2");
+    expect(reading.exact).toBe(true);
+    expectRequiredDegrees(reading, ["1", "2", "5", "b7"]);
+  });
+
+  test("dom7sus2 se detecta en las 12 transposiciones", () => {
+    expectNamedReadingAcrossTranspositions({
+      notes: ["G", "A", "D", "F"],
+      bass: "G",
+      expectedNameForRootPc: (rootPc) => `${preferredRootName(rootPc)}7sus2`,
+      requiredDegrees: ["1", "2", "5", "b7"],
+    });
+  });
+
+  test("dom7sus4 con bajo externo (primera inversión) C7sus4/F", () => {
+    const result = analyzeSelectedNotes(["F", "C", "G", "Bb"], "F");
+    const reading = getReading(result, "C7sus4/F");
+    expect(reading.formula.id).toBe("dom7sus4");
+    expect(reading.rootPc).toBe(0);
+    expect(reading.bassPc).toBe(5);
+    expectRequiredDegrees(reading, ["1", "4", "5", "b7"]);
+    expectSlashMatchesBass(reading);
+  });
+
+  test("3 notas G,C,F prefieren Csus4/G sobre G7sus4(no5)", () => {
+    const result = analyzeSelectedNotes(["G", "C", "F"], "G");
+    const names = readingNames(result);
+    expect(names).toContain("Csus4/G");
+    expect(names).not.toContain("G7sus4");
+  });
+
+  test("sus4 triad (G,C,D) no genera G7sus4 ni G7sus4(no5)", () => {
+    const result = analyzeSelectedNotes(["G", "C", "D"], "G");
+    const names = readingNames(result);
+    expect(names).toContain("Gsus4");
+    expect(names).not.toContain("G7sus4");
+    expect(names).not.toContain("G7sus4(no5)");
+  });
+
+  test("dom7sus4 sin la 4ta (G,D,F) no genera G7sus4", () => {
+    const result = analyzeSelectedNotes(["G", "D", "F"], "G");
+    const names = readingNames(result);
+    expect(names).not.toContain("G7sus4");
+    expect(names).not.toContain("G7sus4(no4)");
+  });
+
+  test("Gm (G,Bb,D) no se confunde con G7sus4", () => {
+    const result = analyzeSelectedNotes(["G", "Bb", "D"], "G");
+    const names = readingNames(result);
+    expect(names).toContain("Gm");
+    expect(names).not.toContain("G7sus4");
+  });
+
+  test("G7 (G,B,D,F) no se confunde con G7sus4", () => {
+    const result = analyzeSelectedNotes(["G", "B", "D", "F"], "G");
+    const names = readingNames(result);
+    expect(names).toContain("G7");
+    expect(names).not.toContain("G7sus4");
+  });
+
+  test("dom7sus4 aparece en la lista de lecturas de xx5768 junto a Dm7(add11,no5)/G y Cuartal D", () => {
+    const result = analyzeSelectedNotes(["G", "D", "F", "C"], "G");
+    const names = readingNames(result);
+    expect(names).toContain("G7sus4");
+    expect(names).toContain("Dm7(add11,no5)/G");
+    expect(result.primary?.name).toBe("G7sus4");
+  });
+
+  // --- Dominante alterado: 3 mayor + b7 + b3(=#9) ---
+
+  test("8x899b (C,Bb,E,Ab,Eb) primario es C7(#9,b13,no5), no Cm7(add3,...)", () => {
+    // sIdx 5=low E +8=C, 3=D +8=Bb, 2=G +9=E, 1=B +9=Ab, 0=high E +11=Eb
+    const readings = detectedReadingsFromPositions([
+      { sIdx: 5, fret: 8 },
+      { sIdx: 3, fret: 8 },
+      { sIdx: 2, fret: 9 },
+      { sIdx: 1, fret: 9 },
+      { sIdx: 0, fret: 11 },
+    ]);
+    expect(readings[0]?.name).toBe("C7(#9,b13,no5)");
+    expect(readings.map((r) => r.name)).not.toContain("Cm7(add3,addb6,no5)");
+  });
+
+  test("C7(#9,b13,no5): primario y grados correctos", () => {
+    const result = analyzeSelectedNotes(["C", "Eb", "E", "Ab", "Bb"], "C");
+    expect(result.primary?.name).toBe("C7(#9,b13,no5)");
+    expect(readingNames(result)).not.toContain("Cm7(add3,addb6,no5)");
+    const reading = getReading(result, "C7(#9,b13,no5)");
+    expect(legendDegrees(reading)).toContain("#9");
+    expect(legendDegrees(reading)).toContain("3");
+    expect(legendDegrees(reading)).toContain("b13");
+    expect(legendDegrees(reading)).toContain("b7");
+  });
+
+  test("C7(#9,b13,no5): Eb se deletrea D# (#9), Ab se deletrea Ab (b13)", () => {
+    const result = analyzeSelectedNotes(["C", "Eb", "E", "Ab", "Bb"], "C");
+    const reading = getReading(result, "C7(#9,b13,no5)");
+    expect(legendNotes(reading)).toContain("D#");
+    expect(legendNotes(reading)).toContain("Ab");
+    expect(legendNotes(reading)).not.toContain("Eb");
+  });
+
+  test("dominante alterado (1,b3,3,b6,b7) se detecta en las 12 transposiciones", () => {
+    expectNamedReadingAcrossTranspositions({
+      notes: ["C", "Eb", "E", "Ab", "Bb"],
+      bass: "C",
+      expectedNameForRootPc: (rootPc) => `${preferredRootName(rootPc)}7(#9,b13,no5)`,
+      requiredDegrees: ["#9", "3", "b13", "b7"],
+    });
+  });
+
+  test("dominante alterado con quinta (C,Eb,E,G,Ab,Bb) contiene lectura C7 con #9", () => {
+    const result = analyzeSelectedNotes(["C", "Eb", "E", "G", "Ab", "Bb"], "C");
+    const names = readingNames(result);
+    expect(names.some((n) => n.startsWith("C7(") && n.includes("#9"))).toBe(true);
+    expect(names).not.toContain("Cm7(add3,addb6)");
+  });
+
+  test("Cm7 normal (C,Eb,G,Bb) no se ve afectado por la heurística alterada", () => {
+    const result = analyzeSelectedNotes(["C", "Eb", "G", "Bb"], "C");
+    const names = readingNames(result);
+    expect(names).toContain("Cm7");
+    expect(names).not.toContain("C7(#9,b13,no5)");
+  });
 });

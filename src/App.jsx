@@ -350,7 +350,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "4.09";
+const APP_VERSION = "4.13";
 
 function chordDbUrl(keyName, suffix) {
   // Ruta RELATIVA dentro de /public (sin base) => chords-db/...
@@ -512,6 +512,7 @@ export default function FretboardScalesPage() {
   const [chordDetectPrioritizeContextTouched, setChordDetectPrioritizeContextTouched] = useState(false);
   const [chordDetectSelectedKeys, setChordDetectSelectedKeys] = useState([]);
   const [chordDetectCandidateId, setChordDetectCandidateId] = useState(null);
+  const [voicingInputText, setVoicingInputText] = useState("");
   const [chordDetectWindowStart, setChordDetectWindowStart] = useState(1);
   const lastChordDetectCandidateRef = useRef(null);
   const pendingChordDetectCandidateRef = useRef(null);
@@ -6153,6 +6154,37 @@ function ChordFretboard({
           {chordDetectSelectedNotes.length
             ? <><b>Notas seleccionadas:</b> {chordDetectSelectedNotesText}. Pulsa de nuevo para quitar una nota.</>
             : "Notas seleccionadas: —"}
+        </div>
+
+        <div className="mt-2 flex items-center gap-2">
+          <input
+            type="text"
+            maxLength={6}
+            placeholder="p.ej. x8989b"
+            value={voicingInputText}
+            onChange={(e) => setVoicingInputText(e.target.value.toLowerCase())}
+            className="w-28 rounded border border-slate-300 bg-white px-2 py-1 font-mono text-xs text-slate-700 focus:border-blue-400 focus:outline-none"
+          />
+          <button
+            disabled={voicingInputText.length !== 6}
+            onClick={() => {
+              const FRET_CHARS = "0123456789ab";
+              const newKeys = [];
+              for (let i = 0; i < 6; i++) {
+                const ch = voicingInputText[i];
+                if (ch === "x") continue;
+                const fret = FRET_CHARS.indexOf(ch);
+                if (fret === -1) continue;
+                const sIdx = 5 - i;
+                newKeys.push(`${sIdx}:${fret}`);
+              }
+              setChordDetectSelectedKeys(newKeys);
+              if (!chordDetectMode) setChordDetectMode(true);
+            }}
+            className="rounded bg-blue-500 px-2 py-1 text-xs font-semibold text-white disabled:opacity-40 enabled:hover:bg-blue-600"
+          >
+            Aplicar
+          </button>
         </div>
 
         {chordDetectStaffEvents.length ? (

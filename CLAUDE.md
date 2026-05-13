@@ -17,6 +17,15 @@ Run a single test file:
 npx vitest run src/music/standardsCatalog.test.js
 ```
 
+### Launching the preview server
+
+Always use the Bash tool with `run_in_background: true`:
+```bash
+npm run preview
+```
+Then read the output file to obtain the URL (it will say `Local: http://localhost:XXXX/mastil_escalas/`).
+Do NOT use shell-specific constructs like `&`, `Start-Process`, or PowerShell cmdlets to launch the preview — they cause exit 127 or spawn failures in the sandbox environment.
+
 ## Architecture
 
 **Mástil Escalas** is a single-page React app (Spanish UI) for interactive guitar fretboard study: scales, chord voicings, jazz standards, and scale patterns (CAGED, 3NPS, pentatonic boxes).
