@@ -183,18 +183,15 @@ function appendMissingDegreesToSuffix(baseSuffix, missingDegrees) {
 export function detectFormulaRole(formula, interval) {
   const idx = formula?.intervals?.findIndex((value) => mod12(value) === mod12(interval));
   const label = idx >= 0 ? String(formula.degreeLabels[idx] || "") : "";
-  const formulaId = String(formula?.id || "").toLowerCase();
-  const isSuspensionFormula = !formula?.quartal && formulaId.startsWith("sus");
   if (mod12(interval) === 0) return "root";
-  if (isSuspensionFormula && (label === "2" || label === "4")) return "third";
-  if (label === "b2" || label === "#2") return "ninth";
+  if (label === "b2" || label === "#2" || label === "2") return "ninth";
   if (label === "b6" || label === "#6" || label === "6") return "sixth";
   if (label.includes("13")) return "thirteenth";
-  if (label.includes("11")) return "eleventh";
+  if (label === "4" || label === "b4" || label === "#4" || label.includes("11")) return "eleventh";
   if (label.includes("9")) return "ninth";
   if (label.includes("7")) return "seventh";
   if (label.includes("5")) return "fifth";
-  if (label.includes("3") || label === "2" || label === "4") return "third";
+  if (label.includes("3")) return "third";
   return "other";
 }
 
