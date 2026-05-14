@@ -350,7 +350,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "4.13";
+const APP_VERSION = "4.14";
 
 function chordDbUrl(keyName, suffix) {
   // Ruta RELATIVA dentro de /public (sin base) => chords-db/...
@@ -720,13 +720,17 @@ export default function FretboardScalesPage() {
   // ------------------------
   const [nearWindowStart, setNearWindowStart] = useState(1); // inicio del rango (traste)
   const [nearWindowSize, setNearWindowSize] = useState(6); // tamaño del rango (nº de trastes, incluye inicio)
+  const [nearWindowSizeRaw, setNearWindowSizeRaw] = useState("6"); // texto del input, puede estar vacío mientras el usuario edita
   const [nearAutoScaleSync, setNearAutoScaleSync] = useState(true);
 
   // Clamp del rango a 0–maxFret
   useEffect(() => {
     const size = Math.max(1, Math.floor(Number(nearWindowSize) || 1));
     const startMax = Math.max(0, maxFret - (size - 1));
-    if (size !== nearWindowSize) setNearWindowSize(size);
+    if (size !== nearWindowSize) {
+      setNearWindowSize(size);
+      setNearWindowSizeRaw(String(size));
+    }
     setNearWindowStart((s) => {
       const v = Math.floor(Number(s) || 0);
       return Math.max(0, Math.min(startMax, v));
@@ -5934,7 +5938,7 @@ function ChordFretboard({
     );
   }
 
-  function ChordInvestigationFretboard() {
+  function renderChordInvestigationFretboard() {
     const selectedMap = new Map();
     if (chordDetectSelectedNotes.length) {
       const bassKey = chordDetectSelectedNotes[0]?.key || null;
@@ -6322,7 +6326,7 @@ function ChordFretboard({
     );
   }
 
-  function NearChordsFretboard() {
+  function renderNearChordsFretboard() {
     const baseSlotIdx = nearComputed.baseIdx;
     const baseSlot = baseSlotIdx >= 0 ? nearSlots[baseSlotIdx] : null;
     const basePlan = baseSlotIdx >= 0 ? (nearComputed.ranked[baseSlotIdx]?.plan || null) : null;
@@ -6384,8 +6388,14 @@ function ChordFretboard({
                   <div className="text-[10px] font-semibold text-slate-600">Tamaño</div>
                   <input
                     className={UI_INPUT_SM + " w-14"}
-                    value={nearWindowSize}
-                    onChange={(e) => setNearWindowSize(parseInt(e.target.value || "1", 10))}
+                    value={nearWindowSizeRaw}
+                    onChange={(e) => {
+                      const raw = e.target.value;
+                      setNearWindowSizeRaw(raw);
+                      const n = parseInt(raw, 10);
+                      if (Number.isFinite(n) && n >= 1) setNearWindowSize(n);
+                    }}
+                    onBlur={() => setNearWindowSizeRaw(String(nearWindowSize))}
                   />
                 </div>
               </div>
@@ -10037,7 +10047,7 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
                   ref={chordDetectInvestigationAreaRef}
                   style={chordDetectClearMinHeight ? { minHeight: chordDetectClearMinHeight } : undefined}
                 >
-                  <ChordInvestigationFretboard />
+                  {renderChordInvestigationFretboard()}
                   <PanelBlock
                     level="subsection"
                     title={<InfoTitle label="Posibles acordes" info={DETECTED_CHORDS_INFO_TEXT} alwaysShow />}
@@ -10237,7 +10247,7 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
               })}
             </div>
 
-            <NearChordsFretboard />
+            {renderNearChordsFretboard()}
           </PanelBlock>
         ) : null}
 
