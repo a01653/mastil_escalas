@@ -154,7 +154,7 @@ export const CHORD_DETECT_FORMULAS = [
   { id: "7sharp9", intervals: [0, 3, 4, 7, 10], degreeLabels: ["1", "#9", "3", "5", "b7"], suffix: "7(#9)", ui: null, manualOnly: true },
   { id: "m9", intervals: [0, 2, 3, 7, 10], degreeLabels: ["1", "9", "b3", "5", "b7"], suffix: "m9", ui: { quality: "min", suspension: "none", structure: "chord", inversion: "all", form: "open", positionForm: "open", ext7: true, ext6: false, ext9: true, ext11: false, ext13: false } },
   { id: "m7flat13", intervals: [0, 3, 7, 8, 10], degreeLabels: ["1", "b3", "5", "b13", "b7"], suffix: "m7(b13)", ui: null, manualOnly: true },
-  { id: "m7no5addb13", intervals: [0, 3, 8, 10], degreeLabels: ["1", "b3", "b13", "b7"], suffix: "m7(no5)(b13)", ui: null, manualOnly: true },
+  { id: "m7no5addb13", intervals: [0, 3, 8, 10], degreeLabels: ["1", "b3", "b13", "b7"], suffix: "m7(b13,no5)", ui: null, manualOnly: true },
   { id: "m11flat13", intervals: [0, 3, 5, 7, 8, 10], degreeLabels: ["1", "b3", "11", "5", "b13", "b7"], suffix: "m11(b13)", ui: null },
   { id: "m11flat13omit3", intervals: [0, 5, 7, 8, 10], degreeLabels: ["1", "11", "5", "b13", "b7"], suffix: "m11(b13)", ui: null, manualOnly: true },
   { id: "maj7", intervals: [0, 4, 7, 11], degreeLabels: ["1", "3", "5", "7"], suffix: "maj7", ui: { quality: "maj", suspension: "none", structure: "tetrad", inversion: "all", form: "open", positionForm: "open", ext7: true, ext6: false, ext9: false, ext11: false, ext13: false } },
@@ -307,6 +307,10 @@ function allowMissingThirdCandidate(candidate) {
   if (!candidate || candidate.missingLabels.length !== 1) return false;
   if (!isThirdDegreeLabel(candidate.missingLabels[0])) return false;
   if (candidate.externalBassInterval != null) return false;
+  // If quality encodes the third in the chord name (m, dim, hdim), missing it produces
+  // a contradictory label like "Gm6(nob3)" — block the candidate entirely
+  const formulaQuality = String(candidate.formula?.ui?.quality || "");
+  if (["min", "dim", "hdim"].includes(formulaQuality)) return false;
   const labels = candidateVisibleDegreeLabels(candidate);
   return candidate.visibleIntervals.includes(0)
     && labels.some(isFifthDegreeLabel)
@@ -649,7 +653,7 @@ function appendDescriptorToChordSuffix(baseSuffix, descriptorText) {
   const base = String(baseSuffix || "");
   const descriptor = String(descriptorText || "").trim();
   if (!descriptor) return base;
-  if (!base) return `(${descriptor})`;
+  if (!base) return descriptor;
   if (base.endsWith(")")) return `${base.slice(0, -1)},${descriptor})`;
   return `${base}(${descriptor})`;
 }
@@ -1002,6 +1006,7 @@ export function rankChordReadings(readings) {
 }
 
 function dedupeRankedChordReadings(readings) {
+  // Pass 1: deduplicate by name|intervalPairsText (existing logic)
   const seen = new Map();
   for (const reading of Array.isArray(readings) ? readings : []) {
     const key = `${String(reading?.name || "")}|${String(reading?.intervalPairsText || "")}`;
@@ -1017,7 +1022,48 @@ function dedupeRankedChordReadings(readings) {
       seen.set(key, reading);
     }
   }
-  return Array.from(seen.values());
+  const list = Array.from(seen.values());
+
+  // Pass 2: for non-quartal candidates with identical content (root/bass/intervals/missing),
+  // prefer formula name over heuristic name while keeping the lower (better) probabilityScore.
+  // This resolves conflicts like "m(addb6)" vs "m(addb13)", "7(#9,no5)" vs "7(#9)", etc.
+  const isHeuristicFormula = (r) => String(r?.formula?.id || "").startsWith("tertian_heuristic");
+  const contentKey = (r) => [
+    r.rootPc,
+    r.bassPc,
+    r.preferSharps ? "s" : "f",
+    (r.visibleIntervals || []).slice().sort((a, b) => a - b).join(","),
+    (r.missingLabels || []).slice().sort().join(","),
+  ].join("|");
+
+  const contentWinners = new Map();
+  for (const r of list) {
+    if (r.formula?.quartal) continue;
+    const k = contentKey(r);
+    const prev = contentWinners.get(k);
+    if (!prev) { contentWinners.set(k, r); continue; }
+    const prevScore = prev.probabilityScore ?? 999;
+    const currScore = r.probabilityScore ?? 999;
+    const minScore = Math.min(prevScore, currScore);
+    const prevIsHeur = isHeuristicFormula(prev);
+    const currIsHeur = isHeuristicFormula(r);
+    let winner;
+    if (prevIsHeur && !currIsHeur) winner = { ...r, probabilityScore: minScore };
+    else if (!prevIsHeur && currIsHeur) winner = prevScore <= minScore ? prev : { ...prev, probabilityScore: minScore };
+    else winner = currScore < prevScore ? r : prev;
+    contentWinners.set(k, winner);
+  }
+
+  const usedContentKeys = new Set();
+  const result = [];
+  for (const r of list) {
+    if (r.formula?.quartal) { result.push(r); continue; }
+    const k = contentKey(r);
+    if (usedContentKeys.has(k)) continue;
+    usedContentKeys.add(k);
+    result.push(contentWinners.get(k) ?? r);
+  }
+  return result;
 }
 
 function isSoWhatVoicing(selectedNotes) {

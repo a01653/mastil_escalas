@@ -92,10 +92,20 @@ const GOLDEN_CASES = [
     mustNotWin: ["C7(#9,b13,no5)"],
     transpose: false,
   },
+  {
+    id: "cadd9-vs-minor-nob3",
+    description: "Cadd9/D gana sobre Gm6(add11,nob3)/D: calidad menor sin b3 es inválida (x5555x)",
+    notes: ["D", "G", "C", "E"],
+    bass: "D",
+    expectedPrimary: () => "Cadd9/D",
+    mustNotWin: ["Gm6(add11,nob3)/D", "C(add9)/D"],
+    mustNotAppear: ["Gm6(add11,nob3)/D", "C(add9)/D"],
+    transpose: false,
+  },
 ];
 
 describe("goldenCases", () => {
-  GOLDEN_CASES.forEach(({ id, description, notes, bass, expectedPrimary, mustNotWin, transpose }) => {
+  GOLDEN_CASES.forEach(({ id, description, notes, bass, expectedPrimary, mustNotWin, mustNotAppear, transpose }) => {
     const baseRootPc = noteNameToPc(notes[0]);
 
     test(`[${id}] ${description}`, () => {
@@ -106,6 +116,12 @@ describe("goldenCases", () => {
       mustNotWin.forEach((bad) => {
         expect(primary, `"${bad}" no debe ganar`).not.toBe(bad);
       });
+      if (mustNotAppear?.length) {
+        const allNames = result.readings.map((r) => r.name);
+        mustNotAppear.forEach((bad) => {
+          expect(allNames, `"${bad}" no debe aparecer en ninguna lectura`).not.toContain(bad);
+        });
+      }
     });
 
     if (transpose) {

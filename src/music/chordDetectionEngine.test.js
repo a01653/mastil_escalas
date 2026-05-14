@@ -831,3 +831,61 @@ describe("chordDetectionEngine", () => {
     expect(names).not.toContain("C7(#9,b13,no5)");
   });
 });
+
+describe("deduplicación: condiciones de fusión", () => {
+  // Distinta raíz → no fusionar aunque compartan bajo y notas
+
+  test("Am7 y C6/A coexisten para {C,E,G,A} bajo=A — raíces distintas", () => {
+    const result = analyzeSelectedNotes(["C", "E", "G", "A"], "A");
+    const names = readingNames(result);
+    expect(names).toContain("Am7");
+    expect(names).toContain("C6/A");
+    const am7 = result.readings.find((r) => r.name === "Am7");
+    const c6a = result.readings.find((r) => r.name === "C6/A");
+    expect(am7.rootPc).not.toBe(c6a.rootPc);
+  });
+
+  test("Cadd9/D y Em7(b13,no5)/D coexisten para {E,G,D,C} bajo=D — raíces distintas", () => {
+    const result = analyzeSelectedNotes(["E", "G", "D", "C"], "D");
+    const names = readingNames(result);
+    expect(names).toContain("Cadd9/D");
+    expect(names).toContain("Em7(b13,no5)/D");
+    const cadd9 = result.readings.find((r) => r.name === "Cadd9/D");
+    const em7 = result.readings.find((r) => r.name === "Em7(b13,no5)/D");
+    expect(cadd9.rootPc).not.toBe(em7.rootPc);
+  });
+
+  // Mismo root/bajo/intervalos → fusionar alias, dejar solo uno
+
+  test("una sola lectura con root=C y bajo=D para {C,E,G,D} bajo=D", () => {
+    const result = analyzeSelectedNotes(["C", "E", "G", "D"], "D");
+    const cRootDbass = result.readings.filter((r) => r.rootPc === 0 && r.bassPc === 2);
+    expect(cRootDbass.length).toBe(1);
+    expect(cRootDbass[0].name).toBe("Cadd9/D");
+  });
+
+  test("Em7(addb6,no5)/D no aparece — fusionado en Em7(b13,no5)/D para {E,G,D,C} bajo=D", () => {
+    const result = analyzeSelectedNotes(["E", "G", "D", "C"], "D");
+    const names = readingNames(result);
+    expect(names).not.toContain("Em7(addb6,no5)/D");
+    expect(names).not.toContain("Em7(no5)(b13)/D");
+    const em7Readings = result.readings.filter((r) => r.rootPc === 4 && r.bassPc === 2);
+    expect(em7Readings.length).toBe(1);
+    expect(em7Readings[0].name).toBe("Em7(b13,no5)/D");
+  });
+
+  // Mismo root/bajo/mismos intervalos visibles pero distinto missingLabels → no fusionar
+
+  test("Em7(b13,no5,nob7) y Em(addb13,no5) coexisten para {E,G,C} bajo=E — missingLabels distintos", () => {
+    const result = analyzeSelectedNotes(["E", "G", "C"], "E");
+    const eReadings = result.readings.filter((r) => r.rootPc === 4 && r.bassPc === 4);
+    const names = eReadings.map((r) => r.name);
+    expect(names).toContain("Em7(b13,no5,nob7)");
+    expect(names).toContain("Em(addb13,no5)");
+    // Confirmar que tienen missingLabels distintos (root de la no-fusión)
+    const withNob7 = eReadings.find((r) => r.name === "Em7(b13,no5,nob7)");
+    const withoutNob7 = eReadings.find((r) => r.name === "Em(addb13,no5)");
+    expect(withNob7.missingLabels).toContain("b7");
+    expect(withoutNob7.missingLabels).not.toContain("b7");
+  });
+});
