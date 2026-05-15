@@ -353,7 +353,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "4.31";
+const APP_VERSION = "4.32";
 
 function chordDbUrl(keyName, suffix) {
   // Ruta RELATIVA dentro de /public (sin base) => chords-db/...
@@ -2674,10 +2674,7 @@ export default function FretboardScalesPage() {
     e?.preventDefault?.();
     e?.stopPropagation?.();
     if (!chordDetectSelectedKeys.length) return;
-    const areaHeight = chordDetectInvestigationAreaRef.current?.getBoundingClientRect?.().height ?? null;
-    if (Number.isFinite(areaHeight) && areaHeight > 0) {
-      setChordDetectClearMinHeight(Math.ceil(areaHeight));
-    }
+    setChordDetectClearMinHeight(null);
     preserveChordDetectViewportScroll({ focusPanel: true });
     clearChordDetectPlaybackVisuals();
     pendingChordDetectCandidateRef.current = null;
@@ -2748,11 +2745,6 @@ export default function FretboardScalesPage() {
   function toggleChordDetectCell(sIdx, fret) {
     if (chordDetectClickAudio) fnPlayChordDetectNote(sIdx, fret);
     pendingChordDetectCandidateRef.current = chordDetectSelectedCandidate || lastChordDetectCandidateRef.current || null;
-    const areaHeight = chordDetectInvestigationAreaRef.current?.getBoundingClientRect?.().height ?? null;
-    if (Number.isFinite(areaHeight) && areaHeight > 0) {
-      setChordDetectClearMinHeight(Math.ceil(areaHeight));
-    }
-    preserveChordDetectViewportScroll();
     const key = `${sIdx}:${fret}`;
     setChordDetectSelectedKeys((prev) => {
       if (prev.includes(key)) return prev.filter((x) => x !== key);
@@ -8531,10 +8523,6 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
       setMobileSectionSlideTransform(nextIdx > currentIdx ? -mobileSectionViewportWidth() : mobileSectionViewportWidth());
       return;
     }
-    if (section === "configuration") {
-      setShowBoards((prev) => ({ ...prev, configuration: !prev.configuration }));
-      return;
-    }
     setShowBoards((prev) => normalizeBoardVisibility({ ...prev, [section]: true }, section));
   }
 
@@ -8960,6 +8948,203 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
         </div>
 
       </>
+    );
+  }
+
+  function renderConfigPanel() {
+    return (
+      <PanelBlock
+        title="Configuración"
+        description="Ajustes globales, colores y acciones de configuración general de la app."
+        bodyClassName="space-y-3"
+      >
+        <PanelBlock
+          as="div"
+          level="subsection"
+          title="Parámetros globales"
+          description="Controles globales: afectan a varios paneles o a toda la vista."
+        >
+          <div className="mt-3 flex flex-wrap items-start gap-3">
+            <div className="min-w-0 sm:min-w-[420px]">
+              <label className={UI_LABEL_SM}>Preset rápido</label>
+              <div className="mt-1 flex items-center gap-2">
+                <select
+                  className={UI_SELECT_SM + " w-44"}
+                  value={selectedQuickPresetSlot}
+                  onChange={(e) => setSelectedQuickPresetSlot(e.target.value)}
+                  title="Elige el preset rápido que quieres restaurar o guardar"
+                >
+                  {Array.from({ length: QUICK_PRESET_COUNT }, (_, i) => (
+                    <option key={i} value={String(i)}>
+                      {quickPresets[i]?.name || `Preset ${i + 1}`}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  className={UI_BTN_SM + " w-auto shrink-0 px-3"}
+                  onClick={() => loadQuickPreset(selectedQuickPresetIndex)}
+                  disabled={!selectedQuickPreset}
+                  title={selectedQuickPreset?.savedAt ? `${selectedQuickPreset?.name} · ${selectedQuickPreset?.savedAt}` : "El preset seleccionado está vacío"}
+                >
+                  Restaurar
+                </button>
+                <button
+                  type="button"
+                  className={UI_BTN_SM + " w-auto shrink-0 px-3"}
+                  onClick={() => saveQuickPreset(selectedQuickPresetIndex)}
+                  title={`Guardar configuración actual en Preset ${selectedQuickPresetIndex + 1}`}
+                >
+                  Guardar
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <div className={UI_LABEL_SM}>Vista</div>
+              <div className="mt-1 flex gap-1.5">
+                <ToggleButton active={showNotesLabel} onClick={() => setShowNotesLabel((v) => !v)} title="Muestra nombre de la nota">
+                  Notas
+                </ToggleButton>
+                <ToggleButton active={showIntervalsLabel} onClick={() => setShowIntervalsLabel((v) => !v)} title="Muestra grado/intervalo">
+                  Intervalos
+                </ToggleButton>
+              </div>
+            </div>
+
+            <div className="min-w-0 sm:min-w-[130px]">
+              <label className={UI_LABEL_SM}>Trastes</label>
+              <select
+                className={UI_SELECT_SM + " mt-1"}
+                value={maxFret}
+                onChange={(e) => setMaxFret(parseInt(e.target.value, 10))}
+                title="Rango de trastes"
+              >
+                {[12, 15, 18, 21, 24].map((n) => (
+                  <option key={n} value={n}>
+                    0–{n}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <div className={UI_LABEL_SM}>Fondo</div>
+              <div className="mt-1 flex gap-1.5">
+                <ToggleButton active={showNonScale} onClick={() => setShowNonScale((v) => !v)} title="Muestra todas las notas posibles en los mástiles compatibles">
+                  Ver todo
+                </ToggleButton>
+              </div>
+            </div>
+
+            <div>
+              <div className={UI_LABEL_SM}>Debug</div>
+              <div className="mt-1 flex gap-1.5">
+                <ToggleButton active={debugMode} onClick={() => setDebugMode((v) => !v)} title="Muestra detalles técnicos de cálculo de rutas">
+                  Debug
+                </ToggleButton>
+              </div>
+            </div>
+          </div>
+        </PanelBlock>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <button type="button" className={UI_BTN_SM + " w-auto px-3"} onClick={exportUiConfig}>
+            Exportar config
+          </button>
+          <button
+            type="button"
+            className={UI_BTN_SM + " w-auto px-3"}
+            onClick={() => importConfigInputRef.current && importConfigInputRef.current.click()}
+          >
+            Importar config
+          </button>
+          <button type="button" className={UI_BTN_SM + " w-auto px-3"} onClick={resetUiConfig}>
+            Restablecer
+          </button>
+        </div>
+
+        <PanelBlock
+          as="div"
+          level="subsection"
+          title="Tema"
+          description="Ajusta el color del fondo general y de los paneles de la página."
+        >
+          <div className="mt-3 flex flex-wrap items-center gap-4">
+            <div className="min-w-0">
+              <label className={UI_LABEL_SM}>Fondo página</label>
+              <div className="mt-1 flex items-center gap-2">
+                <input
+                  type="color"
+                  value={themePageBg}
+                  onChange={(e) => setThemePageBg(e.target.value)}
+                  title={themePageBg}
+                  className="h-8 w-10 cursor-pointer rounded-md border border-slate-200 bg-white"
+                />
+                <span className="text-xs font-semibold text-slate-600">{themePageBg}</span>
+              </div>
+            </div>
+
+            <div className="min-w-0">
+              <label className={UI_LABEL_SM}>Fondo objetos</label>
+              <div className="mt-1 flex items-center gap-2">
+                <input
+                  type="color"
+                  value={themeObjectBg}
+                  onChange={(e) => setThemeObjectBg(e.target.value)}
+                  title={themeObjectBg}
+                  className="h-8 w-10 cursor-pointer rounded-md border border-slate-200 bg-white"
+                />
+                <span className="text-xs font-semibold text-slate-600">{themeObjectBg}</span>
+              </div>
+            </div>
+
+            <div className="min-w-0">
+              <label className={UI_LABEL_SM}>Cabecera secciones</label>
+              <div className="mt-1 flex items-center gap-2">
+                <input
+                  type="color"
+                  value={themeSectionHeaderBg}
+                  onChange={(e) => setThemeSectionHeaderBg(e.target.value)}
+                  title={themeSectionHeaderBg}
+                  className="h-8 w-10 cursor-pointer rounded-md border border-slate-200 bg-white"
+                />
+                <span className="text-xs font-semibold text-slate-600">{themeSectionHeaderBg}</span>
+              </div>
+            </div>
+
+            <div className="min-w-0">
+              <label className={UI_LABEL_SM}>Elementos</label>
+              <div className="mt-1 flex items-center gap-2">
+                <input
+                  type="color"
+                  value={themeElementBg}
+                  onChange={(e) => setThemeElementBg(e.target.value)}
+                  title={themeElementBg}
+                  className="h-8 w-10 cursor-pointer rounded-md border border-slate-200 bg-white"
+                />
+                <span className="text-xs font-semibold text-slate-600">{themeElementBg}</span>
+              </div>
+            </div>
+
+            <div className="min-w-0">
+              <label className={UI_LABEL_SM}>Controles deshabilitados</label>
+              <div className="mt-1 flex items-center gap-2">
+                <input
+                  type="color"
+                  value={themeDisabledControlBg}
+                  onChange={(e) => setThemeDisabledControlBg(e.target.value)}
+                  title={themeDisabledControlBg}
+                  className="h-8 w-10 cursor-pointer rounded-md border border-slate-200 bg-white"
+                />
+                <span className="text-xs font-semibold text-slate-600">{themeDisabledControlBg}</span>
+              </div>
+            </div>
+          </div>
+        </PanelBlock>
+
+        {renderColorPanels(effectiveBoards, "grid gap-3")}
+      </PanelBlock>
     );
   }
 
@@ -9569,7 +9754,7 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
       chords: section === "chords",
       nearChords: section === "nearChords",
       standards: section === "standards",
-      configuration: false,
+      configuration: section === "configuration",
     };
   }
 
@@ -10418,6 +10603,8 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
         {boardVisibility.standards ? renderStandardsPanel() : null}
 
         {(boardVisibility.chords || boardVisibility.nearChords) ? <StudyPanel /> : null}
+
+        {boardVisibility.configuration ? renderConfigPanel() : null}
       </div>
     );
   }
@@ -10487,6 +10674,10 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
           cursor: not-allowed;
         }
       `}</style>
+      {isMobileLayout ? (
+        <div className={`fixed inset-0 z-40 bg-slate-900/35 transition-opacity duration-200 ${mobileMenuOpen ? "opacity-100" : "pointer-events-none opacity-0"}`}
+          onClick={() => setMobileMenuOpen(false)} />
+      ) : null}
       <div ref={appRootRef} className={`${wrap} ${isMobileLayout ? "pb-28" : ""}`.trim()} style={wrapStyle}>
         <header className="mb-3">
           <div className="flex items-start justify-between gap-3">
@@ -10494,15 +10685,12 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
               <h1 className="text-lg font-semibold sm:text-xl">Mástil interactivo: escalas, patrones, rutas y acordes</h1>
             </div>
             <div className="flex items-center gap-2">
-              <span className="rounded-xl border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600 shadow-sm">ver. {APP_VERSION}</span>
-              <button
-                type="button"
-                className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white shadow-sm xl:hidden"
+              <button type="button" className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white shadow-sm xl:hidden"
                 title={mobileMenuOpen ? "Cerrar configuración" : "Abrir configuración"}
-                onClick={() => setMobileMenuOpen((v) => !v)}
-              >
+                onClick={() => setMobileMenuOpen((v) => !v)}>
                 {mobileMenuOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
               </button>
+              <span className="rounded-xl border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600 shadow-sm">ver. {APP_VERSION}</span>
             </div>
           </div>
           <div className="mt-2 hidden items-center gap-3 xl:flex">
@@ -10554,13 +10742,6 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
           ) : null}
         </header>
 
-        {isMobileLayout ? (
-          <div
-            className={`fixed inset-0 z-40 bg-slate-900/35 transition-opacity duration-200 ${mobileMenuOpen ? "opacity-100" : "pointer-events-none opacity-0"}`}
-            onClick={() => setMobileMenuOpen(false)}
-          />
-        ) : null}
-
         <div className="space-y-4">
           <div className="space-y-4">
             <div className={`${controlsPanelClass} space-y-4`.trim()}>
@@ -10571,16 +10752,11 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
                       <div className="text-sm font-semibold text-slate-800">Configuración</div>
                       <div className="text-xs text-slate-600">Ajustes globales y visuales de la app.</div>
                     </div>
-                    <button
-                      type="button"
-                      className="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200 bg-white shadow-sm"
-                      onClick={() => setMobileMenuOpen(false)}
-                      title="Cerrar configuración"
-                    >
+                    <button type="button" className="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200 bg-white shadow-sm"
+                      onClick={() => setMobileMenuOpen(false)} title="Cerrar configuración">
                       <X className="h-4 w-4" />
                     </button>
                   </div>
-
                   <div className="flex items-center gap-2 rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-200">
                     <span className="text-xs font-semibold text-slate-700">Ayuda</span>
                     <button type="button" className={UI_BTN_SM + " w-auto px-3"} onClick={() => setManualOpen(true)}>
@@ -10589,202 +10765,7 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
                   </div>
                 </div>
               ) : null}
-
-              {effectiveBoards.configuration ? (
-                <PanelBlock
-                  title="Configuración"
-                  description="Ajustes globales, colores y acciones de configuración general de la app."
-                  bodyClassName="space-y-3"
-                >
-                  <PanelBlock
-                    as="div"
-                    level="subsection"
-                    title="Parámetros globales"
-                    description="Controles globales: afectan a varios paneles o a toda la vista."
-                  >
-                    <div className="mt-3 flex flex-wrap items-start gap-3">
-                      <div className="min-w-0 sm:min-w-[420px]">
-                        <label className={UI_LABEL_SM}>Preset rápido</label>
-                        <div className="mt-1 flex items-center gap-2">
-                          <select
-                            className={UI_SELECT_SM + " w-44"}
-                            value={selectedQuickPresetSlot}
-                            onChange={(e) => setSelectedQuickPresetSlot(e.target.value)}
-                            title="Elige el preset rápido que quieres restaurar o guardar"
-                          >
-                            {Array.from({ length: QUICK_PRESET_COUNT }, (_, i) => (
-                              <option key={i} value={String(i)}>
-                                {quickPresets[i]?.name || `Preset ${i + 1}`}
-                              </option>
-                            ))}
-                          </select>
-                          <button
-                            type="button"
-                            className={UI_BTN_SM + " w-auto shrink-0 px-3"}
-                            onClick={() => loadQuickPreset(selectedQuickPresetIndex)}
-                            disabled={!selectedQuickPreset}
-                            title={selectedQuickPreset?.savedAt ? `${selectedQuickPreset?.name} · ${selectedQuickPreset?.savedAt}` : "El preset seleccionado está vacío"}
-                          >
-                            Restaurar
-                          </button>
-                          <button
-                            type="button"
-                            className={UI_BTN_SM + " w-auto shrink-0 px-3"}
-                            onClick={() => saveQuickPreset(selectedQuickPresetIndex)}
-                            title={`Guardar configuración actual en Preset ${selectedQuickPresetIndex + 1}`}
-                          >
-                            Guardar
-                          </button>
-                        </div>
-                      </div>
-
-                      <div>
-                        <div className={UI_LABEL_SM}>Vista</div>
-                        <div className="mt-1 flex gap-1.5">
-                          <ToggleButton active={showNotesLabel} onClick={() => setShowNotesLabel((v) => !v)} title="Muestra nombre de la nota">
-                            Notas
-                          </ToggleButton>
-                          <ToggleButton active={showIntervalsLabel} onClick={() => setShowIntervalsLabel((v) => !v)} title="Muestra grado/intervalo">
-                            Intervalos
-                          </ToggleButton>
-                        </div>
-                      </div>
-
-                      <div className="min-w-0 sm:min-w-[130px]">
-                        <label className={UI_LABEL_SM}>Trastes</label>
-                        <select
-                          className={UI_SELECT_SM + " mt-1"}
-                          value={maxFret}
-                          onChange={(e) => setMaxFret(parseInt(e.target.value, 10))}
-                          title="Rango de trastes"
-                        >
-                          {[12, 15, 18, 21, 24].map((n) => (
-                            <option key={n} value={n}>
-                              0–{n}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div>
-                        <div className={UI_LABEL_SM}>Fondo</div>
-                        <div className="mt-1 flex gap-1.5">
-                          <ToggleButton active={showNonScale} onClick={() => setShowNonScale((v) => !v)} title="Muestra todas las notas posibles en los mástiles compatibles">
-                            Ver todo
-                          </ToggleButton>
-                        </div>
-                      </div>
-
-                      <div>
-                        <div className={UI_LABEL_SM}>Debug</div>
-                        <div className="mt-1 flex gap-1.5">
-                          <ToggleButton active={debugMode} onClick={() => setDebugMode((v) => !v)} title="Muestra detalles técnicos de cálculo de rutas">
-                            Debug
-                          </ToggleButton>
-                        </div>
-                      </div>
-                    </div>
-                  </PanelBlock>
-
-                  <div className="flex flex-wrap items-center gap-2">
-                    <button type="button" className={UI_BTN_SM + " w-auto px-3"} onClick={exportUiConfig}>
-                      Exportar config
-                    </button>
-                    <button
-                      type="button"
-                      className={UI_BTN_SM + " w-auto px-3"}
-                      onClick={() => importConfigInputRef.current && importConfigInputRef.current.click()}
-                    >
-                      Importar config
-                    </button>
-                    <button type="button" className={UI_BTN_SM + " w-auto px-3"} onClick={resetUiConfig}>
-                      Restablecer
-                    </button>
-                  </div>
-
-                  <PanelBlock
-                    as="div"
-                    level="subsection"
-                    title="Tema"
-                    description="Ajusta el color del fondo general y de los paneles de la página."
-                  >
-                    <div className="mt-3 flex flex-wrap items-center gap-4">
-                      <div className="min-w-0">
-                        <label className={UI_LABEL_SM}>Fondo página</label>
-                        <div className="mt-1 flex items-center gap-2">
-                          <input
-                            type="color"
-                            value={themePageBg}
-                            onChange={(e) => setThemePageBg(e.target.value)}
-                            title={themePageBg}
-                            className="h-8 w-10 cursor-pointer rounded-md border border-slate-200 bg-white"
-                          />
-                          <span className="text-xs font-semibold text-slate-600">{themePageBg}</span>
-                        </div>
-                      </div>
-
-                      <div className="min-w-0">
-                        <label className={UI_LABEL_SM}>Fondo objetos</label>
-                        <div className="mt-1 flex items-center gap-2">
-                          <input
-                            type="color"
-                            value={themeObjectBg}
-                            onChange={(e) => setThemeObjectBg(e.target.value)}
-                            title={themeObjectBg}
-                            className="h-8 w-10 cursor-pointer rounded-md border border-slate-200 bg-white"
-                          />
-                          <span className="text-xs font-semibold text-slate-600">{themeObjectBg}</span>
-                        </div>
-                      </div>
-
-                      <div className="min-w-0">
-                        <label className={UI_LABEL_SM}>Cabecera secciones</label>
-                        <div className="mt-1 flex items-center gap-2">
-                          <input
-                            type="color"
-                            value={themeSectionHeaderBg}
-                            onChange={(e) => setThemeSectionHeaderBg(e.target.value)}
-                            title={themeSectionHeaderBg}
-                            className="h-8 w-10 cursor-pointer rounded-md border border-slate-200 bg-white"
-                          />
-                          <span className="text-xs font-semibold text-slate-600">{themeSectionHeaderBg}</span>
-                        </div>
-                      </div>
-
-                      <div className="min-w-0">
-                        <label className={UI_LABEL_SM}>Elementos</label>
-                        <div className="mt-1 flex items-center gap-2">
-                          <input
-                            type="color"
-                            value={themeElementBg}
-                            onChange={(e) => setThemeElementBg(e.target.value)}
-                            title={themeElementBg}
-                            className="h-8 w-10 cursor-pointer rounded-md border border-slate-200 bg-white"
-                          />
-                          <span className="text-xs font-semibold text-slate-600">{themeElementBg}</span>
-                        </div>
-                      </div>
-
-                      <div className="min-w-0">
-                        <label className={UI_LABEL_SM}>Controles deshabilitados</label>
-                        <div className="mt-1 flex items-center gap-2">
-                          <input
-                            type="color"
-                            value={themeDisabledControlBg}
-                            onChange={(e) => setThemeDisabledControlBg(e.target.value)}
-                            title={themeDisabledControlBg}
-                            className="h-8 w-10 cursor-pointer rounded-md border border-slate-200 bg-white"
-                          />
-                          <span className="text-xs font-semibold text-slate-600">{themeDisabledControlBg}</span>
-                        </div>
-                      </div>
-
-                    </div>
-                  </PanelBlock>
-
-                  {renderColorPanels(effectiveBoards, "grid gap-3")}
-                </PanelBlock>
-              ) : null}
+              {effectiveBoards.configuration && isMobileLayout ? renderConfigPanel() : null}
 
               {!isMobileLayout ? renderTonalContextPanel() : null}
             </div>

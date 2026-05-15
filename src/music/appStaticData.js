@@ -51,7 +51,7 @@ export const DETECTED_CHORDS_INFO_TEXT = [
   "El selector elige qué lectura queda activa.",
   "Copiar en Acorde pasa esa lectura al constructor superior cuando es compatible.",
 ].join("\n");
-export const PRIMARY_BOARD_SECTIONS = ["scale", "patterns", "route", "chords", "nearChords", "standards"];
+export const PRIMARY_BOARD_SECTIONS = ["scale", "patterns", "route", "chords", "nearChords", "standards", "configuration"];
 export const TONAL_CONTEXT_TOOLTIP = "Afecta a Escala, Patrones, Ruta y al contexto armónico usado en análisis y acordes cercanos.";
 export const MOBILE_VERTICAL_STRING_ORDER = [5, 4, 3, 2, 1, 0];
 export const WEB_FRET_LABEL_COL_PX = 110;
@@ -86,7 +86,7 @@ export function normalizeBoardVisibility(value = {}, preferredPrimary = null) {
     chords: false,
     nearChords: false,
     standards: false,
-    configuration: !!value.configuration,
+    configuration: false,
   };
   const activePrimary = PRIMARY_BOARD_SECTIONS.includes(preferredPrimary)
     ? preferredPrimary
