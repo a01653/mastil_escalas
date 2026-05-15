@@ -195,6 +195,8 @@ const {
   analyzeScaleTensionsForChord,
   buildDominantInfo,
   buildBackdoorDominantInfo,
+  buildChordResolutionRoman,
+  analyzeChordScaleCompatibility,
   buildStudyAnchorId,
   buildStudySubstitutionGuide,
 } = AppVoicingStudyCore;
@@ -351,7 +353,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "4.28";
+const APP_VERSION = "4.31";
 
 function chordDbUrl(keyName, suffix) {
   // Ruta RELATIVA dentro de /public (sin base) => chords-db/...
@@ -2415,6 +2417,12 @@ export default function FretboardScalesPage() {
     if (!chordDetectMode) setChordDetectClearMinHeight(null);
   }, [chordDetectMode]);
 
+  useEffect(() => {
+    if (!chordDetectClearMinHeight) return;
+    const timer = window.setTimeout(() => setChordDetectClearMinHeight(null), 800);
+    return () => window.clearTimeout(timer);
+  }, [chordDetectClearMinHeight]);
+
   useLayoutEffect(() => {
     if (chordDetectSelectedKeys.length) return;
     lastChordDetectCandidateRef.current = null;
@@ -3746,7 +3754,7 @@ export default function FretboardScalesPage() {
         return {
           rootPc: mainRootPc,
           preferSharps: mainPreferSharps,
-          title: "Acorde principal",
+          title: "Lectura estudiada",
           chordName: detectCandidate.name,
           notes: mainSpelledNotes,
           intervals: mainDegreeLabels || mainIntervals.map((i) => intervalToChordToken(i, { ext6: chordExt6, ext9: chordExt9 && chordStructure !== "triad", ext11: chordExt11 && chordStructure !== "triad", ext13: chordExt13 && chordStructure !== "triad" })),
@@ -3795,7 +3803,7 @@ export default function FretboardScalesPage() {
         return {
           rootPc: quartalRootPc,
           preferSharps: chordPreferSharps,
-          title: "Acorde principal",
+          title: "Lectura estudiada",
           chordName: chordQuartalDisplayName,
           notes: quartalNotes,
           intervals: quartalIntervals.map((interval) => intervalToSimpleChordDegreeToken(interval)),
@@ -3828,7 +3836,7 @@ export default function FretboardScalesPage() {
         return {
           rootPc: chordRootPc,
           preferSharps: chordPreferSharps,
-          title: "Acorde principal",
+          title: "Lectura estudiada",
           chordName: `${guideToneDisplayName} · Notas guía`,
           notes: guideToneDef.intervals.map((interval) => spellNoteFromChordInterval(chordRootPc, interval, chordPreferSharps)),
           intervals: [...guideToneDef.degreeLabels],
@@ -3934,6 +3942,39 @@ export default function FretboardScalesPage() {
     });
     const dominant = buildDominantInfo(d?.rootPc ?? chordRootPc, d?.preferSharps ?? chordPreferSharps);
     const backdoorDominant = buildBackdoorDominantInfo(d?.rootPc ?? chordRootPc, d?.preferSharps ?? chordPreferSharps);
+    const refAccStr = chordRefAcc === -1 ? "b" : chordRefAcc === 1 ? "#" : "";
+    const refQualitySuffix = { Mayor: "", maj7: "maj7", "7": "7", menor: "m", m7: "m7", "m7(b5)": "m7(b5)", dim: "dim", dim7: "dim7", sus4: "sus4", "7sus4": "7sus4" }[chordRefQuality] ?? chordRefQuality;
+    const refChordDisplayName = chordRefEnabled ? `${chordRefNatural}${refAccStr}${refQualitySuffix}` : null;
+    const studyReadingRootName = pcToName(d?.rootPc ?? chordRootPc, d?.preferSharps ?? chordPreferSharps);
+    const resolutionRoman = buildChordResolutionRoman(d?.plan);
+    const studyPreferSharps = d?.preferSharps ?? chordPreferSharps;
+    const chordScaleCompat = analyzeChordScaleCompatibility({
+      chordRootPc: d?.rootPc ?? chordRootPc,
+      chordIntervals: d?.plan?.intervals || [],
+      activeScaleRootPc: rootPc,
+      scaleIntervals,
+      scaleName,
+      chordName: d?.chordName || "—",
+      preferSharps: studyPreferSharps,
+    });
+    const dominantScaleCompat = analyzeChordScaleCompatibility({
+      chordRootPc: dominant.rootPc,
+      chordIntervals: [0, 4, 7, 10],
+      activeScaleRootPc: rootPc,
+      scaleIntervals,
+      scaleName,
+      chordName: dominant.name,
+      preferSharps: studyPreferSharps,
+    });
+    const backdoorScaleCompat = analyzeChordScaleCompatibility({
+      chordRootPc: backdoorDominant.rootPc,
+      chordIntervals: [0, 4, 7, 10],
+      activeScaleRootPc: rootPc,
+      scaleIntervals,
+      scaleName,
+      chordName: backdoorDominant.name,
+      preferSharps: studyPreferSharps,
+    });
     const substitutionKeySignature = resolveKeySignatureForScale({ rootPc, scaleName }) || { type: null, count: 0 };
     const substitutionSections = buildStudySubstitutionGuide({
       chordRootPc: d?.rootPc ?? chordRootPc,
@@ -4326,8 +4367,13 @@ export default function FretboardScalesPage() {
             <div className="text-sm font-semibold text-slate-800">
               <InfoTitle label="Modo estudio" info={CHORD_STUDY_INFO_TEXT} alwaysShow />
             </div>
-            <div className="text-xs text-slate-600">
-              {d?.title} · {d?.chordName}{studyRelativeChord ? ` · ${studyRelativeChord.shortText}` : ""}
+            <div className="space-y-0.5 text-xs text-slate-600">
+              <div><span className="font-medium text-slate-700">Lectura estudiada:</span> {d?.chordName}{studyRelativeChord ? ` · ${studyRelativeChord.shortText}` : ""}</div>
+              <div><span className="font-medium text-slate-700">Acorde de referencia:</span> {refChordDisplayName ?? "sin referencia"}</div>
+              <div><span className="font-medium text-slate-700">Escala activa:</span> {pcToName(rootPc, autoPreferSharps)} {scaleName}</div>
+              {chordRefEnabled ? (
+                <div className="mt-0.5 italic text-slate-500">La referencia solo se usa para priorizar lecturas; el análisis corresponde a {d?.chordName}.</div>
+              ) : null}
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -4351,24 +4397,48 @@ export default function FretboardScalesPage() {
                 <div><b>Nombre:</b> {d?.chordName}</div>
                 <div><b>Relativo:</b> {studyRelativeChord ? `${studyRelativeChord.kind} · ${studyRelativeChord.label}` : "—"}</div>
                 <div><b>Capa:</b> {chordEngineLayerLabel(d?.plan)}</div>
-                <div><b>Generador:</b> {chordEngineGeneratorLabel(d?.plan)}</div>
+                {(d?.plan?.suspension === "sus2" || d?.plan?.suspension === "sus4") ? (
+                  <div className="mt-1 text-slate-500">Acorde suspendido: no tiene tercera, por tanto no define mayor/menor.</div>
+                ) : null}
               </div>
             </div>
 
             <div className="rounded-xl border border-slate-200 bg-slate-100 p-3">
-              <div className="text-xs font-semibold text-slate-700">Dominantes relacionados</div>
+              <div className="text-xs font-semibold text-slate-700">Compatibilidad con la escala</div>
+              <div className="mt-2 space-y-1 text-xs text-slate-600">
+                <div><b>En escala:</b> {chordScaleCompat.notesInScale.join(" · ") || "ninguna"}</div>
+                {chordScaleCompat.notesOutOfScale.length ? (
+                  <div><b>Fuera de escala:</b> {chordScaleCompat.notesOutOfScale.map((n) => `${n.name} (${n.intervalLabel})`).join(" · ")}</div>
+                ) : null}
+                {chordScaleCompat.isDiatonic ? (
+                  <div className="mt-1 text-slate-500">Todas las notas de {d?.chordName} pertenecen a {pcToName(rootPc, autoPreferSharps)} {scaleName}.</div>
+                ) : chordScaleCompat.diatonicSuggestion ? (
+                  <div className="mt-1 text-slate-500">{chordScaleCompat.diatonicSuggestion}</div>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-slate-200 bg-slate-100 p-3">
+              <div className="text-xs font-semibold text-slate-700">Dominantes externos hacia la raíz detectada</div>
+              <div className="mt-1 text-xs text-slate-500">Calculados sobre la raíz de la lectura estudiada; no tienen por qué pertenecer a la escala activa.</div>
               <div className="mt-2 space-y-3 text-xs text-slate-600">
                 <div>
-                  <div className="font-semibold text-slate-700">Dominante normal</div>
+                  <div className="font-semibold text-slate-700">Dominante hacia la raíz {studyReadingRootName}</div>
                   <div><b>Acorde:</b> {dominant.name}</div>
-                  <div><b>Función:</b> {dominant.relation}</div>
+                  <div><b>Función:</b> V7 → {resolutionRoman} si {studyReadingRootName} se toma como centro tonal</div>
                   <div><b>Notas:</b> {dominant.notes.join(" · ")}</div>
+                  {!dominantScaleCompat.isDiatonic ? (
+                    <div className="mt-0.5 text-slate-500">No diatónico en {pcToName(rootPc, autoPreferSharps)} {scaleName}: contiene {dominantScaleCompat.notesOutOfScale.map((n) => `${n.name} (${n.intervalLabel})`).join(", ")}.</div>
+                  ) : null}
                 </div>
                 <div className="border-t border-slate-200 pt-2">
-                  <div className="font-semibold text-slate-700">Backdoor dominant</div>
+                  <div className="font-semibold text-slate-700">Backdoor hacia la raíz {studyReadingRootName}</div>
                   <div><b>Acorde:</b> {backdoorDominant.name}</div>
-                  <div><b>Función:</b> {backdoorDominant.relation}</div>
+                  <div><b>Función:</b> bVII7 → {resolutionRoman} si {studyReadingRootName} se toma como centro tonal</div>
                   <div><b>Notas:</b> {backdoorDominant.notes.join(" · ")}</div>
+                  {!backdoorScaleCompat.isDiatonic ? (
+                    <div className="mt-0.5 text-slate-500">No diatónico en {pcToName(rootPc, autoPreferSharps)} {scaleName}: contiene {backdoorScaleCompat.notesOutOfScale.map((n) => `${n.name} (${n.intervalLabel})`).join(", ")}.</div>
+                  ) : null}
                 </div>
               </div>
             </div>
@@ -4429,9 +4499,20 @@ export default function FretboardScalesPage() {
             <div className="rounded-xl border border-slate-200 bg-slate-100 p-3">
               <div className="text-xs font-semibold text-slate-700">Tensiones según escala</div>
               <div className="mt-2 space-y-1 text-xs text-slate-600">
-                <div><b>Escala activa:</b> {pcToName(rootPc, preferSharps)} {scaleName}</div>
-                <div><b>Disponibles:</b> {tensionAnalysis.available.join(" · ") || "ninguna clara"}</div>
-                <div><b>No disponibles:</b> {tensionAnalysis.unavailable.join(" · ") || "ninguna"}</div>
+                <div><b>Escala activa:</b> {pcToName(rootPc, autoPreferSharps)} {scaleName}</div>
+                {tensionAnalysis.sevenths.available.length || tensionAnalysis.sevenths.unavailable.length ? (
+                  <>
+                    <div className="mt-1 font-medium text-slate-700">Séptimas</div>
+                    {tensionAnalysis.sevenths.available.length ? <div><b>Disponibles:</b> {tensionAnalysis.sevenths.available.join(" · ")}</div> : null}
+                    {tensionAnalysis.sevenths.unavailable.length ? <div><b>No disponibles:</b> {tensionAnalysis.sevenths.unavailable.join(" · ")}</div> : null}
+                  </>
+                ) : null}
+                <div className="mt-1 font-medium text-slate-700">Tensiones superiores</div>
+                <div><b>Disponibles:</b> {tensionAnalysis.tensions.available.join(" · ") || "ninguna"}</div>
+                <div><b>No disponibles:</b> {tensionAnalysis.tensions.unavailable.join(" · ") || "ninguna"}</div>
+                {tensionAnalysis.hasNoThird ? (
+                  <div className="mt-1 text-slate-500">Sin tercera: las notas b3/#9 y 3 pueden definir color menor o mayor si se añaden al acorde.</div>
+                ) : null}
               </div>
             </div>
 

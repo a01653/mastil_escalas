@@ -1046,8 +1046,15 @@ export function buildChordNamingExplanation(plan) {
     return out;
   }
 
-  if (plan.suspension === "sus2") out.push("Se nombra sus2 porque la 3ª se sustituye por 2ª.");
-  else if (plan.suspension === "sus4") out.push("Se nombra sus4 porque la 3ª se sustituye por 4ª.");
+  if (plan.suspension === "sus2") {
+    out.push("No aparece 3ª mayor ni 3ª menor.");
+    out.push("La 2ª sustituye a la 3ª, por eso se nombra sus2.");
+    out.push("Al no tener tercera, el acorde queda armónicamente abierto.");
+  } else if (plan.suspension === "sus4") {
+    out.push("No aparece 3ª mayor ni 3ª menor.");
+    out.push("La 4ª sustituye a la 3ª, por eso se nombra sus4.");
+    out.push("Al no tener tercera, el acorde queda armónicamente abierto.");
+  }
   else if (plan.quality === "maj") out.push("La calidad sale de 3ª mayor y 5ª justa.");
   else if (plan.quality === "dom") out.push("La base es mayor y, cuando aparece la 7ª, se interpreta como dominante.");
   else if (plan.quality === "min") out.push("La calidad sale de 3ª menor y 5ª justa.");
@@ -1163,28 +1170,58 @@ export function analyzeVoicingVsPlan(plan, voicing, preferSharps) {
 export function analyzeScaleTensionsForChord({ activeScaleRootPc, scaleIntervals, chordRootPc, chordIntervals, preferSharps }) {
   const scalePcSet = new Set((scaleIntervals || []).map((i) => mod12(activeScaleRootPc + i)));
   const chordSet = new Set((chordIntervals || []).map(mod12));
-  const candidates = [
+
+  // Detect whether the chord has a third (major or minor)
+  const hasMinorThird = chordSet.has(3);
+  const hasMajorThird = chordSet.has(4);
+  const hasNoThird = !hasMinorThird && !hasMajorThird;
+
+  const seventhCandidates = [
+    { intv: 10, label: "b7" },
+    { intv: 11, label: "7M" },
+  ];
+
+  // When the chord has no third, intv 3 is ambiguous (b3 color OR #9 tension)
+  // and intv 4 (major third) becomes relevant as the missing third.
+  // When the chord has a major third (intv 4), intv 3 is unambiguously #9.
+  // When the chord has a minor third (intv 3), intv 4 is not a standard tension — omit it.
+  const upperCandidates = [
     { intv: 1, label: "b9" },
     { intv: 2, label: "9" },
-    { intv: 3, label: "#9" },
+    { intv: 3, label: hasNoThird ? "b3/#9" : "#9" },
+    ...(hasNoThird ? [{ intv: 4, label: "3" }] : []),
     { intv: 5, label: "11" },
     { intv: 6, label: "#11" },
     { intv: 8, label: "b13" },
     { intv: 9, label: "13" },
   ];
 
-  const available = [];
-  const unavailable = [];
+  const classifyList = (list) => {
+    const available = [];
+    const unavailable = [];
+    for (const c of list) {
+      if (chordSet.has(c.intv)) continue;
+      const notePc = mod12(chordRootPc + c.intv);
+      // b-labeled degrees (b7, b9, b13, b3/#9…) siempre en grafía bemol
+      const notePs = c.label.startsWith("b") ? false : preferSharps;
+      const item = `${c.label} (${pcToName(notePc, notePs)})`;
+      if (scalePcSet.has(notePc)) available.push(item);
+      else unavailable.push(item);
+    }
+    return { available, unavailable };
+  };
 
-  for (const c of candidates) {
-    if (chordSet.has(c.intv)) continue;
-    const notePc = mod12(chordRootPc + c.intv);
-    const item = `${c.label} (${pcToName(notePc, preferSharps)})`;
-    if (scalePcSet.has(notePc)) available.push(item);
-    else unavailable.push(item);
-  }
+  const sevenths = classifyList(seventhCandidates);
+  const tensions = classifyList(upperCandidates);
 
-  return { available, unavailable };
+  // Legacy flat arrays kept for backward compatibility
+  return {
+    available: tensions.available,
+    unavailable: tensions.unavailable,
+    sevenths,
+    tensions,
+    hasNoThird,
+  };
 }
 
 export function buildDominantInfo(targetRootPc, preferSharps) {
@@ -1211,6 +1248,74 @@ export function buildBackdoorDominantInfo(targetRootPc, preferSharps) {
     notes,
     relation: `bVII7 \u2192 ${targetName}`,
   };
+}
+
+export function buildChordResolutionRoman(plan) {
+  if (!plan) return "I";
+  const suspension = plan.suspension;
+  if (suspension === "sus2") return "Isus2";
+  if (suspension === "sus4") return "Isus4";
+  if (plan.layer === "quartal" || plan.layer === "guide_tones") return "I";
+  const intervals = (plan.intervals || []).map((i) => mod12(i));
+  const hasMaj7 = intervals.includes(11);
+  const hasMin7 = intervals.includes(10);
+  const quality = plan.quality;
+  if (quality === "maj") return hasMaj7 ? "Imaj7" : "I";
+  if (quality === "dom") return (hasMaj7 || hasMin7) ? "I7" : "I";
+  if (quality === "min") return hasMaj7 ? "ImM7" : hasMin7 ? "Im7" : "Im";
+  if (quality === "hdim") return "Im7(b5)";
+  if (quality === "dim") return hasMin7 ? "Idim7" : "Idim";
+  return "I";
+}
+
+export function analyzeChordScaleCompatibility({ chordRootPc, chordIntervals, activeScaleRootPc, scaleIntervals, scaleName, chordName, preferSharps }) {
+  const scalePcSet = new Set((scaleIntervals || []).map((i) => mod12(activeScaleRootPc + i)));
+  const chordRootName = pcToName(chordRootPc, preferSharps);
+  const scaleRootName = pcToName(activeScaleRootPc, preferSharps);
+  // "7M" for maj7 (intv 11) to distinguish from b7, consistent with tensions section
+  const chordIntervLabel = (iv) => ["1", "b2", "2", "b3", "3", "4", "#4", "5", "b6", "6", "b7", "7M"][mod12(iv)] ?? "?";
+
+  const notesInScale = [];
+  const notesOutOfScale = [];
+  for (const intv of (chordIntervals || [])) {
+    const iv = mod12(intv);
+    const pc = mod12(chordRootPc + iv);
+    const label = chordIntervLabel(iv);
+    // b-labeled degrees siempre en grafía bemol, resto respeta el contexto del acorde
+    const notePs = label.startsWith("b") ? false : preferSharps;
+    const noteName = pcToName(pc, notePs);
+    if (scalePcSet.has(pc)) {
+      notesInScale.push(noteName);
+    } else {
+      notesOutOfScale.push({ name: noteName, intervalLabel: label });
+    }
+  }
+
+  const isDiatonic = notesOutOfScale.length === 0;
+  let diatonicSuggestion = null;
+
+  if (!isDiatonic) {
+    const hasM3InScale = scalePcSet.has(mod12(chordRootPc + 4));
+    const hasm3InScale = scalePcSet.has(mod12(chordRootPc + 3));
+    const hasb7InScale = scalePcSet.has(mod12(chordRootPc + 10));
+    const hasM7InScale = scalePcSet.has(mod12(chordRootPc + 11));
+    let diatonicName = chordRootName;
+    if (hasm3InScale && !hasM3InScale) diatonicName += "m";
+    if (hasb7InScale) diatonicName += "7";
+    else if (hasM7InScale) diatonicName += "maj7";
+    const sevenNotes = notesOutOfScale.filter((n) => n.intervalLabel === "7M" || n.intervalLabel === "b7");
+    const outText = notesOutOfScale.map((n) => `${n.name} (${n.intervalLabel})`).join(", ");
+    if (sevenNotes.length > 0 && (hasb7InScale || hasM7InScale)) {
+      const diatonicSeventh = hasb7InScale
+        ? `b7 (${pcToName(mod12(chordRootPc + 10), false)})`  // b7 siempre en grafía bemol
+        : `7M (${pcToName(mod12(chordRootPc + 11), preferSharps)})`;
+      diatonicSuggestion = `${chordName} no es diatónico en ${scaleRootName} ${scaleName}. En ${scaleRootName} ${scaleName}, sobre ${chordRootName} la séptima diatónica es ${diatonicSeventh}, por lo que el acorde esperado sería ${diatonicName}.`;
+    } else {
+      diatonicSuggestion = `${chordName} no es diatónico en ${scaleRootName} ${scaleName}: ${outText} no pertenece a la escala.`;
+    }
+  }
+
+  return { notesInScale, notesOutOfScale, isDiatonic, diatonicSuggestion };
 }
 
 export function buildStudyChordLabel({ rootPc, preferSharps, quality, suspension = "none", structure = "triad", ext7 = false, ext6 = false, ext9 = false, ext11 = false, ext13 = false }) {
