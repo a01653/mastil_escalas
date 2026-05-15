@@ -351,7 +351,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "4.25";
+const APP_VERSION = "4.28";
 
 function chordDbUrl(keyName, suffix) {
   // Ruta RELATIVA dentro de /public (sin base) => chords-db/...
@@ -526,6 +526,7 @@ export default function FretboardScalesPage() {
   const [chordDetectWindowStart, setChordDetectWindowStart] = useState(1);
   const lastChordDetectCandidateRef = useRef(null);
   const pendingChordDetectCandidateRef = useRef(null);
+  const isManualCandidateSelectRef = useRef(false);
   const chordDetectPanelRef = useRef(null);
   const chordDetectInvestigationAreaRef = useRef(null);
   const chordDetectViewportFramesRef = useRef([]);
@@ -2422,6 +2423,14 @@ export default function FretboardScalesPage() {
 
   useLayoutEffect(() => {
     if (!chordDetectMode) return;
+
+    // Selección explícita del usuario: siempre respetarla si el candidato sigue en la lista.
+    if (isManualCandidateSelectRef.current) {
+      isManualCandidateSelectRef.current = false;
+      const exists = chordDetectCandidateId != null && chordDetectCandidatesRanked.some((c) => c.id === chordDetectCandidateId);
+      if (exists) return;
+    }
+
     const nextId = resolveDetectedCandidateFromContextPure({
       candidates: chordDetectCandidatesRanked,
       currentCandidateId: chordDetectCandidateId,
@@ -2670,6 +2679,7 @@ export default function FretboardScalesPage() {
   }
 
   function selectDetectedCandidate(candidate) {
+    isManualCandidateSelectRef.current = true;
     lastChordDetectCandidateRef.current = candidate || null;
     pendingChordDetectCandidateRef.current = candidate || null;
     setChordDetectCandidateId(candidate?.id || null);
@@ -5991,9 +6001,9 @@ function ChordFretboard({
       "El altavoz activa o desactiva el sonido al pulsar; si aparece tachado, el sonido inmediato está apagado.",
       "Play reproduce la selección actual cuerda a cuerda, de 6ª a 1ª, y resalta la nota que está sonando en cada momento.",
       "El botón con la nota musical dispara todo el voicing a la vez, como un acorde bloque.",
-      "Mantener lectura anterior intenta conservar la lectura funcional previa cuando el cambio de notas es pequeño.",
+      "Encima de las notas hay dos opciones: Mantener lectura anterior conserva la selección funcional previa cuando el cambio es pequeño; Referencia prioriza lecturas compatibles con la raíz y calidad indicadas.",
+      "Si Referencia está activa, elige la nota (combo), pulsa b o # si la nota es alterada y selecciona la calidad. Sin b ni # la nota es natural.",
       "Si está desactivado, la selección automática siempre toma el primer candidato del motor y no depende del orden de pulsación.",
-      "Acorde de referencia permite indicar una raíz y calidad para priorizar lecturas compatibles sin eliminar el resto de candidatos.",
       "Limpiar borra la selección manual y la lectura elegida.",
     ].join("\n");
     const chordDetectIconButtonBaseClass = "inline-flex h-8 w-8 items-center justify-center rounded-xl border shadow-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-200 enabled:cursor-pointer disabled:cursor-not-allowed disabled:opacity-50";
@@ -6007,73 +6017,32 @@ function ChordFretboard({
         titleTooltip={!isMobileLayout ? manualSelectionInfoText : ""}
         className="focus:outline-none"
         headerClassName="items-start"
-        description={(
-          <div className="flex flex-col items-start gap-2">
-            <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-700" title="Intenta conservar la lectura funcional previa cuando el cambio de notas es pequeño.">
-                <input
-                  type="checkbox"
-                  checked={chordDetectPrioritizeContext}
-                  onChange={(e) => updateChordDetectPrioritizeContext(e.target.checked)}
-                  className="h-4 w-4 rounded border-slate-300"
-                />
-              Mantener lectura anterior
-            </label>
-            <div className="flex flex-col gap-1">
-              <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-700" title="Usa el acorde de referencia como pista para priorizar lecturas compatibles.">
-                <input
-                  type="checkbox"
-                  checked={chordRefEnabled}
-                  onChange={(e) => setChordRefEnabled(e.target.checked)}
-                  className="h-4 w-4 rounded border-slate-300"
-                />
-                Priorizar acorde de referencia
-              </label>
-              <div className="flex flex-wrap items-center gap-1">
-                {CHORD_REF_NATURAL_LETTERS.map((letter) => (
-                  <button key={letter} type="button"
-                    className={`h-6 w-6 rounded-lg border text-xs font-semibold shadow-sm ${chordRefNatural === letter ? "border-sky-400 bg-sky-100 text-sky-800" : "border-slate-200 bg-white text-slate-600 hover:bg-sky-50"}`}
-                    onClick={() => setChordRefNatural(letter)}>{letter}</button>
-                ))}
-                <span className="text-slate-300">|</span>
-                {[{ label: "b", val: -1 }, { label: "♮", val: 0 }, { label: "#", val: 1 }].map(({ label, val }) => (
-                  <button key={val} type="button"
-                    className={`h-6 w-6 rounded-lg border text-xs font-semibold shadow-sm ${chordRefAcc === val ? "border-sky-400 bg-sky-100 text-sky-800" : "border-slate-200 bg-white text-slate-600 hover:bg-sky-50"}`}
-                    onClick={() => setChordRefAcc(val)}>{label}</button>
-                ))}
-                <select value={chordRefQuality} onChange={(e) => setChordRefQuality(e.target.value)}
-                  className="rounded border border-slate-200 bg-white px-1 py-0.5 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-sky-300">
-                  {CHORD_REF_QUALITIES.map((q) => <option key={q} value={q}>{q}</option>)}
-                </select>
-              </div>
+        description={isMobileLayout ? (
+          <div className="flex items-center gap-1.5">
+            <div className="text-xs font-semibold text-slate-700">Trastes</div>
+            <button
+              type="button"
+              className={UI_BTN_SM}
+              title="Mover rango 1 traste a la izquierda"
+              onClick={() => setChordDetectWindowStart((start) => Math.max(chordDetectWindowStartMin, start - 1))}
+              disabled={chordDetectWindowFrom <= chordDetectWindowStartMin}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <div className="text-xs text-slate-600 tabular-nums">
+              {chordDetectWindowFrom}–{chordDetectWindowTo}
             </div>
-            {isMobileLayout ? (
-              <div className="flex items-center gap-1.5">
-                <div className="text-xs font-semibold text-slate-700">Trastes</div>
-                <button
-                  type="button"
-                  className={UI_BTN_SM}
-                  title="Mover rango 1 traste a la izquierda"
-                  onClick={() => setChordDetectWindowStart((start) => Math.max(chordDetectWindowStartMin, start - 1))}
-                  disabled={chordDetectWindowFrom <= chordDetectWindowStartMin}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </button>
-                <div className="text-xs text-slate-600 tabular-nums">
-                  {chordDetectWindowFrom}–{chordDetectWindowTo}
-                </div>
-                <button
-                  type="button"
-                  className={UI_BTN_SM}
-                  title="Mover rango 1 traste a la derecha"
-                  onClick={() => setChordDetectWindowStart((start) => Math.min(chordDetectWindowAllowedStartMax, start + 1))}
-                  disabled={chordDetectWindowFrom >= chordDetectWindowAllowedStartMax}
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </button>
-              </div>
-            ) : null}
+            <button
+              type="button"
+              className={UI_BTN_SM}
+              title="Mover rango 1 traste a la derecha"
+              onClick={() => setChordDetectWindowStart((start) => Math.min(chordDetectWindowAllowedStartMax, start + 1))}
+              disabled={chordDetectWindowFrom >= chordDetectWindowAllowedStartMax}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
           </div>
-        )}
+        ) : undefined}
         headerAside={(
           <div className="flex flex-wrap items-center justify-end gap-1.5">
             <button
@@ -6122,6 +6091,57 @@ function ChordFretboard({
           </div>
         )}
       >
+
+        <div className="mb-2 flex flex-wrap items-center gap-x-4 gap-y-1">
+          <label className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-700" title="Intenta conservar la lectura funcional previa cuando el cambio de notas es pequeño.">
+            <input
+              type="checkbox"
+              checked={chordDetectPrioritizeContext}
+              onChange={(e) => updateChordDetectPrioritizeContext(e.target.checked)}
+              className="h-3.5 w-3.5 rounded border-slate-300"
+            />
+            Mantener lectura anterior
+          </label>
+          <div className="flex items-center gap-1.5">
+            <label className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-700" title="Usa el acorde de referencia como pista para priorizar lecturas compatibles.">
+              <input
+                type="checkbox"
+                checked={chordRefEnabled}
+                onChange={(e) => setChordRefEnabled(e.target.checked)}
+                className="h-3.5 w-3.5 rounded border-slate-300"
+              />
+              Referencia:
+            </label>
+            <select
+              value={chordRefNatural}
+              onChange={(e) => setChordRefNatural(e.target.value)}
+              disabled={!chordRefEnabled}
+              className="rounded border border-slate-200 bg-white px-1 py-0.5 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-sky-300 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {CHORD_REF_NATURAL_LETTERS.map((l) => <option key={l} value={l}>{l}</option>)}
+            </select>
+            <button
+              type="button"
+              disabled={!chordRefEnabled}
+              className={`h-6 w-6 rounded-lg border text-xs font-semibold shadow-sm disabled:cursor-not-allowed disabled:opacity-40 ${chordRefAcc === -1 ? "border-sky-400 bg-sky-100 text-sky-800" : "border-slate-200 bg-white text-slate-600 enabled:hover:bg-sky-50"}`}
+              onClick={() => setChordRefAcc(chordRefAcc === -1 ? 0 : -1)}
+            >b</button>
+            <button
+              type="button"
+              disabled={!chordRefEnabled}
+              className={`h-6 w-6 rounded-lg border text-xs font-semibold shadow-sm disabled:cursor-not-allowed disabled:opacity-40 ${chordRefAcc === 1 ? "border-sky-400 bg-sky-100 text-sky-800" : "border-slate-200 bg-white text-slate-600 enabled:hover:bg-sky-50"}`}
+              onClick={() => setChordRefAcc(chordRefAcc === 1 ? 0 : 1)}
+            >#</button>
+            <select
+              value={chordRefQuality}
+              onChange={(e) => setChordRefQuality(e.target.value)}
+              disabled={!chordRefEnabled}
+              className="rounded border border-slate-200 bg-white px-1 py-0.5 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-sky-300 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {CHORD_REF_QUALITIES.map((q) => <option key={q} value={q}>{q}</option>)}
+            </select>
+          </div>
+        </div>
 
         <div className="mb-3 min-h-[56px]">
           {chordDetectSelectedCandidate ? (
@@ -6250,6 +6270,48 @@ function ChordFretboard({
             Aplicar
           </button>
         </div>
+
+        <PanelBlock
+          level="subsection"
+          title={<InfoTitle label="Posibles acordes" info={DETECTED_CHORDS_INFO_TEXT} alwaysShow />}
+          description={chordDetectSelectedNotes.length
+            ? "Selecciona una lectura para copiarla a la sección Acorde."
+            : "Añade notas en el mástil para ver lecturas posibles."}
+          className="mt-3"
+        >
+          <div className="space-y-2">
+            {chordDetectCandidatesRanked.length ? chordDetectCandidatesRanked.map((cand) => (
+              <div key={cand.id} className="flex items-start gap-3 rounded-xl border border-slate-200 bg-sky-50 px-3 py-2 text-xs text-slate-700">
+                <label className="flex min-w-0 flex-1 items-start gap-3">
+                  <input
+                    type="radio"
+                    name="detected-chord"
+                    checked={chordDetectCandidateId === cand.id}
+                    onChange={() => selectDetectedCandidate(cand)}
+                    className="mt-0.5 h-4 w-4"
+                  />
+                  <div className="min-w-0">
+                    <div className="font-semibold text-slate-800">{formatChordNamePure(cand)}</div>
+                    <div>{cand.intervalPairsText}</div>
+                  </div>
+                </label>
+                <button
+                  type="button"
+                  className={UI_BTN_SM + " w-auto shrink-0 px-3"}
+                  onClick={() => applyDetectedCandidate(cand)}
+                  disabled={!cand.uiPatch}
+                  title={cand.uiPatch ? "Copiar esta lectura a la sección Acorde" : "Esta lectura no es compatible con el constructor superior"}
+                >
+                  Copiar en Acorde
+                </button>
+              </div>
+            )) : (
+              <div className="rounded-xl border border-dashed border-slate-300 bg-sky-50 px-3 py-3 text-xs text-slate-500">
+                No hay lecturas claras todavía. Empieza con 3 o 4 notas.
+              </div>
+            )}
+          </div>
+        </PanelBlock>
 
         {chordDetectStaffEvents.length ? (
           <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
@@ -10109,46 +10171,6 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
                   style={chordDetectClearMinHeight ? { minHeight: chordDetectClearMinHeight } : undefined}
                 >
                   {renderChordInvestigationFretboard()}
-                  <PanelBlock
-                    level="subsection"
-                    title={<InfoTitle label="Posibles acordes" info={DETECTED_CHORDS_INFO_TEXT} alwaysShow />}
-                    description={chordDetectSelectedNotes.length
-                      ? "Selecciona una lectura para copiarla a la sección Acorde."
-                      : "Añade notas en el mástil para ver lecturas posibles."}
-                  >
-                    <div className="space-y-2">
-                      {chordDetectCandidatesRanked.length ? chordDetectCandidatesRanked.map((cand) => (
-                        <div key={cand.id} className="flex items-start gap-3 rounded-xl border border-slate-200 bg-sky-50 px-3 py-2 text-xs text-slate-700">
-                          <label className="flex min-w-0 flex-1 items-start gap-3">
-                            <input
-                              type="radio"
-                              name="detected-chord"
-                              checked={chordDetectCandidateId === cand.id}
-                              onChange={() => selectDetectedCandidate(cand)}
-                              className="mt-0.5 h-4 w-4"
-                            />
-                            <div className="min-w-0">
-                              <div className="font-semibold text-slate-800">{formatChordNamePure(cand)}</div>
-                              <div>{cand.intervalPairsText}</div>
-                            </div>
-                          </label>
-                          <button
-                            type="button"
-                            className={UI_BTN_SM + " w-auto shrink-0 px-3"}
-                            onClick={() => applyDetectedCandidate(cand)}
-                            disabled={!cand.uiPatch}
-                            title={cand.uiPatch ? "Copiar esta lectura a la sección Acorde" : "Esta lectura no es compatible con el constructor superior"}
-                          >
-                            Copiar en Acorde
-                          </button>
-                        </div>
-                      )) : (
-                        <div className="rounded-xl border border-dashed border-slate-300 bg-sky-50 px-3 py-3 text-xs text-slate-500">
-                          No hay lecturas claras todavía. Empieza con 3 o 4 notas.
-                        </div>
-                      )}
-                    </div>
-                  </PanelBlock>
                 </div>
               ) : (
                 chordFamily === "quartal" ? (
