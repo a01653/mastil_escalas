@@ -3,6 +3,10 @@ import { Component, StrictMode, createElement } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 
+if (import.meta.env.DEV) {
+  import('./music/mastilDebug.js').then(({ registerMastilDebug }) => registerMastilDebug())
+}
+
 const APP_STORAGE_PREFIX = 'mastil_interactivo_guitarra_'
 const root = createRoot(document.getElementById('root'))
 

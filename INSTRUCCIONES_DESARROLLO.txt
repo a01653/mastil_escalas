@@ -1,0 +1,101 @@
+MÁSTIL ESCALAS — INSTRUCCIONES DE DESARROLLO
+=============================================
+
+INSTALAR DEPENDENCIAS
+---------------------
+  npm install
+
+
+EJECUTAR EN DESARROLLO (hot reload)
+------------------------------------
+  npm run dev
+
+
+EJECUTAR PREVIEW (build optimizado local)
+-----------------------------------------
+  npm run build
+  npm run preview
+
+
+TESTS
+-----
+
+Todos los tests de una vez:
+  npm test
+
+Un fichero concreto:
+  npx vitest run src/music/goldenCases.test.js
+  npx vitest run src/music/chordDetectionEngine.test.js
+  npx vitest run src/music/detectionInvariants.test.js
+  npx vitest run src/music/mastilDebug.test.js
+
+Qué significa cada fichero de tests:
+  goldenCases.test.js          – Casos musicales concretos que no deben cambiar nunca.
+                                 Si falla uno aquí, hay una regresión real en el motor.
+  chordDetectionEngine.test.js – Tests directos del motor: fórmulas, candidatos, naming.
+  detectionInvariants.test.js  – Invariantes generales (todo acorde min tiene b3, etc.).
+  mastilDebug.test.js          – Tests del parser de digitaciones de consola (analyzeFrets).
+
+
+AUDITORÍA MASIVA DE DETECCIÓN DE ACORDES
+-----------------------------------------
+  npm run audit:chords
+
+  Modo estándar (con cache por PC-set):
+    npm run audit:chords
+
+  Modo sin cache (voicings físicos individuales, más lento):
+    npm run audit:chords -- --no-cache
+
+  Qué hace: genera decenas de miles de voicings reales de guitarra (LowE→HighE,
+  trastes 0-12), detecta acordes sobre cada uno y valida invariantes:
+    - minor/dim/hdim no tienen b3 en missingLabels
+    - dim/hdim siempre muestran b5
+    - "Xm7b5" puro siempre tiene b3, b5, b7 visibles
+    - slash /X coincide con bassPc de la lectura
+    - no hay lecturas duplicadas con mismo contenido
+
+
+ACTUALIZAR VERSIÓN ANTES DE UN BUILD FINAL
+-------------------------------------------
+  Editar APP_VERSION en src/App.jsx (línea ~353).
+  El número se muestra en la UI y en el nombre del commit/tag.
+  No cambiar el número entre el preview local y la publicación.
+
+
+FLUJO RECOMENDADO ANTES DE ENTREGAR
+-------------------------------------
+  1.  npm test
+  2.  npm run audit:chords
+  3.  npm run build
+  (Si la UI cambia, también: npm run preview — comprobar visualmente)
+
+
+AYUDA DE CONSOLA EN MODO DESARROLLO (window.mastilDebug)
+---------------------------------------------------------
+SOLO disponible con `npm run dev`.
+NO disponible con `npm run preview` ni en producción.
+(El módulo se excluye del bundle de producción en tiempo de compilación.)
+
+Analizar notas por nombre:
+  window.mastilDebug.analyzeNotes(["D", "G", "C", "E"], "D")
+  window.mastilDebug.analyzeNotes(["C", "E", "G"])
+
+Analizar digitación en formato LowE→HighE (6 cuerdas):
+  window.mastilDebug.analyzeFrets("x5555x")    // acorde desde cejilla/trastes
+  window.mastilDebug.analyzeFrets("x32010")    // C mayor abierto
+  window.mastilDebug.analyzeFrets("x-10-9-8-7-x")  // trastes de 2 dígitos separados por -
+
+  Formato: un carácter por cuerda (0-9) o separados por - / , / espacio.
+           'x' = cuerda silenciada.
+           Orden: string 6 (LowE) → string 1 (HighE).
+
+Ambas funciones imprimen el diagnóstico en consola y devuelven el objeto resultado.
+
+
+PUBLICAR (solo cuando el usuario lo pide explícitamente)
+---------------------------------------------------------
+  git add ...
+  git commit -m "vX.XX - descripción"
+  git tag -a vX.XX -m "vX.XX"
+  git push origin main --tags
