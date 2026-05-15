@@ -71,11 +71,22 @@ FLUJO RECOMENDADO ANTES DE ENTREGAR
   (Si la UI cambia, también: npm run preview — comprobar visualmente)
 
 
-AYUDA DE CONSOLA EN MODO DESARROLLO (window.mastilDebug)
----------------------------------------------------------
-SOLO disponible con `npm run dev`.
-NO disponible con `npm run preview` ni en producción.
-(El módulo se excluye del bundle de producción en tiempo de compilación.)
+AYUDA DE CONSOLA (window.mastilDebug)
+--------------------------------------
+Cuándo está disponible:
+
+  1. Siempre activo con `npm run dev` (modo desarrollo local).
+
+  2. En producción / GitHub Pages: añadir ?debug=1 a la URL:
+       https://.../mastil_escalas/?debug=1
+     Sin ese parámetro, window.mastilDebug no existe en producción.
+
+  El chunk del módulo SÍ está incluido en el bundle de producción
+  (para poder cargarlo bajo demanda), pero solo se carga si ?debug=1.
+  En una sesión normal sin ?debug=1, el módulo no se ejecuta ni se registra.
+
+  NOTA: `npm run preview` sirve el bundle de producción, así que también
+  requiere ?debug=1 para activar el debug (http://localhost:4173/mastil_escalas/?debug=1).
 
 Analizar notas por nombre:
   window.mastilDebug.analyzeNotes(["D", "G", "C", "E"], "D")

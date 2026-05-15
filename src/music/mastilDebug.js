@@ -182,6 +182,7 @@ export function registerMastilDebug() {
   console.info(
     "[mastilDebug] disponible en consola:\n" +
       "  window.mastilDebug.analyzeNotes([\"D\",\"G\",\"C\",\"E\"], \"D\")\n" +
-      "  window.mastilDebug.analyzeFrets(\"x5555x\")"
+      "  window.mastilDebug.analyzeFrets(\"x5555x\")\n" +
+      "(activo porque import.meta.env.DEV=true o URL contiene ?debug=1)"
   );
 }
