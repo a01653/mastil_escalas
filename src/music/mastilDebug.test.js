@@ -1,7 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { parseFretString } from "./mastilDebug.js";
+import { parseFretString, analyzeNotes } from "./mastilDebug.js";
 
 // Afinación estándar LowE→HighE: E2(40) A2(45) D3(50) G3(55) B3(59) E4(64)
+
+// ─── parseFretString ──────────────────────────────────────────────────────────
 
 describe("parseFretString", () => {
   it("parsea formato compacto x5555x → notas D G C E, bajo D", () => {
@@ -67,5 +69,35 @@ describe("parseFretString", () => {
     const { frets, pcs } = parseFretString("xxxxxx");
     expect(frets).toEqual([null, null, null, null, null, null]);
     expect(pcs).toEqual([null, null, null, null, null, null]);
+  });
+});
+
+// ─── analyzeNotes ─────────────────────────────────────────────────────────────
+
+describe("analyzeNotes — bajo añadido automáticamente", () => {
+  it("añade F a las notas efectivas cuando no está en la lista", () => {
+    const result = analyzeNotes(["C", "E", "G"], "F");
+    // El motor recibe ["F","C","E","G"] con bajo F
+    // Las notas seleccionadas deben incluir F (PC=5)
+    const pcs = result.selectedNotes.map((n) => n.pc);
+    expect(pcs).toContain(5); // F = PC 5
+  });
+
+  it("primary es Cadd11/F cuando bajo F se añade automáticamente", () => {
+    const result = analyzeNotes(["C", "E", "G"], "F");
+    expect(result.primary?.name).toBe("Cadd11/F");
+  });
+
+  it("analyzeNotes(['F','C','E','G'], 'F') da el mismo primary que con bajo añadido", () => {
+    const r1 = analyzeNotes(["C", "E", "G"], "F");
+    const r2 = analyzeNotes(["F", "C", "E", "G"], "F");
+    expect(r1.primary?.name).toBe(r2.primary?.name);
+  });
+
+  it("no duplica el bajo cuando ya está en las notas", () => {
+    const result = analyzeNotes(["C", "E", "G"], "C");
+    // C = PC 0; debe aparecer exactamente una vez en selectedNotes
+    const cNotes = result.selectedNotes.filter((n) => n.pc === 0);
+    expect(cNotes.length).toBe(1);
   });
 });

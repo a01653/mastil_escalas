@@ -38,10 +38,8 @@ export function parseFretString(str) {
 
   let tokens;
   if (/[-,\s]/.test(s)) {
-    // Formato separado
     tokens = s.split(/[-,\s]+/).filter((t) => t.length > 0);
   } else {
-    // Un carácter por cuerda
     tokens = s.split("");
   }
 
@@ -88,26 +86,49 @@ function formatReading(r, idx) {
 
 /**
  * Analiza un conjunto de notas por nombre y lo pasa al motor de detección.
+ *
+ * Si bassName se indica y su pitch class no está ya en noteNames, se añade
+ * automáticamente al conjunto de notas antes de llamar al motor. Esto garantiza
+ * que el bajo forme parte del acorde analizado (no quede como bajo externo puro).
+ *
  * Imprime diagnóstico en consola y devuelve el objeto resultado.
  *
- * @param {string[]} noteNames  Ej: ["D","G","C","E"]
- * @param {string|null} bassName  Ej: "D"  (opcional; si null se infiere)
+ * @param {string[]} noteNames  Ej: ["C","E","G"]
+ * @param {string|null} bassName  Ej: "F"  (opcional)
  * @returns {{ selectedNotes: object[], readings: object[], primary: object|null }}
  */
-function analyzeNotes(noteNames, bassName = null) {
+export function analyzeNotes(noteNames, bassName = null) {
   if (!Array.isArray(noteNames) || noteNames.length === 0) {
     console.error("mastilDebug.analyzeNotes: noteNames debe ser un array no vacío.");
     return null;
   }
 
-  const result = analyzeSelectedNotes(noteNames, bassName);
+  let effectiveNotes = noteNames.slice();
+  let bassAdded = false;
+
+  if (bassName != null) {
+    const bassPc = noteNameToPc(bassName);
+    const alreadyPresent =
+      bassPc != null && effectiveNotes.some((n) => noteNameToPc(n) === bassPc);
+    if (bassPc != null && !alreadyPresent) {
+      effectiveNotes = [bassName, ...effectiveNotes];
+      bassAdded = true;
+    }
+  }
+
+  const result = analyzeSelectedNotes(effectiveNotes, bassName);
   const primary = result.primary;
 
-  console.group(`mastilDebug.analyzeNotes(${JSON.stringify(noteNames)}, ${JSON.stringify(bassName)})`);
-  console.log(`Notas     : ${noteNames.join(" ")}`);
-  console.log(`Bajo      : ${bassName ?? "(auto)"}`);
-  console.log(`Primary   : ${primary?.name ?? "(ninguno)"}`);
-  console.log(`Readings  : ${result.readings.length}`);
+  console.group(
+    `mastilDebug.analyzeNotes(${JSON.stringify(noteNames)}, ${JSON.stringify(bassName)})`
+  );
+  if (bassAdded) {
+    console.warn(`Bajo ${bassName} añadido automáticamente a las notas analizadas.`);
+  }
+  console.log(`Notas efectivas: ${effectiveNotes.join(" ")}`);
+  console.log(`Bajo           : ${bassName ?? "(auto)"}`);
+  console.log(`Primary        : ${primary?.name ?? "(ninguno)"}`);
+  console.log(`Readings       : ${result.readings.length}`);
   result.readings.forEach((r, i) => console.log(formatReading(r, i)));
   console.groupEnd();
 
@@ -121,7 +142,7 @@ function analyzeNotes(noteNames, bassName = null) {
  * @param {string} tabStr  Ej: "x5555x"  o  "x-5-5-5-5-x"
  * @returns {{ selectedNotes: object[], readings: object[], primary: object|null }|null}
  */
-function analyzeFrets(tabStr) {
+export function analyzeFrets(tabStr) {
   let parsed;
   try {
     parsed = parseFretString(tabStr);
@@ -132,7 +153,6 @@ function analyzeFrets(tabStr) {
 
   const { frets, midiPitches, pcs } = parsed;
 
-  // Notas activas (cuerdas no silenciadas)
   const activeMidi = midiPitches.filter((m) => m !== null);
   if (activeMidi.length < 2) {
     console.error("mastilDebug.analyzeFrets: menos de 2 cuerdas activas — no hay acorde que analizar.");
