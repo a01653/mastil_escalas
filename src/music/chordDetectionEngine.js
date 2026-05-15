@@ -130,6 +130,7 @@ export const CHORD_DETECT_FORMULAS = [
   { id: "sus4", intervals: [0, 5, 7], degreeLabels: ["1", "4", "5"], suffix: "sus4", ui: { quality: "maj", suspension: "sus4", structure: "triad", inversion: "all", form: "open", positionForm: "open", ext7: false, ext6: false, ext9: false, ext11: false, ext13: false } },
   { id: "dom7sus4", intervals: [0, 5, 7, 10], degreeLabels: ["1", "4", "5", "b7"], suffix: "7sus4", ui: { quality: "dom", suspension: "sus4", structure: "tetrad", inversion: "all", form: "open", positionForm: "open", ext7: true, ext6: false, ext9: false, ext11: false, ext13: false } },
   { id: "dom7sus2", intervals: [0, 2, 7, 10], degreeLabels: ["1", "2", "5", "b7"], suffix: "7sus2", ui: { quality: "dom", suspension: "sus2", structure: "tetrad", inversion: "all", form: "open", positionForm: "open", ext7: true, ext6: false, ext9: false, ext11: false, ext13: false } },
+  { id: "dom9sus4no5", intervals: [0, 2, 5, 10], degreeLabels: ["1", "9", "4", "b7"], suffix: "9sus4(no5)", ui: { quality: "dom", suspension: "sus4", structure: "tetrad", inversion: "all", form: "open", positionForm: "open", ext7: true, ext6: false, ext9: true, ext11: false, ext13: false } },
   { id: "6", intervals: [0, 4, 7, 9], degreeLabels: ["1", "3", "5", "6"], suffix: "6", ui: { quality: "maj", suspension: "none", structure: "tetrad", inversion: "all", form: "open", positionForm: "open", ext7: false, ext6: true, ext9: false, ext11: false, ext13: false } },
   { id: "m6", intervals: [0, 3, 7, 9], degreeLabels: ["1", "b3", "5", "6"], suffix: "m6", ui: { quality: "min", suspension: "none", structure: "tetrad", inversion: "all", form: "open", positionForm: "open", ext7: false, ext6: true, ext9: false, ext11: false, ext13: false } },
   { id: "add9", intervals: [0, 2, 4, 7], degreeLabels: ["1", "9", "3", "5"], suffix: "add9", ui: { quality: "maj", suspension: "none", structure: "tetrad", inversion: "all", form: "open", positionForm: "open", ext7: false, ext6: false, ext9: true, ext11: false, ext13: false } },
@@ -1321,7 +1322,7 @@ export function resolveDetectedCandidateFromContext({
   const currentCandidate = currentCandidateId
     ? list.find((candidate) => candidate?.id === currentCandidateId) || null
     : null;
-  if (currentCandidate) return currentCandidate;
+  if (currentCandidate && prioritizeContext) return currentCandidate;
 
   const previousCandidate = lastCandidate || null;
   return pickDefaultChordCandidate({

@@ -7,6 +7,7 @@ import {
   formatChordName as formatChordNamePure,
   resolveDetectedCandidateFromContext as resolveDetectedCandidateFromContextPure,
 } from "./music/chordDetectionEngine.js";
+import { rankReadingsWithHarmonyContext as rankReadingsWithHarmonyContextPure } from "./music/harmonyContextRanking.js";
 import { chordDbKeyNameFromPc } from "./music/chordDbCatalog.js";
 import { describeRelativeTertianChord } from "./music/studyRelativeChord.js";
 import { buildNearSlotsFromChordSymbols, getStandardRealChartSections } from "./music/standardsCatalog.js";
@@ -350,7 +351,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "4.23";
+const APP_VERSION = "4.25";
 
 function chordDbUrl(keyName, suffix) {
   // Ruta RELATIVA dentro de /public (sin base) => chords-db/...
@@ -373,6 +374,11 @@ function publicRelToLocal(rel) {
   return `${b}${r}`;
 }
 
+
+// ─── Acorde de referencia (bloque "Investigar en mástil") ────────────────────
+const CHORD_REF_NATURAL_LETTERS = ["C", "D", "E", "F", "G", "A", "B"];
+const CHORD_REF_NATURAL_PC      = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+const CHORD_REF_QUALITIES       = ["Mayor", "maj7", "7", "menor", "m7", "m7(b5)", "dim", "dim7", "sus4", "7sus4"];
 
 export default function FretboardScalesPage() {
   // --------------------------------------------------------------------------
@@ -510,6 +516,10 @@ export default function FretboardScalesPage() {
   const [chordDetectClickAudio, setChordDetectClickAudio] = useState(false);
   const [chordDetectPrioritizeContext, setChordDetectPrioritizeContext] = useState(true);
   const [chordDetectPrioritizeContextTouched, setChordDetectPrioritizeContextTouched] = useState(false);
+  const [chordRefNatural, setChordRefNatural] = useState("C");
+  const [chordRefAcc, setChordRefAcc] = useState(0);
+  const [chordRefQuality, setChordRefQuality] = useState("7");
+  const [chordRefEnabled, setChordRefEnabled] = useState(false);
   const [chordDetectSelectedKeys, setChordDetectSelectedKeys] = useState([]);
   const [chordDetectCandidateId, setChordDetectCandidateId] = useState(null);
   const [voicingInputText, setVoicingInputText] = useState("");
@@ -1063,6 +1073,10 @@ export default function FretboardScalesPage() {
     chordDetectWindowStart,
     chordDetectPrioritizeContext,
     chordDetectPrioritizeContextTouched,
+    chordRefNatural,
+    chordRefAcc,
+    chordRefQuality,
+    chordRefEnabled,
     nearWindowStart,
     nearWindowSize,
     nearAutoScaleSync,
@@ -1147,6 +1161,10 @@ export default function FretboardScalesPage() {
     chordDetectWindowStart,
     chordDetectPrioritizeContext,
     chordDetectPrioritizeContextTouched,
+    chordRefNatural,
+    chordRefAcc,
+    chordRefQuality,
+    chordRefEnabled,
     nearWindowStart,
     nearWindowSize,
     nearAutoScaleSync,
@@ -1319,6 +1337,10 @@ export default function FretboardScalesPage() {
         setChordDetectPrioritizeContext(true);
         setChordDetectPrioritizeContextTouched(false);
       }
+      if ("chordRefNatural" in saved) setChordRefNatural(sanitizeOneOf(saved.chordRefNatural, CHORD_REF_NATURAL_LETTERS, "C"));
+      if ("chordRefAcc" in saved) setChordRefAcc(sanitizeOneOf(Number(saved.chordRefAcc), [-1, 0, 1], 0));
+      if ("chordRefQuality" in saved) setChordRefQuality(sanitizeOneOf(saved.chordRefQuality, CHORD_REF_QUALITIES, "7"));
+      if ("chordRefEnabled" in saved) setChordRefEnabled(sanitizeBoolValue(saved.chordRefEnabled, false));
 
       if ("nearWindowStart" in saved) setNearWindowStart(sanitizeNumberValue(saved.nearWindowStart, 1, 0, 24));
       if ("nearWindowSize" in saved) setNearWindowSize(sanitizeNumberValue(saved.nearWindowSize, 6, 1, 24));
@@ -2357,6 +2379,15 @@ export default function FretboardScalesPage() {
     [chordDetectSelectedNotes]
   );
 
+  const chordDetectCandidatesRanked = useMemo(() => {
+    const harmonyContext = {
+      enabled: chordRefEnabled,
+      rootPc: ((CHORD_REF_NATURAL_PC[chordRefNatural] ?? 0) + chordRefAcc + 12) % 12,
+      quality: chordRefQuality,
+    };
+    return rankReadingsWithHarmonyContextPure(chordDetectCandidates, harmonyContext);
+  }, [chordDetectCandidates, chordRefEnabled, chordRefNatural, chordRefAcc, chordRefQuality]);
+
   const chordDetectPlaybackNotes = useMemo(
     () => [...chordDetectSelectedNotes].sort((a, b) => b.sIdx - a.sIdx || a.fret - b.fret),
     [chordDetectSelectedNotes]
@@ -2392,13 +2423,13 @@ export default function FretboardScalesPage() {
   useLayoutEffect(() => {
     if (!chordDetectMode) return;
     const nextId = resolveDetectedCandidateFromContextPure({
-      candidates: chordDetectCandidates,
+      candidates: chordDetectCandidatesRanked,
       currentCandidateId: chordDetectCandidateId,
       pendingCandidate: pendingChordDetectCandidateRef.current,
       lastCandidate: lastChordDetectCandidateRef.current,
       prioritizeContext: chordDetectPrioritizeContext,
     })?.id || null;
-    if (!chordDetectCandidates.length) {
+    if (!chordDetectCandidatesRanked.length) {
       if (chordDetectCandidateId !== null) setChordDetectCandidateId(null);
       return;
     }
@@ -2408,7 +2439,7 @@ export default function FretboardScalesPage() {
     if (pendingChordDetectCandidateRef.current && nextId) {
       pendingChordDetectCandidateRef.current = null;
     }
-  }, [chordDetectMode, chordDetectSelectionSignature, chordDetectCandidates, chordDetectCandidateId, chordDetectPrioritizeContext]);
+  }, [chordDetectMode, chordDetectSelectionSignature, chordDetectCandidatesRanked, chordDetectCandidateId, chordDetectPrioritizeContext]);
 
   // --------------------------------------------------------------------------
   // HELPERS LOCALES: DETECCIÓN DE ACORDES (audio y selección)
@@ -5960,8 +5991,9 @@ function ChordFretboard({
       "El altavoz activa o desactiva el sonido al pulsar; si aparece tachado, el sonido inmediato está apagado.",
       "Play reproduce la selección actual cuerda a cuerda, de 6ª a 1ª, y resalta la nota que está sonando en cada momento.",
       "El botón con la nota musical dispara todo el voicing a la vez, como un acorde bloque.",
-      "Priorizar contexto armónico intenta mantener la lectura funcional anterior cuando el cambio es pequeño, aunque cambie la etiqueta exacta.",
+      "Mantener lectura anterior intenta conservar la lectura funcional previa cuando el cambio de notas es pequeño.",
       "Si está desactivado, la selección automática siempre toma el primer candidato del motor y no depende del orden de pulsación.",
+      "Acorde de referencia permite indicar una raíz y calidad para priorizar lecturas compatibles sin eliminar el resto de candidatos.",
       "Limpiar borra la selección manual y la lectura elegida.",
     ].join("\n");
     const chordDetectIconButtonBaseClass = "inline-flex h-8 w-8 items-center justify-center rounded-xl border shadow-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-200 enabled:cursor-pointer disabled:cursor-not-allowed disabled:opacity-50";
@@ -5977,15 +6009,43 @@ function ChordFretboard({
         headerClassName="items-start"
         description={(
           <div className="flex flex-col items-start gap-2">
-            <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-700">
+            <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-700" title="Intenta conservar la lectura funcional previa cuando el cambio de notas es pequeño.">
                 <input
                   type="checkbox"
                   checked={chordDetectPrioritizeContext}
                   onChange={(e) => updateChordDetectPrioritizeContext(e.target.checked)}
                   className="h-4 w-4 rounded border-slate-300"
                 />
-              Priorizar contexto armónico
+              Mantener lectura anterior
             </label>
+            <div className="flex flex-col gap-1">
+              <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-700" title="Usa el acorde de referencia como pista para priorizar lecturas compatibles.">
+                <input
+                  type="checkbox"
+                  checked={chordRefEnabled}
+                  onChange={(e) => setChordRefEnabled(e.target.checked)}
+                  className="h-4 w-4 rounded border-slate-300"
+                />
+                Priorizar acorde de referencia
+              </label>
+              <div className="flex flex-wrap items-center gap-1">
+                {CHORD_REF_NATURAL_LETTERS.map((letter) => (
+                  <button key={letter} type="button"
+                    className={`h-6 w-6 rounded-lg border text-xs font-semibold shadow-sm ${chordRefNatural === letter ? "border-sky-400 bg-sky-100 text-sky-800" : "border-slate-200 bg-white text-slate-600 hover:bg-sky-50"}`}
+                    onClick={() => setChordRefNatural(letter)}>{letter}</button>
+                ))}
+                <span className="text-slate-300">|</span>
+                {[{ label: "b", val: -1 }, { label: "♮", val: 0 }, { label: "#", val: 1 }].map(({ label, val }) => (
+                  <button key={val} type="button"
+                    className={`h-6 w-6 rounded-lg border text-xs font-semibold shadow-sm ${chordRefAcc === val ? "border-sky-400 bg-sky-100 text-sky-800" : "border-slate-200 bg-white text-slate-600 hover:bg-sky-50"}`}
+                    onClick={() => setChordRefAcc(val)}>{label}</button>
+                ))}
+                <select value={chordRefQuality} onChange={(e) => setChordRefQuality(e.target.value)}
+                  className="rounded border border-slate-200 bg-white px-1 py-0.5 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-sky-300">
+                  {CHORD_REF_QUALITIES.map((q) => <option key={q} value={q}>{q}</option>)}
+                </select>
+              </div>
+            </div>
             {isMobileLayout ? (
               <div className="flex items-center gap-1.5">
                 <div className="text-xs font-semibold text-slate-700">Trastes</div>
@@ -7079,7 +7139,8 @@ function ChordFretboard({
                 <div>Solo puede haber una nota por cuerda. Si pulsas otra en la misma cuerda, sustituye a la anterior.</div>
                 <div>La app propone lecturas posibles del acorde y puedes copiar una a la sección de arriba.</div>
                 <div>Arriba a la derecha tienes los iconos de altavoz, <b>Play</b> y limpiar; el altavoz tachado indica que el sonido al pulsar está apagado y <b>Play</b> recorre la selección cuerda a cuerda, de 6ª a 1ª, mientras va resaltando cada nota.</div>
-                <div><b>Priorizar contexto armónico</b> intenta mantener la familia funcional anterior aunque cambie la etiqueta exacta; si está apagado, siempre se elige el primer candidato del motor.</div>
+                <div><b>Mantener lectura anterior</b> intenta conservar la lectura funcional previa cuando el cambio de notas es pequeño; si está apagado, siempre se elige el primer candidato del motor.</div>
+                <div><b>Priorizar acorde de referencia</b> reordena los candidatos favoreciendo la raíz y calidad indicadas, sin eliminar ninguna lectura.</div>
               </div>
             </section>
 
@@ -10056,7 +10117,7 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
                       : "Añade notas en el mástil para ver lecturas posibles."}
                   >
                     <div className="space-y-2">
-                      {chordDetectCandidates.length ? chordDetectCandidates.map((cand) => (
+                      {chordDetectCandidatesRanked.length ? chordDetectCandidatesRanked.map((cand) => (
                         <div key={cand.id} className="flex items-start gap-3 rounded-xl border border-slate-200 bg-sky-50 px-3 py-2 text-xs text-slate-700">
                           <label className="flex min-w-0 flex-1 items-start gap-3">
                             <input
