@@ -116,3 +116,94 @@ describe("classifyManualVoicingShape — Drop 2 root position (Set 1)", () => {
     expect(classifyManualVoicingShape(v, c)).toBe("drop2_set1");
   });
 });
+
+// ─── Batería final de falsos positivos ────────────────────────────────────────
+// Casos 1-6 verifican que voicings parecidos a Drop no se clasifiquen como Drop.
+// Casos 7-8: confirmación de regresión — ver los describe "Drop 2 Set 1" arriba
+//   (xx2211 → Fmaj7/E y xx3433 → G7/F deben seguir dando "drop2_set1").
+
+describe("classifyManualVoicingShape — falsos positivos (batería final)", () => {
+
+  // Caso 1: pc duplicada — F aparece en dos octavas distintas (mismo pc, ≠ pitch)
+  // Pitches: F(53), A(57), C(60), F(65) → relActual [0,4,7,12]
+  // Ningún drop pattern de Fmaj7 genera [0,4,7,12]
+  test("caso 1: nota duplicada (F en octavas 53 y 65) en Fmaj7 → null", () => {
+    const v = voicing([
+      note(3, 3, 5),  // D fret3 = F (pc5), midi 53
+      note(2, 2, 9),  // G fret2 = A (pc9), midi 57
+      note(1, 1, 0),  // B fret1 = C (pc0), midi 60
+      note(0, 1, 5),  // HighE fret1 = F (pc5), midi 65 — pc5 duplicada
+    ]);
+    const c = chord(5, [0, 4, 7, 11]); // Fmaj7
+    expect(classifyManualVoicingShape(v, c)).toBeNull();
+  });
+
+  // Caso 2: cuerda al aire — Low E (sIdx=5) al aire como bajo, span de 20 st
+  // Pitches: E(40), F(53), A(57), C(60) → relActual [0,13,17,20]
+  // Span imposible para un drop estándar de 4 voces contiguas
+  test("caso 2: Low E al aire como bajo de Fmaj7 (span 20 st) → null", () => {
+    const v = voicing([
+      note(5, 0, 4),  // LowE al aire = E (pc4), midi 40
+      note(3, 3, 5),  // D fret3 = F (pc5), midi 53
+      note(2, 2, 9),  // G fret2 = A (pc9), midi 57
+      note(1, 1, 0),  // B fret1 = C (pc0), midi 60
+    ]);
+    const c = chord(5, [0, 4, 7, 11]); // Fmaj7
+    expect(classifyManualVoicingShape(v, c)).toBeNull();
+  });
+
+  // Caso 3: voicing de 5 notas → null por longitud ≠ 4
+  test("caso 3: voicing de 5 notas → null", () => {
+    const v = voicing([
+      note(5, 1, 5),  // LowE fret1 = F (pc5),  midi 41
+      note(4, 3, 0),  // A fret3   = C (pc0),  midi 48
+      note(3, 2, 4),  // D fret2   = E (pc4),  midi 52
+      note(2, 2, 9),  // G fret2   = A (pc9),  midi 57
+      note(1, 1, 0),  // B fret1   = C (pc0),  midi 60
+    ]);
+    const c = chord(5, [0, 4, 7, 11]); // Fmaj7
+    expect(classifyManualVoicingShape(v, c)).toBeNull();
+  });
+
+  // Caso 4: bajo alterado un semitono — F# en lugar de F en el G7/F (xx3433)
+  // Pitches: F#(54), B(59), D(62), G(67) → relActual [0,5,8,13]
+  // [0,5,8,13] es el drop2-inv3 de Fmaj7, pero el chord es G7; ningún drop de G7 coincide
+  test("caso 4: bajo F# (≠F) en voicing similar a G7 Drop 2 inv3 → null", () => {
+    const v = voicing([
+      note(3, 4, 6),  // D fret4 = F# (pc6), midi 54
+      note(2, 4, 11), // G fret4 = B  (pc11), midi 59
+      note(1, 3, 2),  // B fret3 = D  (pc2),  midi 62
+      note(0, 3, 7),  // HighE fret3 = G (pc7), midi 67
+    ]);
+    const c = chord(7, [0, 4, 7, 10]); // G7
+    expect(classifyManualVoicingShape(v, c)).toBeNull();
+  });
+
+  // Caso 5: voicing cuartal puro (cuartas perfectas de 5 st) en Set 1 con Fmaj7
+  // Pitches: F(53), Bb(58), Eb(63), Ab(68) → relActual [0,5,10,15]
+  // Ningún drop pattern de Fmaj7 genera [0,5,10,15]
+  test("caso 5: voicing cuartal F-Bb-Eb-Ab en Set 1 con Fmaj7 → null", () => {
+    const v = voicing([
+      note(3, 3, 5),  // D fret3   = F  (pc5),  midi 53
+      note(2, 3, 10), // G fret3   = Bb (pc10), midi 58
+      note(1, 4, 3),  // B fret4   = Eb (pc3),  midi 63
+      note(0, 4, 8),  // HighE fret4 = Ab (pc8), midi 68
+    ]);
+    const c = chord(5, [0, 4, 7, 11]); // Fmaj7
+    expect(classifyManualVoicingShape(v, c)).toBeNull();
+  });
+
+  // Caso 6: fórmula de 5 intervalos (extensión add11) → null por intervals.length ≠ 4
+  // El voicing es físicamente el mismo que el Drop 2 Set 1 de G7, pero el chord
+  // detectado incluye una 5ª voz (add11), lo cual descarta la clasificación drop
+  test("caso 6: chord G7add11 (5 intervalos) con voicing igual a xx3433 → null", () => {
+    const v = voicing([
+      note(3, 3, 5),  // D fret3 = F  (pc5),  midi 53
+      note(2, 4, 11), // G fret4 = B  (pc11), midi 59
+      note(1, 3, 2),  // B fret3 = D  (pc2),  midi 62
+      note(0, 3, 7),  // HighE fret3 = G (pc7), midi 67
+    ]);
+    const c = chord(7, [0, 4, 7, 10, 5]); // G7add11: 5 intervalos → función retorna null
+    expect(classifyManualVoicingShape(v, c)).toBeNull();
+  });
+});

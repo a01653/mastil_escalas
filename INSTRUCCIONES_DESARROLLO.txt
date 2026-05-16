@@ -56,6 +56,27 @@ AUDITORÍA MASIVA DE DETECCIÓN DE ACORDES
     - no hay lecturas duplicadas con mismo contenido
 
 
+AUDITORÍA DEL MODO ESTUDIO
+---------------------------
+  npm run audit:study
+
+  Recorre 12 casos de regresión (acordes en C Mayor) y valida:
+    - Compatibilidad acorde/escala (diatónico / no diatónico)
+    - Función armónica: Imaj7, IIm7, V7, IVmaj7, VIm7, VIIm7(b5)
+    - Clasificación como dominante (dom vs. maj/min/hdim)
+    - Dominantes secundarios: V7/Am = E7, V7/Dm = A7
+    - Backdoor dominant: bVII7/G = F7
+    - Distinción entre función principal y tonicizaciones alternativas
+      (ej. G7 → II-V principal es Dm7-G7→Cmaj7; Am7-D7→G7 solo como tonicización)
+    - Upper structures: A mayor/G7 como upper structure del V7 de C
+    - Sustitución tritonal: G7 ↔ Db7
+    - Spelling con bemoles: Eb no D#, Ab no G#, Cb no B en Db7
+    - Advertencias de no-diatónico (Gmaj7, E7, A7, F7, Db7)
+
+  Muestra por caso: acorde, escala activa, diatónico/no diatónico,
+  clasificación dominante, función esperada y errores encontrados.
+
+
 ACTUALIZAR VERSIÓN ANTES DE UN BUILD FINAL
 -------------------------------------------
   Editar APP_VERSION en src/App.jsx (línea ~353).
@@ -67,7 +88,9 @@ FLUJO RECOMENDADO ANTES DE ENTREGAR
 -------------------------------------
   1.  npm test
   2.  npm run audit:chords
-  3.  npm run build
+  3.  npm run audit:chords -- --no-cache
+  4.  npm run audit:study
+  5.  npm run build
   (Si la UI cambia, también: npm run preview — comprobar visualmente)
 
 
