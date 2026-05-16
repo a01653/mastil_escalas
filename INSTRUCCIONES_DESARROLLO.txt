@@ -77,6 +77,23 @@ AUDITORÍA DEL MODO ESTUDIO
   clasificación dominante, función esperada y errores encontrados.
 
 
+ANALIZAR DIGITACIÓN DESDE TERMINAL
+------------------------------------
+  npm run analyze:frets -- x5555x
+  npm run analyze:frets -- x32010
+  npm run analyze:frets -- x-10-9-8-7-x
+
+  Qué hace: toma una digitación en formato LowE→HighE (igual que mastilDebug.analyzeFrets),
+  calcula las notas reales, determina el bajo y llama al motor de detección.
+  Muestra: patrón, notas detectadas, bajo, primary y lista completa de lecturas
+  (nombre, fórmula, raíz, bajo, rank/score si existen).
+
+  Formato de digitación:
+    - Un carácter por cuerda (0-9) → "x5555x"
+    - O tokens separados por - / , / espacio → "x-10-9-8-7-x"
+    - 'x' = cuerda silenciada. Orden: cuerda 6 (LowE) → cuerda 1 (HighE).
+
+
 ACTUALIZAR VERSIÓN ANTES DE UN BUILD FINAL
 -------------------------------------------
   Editar APP_VERSION en src/App.jsx (línea ~353).
