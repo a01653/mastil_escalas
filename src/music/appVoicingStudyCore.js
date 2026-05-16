@@ -1603,7 +1603,17 @@ export function buildStudySubstitutionGuide({ chordRootPc, chordName, plan, pref
   const scaleSummary = harmonizedScale?.tonicName
     ? `${harmonizedScale.tonicName} ${harmonizedScale.scaleLabel}${scaleNotesText ? ` = ${scaleNotesText}` : ""}`
     : "Escala activa no disponible.";
+  const scalePcSet = new Set((scaleIntervals || []).map((i) => mod12(scaleRootPc + i)));
+  const isChordDiatonic = (plan?.intervals || []).every((iv) => scalePcSet.has(mod12(safeRootPc + iv)));
   const currentIsDominant = isStudyDominantChord(plan);
+  const isDiatonicDom = currentIsDominant && isChordDiatonic;
+  const scaleLabel = `${pcToName(scaleRootPc, diatonicPreferSharps)} ${scaleName}`;
+  const nonDiatonicWarning = !isChordDiatonic
+    ? `Como ${chordName || "el acorde"} no es diatónico en ${scaleLabel}, las familias diatónicas se muestran como referencia del contexto ${scaleLabel}, no como sustituciones directas completas de ${chordName || "este acorde"}.`
+    : null;
+  const isDiatonicDomText = isDiatonicDom
+    ? "El acorde estudiado ya cumple función dominante en la escala activa. Las preparaciones hacia su raíz se muestran como tonicizaciones alternativas, no como función principal."
+    : null;
   const sameRootDominantText = currentIsDominant
     ? `${targetSpec.label} ya está en plano dominante real.`
     : `${targetSpec.label} no está en plano dominante real tal como está escrito; para analizar sustituciones de dominante con esta raíz primero se convierte en ${buildStudyChordSpecFromUi({ rootPc: safeRootPc, preferSharps: safePreferSharps, quality: "dom", structure: "tetrad", ext7: true }).label}.`;
@@ -1628,13 +1638,16 @@ export function buildStudySubstitutionGuide({ chordRootPc, chordName, plan, pref
     structure: "tetrad",
     ext7: true,
   });
-  const diminishedToTargetSpec = buildStudyChordSpecFromUi({
-    rootPc: targetDominantSpec.rootPc + 1,
-    preferSharps: true,
-    quality: "dim",
-    structure: "tetrad",
-    ext7: true,
-  });
+  const diminishedToTargetSpec = {
+    ...buildStudyChordSpecFromUi({
+      rootPc: targetDominantSpec.rootPc + 1,
+      preferSharps: true,
+      quality: "dim",
+      structure: "tetrad",
+      ext7: true,
+    }),
+    notes: spellFullyDiminishedSeventhNotes({ rootPc: targetDominantSpec.rootPc + 1, preferSharps: true }),
+  };
   const sameRootDominantSpec = buildStudyChordSpecFromUi({
     rootPc: safeRootPc,
     preferSharps: safePreferSharps,
@@ -1649,13 +1662,16 @@ export function buildStudySubstitutionGuide({ chordRootPc, chordName, plan, pref
     structure: "tetrad",
     ext7: true,
   });
-  const sameRootDiminishedSpec = buildStudyChordSpecFromUi({
-    rootPc: safeRootPc + 1,
-    preferSharps: true,
-    quality: "dim",
-    structure: "tetrad",
-    ext7: true,
-  });
+  const sameRootDiminishedSpec = {
+    ...buildStudyChordSpecFromUi({
+      rootPc: safeRootPc + 1,
+      preferSharps: true,
+      quality: "dim",
+      structure: "tetrad",
+      ext7: true,
+    }),
+    notes: spellFullyDiminishedSeventhNotes({ rootPc: safeRootPc + 1, preferSharps: true }),
+  };
   const leadingToneDimRootPc = mod12(safeRootPc - 1);
   const leadingToneDimPreferSharps = computeAutoPreferSharps({ rootPc: scaleRootPc, scaleName });
   const leadingToneDimToTargetSpec = {
@@ -1756,12 +1772,38 @@ export function buildStudySubstitutionGuide({ chordRootPc, chordName, plan, pref
   });
   const upperStructureTriadRoot = mod12(targetDominantSpec.rootPc + 2);
   const upperStructureTriadName = `${pcToName(upperStructureTriadRoot, false)} mayor`;
-  const upperStructureCombined = buildStudyChordSpecCustom({
-    rootPc: targetDominantSpec.rootPc,
-    preferSharps: false,
-    chordIntervals: [0, 4, 7, 10, 2, 6, 9],
-    label: `${upperStructureTriadName}/${targetDominantSpec.label}`,
-  });
+  const upperStructureCombined = (() => {
+    const spec = buildStudyChordSpecCustom({
+      rootPc: targetDominantSpec.rootPc,
+      preferSharps: false,
+      chordIntervals: [0, 4, 7, 10, 2, 6, 9],
+      label: `${upperStructureTriadName}/${targetDominantSpec.label}`,
+    });
+    const dom7Notes = spellChordNotes({ rootPc: targetDominantSpec.rootPc, chordIntervals: [0, 4, 7, 10], preferSharps: true });
+    const triadNotes = spellChordNotes({ rootPc: upperStructureTriadRoot, chordIntervals: [0, 4, 7], preferSharps: true });
+    const pcNote = {};
+    [0, 4, 7, 10].forEach((iv, i) => { pcNote[mod12(targetDominantSpec.rootPc + iv)] = dom7Notes[i]; });
+    [0, 4, 7].forEach((iv, i) => { const pc = mod12(upperStructureTriadRoot + iv); if (!(pc in pcNote)) pcNote[pc] = triadNotes[i]; });
+    const notes = spec.chordIntervals.map((iv) => pcNote[mod12(targetDominantSpec.rootPc + iv)]).filter(Boolean);
+    return { ...spec, notes };
+  })();
+  const selfUpperStructureTriadRoot = mod12(sameRootDominantSpec.rootPc + 2);
+  const selfUpperStructureTriadName = `${pcToName(selfUpperStructureTriadRoot, false)} mayor`;
+  const selfUpperStructureCombined = (() => {
+    const spec = buildStudyChordSpecCustom({
+      rootPc: sameRootDominantSpec.rootPc,
+      preferSharps: false,
+      chordIntervals: [0, 4, 7, 10, 2, 6, 9],
+      label: `${selfUpperStructureTriadName}/${sameRootDominantSpec.label}`,
+    });
+    const dom7Notes = spellChordNotes({ rootPc: sameRootDominantSpec.rootPc, chordIntervals: [0, 4, 7, 10], preferSharps: true });
+    const triadNotes = spellChordNotes({ rootPc: selfUpperStructureTriadRoot, chordIntervals: [0, 4, 7], preferSharps: true });
+    const pcNote = {};
+    [0, 4, 7, 10].forEach((iv, i) => { pcNote[mod12(sameRootDominantSpec.rootPc + iv)] = dom7Notes[i]; });
+    [0, 4, 7].forEach((iv, i) => { const pc = mod12(selfUpperStructureTriadRoot + iv); if (!(pc in pcNote)) pcNote[pc] = triadNotes[i]; });
+    const notes = spec.chordIntervals.map((iv) => pcNote[mod12(sameRootDominantSpec.rootPc + iv)]).filter(Boolean);
+    return { ...spec, notes };
+  })();
   const pedalName = pcToName(safeRootPc, safePreferSharps);
   const pedalOptions = [1, 3, 4]
     .map((degreeIndex) => buildStudyChordSpecFromDegree(harmonizedScale?.degrees?.[degreeIndex], safePreferSharps))
@@ -1904,68 +1946,122 @@ export function buildStudySubstitutionGuide({ chordRootPc, chordName, plan, pref
     }] : []),
   ];
 
+  const scaleIISpec = buildStudyChordSpecFromUi({ rootPc: scaleRootPc + 2, preferSharps: diatonicPreferSharps, quality: "min", structure: "tetrad", ext7: true });
+  const scaleISpec = buildStudyChordSpecFromUi({ rootPc: scaleRootPc, preferSharps: diatonicPreferSharps, quality: "maj", structure: "tetrad", ext7: true });
+
   const chromaticItems = [
     {
       title: "Sustitución tritonal",
       definition: "Sustituye un dominante 7 por otro dominante 7 situado a un tritono. Funciona porque ambos comparten el mismo tritono tonal: la 3ª de uno pasa a ser la b7ª del otro y viceversa.",
       appliesWhen: "Solo aplica a acordes con función dominante real. Un maj7 no es dominante, porque no tiene 7ª menor.",
-      derivation: [
-        dominantPlaneText,
-        `Si el objetivo es llegar a ${targetSpec.label}, su dominante natural es ${targetDominantSpec.label}.`,
-        `El acorde a tritono de ${targetDominantSpec.label} es ${tritoneToTargetSpec.label}.`,
-        buildDominantTritoneExplanation(targetDominantSpec, tritoneToTargetSpec),
-        currentIsDominant
-          ? `${targetSpec.label} ya es dominante, así que su sustituto tritonal directo es ${sameRootTritoneSpec.label}.`
-          : `${targetSpec.label} no actúa como dominante tal como está escrito. Si quisieras usar esa raíz como dominante, habría que convertirlo en ${sameRootDominantSpec.label}; su sustituto tritonal sería ${sameRootTritoneSpec.label}.`,
-      ],
-      examples: [
-        `${targetDominantSpec.label} \u2192 ${targetSpec.label}: resolución tradicional por salto de quinta.`,
-        `${tritoneToTargetSpec.label} \u2192 ${targetSpec.label}: resolución cromática por semitono descendente en el bajo, con un color más suave y jazzístico.`,
-      ],
-      staffGroups: [
-        buildStudyStaffGroup("Dominante real y sustituto tritonal hacia el acorde estudiado", [targetDominantSpec, tritoneToTargetSpec, targetSpec], `Orden: ${targetDominantSpec.label} · ${tritoneToTargetSpec.label} · ${targetSpec.label}`, { keySignature: { type: null, count: 0 } }),
-        buildStudyStaffGroup("Si la misma raíz actuara como dominante", [sameRootDominantSpec, sameRootTritoneSpec], `Orden: ${sameRootDominantSpec.label} · ${sameRootTritoneSpec.label}`, { keySignature: { type: null, count: 0 } }),
-      ],
+      derivation: isDiatonicDom
+        ? [
+            dominantPlaneText,
+            `${targetSpec.label} ya es V7 en la escala activa. Su sustituto tritonal directo es ${sameRootTritoneSpec.label}: comparte el mismo tritono y resuelve de igual forma hacia el I.`,
+            buildDominantTritoneExplanation(sameRootDominantSpec, sameRootTritoneSpec),
+            `(Tonicización alternativa) Si en cambio se trata ${targetSpec.label} como objetivo de llegada, su dominante sería ${targetDominantSpec.label} y su tritono ${tritoneToTargetSpec.label}. Eso implica tonicizar ${pcToName(safeRootPc, safePreferSharps)} momentáneamente.`,
+          ]
+        : [
+            dominantPlaneText,
+            `Si el objetivo es llegar a ${targetSpec.label}, su dominante natural es ${targetDominantSpec.label}.`,
+            `El acorde a tritono de ${targetDominantSpec.label} es ${tritoneToTargetSpec.label}.`,
+            buildDominantTritoneExplanation(targetDominantSpec, tritoneToTargetSpec),
+            currentIsDominant
+              ? `${targetSpec.label} ya es dominante, así que su sustituto tritonal directo es ${sameRootTritoneSpec.label}.`
+              : `${targetSpec.label} no actúa como dominante tal como está escrito. Si quisieras usar esa raíz como dominante, habría que convertirlo en ${sameRootDominantSpec.label}; su sustituto tritonal sería ${sameRootTritoneSpec.label}.`,
+          ],
+      examples: isDiatonicDom
+        ? [
+            `${sameRootTritoneSpec.label} \u2192 I: sustituto tritonal de ${targetSpec.label} en la cadena V \u2192 I de la escala activa.`,
+            `(Tonicización) ${targetDominantSpec.label} \u2192 ${targetSpec.label} \u2192 I: cadena tratando ${targetSpec.label} como centro temporal antes de resolver.`,
+          ]
+        : [
+            `${targetDominantSpec.label} \u2192 ${targetSpec.label}: resolución tradicional por salto de quinta.`,
+            `${tritoneToTargetSpec.label} \u2192 ${targetSpec.label}: resolución cromática por semitono descendente en el bajo, con un color más suave y jazzístico.`,
+          ],
+      staffGroups: isDiatonicDom
+        ? [
+            buildStudyStaffGroup("Sustituto tritonal directo del dominante", [targetSpec, sameRootTritoneSpec], `Orden: ${targetSpec.label} · ${sameRootTritoneSpec.label}`, { keySignature: { type: null, count: 0 } }),
+            buildStudyStaffGroup("(Tonicización alternativa) Dominante y tritono hacia la raíz", [targetDominantSpec, tritoneToTargetSpec, targetSpec], `Orden: ${targetDominantSpec.label} · ${tritoneToTargetSpec.label} · ${targetSpec.label}`, { keySignature: { type: null, count: 0 } }),
+          ]
+        : [
+            buildStudyStaffGroup("Dominante real y sustituto tritonal hacia el acorde estudiado", [targetDominantSpec, tritoneToTargetSpec, targetSpec], `Orden: ${targetDominantSpec.label} · ${tritoneToTargetSpec.label} · ${targetSpec.label}`, { keySignature: { type: null, count: 0 } }),
+            buildStudyStaffGroup("Si la misma raíz actuara como dominante", [sameRootDominantSpec, sameRootTritoneSpec], `Orden: ${sameRootDominantSpec.label} · ${sameRootTritoneSpec.label}`, { keySignature: { type: null, count: 0 } }),
+          ],
     },
     {
       title: "Dominante por disminuido",
       definition: "Sustituye o comprime un dominante mediante un acorde disminuido séptima cuya raíz está medio tono por encima de la raíz del dominante original.",
       appliesWhen: "Se usa cuando quieres mantener la tensión del dominante añadiendo un color más inestable, simétrico y con una conducción de voces más cerrada.",
-      derivation: [
-        dominantPlaneText,
-        `Si ${targetSpec.label} es el objetivo, su dominante es ${targetDominantSpec.label} (${targetDominantSpec.notes.join(" · ")}).`,
-        `Un semitono por encima de la raíz del dominante aparece ${diminishedToTargetSpec.label} (${diminishedToTargetSpec.notes.join(" · ")}).`,
-        `${diminishedToTargetSpec.label} comparte ${targetDominantVsDim.count} notas con ${targetDominantSpec.label}: ${targetDominantVsDim.text}. Son precisamente las notas que concentran la tensión y su resolución.`,
-        currentIsDominant
-          ? `Como ${targetSpec.label} ya es dominante, su disminuido asociado sería ${sameRootDiminishedSpec.label}.`
-          : `Si quisieras usar la raíz de ${targetSpec.label} como dominante, pasarías primero a ${sameRootDominantSpec.label} y después a ${sameRootDiminishedSpec.label}.`,
-      ],
-      examples: [
-        `${targetDominantSpec.label} \u2192 ${targetSpec.label} puede enriquecerse como ${diminishedToTargetSpec.label} \u2192 ${targetSpec.label}.`,
-        `Lectura: crea un movimiento cromático en el bajo y una llegada muy compacta hacia ${targetSpec.label}.`,
-      ],
-      staffGroups: [
-        buildStudyStaffGroup("Dominante y disminuido asociado hacia el acorde estudiado", [targetDominantSpec, diminishedToTargetSpec, targetSpec], `Orden: ${targetDominantSpec.label} · ${diminishedToTargetSpec.label} · ${targetSpec.label}`, { keySignature: { type: null, count: 0 } }),
-        buildStudyStaffGroup("Conversión de la raíz actual a dominante + disminuido", [sameRootDominantSpec, sameRootDiminishedSpec], `Comparten ${currentDominantVsDim.count} notas: ${currentDominantVsDim.text}`, { keySignature: { type: null, count: 0 } }),
-      ],
+      derivation: isDiatonicDom
+        ? [
+            dominantPlaneText,
+            `${targetSpec.label} ya es dominante. Su disminuido asociado directo es ${sameRootDiminishedSpec.label}: medio tono por encima de su raíz, comparte sus notas de tensión y puede sustituirlo o colorarlo.`,
+            `${sameRootDiminishedSpec.label} comparte ${currentDominantVsDim.count} notas con ${targetSpec.label}: ${currentDominantVsDim.text}.`,
+            `(Tonicización alternativa) Si en cambio se trata ${targetSpec.label} como objetivo de llegada, su dominante sería ${targetDominantSpec.label} y su disminuido asociado ${diminishedToTargetSpec.label}.`,
+          ]
+        : [
+            dominantPlaneText,
+            `Si ${targetSpec.label} es el objetivo, su dominante es ${targetDominantSpec.label} (${targetDominantSpec.notes.join(" · ")}).`,
+            `Un semitono por encima de la raíz del dominante aparece ${diminishedToTargetSpec.label} (${diminishedToTargetSpec.notes.join(" · ")}).`,
+            `${diminishedToTargetSpec.label} comparte ${targetDominantVsDim.count} notas con ${targetDominantSpec.label}: ${targetDominantVsDim.text}. Son precisamente las notas que concentran la tensión y su resolución.`,
+            currentIsDominant
+              ? `Como ${targetSpec.label} ya es dominante, su disminuido asociado sería ${sameRootDiminishedSpec.label}.`
+              : `Si quisieras usar la raíz de ${targetSpec.label} como dominante, pasarías primero a ${sameRootDominantSpec.label} y después a ${sameRootDiminishedSpec.label}.`,
+          ],
+      examples: isDiatonicDom
+        ? [
+            `${sameRootDiminishedSpec.label} como color alternativo de ${targetSpec.label}: sustitución directa del dominante por su disminuido asociado.`,
+            `(Tonicización) ${diminishedToTargetSpec.label} \u2192 ${targetSpec.label}: preparación hacia la raíz tratada como centro temporal.`,
+          ]
+        : [
+            `${targetDominantSpec.label} \u2192 ${targetSpec.label} puede enriquecerse como ${diminishedToTargetSpec.label} \u2192 ${targetSpec.label}.`,
+            `Lectura: crea un movimiento cromático en el bajo y una llegada muy compacta hacia ${targetSpec.label}.`,
+          ],
+      staffGroups: isDiatonicDom
+        ? [
+            buildStudyStaffGroup("Disminuido directo del dominante estudiado", [targetSpec, sameRootDiminishedSpec], `Orden: ${targetSpec.label} · ${sameRootDiminishedSpec.label}`, { keySignature: { type: null, count: 0 } }),
+            buildStudyStaffGroup("(Tonicización) Dominante y disminuido hacia la raíz", [targetDominantSpec, diminishedToTargetSpec, targetSpec], `Orden: ${targetDominantSpec.label} · ${diminishedToTargetSpec.label} · ${targetSpec.label}`, { keySignature: { type: null, count: 0 } }),
+          ]
+        : [
+            buildStudyStaffGroup("Dominante y disminuido asociado hacia el acorde estudiado", [targetDominantSpec, diminishedToTargetSpec, targetSpec], `Orden: ${targetDominantSpec.label} · ${diminishedToTargetSpec.label} · ${targetSpec.label}`, { keySignature: { type: null, count: 0 } }),
+            buildStudyStaffGroup("Conversión de la raíz actual a dominante + disminuido", [sameRootDominantSpec, sameRootDiminishedSpec], `Comparten ${currentDominantVsDim.count} notas: ${currentDominantVsDim.text}`, { keySignature: { type: null, count: 0 } }),
+          ],
     },
     {
       title: "Interpolación II-V",
       definition: "No sustituye el destino: inserta su ii antes del V para preparar mejor la llegada.",
       appliesWhen: "Se usa cuando quieres una preparación más clara de jazz o pop sofisticado antes de resolver.",
-      derivation: [
-        dominantPlaneText,
-        `Si ${targetSpec.label} es el acorde objetivo, su dominante es ${targetDominantSpec.label}.`,
-        `El ii correspondiente es ${iiToTargetSpec.label}.`,
-        `La cadena queda ${iiToTargetSpec.label} - ${targetDominantSpec.label} \u2192 ${targetSpec.label}.`,
-        `También se llama dualización, porque conviertes un evento armónico de un solo acorde (${targetDominantSpec.label}) en un evento de dos (${iiToTargetSpec.label} - ${targetDominantSpec.label}).`,
-      ],
-      examples: [
-        "Si el acorde actual ya fuera dominante, la interpolación consistiría en anteponerle su ii.",
-      ],
-      staffGroups: [
-        buildStudyStaffGroup("Cadena II-V-I hacia el acorde estudiado", [iiToTargetSpec, targetDominantSpec, targetSpec], `Orden: ${iiToTargetSpec.label} · ${targetDominantSpec.label} · ${targetSpec.label}`, { keySignature: { type: null, count: 0 } }),
-      ],
+      derivation: isDiatonicDom
+        ? [
+            dominantPlaneText,
+            `${targetSpec.label} ya es V7 en la escala activa. La interpolación principal es ${scaleIISpec.label} - ${targetSpec.label} \u2192 ${scaleISpec.label}: IIm7 - V7 \u2192 I de la tonalidad.`,
+            `El ii correspondiente a la escala es ${scaleIISpec.label}.`,
+            `(Tonicización alternativa) Si en cambio se trata ${targetSpec.label} como objetivo de llegada, la cadena sería ${iiToTargetSpec.label} - ${targetDominantSpec.label} \u2192 ${targetSpec.label}.`,
+          ]
+        : [
+            dominantPlaneText,
+            `Si ${targetSpec.label} es el acorde objetivo, su dominante es ${targetDominantSpec.label}.`,
+            `El ii correspondiente es ${iiToTargetSpec.label}.`,
+            `La cadena queda ${iiToTargetSpec.label} - ${targetDominantSpec.label} \u2192 ${targetSpec.label}.`,
+            `También se llama dualización, porque conviertes un evento armónico de un solo acorde (${targetDominantSpec.label}) en un evento de dos (${iiToTargetSpec.label} - ${targetDominantSpec.label}).`,
+          ],
+      examples: isDiatonicDom
+        ? [
+            `${scaleIISpec.label} - ${targetSpec.label} \u2192 ${scaleISpec.label}: cadena IIm7 - V7 - I en la tonalidad activa.`,
+            `(Tonicización) ${iiToTargetSpec.label} - ${targetDominantSpec.label} \u2192 ${targetSpec.label}: tratando ${pcToName(safeRootPc, safePreferSharps)} como tónica temporal.`,
+          ]
+        : [
+            "Si el acorde actual ya fuera dominante, la interpolación consistiría en anteponerle su ii.",
+          ],
+      staffGroups: isDiatonicDom
+        ? [
+            buildStudyStaffGroup("IIm7 - V7 - I en la tonalidad activa", [scaleIISpec, targetSpec, scaleISpec], `Orden: ${scaleIISpec.label} · ${targetSpec.label} · ${scaleISpec.label}`, { keySignature: { type: null, count: 0 } }),
+            buildStudyStaffGroup("(Tonicización alternativa) II-V-I hacia la raíz", [iiToTargetSpec, targetDominantSpec, targetSpec], `Orden: ${iiToTargetSpec.label} · ${targetDominantSpec.label} · ${targetSpec.label}`, { keySignature: { type: null, count: 0 } }),
+          ]
+        : [
+            buildStudyStaffGroup("Cadena II-V-I hacia el acorde estudiado", [iiToTargetSpec, targetDominantSpec, targetSpec], `Orden: ${iiToTargetSpec.label} · ${targetDominantSpec.label} · ${targetSpec.label}`, { keySignature: { type: null, count: 0 } }),
+          ],
     },
   ];
 
@@ -1994,18 +2090,30 @@ export function buildStudySubstitutionGuide({ chordRootPc, chordName, plan, pref
       title: "Dominante secundario",
       definition: "Convierte el acorde objetivo en una llegada temporal preparada por su propio V7. Si el objetivo es la tónica principal de la tonalidad, ese V7 se entiende como dominante primario; si el objetivo es otro grado, entonces sí hablamos propiamente de dominante secundario.",
       appliesWhen: "Aplica cuando quieres tonicizar momentáneamente el acorde estudiado aunque no cambies de tonalidad global.",
-      derivation: [
-        dominantPlaneText,
-        `Aquí el acorde objetivo es ${targetSpec.label}.`,
-        `Su dominante secundario es ${targetDominantSpec.label}.`,
-        `La lectura funcional es V7/${targetSpec.label} \u2192 ${targetSpec.label}.`,
-        `Si ${targetSpec.label} es la tónica principal del tono, ${targetDominantSpec.label} se describe con más rigor como dominante primario.`,
-        sameRootDominantText,
-      ],
-      examples: [
-        `${targetDominantSpec.label} \u2192 ${targetSpec.label}.`,
-        currentIsDominant ? `${targetSpec.label} ya es un dominante. En ese caso la pregunta útil es: "¿de qué acorde es V7?"` : "",
-      ].filter(Boolean),
+      derivation: isDiatonicDom
+        ? [
+            dominantPlaneText,
+            `${targetSpec.label} ya es V7 en la escala activa. Analizarlo como objetivo de llegada implica tonicizarlo temporalmente — tratarlo como tónica provisional.`,
+            `En ese contexto, su dominante secundario sería ${targetDominantSpec.label}, y la lectura sería V7/${pcToName(safeRootPc, safePreferSharps)} \u2192 ${targetSpec.label} \u2192 I.`,
+            sameRootDominantText,
+          ]
+        : [
+            dominantPlaneText,
+            `Aquí el acorde objetivo es ${targetSpec.label}.`,
+            `Su dominante secundario es ${targetDominantSpec.label}.`,
+            `La lectura funcional es V7/${pcToName(safeRootPc, safePreferSharps)} \u2192 ${targetSpec.label}.`,
+            `Si el acorde estudiado es la tónica principal del tono, ${targetDominantSpec.label} se describe con más rigor como dominante primario.`,
+            sameRootDominantText,
+          ],
+      examples: isDiatonicDom
+        ? [
+            `(Tonicización) ${targetDominantSpec.label} \u2192 ${targetSpec.label}: ${targetDominantSpec.label} prepara ${pcToName(safeRootPc, safePreferSharps)} como centro temporal.`,
+            `La función principal de ${targetSpec.label} en la tonalidad es V7 \u2192 I, no un destino de llegada.`,
+          ]
+        : [
+            `${targetDominantSpec.label} \u2192 ${targetSpec.label}.`,
+            currentIsDominant ? `${targetSpec.label} ya es un dominante. En ese caso la pregunta útil es: "¿de qué acorde es V7?"` : "",
+          ].filter(Boolean),
       staffGroups: [
         buildStudyStaffGroup("Dominante secundario hacia el acorde estudiado", [targetDominantSpec, targetSpec], `Orden: ${targetDominantSpec.label} · ${targetSpec.label}`),
       ],
@@ -2014,43 +2122,77 @@ export function buildStudySubstitutionGuide({ chordRootPc, chordName, plan, pref
       title: "Séptima Sensible vii°/x",
       definition: "Usa el disminuido sensible del acorde objetivo en lugar de su dominante completo.",
       appliesWhen: "Sirve cuando quieres una preparación más compacta o más clásica que el V7 completo.",
-      derivation: [
-        dominantPlaneText,
-        `Tomando ${targetSpec.label} como objetivo, su sensible armónica genera ${leadingToneDimToTargetSpec.label}.`,
-        `${leadingToneDimToTargetSpec.label} resuelve por semitono hacia notas estructurales de ${targetSpec.label}.`,
-      ],
-      examples: [
-        `${leadingToneDimToTargetSpec.label} \u2192 ${targetSpec.label}.`,
-      ],
-      staffGroups: [
-        buildStudyStaffGroup("Sensible disminuida hacia el acorde estudiado", [leadingToneDimToTargetSpec, targetSpec], `Orden: ${leadingToneDimToTargetSpec.label} · ${targetSpec.label}`),
-      ],
+      derivation: isDiatonicDom
+        ? [
+            dominantPlaneText,
+            `${targetSpec.label} ya es V7 en la escala activa. Su función principal es resolver hacia I. La sensible hacia ${pcToName(safeRootPc, safePreferSharps)} se muestra como tonicización alternativa.`,
+            `(Tonicización alternativa hacia ${pcToName(safeRootPc, safePreferSharps)}) Si se trata ${pcToName(safeRootPc, safePreferSharps)} como tónica temporal, su sensible armónica genera ${leadingToneDimToTargetSpec.label}.`,
+            `${leadingToneDimToTargetSpec.label} resuelve por semitono hacia notas estructurales de ${targetSpec.label}.`,
+          ]
+        : [
+            dominantPlaneText,
+            `Tomando ${targetSpec.label} como objetivo, su sensible armónica genera ${leadingToneDimToTargetSpec.label}.`,
+            `${leadingToneDimToTargetSpec.label} resuelve por semitono hacia notas estructurales de ${targetSpec.label}.`,
+          ],
+      examples: isDiatonicDom
+        ? [
+            `La función principal sigue siendo ${targetSpec.label} \u2192 ${scaleISpec.label}.`,
+            `(Tonicización) ${leadingToneDimToTargetSpec.label} \u2192 ${targetSpec.label}.`,
+          ]
+        : [
+            `${leadingToneDimToTargetSpec.label} \u2192 ${targetSpec.label}.`,
+          ],
+      staffGroups: isDiatonicDom
+        ? [
+            buildStudyStaffGroup("(Tonicización) Sensible hacia la raíz + resolución principal", [leadingToneDimToTargetSpec, targetSpec, scaleISpec], `Orden: ${leadingToneDimToTargetSpec.label} · ${targetSpec.label} · ${scaleISpec.label}`),
+          ]
+        : [
+            buildStudyStaffGroup("Sensible disminuida hacia el acorde estudiado", [leadingToneDimToTargetSpec, targetSpec], `Orden: ${leadingToneDimToTargetSpec.label} · ${targetSpec.label}`),
+          ],
     },
     {
       title: "Backdoor dominant",
       definition: "Utiliza el acorde de séptima dominante construido sobre el séptimo grado bemol de la tonalidad como un dominante modal alternativo.",
       appliesWhen: "Funciona especialmente bien para resolver a un acorde maj7. Aporta un color soul, gospel o de jazz clásico mucho más fresco que el dominante tradicional.",
-      derivation: [
-        dominantPlaneText,
-        `Acorde objetivo: ${targetSpec.label}.`,
-        `Raíz del backdoor: ${pcToName(mod12(targetSpec.rootPc - 2), false)} (un tono entero por debajo de ${pcToName(targetSpec.rootPc, targetSpec.preferSharps)}).`,
-        `Acorde resultante: ${backdoorSpec.label} (${backdoorSpec.notes.join(" · ")}).`,
-        `No se basa en el tritono del V7 tradicional, sino en una resolución modal muy usada.`,
-        `Lógica sonora: notas como ${backdoorSpec.notes[3] || "b7"} y ${backdoorSpec.notes[2] || "5"} del ${backdoorSpec.label} resuelven con mucha suavidad hacia notas estables de ${targetSpec.label}.`,
-      ],
-      examples: [
-        `${backdoorSpec.label} \u2192 ${targetSpec.label}.`,
-        `${buildStudyChordSpecFromUi({ rootPc: backdoorSpec.rootPc + 7, preferSharps: false, quality: "min", structure: "tetrad", ext7: true }).label} - ${backdoorSpec.label} \u2192 ${targetSpec.label}.`,
-        "Lectura: se siente como una llegada inesperada pero muy satisfactoria.",
-      ],
-      staffGroups: [
-        buildStudyStaffGroup("Comparación entre V7 normal y backdoor dominant", [targetDominantSpec, backdoorSpec, targetSpec], `Orden: ${targetDominantSpec.label} · ${backdoorSpec.label} · ${targetSpec.label}`),
-        buildStudyStaffGroup("Cadena backdoor reforzada", [
-          buildStudyChordSpecFromUi({ rootPc: backdoorSpec.rootPc + 7, preferSharps: false, quality: "min", structure: "tetrad", ext7: true }),
-          backdoorSpec,
-          targetSpec,
-        ], `Orden: ${buildStudyChordSpecFromUi({ rootPc: backdoorSpec.rootPc + 7, preferSharps: false, quality: "min", structure: "tetrad", ext7: true }).label} · ${backdoorSpec.label} · ${targetSpec.label}`),
-      ],
+      derivation: isDiatonicDom
+        ? [
+            dominantPlaneText,
+            `(Tonicización alternativa hacia ${pcToName(safeRootPc, safePreferSharps)}) El backdoor dominant hacia la raíz de ${targetSpec.label} es ${backdoorSpec.label}.`,
+            `Raíz del backdoor: ${pcToName(mod12(targetSpec.rootPc - 2), false)} (un tono entero por debajo de ${pcToName(targetSpec.rootPc, targetSpec.preferSharps)}).`,
+            `Acorde resultante: ${backdoorSpec.label} (${backdoorSpec.notes.join(" · ")}).`,
+            `La función principal de ${targetSpec.label} en la tonalidad es V7 \u2192 I. ${backdoorSpec.label} \u2192 ${targetSpec.label} aparece cuando se trata ${pcToName(safeRootPc, safePreferSharps)} como tónica temporal.`,
+            `Lógica sonora: notas como ${backdoorSpec.notes[3] || "b7"} y ${backdoorSpec.notes[2] || "5"} del ${backdoorSpec.label} resuelven con mucha suavidad hacia notas estables de ${targetSpec.label}.`,
+          ]
+        : [
+            dominantPlaneText,
+            `Acorde objetivo: ${targetSpec.label}.`,
+            `Raíz del backdoor: ${pcToName(mod12(targetSpec.rootPc - 2), false)} (un tono entero por debajo de ${pcToName(targetSpec.rootPc, targetSpec.preferSharps)}).`,
+            `Acorde resultante: ${backdoorSpec.label} (${backdoorSpec.notes.join(" · ")}).`,
+            `No se basa en el tritono del V7 tradicional, sino en una resolución modal muy usada.`,
+            `Lógica sonora: notas como ${backdoorSpec.notes[3] || "b7"} y ${backdoorSpec.notes[2] || "5"} del ${backdoorSpec.label} resuelven con mucha suavidad hacia notas estables de ${targetSpec.label}.`,
+          ],
+      examples: isDiatonicDom
+        ? [
+            `(Tonicización) ${backdoorSpec.label} \u2192 ${targetSpec.label}: backdoor hacia la raíz tratada como tónica temporal.`,
+            `La función principal del acorde estudiado sigue siendo resolver hacia I (${scaleISpec.label}) de la escala activa.`,
+          ]
+        : [
+            `${backdoorSpec.label} \u2192 ${targetSpec.label}.`,
+            `${buildStudyChordSpecFromUi({ rootPc: backdoorSpec.rootPc + 7, preferSharps: false, quality: "min", structure: "tetrad", ext7: true }).label} - ${backdoorSpec.label} \u2192 ${targetSpec.label}.`,
+            "Lectura: se siente como una llegada inesperada pero muy satisfactoria.",
+          ],
+      staffGroups: isDiatonicDom
+        ? [
+            buildStudyStaffGroup("(Tonicización) Backdoor hacia la raíz + resolución principal", [backdoorSpec, targetSpec, scaleISpec], `Orden: ${backdoorSpec.label} · ${targetSpec.label} · ${scaleISpec.label}`),
+          ]
+        : [
+            buildStudyStaffGroup("Comparación entre V7 normal y backdoor dominant", [targetDominantSpec, backdoorSpec, targetSpec], `Orden: ${targetDominantSpec.label} · ${backdoorSpec.label} · ${targetSpec.label}`),
+            buildStudyStaffGroup("Cadena backdoor reforzada", [
+              buildStudyChordSpecFromUi({ rootPc: backdoorSpec.rootPc + 7, preferSharps: false, quality: "min", structure: "tetrad", ext7: true }),
+              backdoorSpec,
+              targetSpec,
+            ], `Orden: ${buildStudyChordSpecFromUi({ rootPc: backdoorSpec.rootPc + 7, preferSharps: false, quality: "min", structure: "tetrad", ext7: true }).label} · ${backdoorSpec.label} · ${targetSpec.label}`),
+          ],
     },
   ];
 
@@ -2115,43 +2257,63 @@ export function buildStudySubstitutionGuide({ chordRootPc, chordName, plan, pref
       title: "Poliacordes / Upper Structures",
       definition: "Superponen una tríada superior sobre un dominante para generar tensiones complejas sin pensar nota por nota.",
       appliesWhen: "Se usan sobre dominantes cuando quieres tensiones 9, #11, 13 y derivados con una digitación mental simple.",
-      derivation: [
-        dominantPlaneText,
-        `Si el objetivo es ${targetSpec.label}, su dominante es ${upperStructureBase.label}.`,
-        `Una tríada de ${upperStructureTriadName} sobre ${upperStructureBase.label} produce 9, #11 y 13 respecto al bajo.`,
-      ],
-      examples: [
-        `${upperStructureTriadName}/${upperStructureBase.label} como forma rápida de pensar un dominante alterado por color.`,
-      ],
-      staffGroups: [
-        buildStudyStaffGroup("Dominante base y upper structure combinado", [upperStructureBase, upperStructureCombined], `Orden: ${upperStructureBase.label} · ${upperStructureCombined.label}`),
-      ],
+      derivation: isDiatonicDom
+        ? [
+            dominantPlaneText,
+            `${targetSpec.label} ya es dominante. Una tríada de ${selfUpperStructureTriadName} sobre ${sameRootDominantSpec.label} produce 9, #11 y 13 respecto al bajo.`,
+            `Resultado: ${selfUpperStructureCombined.label} — tensiones ${selfUpperStructureCombined.notes.join(" · ")}.`,
+            `(Tonicización alternativa) Si se trata ${targetSpec.label} como objetivo, su dominante es ${upperStructureBase.label} y el upper structure sería ${upperStructureTriadName}/${upperStructureBase.label}.`,
+          ]
+        : [
+            dominantPlaneText,
+            `Si el objetivo es ${targetSpec.label}, su dominante es ${upperStructureBase.label}.`,
+            `Una tríada de ${upperStructureTriadName} sobre ${upperStructureBase.label} produce 9, #11 y 13 respecto al bajo.`,
+          ],
+      examples: isDiatonicDom
+        ? [
+            `${selfUpperStructureCombined.label} como forma rápida de pensar ${sameRootDominantSpec.label} con color 9, #11, 13.`,
+            `(Tonicización) ${upperStructureTriadName}/${upperStructureBase.label} aplica el mismo concepto hacia la raíz tratada como llegada.`,
+          ]
+        : [
+            `${upperStructureTriadName}/${upperStructureBase.label} como forma rápida de pensar un dominante alterado por color.`,
+          ],
+      staffGroups: isDiatonicDom
+        ? [
+            buildStudyStaffGroup("Upper structure sobre el dominante estudiado", [sameRootDominantSpec, selfUpperStructureCombined], `Orden: ${sameRootDominantSpec.label} · ${selfUpperStructureCombined.label}`),
+            buildStudyStaffGroup("(Tonicización) Upper structure hacia la raíz", [upperStructureBase, upperStructureCombined], `Orden: ${upperStructureBase.label} · ${upperStructureCombined.label}`),
+          ]
+        : [
+            buildStudyStaffGroup("Dominante base y upper structure combinado", [upperStructureBase, upperStructureCombined], `Orden: ${upperStructureBase.label} · ${upperStructureCombined.label}`),
+          ],
     },
   ];
 
   return [
     {
-      title: "1. Sustituciones diatónicas",
+      title: "Sustituciones diatónicas",
       caption: "Se apoyan en la tonalidad activa y en la cantidad de notas comunes entre acordes de la misma escala.",
+      warning: nonDiatonicWarning,
       items: diatonicItems,
     },
     {
-      title: "2. Sustituciones cromáticas y jazz",
+      title: "Sustituciones cromáticas y jazz",
       caption: "Añaden acordes fuera de la escala para aumentar la tensión o clarificar la resolución.",
+      warning: isDiatonicDomText,
       items: chromaticItems,
     },
     {
-      title: "3. Sustituciones por préstamo",
+      title: "Sustituciones por préstamo",
       caption: "Reinterpretan el acorde estudiado como objetivo temporal o toman color desde modos paralelos.",
+      warning: isDiatonicDomText,
       items: borrowedItems.filter((item) => item),
     },
     {
-      title: "4. Estructura y color",
+      title: "Estructura y color",
       caption: "No siempre cambias la función: a veces solo cambias la forma en que el acorde se presenta.",
       items: colorItems,
     },
     {
-      title: "5. Avanzadas y extras",
+      title: "Avanzadas y extras",
       caption: "Recursos más abiertos para estudiar reharmonizaciones largas o con un color muy marcado.",
       items: [
         {

@@ -353,7 +353,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "4.32";
+const APP_VERSION = "4.37";
 
 function chordDbUrl(keyName, suffix) {
   // Ruta RELATIVA dentro de /public (sin base) => chords-db/...
@@ -4086,8 +4086,6 @@ export default function FretboardScalesPage() {
         ["Fórmula", d?.intervals?.join(" · ") || "—"],
         ["Bajo", d?.bassName || "—"],
         ["Inversión", d?.inversionLabel || "—"],
-        ["Capa", chordEngineLayerLabel(d?.plan)],
-        ["Generador", chordEngineGeneratorLabel(d?.plan)],
       ];
 
       const summaryCardsHtml = [
@@ -4095,8 +4093,6 @@ export default function FretboardScalesPage() {
           title: "Identidad",
           rows: [
             ["Nombre", d?.chordName || "—"],
-            ["Capa", chordEngineLayerLabel(d?.plan)],
-            ["Generador", chordEngineGeneratorLabel(d?.plan)],
           ],
         },
         {
@@ -4108,13 +4104,6 @@ export default function FretboardScalesPage() {
             ["Inversión", d?.inversionLabel || "—"],
           ],
         },
-        {
-          title: "Dominantes relacionados",
-          rows: [
-            ["Dominante normal", `${dominant.name} · ${dominant.notes.join(" · ")}`],
-            ["Backdoor dominant", `${backdoorDominant.name} · ${backdoorDominant.notes.join(" · ")}`],
-          ],
-        },
       ].map((card) => (
         `<section class="pdf-card">` +
           `<h3>${escapeHtml(card.title)}</h3>` +
@@ -4123,6 +4112,101 @@ export default function FretboardScalesPage() {
           `</div>` +
         `</section>`
       )).join("");
+
+      const chordFunctionalIdentity = (() => {
+        if (!chordScaleCompat.isDiatonic) return null;
+        const chordRootLocal = d?.rootPc ?? chordRootPc;
+        const intervalInScale = mod12(chordRootLocal - rootPc);
+        const degreeIdx = (scaleIntervals || []).indexOf(intervalInScale);
+        if (degreeIdx === -1) return null;
+        const romanBases = ["I", "II", "III", "IV", "V", "VI", "VII"];
+        const romanBase = romanBases[degreeIdx];
+        if (!romanBase) return null;
+        const plan = d?.plan;
+        const quality = plan?.quality;
+        const ivs = (plan?.intervals || []).map((iv) => mod12(iv));
+        const hasMaj7 = ivs.includes(11);
+        const hasMin7 = ivs.includes(10);
+        let romanFull;
+        if (quality === "maj") romanFull = hasMaj7 ? `${romanBase}maj7` : romanBase;
+        else if (quality === "dom") romanFull = `${romanBase}7`;
+        else if (quality === "min") romanFull = hasMin7 ? `${romanBase.toLowerCase()}m7` : `${romanBase.toLowerCase()}m`;
+        else if (quality === "hdim") romanFull = `${romanBase.toLowerCase()}m7(b5)`;
+        else if (quality === "dim") romanFull = `${romanBase.toLowerCase()}dim${hasMin7 ? "7" : ""}`;
+        else romanFull = romanBase;
+        const scaleRootNameLocal = pcToName(rootPc, computeAutoPreferSharps({ rootPc, scaleName }));
+        const scaleLabelFull = `${scaleRootNameLocal} ${scaleName}`;
+        const bassInterval = plan?.bassInterval;
+        const bassIntervalMod = bassInterval != null ? mod12(bassInterval) : 0;
+        const invMap = { 3: "1ª inv.", 4: "1ª inv.", 7: "2ª inv.", 10: "3ª inv.", 11: "3ª inv.", 9: "3ª inv." };
+        let inversionText = null;
+        if (bassIntervalMod !== 0 && invMap[bassIntervalMod]) {
+          const bassNoteName = pcToName(mod12(chordRootLocal + bassIntervalMod), d?.preferSharps ?? chordPreferSharps);
+          inversionText = `Bajo ${bassNoteName} = ${invMap[bassIntervalMod]} del ${romanFull}`;
+        }
+        return { romanFull, scaleLabelFull, scaleRootNameLocal, inversionText };
+      })();
+
+      const compatHtml = (() => {
+        const inScale = chordScaleCompat.notesInScale.join(" · ") || "ninguna";
+        const outOfScale = chordScaleCompat.notesOutOfScale.length
+          ? `<div><b>Fuera de escala:</b> ${escapeHtml(chordScaleCompat.notesOutOfScale.map((n) => `${n.name} (${n.intervalLabel})`).join(" · "))}</div>`
+          : "";
+        const statusLine = chordScaleCompat.isDiatonic
+          ? `<div>Acorde diatónico en la escala activa.</div>`
+          : `<div>Acorde no diatónico en la escala activa.</div>`;
+        const suggestion = chordScaleCompat.diatonicSuggestion
+          ? `<div>${escapeHtml(chordScaleCompat.diatonicSuggestion)}</div>`
+          : "";
+        const functionalLines = chordFunctionalIdentity
+          ? `<div><b>Función en la escala activa:</b> ${escapeHtml(chordFunctionalIdentity.romanFull)} de ${escapeHtml(chordFunctionalIdentity.scaleLabelFull)}</div>` +
+            `<div><b>Resolución esperada:</b> ${escapeHtml(d?.chordName || "—")} → I (${escapeHtml(chordFunctionalIdentity.scaleLabelFull)})</div>` +
+            (chordFunctionalIdentity.inversionText ? `<div>${escapeHtml(chordFunctionalIdentity.inversionText)}</div>` : "")
+          : "";
+        return (
+          `<section class="pdf-compat">` +
+            `<h3>Compatibilidad con la escala</h3>` +
+            `<div class="pdf-kv">` +
+              `<div><b>En escala:</b> ${escapeHtml(inScale)}</div>` +
+              outOfScale +
+              statusLine +
+              suggestion +
+              functionalLines +
+            `</div>` +
+          `</section>`
+        );
+      })();
+
+      const dominantsHtml = (() => {
+        const scaleNameFull = `${pcToName(rootPc, computeAutoPreferSharps({ rootPc, scaleName }))} ${scaleName}`;
+        const isDiatonicDominant = chordScaleCompat.isDiatonic && d?.plan?.quality === "dom";
+        const diatonicDomWarning = isDiatonicDominant
+          ? `<div class="pdf-warning" style="margin-bottom:10px;">${escapeHtml("El acorde estudiado ya cumple función dominante en la escala activa. Estos dominantes externos muestran tonicizaciones alternativas hacia su raíz, no la función principal del acorde.")}</div>`
+          : "";
+        const buildBlock = (spec, compat, funcLabel) => {
+          const nonDiatText = !compat.isDiatonic && compat.notesOutOfScale.length
+            ? `<div class="pdf-dominant-nondiaton">No diatónico en ${escapeHtml(scaleNameFull)}: contiene ${escapeHtml(compat.notesOutOfScale.map((n) => `${n.name} (${n.intervalLabel})`).join(", "))}.</div>`
+            : `<div class="pdf-dominant-diatonic">Diatónico en la escala activa.</div>`;
+          return (
+            `<div class="pdf-dominant-block">` +
+              `<div class="pdf-dominant-name">${escapeHtml(spec.name)}</div>` +
+              `<div><b>Función:</b> ${escapeHtml(funcLabel)} → I (${escapeHtml(studyReadingRootName)} como tónica)</div>` +
+              `<div><b>Notas:</b> ${escapeHtml(spec.notes.join(" · "))}</div>` +
+              nonDiatText +
+            `</div>`
+          );
+        };
+        return (
+          `<section class="pdf-dominants">` +
+            `<h3>Dominantes externos hacia la raíz detectada (${escapeHtml(studyReadingRootName)})</h3>` +
+            diatonicDomWarning +
+            `<div class="pdf-dominants-grid">` +
+              buildBlock(dominant, dominantScaleCompat, "V7") +
+              buildBlock(backdoorDominant, backdoorScaleCompat, "bVII7") +
+            `</div>` +
+          `</section>`
+        );
+      })();
 
       const studyHeaderSummary = buildChordHeaderSummary({
         name: d?.chordName,
@@ -4236,9 +4320,14 @@ export default function FretboardScalesPage() {
           );
         }).join("");
 
+        const sectionWarningHtml = section.warning
+          ? `<div class="pdf-warning">${escapeHtml(section.warning)}</div>`
+          : "";
+
         return (
           `<section id="pdf-section-${sectionIdx + 1}" class="pdf-section">` +
             `<h2>${escapeHtml(`${sectionIdx + 1}. ${section.title}`)}</h2>` +
+            sectionWarningHtml +
             sectionSubIndexHtml +
             itemsHtml +
           `</section>`
@@ -4307,6 +4396,16 @@ export default function FretboardScalesPage() {
     .pdf-mini-neck-inlay { position: absolute; bottom: 4px; width: 8px; height: 8px; border-radius: 999px; background: var(--fret-inlay-bg-soft, rgba(159,192,212,0.78)); z-index: 1; }
     .pdf-mini-neck-inlay--active { opacity: 0.32; }
     .pdf-mini-neck-muted { font-size: 9px; font-weight: 700; color: #94a3b8; }
+    .pdf-compat { border: 1px solid #bae6fd; border-radius: 14px; padding: 14px 16px; background: #f0f9ff; margin-bottom: 18px; break-inside: avoid; }
+    .pdf-compat h3 { margin: 0 0 8px; font-size: 13px; color: #0c4a6e; }
+    .pdf-dominants { border: 1px solid #cbd5e1; border-radius: 14px; padding: 14px 16px; background: #f8fafc; margin-bottom: 24px; break-inside: avoid; }
+    .pdf-dominants h3 { margin: 0 0 10px; font-size: 13px; }
+    .pdf-dominants-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .pdf-dominant-block { border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 12px; background: #fff; font-size: 9px; line-height: 1.5; }
+    .pdf-dominant-name { font-size: 12px; font-weight: 700; margin-bottom: 4px; }
+    .pdf-dominant-diatonic { color: #166534; margin-top: 3px; }
+    .pdf-dominant-nondiaton { color: #92400e; margin-top: 3px; }
+    .pdf-warning { background: #fefce8; border: 1px solid #fde68a; border-radius: 10px; padding: 8px 12px; margin-bottom: 12px; font-size: 9.5px; color: #78350f; line-height: 1.5; break-inside: avoid; }
     @media print {
       body { background: #fff; }
       a { color: inherit; text-decoration: none; }
@@ -4325,14 +4424,18 @@ export default function FretboardScalesPage() {
       </div>
     </section>
 
+    ${compatHtml}
+
     <nav class="pdf-index">
       <h2>Índice general</h2>
-      <ol>${substitutionIndexHtml}</ol>
+      <ul>${substitutionIndexHtml}</ul>
     </nav>
 
     <section class="pdf-cards">
       ${summaryCardsHtml}
     </section>
+
+    ${dominantsHtml}
 
     ${studyVoicingHtml}
 
