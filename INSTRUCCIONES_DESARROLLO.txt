@@ -94,6 +94,31 @@ ANALIZAR DIGITACIÓN DESDE TERMINAL
     - 'x' = cuerda silenciada. Orden: cuerda 6 (LowE) → cuerda 1 (HighE).
 
 
+GENERAR MANUAL DE USUARIO (PDF)
+---------------------------------
+  Requiere que el servidor preview esté corriendo:
+    npm run build
+    npm run preview
+
+  Luego, en otra terminal:
+    npm run generate:manual
+
+  Salida:
+    manual/mastil_escalas_manual.pdf   — manual completo (A4, ~10 págs.)
+    manual/manual.html                  — fuente HTML del manual
+    manual/*.png                        — capturas intermedias
+
+  El script abre Chrome headless, navega automáticamente por todas las
+  secciones (Escala, Patrones, Ruta, Acordes, Modo Estudio, Investigar,
+  Acordes cercanos, Standards), toma capturas reales y genera el PDF.
+
+  NOTA: la carpeta manual/ está en .gitignore (binarios derivados).
+  Regenerar el manual siempre desde el source con este comando.
+
+  Para especificar una URL manualmente:
+    node scripts/generateManual.mjs --url http://localhost:4174/mastil_escalas/
+
+
 ACTUALIZAR VERSIÓN ANTES DE UN BUILD FINAL
 -------------------------------------------
   Editar APP_VERSION en src/App.jsx (línea ~353).

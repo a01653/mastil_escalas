@@ -26,3 +26,6 @@ dist-ssr
 *.sw?
 .claude
 __pycache__
+
+# Manual generado (PDF + capturas — binarios derivados, no commitear)
+manual/
