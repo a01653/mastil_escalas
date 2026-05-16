@@ -1008,6 +1008,68 @@ export function studyVoicingFormLabel(voicing, form) {
   return isClosedPositionVoicing(voicing) ? "Cerrado" : "Abierto";
 }
 
+// Drop form string-set definitions (which 4 sIdx values each form occupies).
+// Keys match CHORD_FORMS values; sIdx 0=HighE … 5=LowE.
+const DROP_SET_STRINGS = {
+  drop2_set1: new Set([0, 1, 2, 3]),
+  drop2_set2: new Set([1, 2, 3, 4]),
+  drop2_set3: new Set([2, 3, 4, 5]),
+  drop3_set1: new Set([0, 1, 2, 4]),
+  drop3_set2: new Set([1, 2, 3, 5]),
+  drop24_set1: new Set([0, 1, 3, 4]),
+  drop24_set2: new Set([1, 2, 4, 5]),
+};
+
+// Returns a CHORD_FORMS value ("drop2_set1", etc.) when the manual voicing matches
+// a known drop pattern for the detected chord, or null when it cannot be classified.
+// Does NOT handle the Abierto/Cerrado fallback; callers use studyVoicingFormLabel for that.
+export function classifyManualVoicingShape(manualVoicing, detectedChord) {
+  if (!manualVoicing?.notes || !detectedChord) return null;
+
+  const notes = manualVoicing.notes;
+  if (notes.length !== 4) return null; // drop classification only for strict 4-note voicings
+
+  const intervals = detectedChord.formula?.intervals;
+  if (!Array.isArray(intervals) || intervals.length !== 4) return null;
+
+  // thirdOffset, fifthOffset, seventhOffset (mod12, as the engine expects)
+  const t = mod12(intervals[1]);
+  const f = mod12(intervals[2]);
+  const s = mod12(intervals[3]);
+
+  // Sorted pitches (low to high) and relative semitone intervals from bass
+  const sorted = [...notes].sort((a, b) => pitchAt(a.sIdx, a.fret) - pitchAt(b.sIdx, b.fret));
+  const pitches = sorted.map((n) => pitchAt(n.sIdx, n.fret));
+  const relActual = pitches.map((p) => p - pitches[0]); // [0, d1, d2, d3]
+
+  // Try every drop kind × inversion and see if the absolute-order pattern matches
+  const dropKinds = ["drop2", "drop3", "drop24"];
+  const inversions = ["root", "1", "2", "3"];
+
+  for (const dropKind of dropKinds) {
+    for (const inv of inversions) {
+      const absOrder = AppMusicBasics.getDropAbsoluteOrder({ thirdOffset: t, fifthOffset: f, seventhOffset: s, dropKind, inversion: inv });
+      if (!absOrder || absOrder.length !== 4) continue;
+      const relExp = absOrder.map((x) => x - absOrder[0]);
+      if (relExp.every((x, i) => x === relActual[i])) {
+        // Pitch pattern matches — now determine the set from the string indices used
+        const sSet = new Set(sorted.map((n) => n.sIdx));
+        for (const [formValue, allowed] of Object.entries(DROP_SET_STRINGS)) {
+          if (!formValue.startsWith(dropKind.replace("+", "") + "_")) continue;
+          if (sSet.size === allowed.size && [...sSet].every((idx) => allowed.has(idx))) {
+            return formValue;
+          }
+        }
+        // Pitch matches a drop pattern but string set is non-standard — still a drop form
+        // Fall back to the generic drop kind without set distinction
+        return null;
+      }
+    }
+  }
+
+  return null; // close position or open/non-standard — handled by studyVoicingFormLabel
+}
+
 export function explainStudyRules(plan) {
   if (!plan) return [];
   const out = [];

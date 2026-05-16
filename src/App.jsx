@@ -199,6 +199,7 @@ const {
   analyzeChordScaleCompatibility,
   buildStudyAnchorId,
   buildStudySubstitutionGuide,
+  classifyManualVoicingShape,
 } = AppVoicingStudyCore;
 
 import * as AppPatternRouteStaffCore from "./music/appPatternRouteStaffCore.jsx";
@@ -353,7 +354,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "4.37";
+const APP_VERSION = "4.40";
 
 function chordDbUrl(keyName, suffix) {
   // Ruta RELATIVA dentro de /public (sin base) => chords-db/...
@@ -6268,6 +6269,44 @@ function ChordFretboard({
         )}
       >
 
+        {(() => {
+          const cand = chordDetectSelectedCandidate;
+          let chordPart = null;
+          let notesPart = null;
+          if (cand) {
+            const plan = studyData?.plan;
+            const voicing = studyData?.voicing;
+            // Try to classify the manual voicing drop form; fall back to Abierto/Cerrado
+            const detectedFormValue = classifyManualVoicingShape(voicing, cand);
+            const dropLabel = detectedFormValue
+              ? CHORD_FORMS.find((x) => x.value === detectedFormValue)?.label
+              : null;
+            const posLabel = studyVoicingFormLabel(voicing, plan?.form);
+            const invLabel = studyData?.inversionLabel;
+            const parts = [cand.name];
+            if (dropLabel) parts.push(dropLabel);
+            parts.push(posLabel);
+            if (invLabel && invLabel !== "Fundamental") parts.push(invLabel);
+            chordPart = parts.join(" · ");
+            const rawNotes = Array.isArray(cand.visibleNotes) ? Array.from(new Set(cand.visibleNotes.filter(Boolean))) : [];
+            notesPart = rawNotes.join(" - ");
+          }
+          return (
+            <div className="mb-2 flex min-h-[44px] flex-wrap items-center gap-x-1">
+              {chordPart ? (
+                <>
+                  <span className="text-base text-slate-500">Lectura detectada:</span>
+                  <span className="text-base font-semibold text-sky-700">{chordPart}</span>
+                  {notesPart ? <span className="text-base text-slate-400">·</span> : null}
+                  {notesPart ? <span className="text-base font-semibold text-slate-600">{notesPart}</span> : null}
+                </>
+              ) : (
+                <span className="text-base text-slate-400">Sin lectura detectada todavía</span>
+              )}
+            </div>
+          );
+        })()}
+
         <div className="mb-2 flex flex-wrap items-center gap-x-4 gap-y-1">
           <label className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-700" title="Intenta conservar la lectura funcional previa cuando el cambio de notas es pequeño.">
             <input
@@ -10532,7 +10571,7 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
                     )
                     : null;
                 }
-                return chordEditorPanel;
+                return chordDetectMode ? null : chordEditorPanel;
               })()}
               {chordDetectMode ? (
                 <div
