@@ -4,6 +4,8 @@ import {
   buildChordNamingExplanation,
   buildChordResolutionRoman,
   analyzeChordScaleCompatibility,
+  actualInversionLabelFromVoicing,
+  buildChordEnginePlan,
 } from "./appVoicingStudyCore.js";
 
 // C Mayor scale intervals: 0 2 4 5 7 9 11
@@ -429,5 +431,39 @@ describe("analyzeChordScaleCompatibility", () => {
     expect(result.isDiatonic).toBe(false);
     const b7Note = result.notesOutOfScale.find((n) => n.intervalLabel === "b7");
     expect(b7Note?.name).toBe("Ab");
+  });
+});
+
+describe("actualInversionLabelFromVoicing — extensiones add vs inversiones reales", () => {
+  const planAdd9 = buildChordEnginePlan({
+    rootPc: 10, quality: "maj", suspension: "none", structure: "tetrad",
+    inversion: "root", form: "open",
+    ext7: false, ext6: false, ext9: true, ext11: false, ext13: false,
+  });
+  const planDom7 = buildChordEnginePlan({
+    rootPc: 0, quality: "dom", suspension: "none", structure: "tetrad",
+    inversion: "root", form: "open",
+    ext7: true, ext6: false, ext9: false, ext11: false, ext13: false,
+  });
+  const planAdd6 = buildChordEnginePlan({
+    rootPc: 0, quality: "maj", suspension: "none", structure: "tetrad",
+    inversion: "root", form: "open",
+    ext7: false, ext6: true, ext9: false, ext11: false, ext13: false,
+  });
+
+  test("Bbadd9/C: bajo C (9ª) → 'Bajo 9', no '3ª inversión'", () => {
+    expect(actualInversionLabelFromVoicing(planAdd9, { bassPc: 0 })).toBe("Bajo 9");
+  });
+
+  test("C7/Bb: bajo Bb (b7) → '3ª inversión' correctamente", () => {
+    expect(actualInversionLabelFromVoicing(planDom7, { bassPc: 10 })).toBe("3ª inversión");
+  });
+
+  test("Cadd6/A: bajo A (6ª) → 'Bajo 6', no '3ª inversión'", () => {
+    expect(actualInversionLabelFromVoicing(planAdd6, { bassPc: 9 })).toBe("Bajo 6");
+  });
+
+  test("Bbadd9 fundamental → 'Fundamental'", () => {
+    expect(actualInversionLabelFromVoicing(planAdd9, { bassPc: 10 })).toBe("Fundamental");
   });
 });

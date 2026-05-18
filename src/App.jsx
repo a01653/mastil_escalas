@@ -354,7 +354,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "4.43";
+const APP_VERSION = "4.44";
 
 function chordDbUrl(keyName, suffix) {
   // Ruta RELATIVA dentro de /public (sin base) => chords-db/...
@@ -2388,9 +2388,10 @@ export default function FretboardScalesPage() {
       enabled: chordRefEnabled,
       rootPc: ((CHORD_REF_NATURAL_PC[chordRefNatural] ?? 0) + chordRefAcc + 12) % 12,
       quality: chordRefQuality,
+      selectedNotes: chordDetectSelectedNotes,
     };
     return rankReadingsWithHarmonyContextPure(chordDetectCandidates, harmonyContext);
-  }, [chordDetectCandidates, chordRefEnabled, chordRefNatural, chordRefAcc, chordRefQuality]);
+  }, [chordDetectCandidates, chordRefEnabled, chordRefNatural, chordRefAcc, chordRefQuality, chordDetectSelectedNotes]);
 
   const chordDetectPlaybackNotes = useMemo(
     () => [...chordDetectSelectedNotes].sort((a, b) => b.sIdx - a.sIdx || a.fret - b.fret),
@@ -2403,8 +2404,8 @@ export default function FretboardScalesPage() {
   );
 
   const chordDetectSelectedCandidate = useMemo(
-    () => chordDetectCandidates.find((c) => c.id === chordDetectCandidateId) || null,
-    [chordDetectCandidates, chordDetectCandidateId]
+    () => chordDetectCandidatesRanked.find((c) => c.id === chordDetectCandidateId) || null,
+    [chordDetectCandidatesRanked, chordDetectCandidateId]
   );
 
   useLayoutEffect(() => {
@@ -2770,12 +2771,30 @@ export default function FretboardScalesPage() {
     });
   }
 
-  const chordDetectSelectedNotesText = useMemo(
-    () => chordDetectSelectedNotes
-      .map((n) => buildDetectedCandidateNoteNameForPc(n.pc, chordDetectSelectedCandidate, chordPreferSharps))
-      .join(", "),
-    [chordDetectSelectedNotes, chordDetectSelectedCandidate, chordPreferSharps]
-  );
+  const chordDetectSelectedNotesText = useMemo(() => {
+    const prefer = chordDetectSelectedCandidate?.preferSharps ?? chordPreferSharps;
+    // Construir mapa pc → nombre usando la ortografía con degreeLabels del candidato
+    // para que pc=10 en C7sus4 muestre "Bb" y no "A#"
+    const pcNameMap = new Map();
+    if (chordDetectSelectedCandidate) {
+      const { rootPc: cRootPc, formula } = chordDetectSelectedCandidate;
+      const fIntervals = formula?.intervals ?? [];
+      if (fIntervals.length > 0) {
+        const spelled = spellChordNotes({
+          rootPc: cRootPc,
+          chordIntervals: fIntervals,
+          preferSharps: prefer,
+          degreeLabels: formula?.degreeLabels,
+        });
+        fIntervals.forEach((intv, idx) => {
+          if (spelled[idx]) pcNameMap.set(mod12(cRootPc + intv), spelled[idx]);
+        });
+      }
+    }
+    return chordDetectSelectedNotes
+      .map((n) => pcNameMap.get(mod12(n.pc)) ?? pcToName(n.pc, prefer))
+      .join(", ");
+  }, [chordDetectSelectedNotes, chordDetectSelectedCandidate, chordPreferSharps]);
 
   const chordDetectStaffEvents = useMemo(
     () => chordDetectSelectedNotes.length
@@ -3735,7 +3754,7 @@ export default function FretboardScalesPage() {
               ...detectCandidate.uiPatch,
               form: detectCandidate.uiPatch.form || "open",
             })
-          : chordEnginePlan;
+          : { ...chordEnginePlan, rootPc: mainRootPc };
         const mainPcToSpelledName = (pc) => {
           const interval = mod12(pc - mainRootPc);
           const idx = mainIntervals.findIndex((x) => mod12(x) === interval);
@@ -3755,9 +3774,14 @@ export default function FretboardScalesPage() {
           voicing: currentMainVoicing,
           positionForm: detectCandidate.uiPatch?.positionForm || chordPositionForm,
           bassName: currentMainVoicing ? mainPcToSpelledName(currentMainVoicing.bassPc) : pcToName(chordBassPc, mainPreferSharps),
-          inversionLabel: currentMainVoicing
-            ? actualInversionLabelFromVoicing(detectedPlan, currentMainVoicing)
-            : CHORD_INVERSIONS.find((x) => x.value === chordInversion)?.label || "Fundamental",
+          inversionLabel: (() => {
+            if (!currentMainVoicing) {
+              return CHORD_INVERSIONS.find((x) => x.value === chordInversion)?.label || "Fundamental";
+            }
+            const invLabel = actualInversionLabelFromVoicing(detectedPlan, currentMainVoicing);
+            if (detectCandidate.contextual && invLabel === "Fundamental") return "Bajo fundamental";
+            return invLabel;
+          })(),
         };
       }
 
@@ -6496,7 +6520,7 @@ function ChordFretboard({
         >
           <div className="space-y-2">
             {chordDetectCandidatesRanked.length ? chordDetectCandidatesRanked.map((cand) => (
-              <div key={cand.id} className="flex items-start gap-3 rounded-xl border border-slate-200 bg-sky-50 px-3 py-2 text-xs text-slate-700">
+              <div key={cand.id} className={`flex items-start gap-3 rounded-xl border px-3 py-2 text-xs text-slate-700 ${cand.contextual ? "border-amber-200 bg-amber-50" : "border-slate-200 bg-sky-50"}`}>
                 <label className="flex min-w-0 flex-1 items-start gap-3">
                   <input
                     type="radio"
@@ -6506,6 +6530,11 @@ function ChordFretboard({
                     className="mt-0.5 h-4 w-4"
                   />
                   <div className="min-w-0">
+                    {cand.contextual && (
+                      <div className="mb-0.5">
+                        <span className="rounded bg-amber-200 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800">por referencia</span>
+                      </div>
+                    )}
                     <div className="font-semibold text-slate-800">{formatChordNamePure(cand)}</div>
                     <div>{cand.intervalPairsText}</div>
                   </div>

@@ -1152,7 +1152,15 @@ export function actualInversionLabelFromVoicing(plan, voicing) {
   if (bassInt === 0) return "Fundamental";
   if (bassInt === mod12(plan.thirdOffset)) return "1ª inversión";
   if (bassInt === mod12(plan.fifthOffset)) return "2ª inversión";
-  if (plan.topVoiceOffset != null && bassInt === mod12(plan.topVoiceOffset)) return "3ª inversión";
+  // "3ª inversión" solo cuando el bajo es realmente la 7ª; add6/add9/add11/add13 no son inversiones
+  if (plan.seventhOffset != null && bassInt === mod12(plan.seventhOffset)) return "3ª inversión";
+  // Extensiones add sin 7ª: usar nombre de grado extendido (9, 11, 13, 6), no intervalo cromático
+  if (plan.singleAdd && plan.singleAddOffset != null && bassInt === mod12(plan.singleAddOffset)) {
+    if (plan.ext9)  return "Bajo 9";
+    if (plan.ext11) return "Bajo 11";
+    if (plan.ext13) return "Bajo 13";
+    if (plan.ext6)  return "Bajo 6";
+  }
   return `Bajo ${intervalToDegreeToken(bassInt)}`;
 }
 

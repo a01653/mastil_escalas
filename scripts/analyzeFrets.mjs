@@ -16,6 +16,7 @@ import {
   mod12,
   pcToName,
   preferSharpsFromMajorTonicPc,
+  spellChordNotes,
 } from "../src/music/chordDetectionEngine.js";
 
 // ─── Colores ANSI ─────────────────────────────────────────────────────────────
@@ -79,11 +80,27 @@ const result = analyzeSelectedNotes(noteNames, bassName);
 const primary = result.primary;
 const readings = result.readings ?? [];
 
+// Construir mapa pc→nombre usando la ortografía con degreeLabels del candidato primario
+// (igual que App.jsx) para que el bajo en context dom7sus4 muestre "Bb" no "A#"
+const pcSpelledMap = new Map();
+if (primary?.formula?.intervals?.length) {
+  const spelled = spellChordNotes({
+    rootPc: primary.rootPc,
+    chordIntervals: primary.formula.intervals,
+    preferSharps: primary.preferSharps,
+    degreeLabels: primary.formula.degreeLabels,
+  });
+  primary.formula.intervals.forEach((intv, idx) => {
+    if (spelled[idx]) pcSpelledMap.set(mod12(primary.rootPc + intv), spelled[idx]);
+  });
+}
+const displayNoteNames = pcSet.map((pc) => pcSpelledMap.get(mod12(pc)) ?? pcToName(pc, preferSharps));
+
 // ─── Salida ───────────────────────────────────────────────────────────────────
 
 console.log();
 console.log(`${BOLD}Patrón:${R}  ${tabStr}  ${DIM}(${tabDisplay})${R}`);
-console.log(`${BOLD}Notas:${R}   ${CYAN}${noteNames.join(" ")}${R}`);
+console.log(`${BOLD}Notas:${R}   ${CYAN}${displayNoteNames.join(" ")}${R}`);
 console.log(`${BOLD}Bajo:${R}    ${CYAN}${bassName}${R}`);
 console.log(`${BOLD}Primary:${R} ${GREEN}${primary?.name ?? "(ninguno)"}${R}`);
 

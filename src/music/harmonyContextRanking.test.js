@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { rankReadingsWithHarmonyContext } from "./harmonyContextRanking.js";
-import { analyzeSelectedNotes, resolveDetectedCandidateFromContext, pickDefaultChordCandidate } from "./chordDetectionEngine.js";
+import { analyzeSelectedNotes, buildSyntheticSelectedNotes, resolveDetectedCandidateFromContext, pickDefaultChordCandidate } from "./chordDetectionEngine.js";
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -218,5 +218,111 @@ describe("Integración ranking + resolveDetectedCandidateFromContext — Caso C 
       prioritizeContext: true,
     });
     expect(result?.name).toBe("Cadd11/F");
+  });
+});
+
+// ─── Candidato contextual dom7 ────────────────────────────────────────────────
+
+describe("candidato contextual dom7 — x6x665 (Eb, Db, F, A)", () => {
+  const NOTES = ["Eb", "Db", "F", "A"];
+
+  it("1) sin referencia mantiene el primario actual del motor", () => {
+    const readings = readingsFor(NOTES, "Eb");
+    const ranked = rankReadingsWithHarmonyContext(readings, { enabled: false, rootPc: 3, quality: "7" });
+    expect(ranked.map((r) => r.name)).toEqual(readings.map((r) => r.name));
+  });
+
+  it("2) con referencia Eb7 crea candidato contextual como primero", () => {
+    const readings = readingsFor(NOTES, "Eb");
+    const selectedNotes = buildSyntheticSelectedNotes(NOTES, "Eb");
+    const ranked = rankReadingsWithHarmonyContext(readings, {
+      enabled: true, rootPc: 3, quality: "7", selectedNotes,
+    });
+    expect(ranked[0].contextual).toBe(true);
+    expect(ranked[0].name).toBe("Eb7(9,#11,no3,no5)");
+  });
+
+  it("2b) el intervalPairsText del candidato contextual es correcto", () => {
+    const readings = readingsFor(NOTES, "Eb");
+    const selectedNotes = buildSyntheticSelectedNotes(NOTES, "Eb");
+    const ranked = rankReadingsWithHarmonyContext(readings, {
+      enabled: true, rootPc: 3, quality: "7", selectedNotes,
+    });
+    expect(ranked[0].intervalPairsText).toBe("1=Eb, b7=Db, 9=F, #11=A");
+  });
+
+  it("2c) las lecturas aisladas siguen presentes y la lista crece en 1", () => {
+    const readings = readingsFor(NOTES, "Eb");
+    const selectedNotes = buildSyntheticSelectedNotes(NOTES, "Eb");
+    const ranked = rankReadingsWithHarmonyContext(readings, {
+      enabled: true, rootPc: 3, quality: "7", selectedNotes,
+    });
+    expect(ranked.length).toBe(readings.length + 1);
+    expect(ranked.some((r) => r.name === "F7#5/Eb")).toBe(true);
+    expect(ranked.some((r) => r.name === "A(b5,addb6)/Eb")).toBe(true);
+  });
+
+  it("2d) visibleNotes del candidato contextual no contiene ortografías aberrantes (Bbb) para pc=A", () => {
+    // Regresión: #11 sobre Eb es A (pc=9). Sin degreeLabels, spellChordNotes lo
+    // interpreta como grado 5 (b5) → letra B → Bbb. El candidato contextual
+    // debe usar spellChordNotes con degreeLabels y producir "A", no "Bbb".
+    const readings = readingsFor(NOTES, "Eb");
+    const selectedNotes = buildSyntheticSelectedNotes(NOTES, "Eb");
+    const ranked = rankReadingsWithHarmonyContext(readings, {
+      enabled: true, rootPc: 3, quality: "7", selectedNotes,
+    });
+    const contextual = ranked[0];
+    expect(contextual.visibleNotes).toContain("A");
+    expect(contextual.visibleNotes).not.toContain("Bbb");
+  });
+});
+
+describe("candidato contextual dom7 — x5555x NO genera sintético (ya existe lectura compatible)", () => {
+  const NOTES_D = ["D", "G", "C", "E"];
+
+  it("3) con referencia D7 prioriza D9sus4(no5) y NO genera candidato sintético", () => {
+    const readings = readingsFor(NOTES_D, "D");
+    const selectedNotes = buildSyntheticSelectedNotes(NOTES_D, "D");
+    const ranked = rankReadingsWithHarmonyContext(readings, {
+      enabled: true, rootPc: 2, quality: "7", selectedNotes,
+    });
+    expect(ranked[0].contextual).toBeUndefined();
+    expect(ranked[0].name).toBe("D9sus4(no5)");
+    expect(ranked.length).toBe(readings.length);   // sin candidato extra
+    expect(ranked.every((r) => !r.contextual)).toBe(true);
+  });
+});
+
+describe("candidato contextual dom7 — condiciones de rechazo", () => {
+  it("4) si falta la raíz, no crea candidato contextual", () => {
+    // Db, F, A sin Eb → raíz (Eb=pc3) ausente
+    const readings = readingsFor(["Db", "F", "A"], "Db");
+    const selectedNotes = buildSyntheticSelectedNotes(["Db", "F", "A"], "Db");
+    const ranked = rankReadingsWithHarmonyContext(readings, {
+      enabled: true, rootPc: 3, quality: "7", selectedNotes,
+    });
+    expect(ranked.every((r) => !r.contextual)).toBe(true);
+    expect(ranked.length).toBe(readings.length);
+  });
+
+  it("5) si falta el b7, no crea candidato contextual", () => {
+    // Eb, G, F, A → Eb=raíz, G=3ª, F=9, A=#11; falta Db(b7)
+    const readings = readingsFor(["Eb", "G", "F", "A"], "Eb");
+    const selectedNotes = buildSyntheticSelectedNotes(["Eb", "G", "F", "A"], "Eb");
+    const ranked = rankReadingsWithHarmonyContext(readings, {
+      enabled: true, rootPc: 3, quality: "7", selectedNotes,
+    });
+    expect(ranked.every((r) => !r.contextual)).toBe(true);
+    expect(ranked.length).toBe(readings.length);
+  });
+
+  it("6) sin selectedNotes en el contexto, nunca crea candidato contextual", () => {
+    const readings = readingsFor(["Eb", "Db", "F", "A"], "Eb");
+    const ranked = rankReadingsWithHarmonyContext(readings, {
+      enabled: true, rootPc: 3, quality: "7",
+      // selectedNotes ausente a propósito
+    });
+    expect(ranked.every((r) => !r.contextual)).toBe(true);
+    expect(ranked.length).toBe(readings.length);
   });
 });

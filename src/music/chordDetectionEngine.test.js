@@ -737,6 +737,18 @@ describe("chordDetectionEngine", () => {
     expect(names).not.toContain("G7sus4");
   });
 
+  test("C7sus4 (C,F,G,Bb) intervalPairsText en orden 1,4,5,b7 — no mezclar orden físico con orden armónico", () => {
+    const result = analyzeSelectedNotes(["C", "F", "G", "Bb"], "C");
+    const c7sus4 = getReading(result, "C7sus4");
+    expect(c7sus4.intervalPairsText).toBe("1=C, 4=F, 5=G, b7=Bb");
+  });
+
+  test("dom9sus4(no5) intervalPairsText sigue el orden armónico: 1,4,b7,9", () => {
+    const result = analyzeSelectedNotes(["D", "G", "C", "E"], "D");
+    const d9sus4 = getReading(result, "D9sus4(no5)");
+    expect(d9sus4.intervalPairsText).toBe("1=D, 4=G, b7=C, 9=E");
+  });
+
   test("sus4 triad (G,C,D) no genera G7sus4 ni G7sus4(no5)", () => {
     const result = analyzeSelectedNotes(["G", "C", "D"], "G");
     const names = readingNames(result);
@@ -887,5 +899,13 @@ describe("deduplicación: condiciones de fusión", () => {
     const withoutNob7 = eReadings.find((r) => r.name === "Em(addb13,no5)");
     expect(withNob7.missingLabels).toContain("b7");
     expect(withoutNob7.missingLabels).not.toContain("b7");
+  });
+
+  test("Bbadd9/C no genera variante enharmónica A#add9/B# — grafía B# eliminada", () => {
+    // x3333x: C(bajo), F, Bb, D — detección Bbadd9/C; A# sería misma raíz/intervalos pero grafía rara
+    const result = analyzeSelectedNotes(["C", "F", "Bb", "D"], "C");
+    const names = readingNames(result);
+    expect(names).toContain("Bbadd9/C");
+    expect(names).not.toContain("A#add9/B#");
   });
 });

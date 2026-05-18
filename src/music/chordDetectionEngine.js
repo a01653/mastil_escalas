@@ -188,6 +188,8 @@ export function detectFormulaRole(formula, interval) {
   if (label === "b2" || label === "#2" || label === "2") return "ninth";
   if (label === "b6" || label === "#6" || label === "6") return "sixth";
   if (label.includes("13")) return "thirteenth";
+  // En sus4 la 4ª suspende/sustituye a la 3ª → se ordena como si fuera la 3ª, antes de la 5ª
+  if (label === "4" && formula?.ui?.suspension === "sus4") return "third";
   if (label === "4" || label === "b4" || label === "#4" || label.includes("11")) return "eleventh";
   if (label.includes("9")) return "ninth";
   if (label.includes("7")) return "seventh";
@@ -1067,6 +1069,33 @@ function dedupeRankedChordReadings(readings) {
   return result;
 }
 
+function filterRareBassReadings(readings) {
+  const RARE_BASS = new Set(["B#", "E#", "Cb", "Fb"]);
+  const bassNote = (r) => {
+    const slash = (r.name || "").lastIndexOf("/");
+    return slash >= 0 ? r.name.slice(slash + 1) : null;
+  };
+  const pitchKey = (r) =>
+    [
+      r.rootPc,
+      r.bassPc,
+      (r.visibleIntervals || []).slice().sort((a, b) => a - b).join(","),
+      (r.missingLabels || []).slice().sort().join(","),
+    ].join("|");
+
+  const cleanKeys = new Set();
+  for (const r of readings) {
+    const bn = bassNote(r);
+    if (bn === null || !RARE_BASS.has(bn)) cleanKeys.add(pitchKey(r));
+  }
+
+  return readings.filter((r) => {
+    const bn = bassNote(r);
+    if (bn === null || !RARE_BASS.has(bn)) return true;
+    return !cleanKeys.has(pitchKey(r));
+  });
+}
+
 function isSoWhatVoicing(selectedNotes) {
   const sorted = [...selectedNotes].sort((a, b) => a.pitch - b.pitch);
   if (sorted.length !== 5) return false;
@@ -1168,7 +1197,7 @@ export function detectChordReadings(selectedNotes) {
     candidate.rankScore = Number(((candidate.probabilityScore ?? 999) + extraPenalty).toFixed(2));
   });
 
-  const ranked = rankChordReadings(dedupeRankedChordReadings(filtered)).slice(0, 12);
+  const ranked = rankChordReadings(filterRareBassReadings(dedupeRankedChordReadings(filtered))).slice(0, 12);
   return ranked.map((candidate) => decorateSpecialAliases(candidate, list));
 }
 
