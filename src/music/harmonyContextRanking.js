@@ -39,22 +39,21 @@ const DOM7_TENSION_DATA = {
 };
 
 function contextMatchScore(reading, rootPc, quality) {
-  const rootMatch = reading.rootPc === rootPc;
+  if (reading.rootPc !== rootPc) return 0;
 
   let qualMatch = false;
-  const engineQ  = QUALITY_ENGINE_MAP[quality];
-  const readingQ  = reading.formula?.ui?.quality;
+  const engineQ    = QUALITY_ENGINE_MAP[quality];
+  const readingQ   = reading.formula?.ui?.quality;
   const readingSus = reading.formula?.ui?.suspension;
 
   if (quality === "sus4") {
-    // contexto sus4 → encaja con cualquier acorde suspendido (maj o dom)
     qualMatch = readingSus === "sus4" || readingSus === "sus2";
   } else if (engineQ != null) {
     qualMatch = readingQ === engineQ;
   }
 
-  // 2 puntos por raíz, 1 por calidad → máximo 3
-  return (rootMatch ? 2 : 0) + (qualMatch ? 1 : 0);
+  // Raíz coincide: 2 puntos base + 1 por calidad compatible → máximo 3
+  return 2 + (qualMatch ? 1 : 0);
 }
 
 // Devuelve true si ya existe alguna lectura con la raíz y calidad compatibles.
@@ -217,5 +216,15 @@ export function rankReadingsWithHarmonyContext(readings, harmonyContext) {
         })
         .map((s) => s.reading);
 
-  return contextualCandidate ? [contextualCandidate, ...sorted] : sorted;
+  if (contextualCandidate) {
+    return [contextualCandidate, ...sorted];
+  }
+
+  // El candidato ganador cambió por efecto de la referencia: marcarlo como promovido.
+  if (sorted[0] && sorted[0] !== readings[0]) {
+    const promotedWinner = { ...sorted[0], referencePromoted: true };
+    return [promotedWinner, ...sorted.slice(1)];
+  }
+
+  return sorted;
 }

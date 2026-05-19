@@ -1,126 +1,139 @@
 /**
- * Analiza una digitación de guitarra desde la línea de comandos.
+ * Wrapper CLI de analyzeFretsCore.
+ * Este script solo lee argumentos, llama a analyzeFretsCore y formatea la salida.
+ * Toda la lógica de análisis y ranking vive en src/music/analyzeFretsCore.js.
  *
  * Uso:
  *   npm run analyze:frets -- x5555x
- *   npm run analyze:frets -- 3x343x
+ *   npm run analyze:frets -- x5555x --ref D7
+ *   npm run analyze:frets -- 1320xx --ref Fmaj7
  *   npm run analyze:frets -- x-10-9-8-7-x
  *
- * Formato de digitación: un carácter por cuerda (0-9) o separados por - / , / espacio.
- *   'x' = cuerda silenciada. Orden: string 6 (LowE) → string 1 (HighE).
+ * --ref <acorde>  Prioriza lecturas compatibles con el acorde de referencia.
+ *   Formatos: C, Cmaj7, C7, Cm, Cm7, Cm7b5, Cdim, Cdim7, Csus4, C7sus4
+ *   Con alteraciones: Bb7, F#maj7, Dbmaj7, Eb7
  */
 
-import { parseFretString } from "../src/music/mastilDebug.js";
-import {
-  analyzeSelectedNotes,
-  mod12,
-  pcToName,
-  preferSharpsFromMajorTonicPc,
-  spellChordNotes,
-} from "../src/music/chordDetectionEngine.js";
+import { analyzeFretsCore } from "../src/music/analyzeFretsCore.js";
+import { parseRefChord } from "../src/music/parseRefChord.js";
+import { mod12, pcToName, spellChordNotes } from "../src/music/chordDetectionEngine.js";
 
 // ─── Colores ANSI ─────────────────────────────────────────────────────────────
 
-const R = "\x1b[0m";
-const BOLD = "\x1b[1m";
-const CYAN = "\x1b[36m";
-const GREEN = "\x1b[32m";
+const R      = "\x1b[0m";
+const BOLD   = "\x1b[1m";
+const CYAN   = "\x1b[36m";
+const GREEN  = "\x1b[32m";
 const YELLOW = "\x1b[33m";
-const DIM = "\x1b[2m";
+const DIM    = "\x1b[2m";
+const AMBER  = "\x1b[33m";
 
-// ─── Main ─────────────────────────────────────────────────────────────────────
+// ─── Argumentos ───────────────────────────────────────────────────────────────
 
-const tabStr = process.argv[2];
+const args   = process.argv.slice(2);
+const tabStr = args[0];
 
-if (!tabStr) {
-  console.error(`${YELLOW}Uso: npm run analyze:frets -- <digitación>${R}`);
+if (!tabStr || tabStr.startsWith("--")) {
+  console.error(`${YELLOW}Uso: npm run analyze:frets -- <digitación> [--ref <acorde>]${R}`);
   console.error(`${DIM}Ejemplos:${R}`);
   console.error(`  npm run analyze:frets -- x5555x`);
-  console.error(`  npm run analyze:frets -- x32010`);
+  console.error(`  npm run analyze:frets -- x5555x --ref D7`);
+  console.error(`  npm run analyze:frets -- 1320xx --ref Fmaj7`);
   console.error(`  npm run analyze:frets -- x-10-9-8-7-x`);
   process.exit(1);
 }
 
-let parsed;
+const refIdx = args.indexOf("--ref");
+const refRaw = refIdx !== -1 ? args[refIdx + 1] : null;
+
+// Parsear referencia
+let harmonyContext = null;
+if (refRaw) {
+  try {
+    const { rootPc, quality } = parseRefChord(refRaw);
+    harmonyContext = { enabled: true, rootPc, quality };
+  } catch (err) {
+    console.error(`${YELLOW}Error: ${err.message}${R}`);
+    process.exit(1);
+  }
+}
+
+// ─── Análisis (delegado a analyzeFretsCore) ───────────────────────────────────
+
+let result;
 try {
-  parsed = parseFretString(tabStr);
+  result = analyzeFretsCore(tabStr, { harmonyContext });
 } catch (err) {
   console.error(`${YELLOW}Error: ${err.message}${R}`);
   process.exit(1);
 }
 
-const { frets, midiPitches, pcs } = parsed;
+const { tabDisplay, pcSet, bassName, readings, rankedReadings, primary, promotedByReference } = result;
 
-const activeMidi = midiPitches.filter((m) => m !== null);
-if (activeMidi.length < 2) {
-  console.error(`${YELLOW}Error: menos de 2 cuerdas activas — no hay acorde que analizar.${R}`);
-  process.exit(1);
-}
-
-// Bajo real = nota MIDI más baja entre las activas
-const bassMidi = Math.min(...activeMidi);
-const bassPc = mod12(bassMidi);
-const preferSharps = preferSharpsFromMajorTonicPc(bassPc);
-const bassName = pcToName(bassPc, preferSharps);
-
-// PC-set único (mantiene orden de aparición de grave a agudo)
-const pcSet = [];
-const seen = new Set();
-for (const pc of pcs) {
-  if (pc !== null && !seen.has(pc)) {
-    seen.add(pc);
-    pcSet.push(pc);
-  }
-}
-
-const noteNames = pcSet.map((pc) => pcToName(pc, preferSharps));
-const tabDisplay = frets.map((f) => (f === null ? "x" : String(f))).join("-");
-
-const result = analyzeSelectedNotes(noteNames, bassName);
-const primary = result.primary;
-const readings = result.readings ?? [];
-
-// Construir mapa pc→nombre usando la ortografía con degreeLabels del candidato primario
-// (igual que App.jsx) para que el bajo en context dom7sus4 muestre "Bb" no "A#"
+// Nombres de notas con la ortografía del candidato primario (display)
 const pcSpelledMap = new Map();
 if (primary?.formula?.intervals?.length) {
   const spelled = spellChordNotes({
-    rootPc: primary.rootPc,
+    rootPc:         primary.rootPc,
     chordIntervals: primary.formula.intervals,
-    preferSharps: primary.preferSharps,
-    degreeLabels: primary.formula.degreeLabels,
+    preferSharps:   primary.preferSharps,
+    degreeLabels:   primary.formula.degreeLabels,
   });
   primary.formula.intervals.forEach((intv, idx) => {
     if (spelled[idx]) pcSpelledMap.set(mod12(primary.rootPc + intv), spelled[idx]);
   });
 }
-const displayNoteNames = pcSet.map((pc) => pcSpelledMap.get(mod12(pc)) ?? pcToName(pc, preferSharps));
+const displayNoteNames = pcSet.map((pc) => {
+  const prefer = primary?.preferSharps ?? false;
+  return pcSpelledMap.get(mod12(pc)) ?? pcToName(pc, prefer);
+});
 
 // ─── Salida ───────────────────────────────────────────────────────────────────
 
 console.log();
-console.log(`${BOLD}Patrón:${R}  ${tabStr}  ${DIM}(${tabDisplay})${R}`);
-console.log(`${BOLD}Notas:${R}   ${CYAN}${displayNoteNames.join(" ")}${R}`);
-console.log(`${BOLD}Bajo:${R}    ${CYAN}${bassName}${R}`);
-console.log(`${BOLD}Primary:${R} ${GREEN}${primary?.name ?? "(ninguno)"}${R}`);
+console.log(`${BOLD}Patrón:${R}      ${tabStr}  ${DIM}(${tabDisplay})${R}`);
+console.log(`${BOLD}Notas:${R}       ${CYAN}${displayNoteNames.join(" ")}${R}`);
+console.log(`${BOLD}Bajo:${R}        ${CYAN}${bassName}${R}`);
 
-if (readings.length === 0) {
-  console.log(`${DIM}Sin lecturas.${R}`);
+if (harmonyContext) {
+  console.log(`${BOLD}Referencia:${R}  ${AMBER}${refRaw}${R}`);
+  console.log(`${BOLD}Priorizar referencia:${R}  sí`);
 } else {
-  console.log(`\n${BOLD}Lecturas (${readings.length}):${R}`);
-  readings.forEach((r, i) => {
-    const rankInfo = r.rankScore != null
-      ? `  ${DIM}rank=${r.rankScore}${R}`
-      : r.score != null
-        ? `  ${DIM}score=${r.score}${R}`
+  console.log(`${BOLD}Referencia:${R}  ${DIM}—${R}`);
+}
+
+console.log(`${BOLD}Primary:${R}     ${GREEN}${primary?.name ?? "(ninguno)"}${R}`);
+
+if (!harmonyContext) {
+  if (readings.length === 0) {
+    console.log(`${DIM}Sin lecturas.${R}`);
+  } else {
+    console.log(`\n${BOLD}Lecturas (${readings.length}):${R}`);
+    readings.forEach((r, i) => {
+      const rankInfo = r.rankScore != null
+        ? `  ${DIM}rank=${r.rankScore}${R}`
+        : r.score != null
+          ? `  ${DIM}score=${r.score}${R}`
+          : "";
+      const missing = r.missingLabels?.length
+        ? `  ${DIM}missing=[${r.missingLabels.join(",")}]${R}`
         : "";
-    const missing = r.missingLabels?.length
-      ? `  ${DIM}missing=[${r.missingLabels.join(",")}]${R}`
-      : "";
-    console.log(`  ${i + 1}. ${GREEN}${r.name ?? "(sin nombre)"}${R}${rankInfo}${missing}`);
-    console.log(`     ${DIM}fórmula: ${r.intervalPairsText ?? "—"}${R}`);
-    console.log(`     ${DIM}raíz: ${pcToName(r.rootPc, r.preferSharps)}  bajo: ${pcToName(r.bassPc, r.preferSharps)}${R}`);
-  });
+      console.log(`  ${i + 1}. ${GREEN}${r.name ?? "(sin nombre)"}${R}${rankInfo}${missing}`);
+      console.log(`     ${DIM}fórmula: ${r.intervalPairsText ?? "—"}${R}`);
+      console.log(`     ${DIM}raíz: ${pcToName(r.rootPc, r.preferSharps)}  bajo: ${pcToName(r.bassPc, r.preferSharps)}${R}`);
+    });
+  }
+} else {
+  if (rankedReadings.length === 0) {
+    console.log(`${DIM}Sin lecturas.${R}`);
+  } else {
+    console.log(`\n${BOLD}Alternativas (${rankedReadings.length}):${R}`);
+    rankedReadings.forEach((r, i) => {
+      const promoted = r.contextual || r.referencePromoted;
+      const badge    = promoted ? `  ${AMBER}← por referencia${R}` : "";
+      console.log(`  ${i + 1}. ${GREEN}${r.name ?? "(sin nombre)"}${R}${badge}`);
+    });
+  }
 }
 
 console.log();

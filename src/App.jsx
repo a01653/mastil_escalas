@@ -354,7 +354,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "4.44";
+const APP_VERSION = "4.46";
 
 function chordDbUrl(keyName, suffix) {
   // Ruta RELATIVA dentro de /public (sin base) => chords-db/...
@@ -2773,26 +2773,8 @@ export default function FretboardScalesPage() {
 
   const chordDetectSelectedNotesText = useMemo(() => {
     const prefer = chordDetectSelectedCandidate?.preferSharps ?? chordPreferSharps;
-    // Construir mapa pc → nombre usando la ortografía con degreeLabels del candidato
-    // para que pc=10 en C7sus4 muestre "Bb" y no "A#"
-    const pcNameMap = new Map();
-    if (chordDetectSelectedCandidate) {
-      const { rootPc: cRootPc, formula } = chordDetectSelectedCandidate;
-      const fIntervals = formula?.intervals ?? [];
-      if (fIntervals.length > 0) {
-        const spelled = spellChordNotes({
-          rootPc: cRootPc,
-          chordIntervals: fIntervals,
-          preferSharps: prefer,
-          degreeLabels: formula?.degreeLabels,
-        });
-        fIntervals.forEach((intv, idx) => {
-          if (spelled[idx]) pcNameMap.set(mod12(cRootPc + intv), spelled[idx]);
-        });
-      }
-    }
     return chordDetectSelectedNotes
-      .map((n) => pcNameMap.get(mod12(n.pc)) ?? pcToName(n.pc, prefer))
+      .map((n) => pcToName(n.pc, prefer))
       .join(", ");
   }, [chordDetectSelectedNotes, chordDetectSelectedCandidate, chordPreferSharps]);
 
@@ -6520,7 +6502,7 @@ function ChordFretboard({
         >
           <div className="space-y-2">
             {chordDetectCandidatesRanked.length ? chordDetectCandidatesRanked.map((cand) => (
-              <div key={cand.id} className={`flex items-start gap-3 rounded-xl border px-3 py-2 text-xs text-slate-700 ${cand.contextual ? "border-amber-200 bg-amber-50" : "border-slate-200 bg-sky-50"}`}>
+              <div key={cand.id} className={`flex items-start gap-3 rounded-xl border px-3 py-2 text-xs text-slate-700 ${cand.contextual || cand.referencePromoted ? "border-amber-200 bg-amber-50" : "border-slate-200 bg-sky-50"}`}>
                 <label className="flex min-w-0 flex-1 items-start gap-3">
                   <input
                     type="radio"
@@ -6530,7 +6512,7 @@ function ChordFretboard({
                     className="mt-0.5 h-4 w-4"
                   />
                   <div className="min-w-0">
-                    {cand.contextual && (
+                    {(cand.contextual || cand.referencePromoted) && (
                       <div className="mb-0.5">
                         <span className="rounded bg-amber-200 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800">por referencia</span>
                       </div>

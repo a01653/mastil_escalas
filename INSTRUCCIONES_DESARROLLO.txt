@@ -83,10 +83,22 @@ ANALIZAR DIGITACIÓN DESDE TERMINAL
   npm run analyze:frets -- x32010
   npm run analyze:frets -- x-10-9-8-7-x
 
+  Con acorde de referencia (re-ranking igual que "Priorizar acorde de referencia" en la app):
+  npm run analyze:frets -- x5555x --ref D7
+  npm run analyze:frets -- 1320xx --ref Fmaj7
+  npm run analyze:frets -- x5555x --ref C
+
   Qué hace: toma una digitación en formato LowE→HighE (igual que mastilDebug.analyzeFrets),
   calcula las notas reales, determina el bajo y llama al motor de detección.
-  Muestra: patrón, notas detectadas, bajo, primary y lista completa de lecturas
-  (nombre, fórmula, raíz, bajo, rank/score si existen).
+  Muestra: patrón, notas detectadas, bajo, referencia, primary y lecturas ordenadas.
+
+  Con --ref: aplica el mismo re-ranking que la app usa con la referencia armónica.
+  Solo reordena candidatos cuya raíz coincida con la referencia; no inventa notas.
+  Muestra "← por referencia" junto al candidato promovido por la referencia.
+
+  Formatos de referencia aceptados:
+    C, Cmaj7, C7, Cm, Cm7, Cm7b5, Cm7(b5), Cdim, Cdim7, Csus4, C7sus4
+    Con alteraciones: Bb7, F#maj7, Dbmaj7, Eb7
 
   Formato de digitación:
     - Un carácter por cuerda (0-9) → "x5555x"
