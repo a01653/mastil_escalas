@@ -6,12 +6,22 @@
  * Uso:
  *   npm run analyze:frets -- x5555x
  *   npm run analyze:frets -- x5555x --ref D7
+ *   npm run analyze:frets -- x5555x --json
+ *   npm run analyze:frets -- x5555x --ref D7 --json
+ *   npm run analyze:frets -- x5555x --ref D7 --all
  *   npm run analyze:frets -- 1320xx --ref Fmaj7
  *   npm run analyze:frets -- x-10-9-8-7-x
  *
  * --ref <acorde>  Prioriza lecturas compatibles con el acorde de referencia.
  *   Formatos: C, Cmaj7, C7, Cm, Cm7, Cm7b5, Cdim, Cdim7, Csus4, C7sus4
  *   Con alteraciones: Bb7, F#maj7, Dbmaj7, Eb7
+ *
+ * --json  Imprime SOLO JSON válido en stdout. Sin colores ni texto extra.
+ *         Útil para scripts y comparaciones automáticas.
+ *
+ * --all   Muestra detalle completo (fórmula, rank, raíz, bajo) de todas las lecturas.
+ *         Solo cambia la salida cuando se usa con --ref (sin --ref ya se muestra detalle).
+ *         No tiene efecto sobre --json (JSON siempre incluye todos los campos).
  */
 
 import { analyzeFretsCore } from "../src/music/analyzeFretsCore.js";
@@ -30,16 +40,35 @@ const AMBER  = "\x1b[33m";
 
 // ─── Argumentos ───────────────────────────────────────────────────────────────
 
-const args   = process.argv.slice(2);
-const tabStr = args[0];
+const args    = process.argv.slice(2);
+const useJson = args.includes("--json");
+const showAll = args.includes("--all");
+const tabStr  = args[0];
+
+// ─── Salida de error (humana o JSON según modo) ───────────────────────────────
+
+function exitWithError(message, code) {
+  if (useJson) {
+    process.stdout.write(JSON.stringify({ ok: false, error: message, code }) + "\n");
+  } else {
+    console.error(`${YELLOW}Error: ${message}${R}`);
+  }
+  process.exit(1);
+}
+
+// ─── Validación de argumentos ─────────────────────────────────────────────────
 
 if (!tabStr || tabStr.startsWith("--")) {
-  console.error(`${YELLOW}Uso: npm run analyze:frets -- <digitación> [--ref <acorde>]${R}`);
+  if (useJson) {
+    exitWithError("Falta la digitación", "MISSING_PATTERN");
+  }
+  console.error(`${YELLOW}Uso: npm run analyze:frets -- <digitación> [--ref <acorde>] [--json] [--all]${R}`);
   console.error(`${DIM}Ejemplos:${R}`);
   console.error(`  npm run analyze:frets -- x5555x`);
   console.error(`  npm run analyze:frets -- x5555x --ref D7`);
-  console.error(`  npm run analyze:frets -- 1320xx --ref Fmaj7`);
-  console.error(`  npm run analyze:frets -- x-10-9-8-7-x`);
+  console.error(`  npm run analyze:frets -- x5555x --json`);
+  console.error(`  npm run analyze:frets -- x5555x --ref D7 --json`);
+  console.error(`  npm run analyze:frets -- x5555x --ref D7 --all`);
   process.exit(1);
 }
 
@@ -53,8 +82,7 @@ if (refRaw) {
     const { rootPc, quality } = parseRefChord(refRaw);
     harmonyContext = { enabled: true, rootPc, quality };
   } catch (err) {
-    console.error(`${YELLOW}Error: ${err.message}${R}`);
-    process.exit(1);
+    exitWithError(err.message, "INVALID_REFERENCE");
   }
 }
 
@@ -64,11 +92,44 @@ let result;
 try {
   result = analyzeFretsCore(tabStr, { harmonyContext });
 } catch (err) {
-  console.error(`${YELLOW}Error: ${err.message}${R}`);
-  process.exit(1);
+  exitWithError(err.message, "PARSE_ERROR");
 }
 
-const { tabDisplay, pcSet, bassName, readings, rankedReadings, primary, promotedByReference } = result;
+const { tabDisplay, noteNames, pcSet, bassName, readings, rankedReadings, primary, promotedByReference } = result;
+
+// ─── Serializador de lectura (para JSON) ──────────────────────────────────────
+
+function serializeReading(r) {
+  const rankRaw = r.rankScore != null ? r.rankScore : (r.score ?? null);
+  return {
+    name:               r.name ?? null,
+    root:               pcToName(r.rootPc, r.preferSharps),
+    bass:               pcToName(r.bassPc, r.preferSharps),
+    formula:            r.intervalPairsText ?? null,
+    rank:               rankRaw != null ? parseFloat(rankRaw) : null,
+    promotedByReference: !!(r.contextual || r.referencePromoted),
+  };
+}
+
+// ─── Salida JSON ──────────────────────────────────────────────────────────────
+
+if (useJson) {
+  const output = {
+    ok:                 true,
+    pattern:            tabStr,
+    normalizedPattern:  tabDisplay,
+    notes:              noteNames,
+    bass:               bassName,
+    reference:          refRaw ?? null,
+    prioritizeReference: !!harmonyContext,
+    primary:            primary ? serializeReading(primary) : null,
+    readings:           rankedReadings.map(serializeReading),
+  };
+  process.stdout.write(JSON.stringify(output, null, 2) + "\n");
+  process.exit(0);
+}
+
+// ─── Salida humana ────────────────────────────────────────────────────────────
 
 // Nombres de notas con la ortografía del candidato primario (display)
 const pcSpelledMap = new Map();
@@ -88,8 +149,6 @@ const displayNoteNames = pcSet.map((pc) => {
   return pcSpelledMap.get(mod12(pc)) ?? pcToName(pc, prefer);
 });
 
-// ─── Salida ───────────────────────────────────────────────────────────────────
-
 console.log();
 console.log(`${BOLD}Patrón:${R}      ${tabStr}  ${DIM}(${tabDisplay})${R}`);
 console.log(`${BOLD}Notas:${R}       ${CYAN}${displayNoteNames.join(" ")}${R}`);
@@ -104,26 +163,11 @@ if (harmonyContext) {
 
 console.log(`${BOLD}Primary:${R}     ${GREEN}${primary?.name ?? "(ninguno)"}${R}`);
 
-if (!harmonyContext) {
-  if (readings.length === 0) {
-    console.log(`${DIM}Sin lecturas.${R}`);
-  } else {
-    console.log(`\n${BOLD}Lecturas (${readings.length}):${R}`);
-    readings.forEach((r, i) => {
-      const rankInfo = r.rankScore != null
-        ? `  ${DIM}rank=${r.rankScore}${R}`
-        : r.score != null
-          ? `  ${DIM}score=${r.score}${R}`
-          : "";
-      const missing = r.missingLabels?.length
-        ? `  ${DIM}missing=[${r.missingLabels.join(",")}]${R}`
-        : "";
-      console.log(`  ${i + 1}. ${GREEN}${r.name ?? "(sin nombre)"}${R}${rankInfo}${missing}`);
-      console.log(`     ${DIM}fórmula: ${r.intervalPairsText ?? "—"}${R}`);
-      console.log(`     ${DIM}raíz: ${pcToName(r.rootPc, r.preferSharps)}  bajo: ${pcToName(r.bassPc, r.preferSharps)}${R}`);
-    });
-  }
-} else {
+// Lista de lecturas: detalle completo siempre, salvo con --ref sin --all (compacto)
+const showCompact = harmonyContext && !showAll;
+
+if (showCompact) {
+  // --ref sin --all: lista compacta con badge de referencia
   if (rankedReadings.length === 0) {
     console.log(`${DIM}Sin lecturas.${R}`);
   } else {
@@ -132,6 +176,29 @@ if (!harmonyContext) {
       const promoted = r.contextual || r.referencePromoted;
       const badge    = promoted ? `  ${AMBER}← por referencia${R}` : "";
       console.log(`  ${i + 1}. ${GREEN}${r.name ?? "(sin nombre)"}${R}${badge}`);
+    });
+  }
+} else {
+  // Sin --ref, o con --ref + --all: detalle completo
+  const list = harmonyContext ? rankedReadings : readings;
+  if (list.length === 0) {
+    console.log(`${DIM}Sin lecturas.${R}`);
+  } else {
+    console.log(`\n${BOLD}Lecturas (${list.length}):${R}`);
+    list.forEach((r, i) => {
+      const promoted  = r.contextual || r.referencePromoted;
+      const badge     = promoted ? `  ${AMBER}← por referencia${R}` : "";
+      const rankInfo  = r.rankScore != null
+        ? `  ${DIM}rank=${r.rankScore}${R}`
+        : r.score != null
+          ? `  ${DIM}score=${r.score}${R}`
+          : "";
+      const missing   = r.missingLabels?.length
+        ? `  ${DIM}missing=[${r.missingLabels.join(",")}]${R}`
+        : "";
+      console.log(`  ${i + 1}. ${GREEN}${r.name ?? "(sin nombre)"}${R}${badge}${rankInfo}${missing}`);
+      console.log(`     ${DIM}fórmula: ${r.intervalPairsText ?? "—"}${R}`);
+      console.log(`     ${DIM}raíz: ${pcToName(r.rootPc, r.preferSharps)}  bajo: ${pcToName(r.bassPc, r.preferSharps)}${R}`);
     });
   }
 }

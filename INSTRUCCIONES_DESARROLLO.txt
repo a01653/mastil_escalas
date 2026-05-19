@@ -88,6 +88,14 @@ ANALIZAR DIGITACIÓN DESDE TERMINAL
   npm run analyze:frets -- 1320xx --ref Fmaj7
   npm run analyze:frets -- x5555x --ref C
 
+  Salida JSON (para scripts y comparaciones automáticas):
+  npm run analyze:frets -- x5555x --json
+  npm run analyze:frets -- x5555x --ref D7 --json
+  npm run analyze:frets -- 1320xx --ref Fmaj7 --json
+
+  Detalle completo de lecturas (útil con --ref):
+  npm run analyze:frets -- x5555x --ref D7 --all
+
   Qué hace: toma una digitación en formato LowE→HighE (igual que mastilDebug.analyzeFrets),
   calcula las notas reales, determina el bajo y llama al motor de detección.
   Muestra: patrón, notas detectadas, bajo, referencia, primary y lecturas ordenadas.
@@ -95,6 +103,25 @@ ANALIZAR DIGITACIÓN DESDE TERMINAL
   Con --ref: aplica el mismo re-ranking que la app usa con la referencia armónica.
   Solo reordena candidatos cuya raíz coincida con la referencia; no inventa notas.
   Muestra "← por referencia" junto al candidato promovido por la referencia.
+
+  Con --json: imprime SOLO JSON válido en stdout (sin colores, sin texto extra).
+  Útil para que Codex/Claude/scripts comparen resultados automáticamente.
+  Los errores también salen como JSON: { "ok": false, "error": "...", "code": "..." }
+
+  NOTA: npm run imprime cabeceras en stderr, pero en PowerShell ConvertFrom-Json
+  puede fallar si npm mezcla algo en stdout. Usar --silent o invocar node directamente:
+
+    PowerShell / pipe a ConvertFrom-Json:
+      npm --silent run analyze:frets -- x5555x --json | ConvertFrom-Json
+      npm --silent run analyze:frets -- x5555x --ref D7 --json | ConvertFrom-Json
+
+    Alternativa (invoca node directamente, sin cabeceras npm):
+      node scripts/analyzeFrets.mjs x5555x --json | ConvertFrom-Json
+      node scripts/analyzeFrets.mjs x5555x --ref D7 --json | ConvertFrom-Json
+
+  Con --all: muestra fórmula, rank, raíz y bajo de todas las lecturas.
+  Solo cambia la salida cuando se usa con --ref (sin --ref ya se muestra detalle completo).
+  No afecta a --json (que siempre incluye todos los campos).
 
   Formatos de referencia aceptados:
     C, Cmaj7, C7, Cm, Cm7, Cm7b5, Cm7(b5), Cdim, Cdim7, Csus4, C7sus4
