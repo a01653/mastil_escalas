@@ -6,6 +6,8 @@ export const NOTES_SHARP = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A"
 export const NOTES_FLAT = ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"];
 export const MOBILE_LAYOUT_WIDTH_MEDIA_QUERY = "(max-width: 767px)";
 export const MOBILE_LAYOUT_TOUCH_MEDIA_QUERY = "(pointer: coarse) and (hover: none)";
+export const COMPACT_LAYOUT_WIDTH_MEDIA_QUERY = "(max-width: 1279px)";
+export const NARROW_BOARD_LAYOUT_WIDTH_MEDIA_QUERY = "(max-width: 1151px)";
 export const MOBILE_SECTION_OPTIONS = [
   { value: "scale", label: "Escala" },
   { value: "patterns", label: "Patrones" },

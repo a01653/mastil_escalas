@@ -19,6 +19,8 @@ const {
   NOTES_FLAT,
   MOBILE_LAYOUT_WIDTH_MEDIA_QUERY,
   MOBILE_LAYOUT_TOUCH_MEDIA_QUERY,
+  COMPACT_LAYOUT_WIDTH_MEDIA_QUERY,
+  NARROW_BOARD_LAYOUT_WIDTH_MEDIA_QUERY,
   MOBILE_SECTION_OPTIONS,
   SCALE_INFO_TEXT,
   PATTERNS_INFO_TEXT,
@@ -354,7 +356,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "4.48";
+const APP_VERSION = "4.52";
 
 function chordDbUrl(keyName, suffix) {
   // Ruta RELATIVA dentro de /public (sin base) => chords-db/...
@@ -440,6 +442,8 @@ export default function FretboardScalesPage() {
   // Qué mástiles mostrar
   const [showBoards, setShowBoards] = useState(() => normalizeBoardVisibility({ chords: true, configuration: false }, "chords"));
   const [isMobileLayout, setIsMobileLayout] = useState(false);
+  const [isNarrowBoardLayout, setIsNarrowBoardLayout] = useState(false);
+  const [isCompactLayout, setIsCompactLayout] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobileActiveSection, setMobileActiveSection] = useState("chords");
   const [mobileSectionTransition, setMobileSectionTransition] = useState(null);
@@ -540,27 +544,72 @@ export default function FretboardScalesPage() {
 
   useEffect(() => {
     if (typeof window === "undefined" || typeof window.matchMedia !== "function") return undefined;
-    const widthMedia = window.matchMedia(MOBILE_LAYOUT_WIDTH_MEDIA_QUERY);
-    const touchMedia = window.matchMedia(MOBILE_LAYOUT_TOUCH_MEDIA_QUERY);
-    const sync = () => setIsMobileLayout(widthMedia.matches || touchMedia.matches);
-    const subscribeMediaChange = (mediaQueryList) => {
-      if (typeof mediaQueryList.addEventListener === "function" && typeof mediaQueryList.removeEventListener === "function") {
-        mediaQueryList.addEventListener("change", sync);
-        return () => mediaQueryList.removeEventListener("change", sync);
-      }
-      if (typeof mediaQueryList.addListener === "function" && typeof mediaQueryList.removeListener === "function") {
-        mediaQueryList.addListener(sync);
-        return () => mediaQueryList.removeListener(sync);
-      }
-      return () => {};
-    };
+    const media = window.matchMedia(MOBILE_LAYOUT_WIDTH_MEDIA_QUERY);
+    const sync = () => setIsMobileLayout(media.matches);
+    if (typeof media.addEventListener === "function") {
+      media.addEventListener("change", sync);
+      sync();
+      return () => media.removeEventListener("change", sync);
+    }
+    if (typeof media.addListener === "function") {
+      media.addListener(sync);
+      sync();
+      return () => media.removeListener(sync);
+    }
     sync();
-    const unsubscribeWidth = subscribeMediaChange(widthMedia);
-    const unsubscribeTouch = subscribeMediaChange(touchMedia);
-    return () => {
-      unsubscribeWidth();
-      unsubscribeTouch();
-    };
+    return undefined;
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return undefined;
+    const media = window.matchMedia(NARROW_BOARD_LAYOUT_WIDTH_MEDIA_QUERY);
+    const sync = () => setIsNarrowBoardLayout(media.matches);
+    if (typeof media.addEventListener === "function") {
+      media.addEventListener("change", sync);
+      sync();
+      return () => media.removeEventListener("change", sync);
+    }
+    if (typeof media.addListener === "function") {
+      media.addListener(sync);
+      sync();
+      return () => media.removeListener(sync);
+    }
+    sync();
+    return undefined;
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return undefined;
+    const media = window.matchMedia(COMPACT_LAYOUT_WIDTH_MEDIA_QUERY);
+    const sync = () => setIsCompactLayout(media.matches);
+    if (typeof media.addEventListener === "function") {
+      media.addEventListener("change", sync);
+      sync();
+      return () => media.removeEventListener("change", sync);
+    }
+    if (typeof media.addListener === "function") {
+      media.addListener(sync);
+      sync();
+      return () => media.removeListener(sync);
+    }
+    sync();
+    return undefined;
+  }, []);
+
+  // Cierra el panel de configuración cuando la ventana alcanza ≥1280px (xl).
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return undefined;
+    const xlMedia = window.matchMedia("(min-width: 1280px)");
+    const closeMenu = () => { if (xlMedia.matches) setMobileMenuOpen(false); };
+    if (typeof xlMedia.addEventListener === "function") {
+      xlMedia.addEventListener("change", closeMenu);
+      return () => xlMedia.removeEventListener("change", closeMenu);
+    }
+    if (typeof xlMedia.addListener === "function") {
+      xlMedia.addListener(closeMenu);
+      return () => xlMedia.removeListener(closeMenu);
+    }
+    return undefined;
   }, []);
 
   useEffect(() => {
@@ -5716,7 +5765,7 @@ export default function FretboardScalesPage() {
       : "";
     return (
       <div
-        className={`relative z-20 inline-flex items-center justify-center rounded-full text-[10px] font-semibold ${mobileVerticalOpenNoteClass(fret, isMobileLayout)}`}
+        className={`relative z-20 inline-flex items-center justify-center rounded-full text-[10px] font-semibold ${mobileVerticalOpenNoteClass(fret, isNarrowBoardLayout)}`}
         style={{ ...baseStyle, boxShadow: boxShadowParts.join(", ") }}
         title={`${pcToDualName(pc)} · ${intervalToDegreeToken(mod12(pc - rootPc))}${kingTitle}`}
       >
@@ -5762,7 +5811,7 @@ function ChordCircle({ role, isBass, displayLabel, titleText, fret = 1, compactO
 
   return (
     <div
-      className={`relative z-20 inline-flex ${fretNoteSizeClass(fret, isMobileLayout, compactOpen)} items-center justify-center rounded-full text-[10px] font-semibold`}
+      className={`relative z-20 inline-flex ${fretNoteSizeClass(fret, isNarrowBoardLayout, compactOpen)} items-center justify-center rounded-full text-[10px] font-semibold`}
       style={{
         backgroundColor: bg,
         color: role === "other" ? "#0f172a" : dark ? "#ffffff" : "#0f172a",
@@ -5807,7 +5856,7 @@ function ChordCircle({ role, isBass, displayLabel, titleText, fret = 1, compactO
     const dark = isDark(bg);
     return (
       <div
-        className={`relative z-20 inline-flex ${fretNoteSizeClass(fret, isMobileLayout, compactOpen)} items-center justify-center rounded-full text-[10px] font-semibold`}
+        className={`relative z-20 inline-flex ${fretNoteSizeClass(fret, isNarrowBoardLayout, compactOpen)} items-center justify-center rounded-full text-[10px] font-semibold`}
         style={{
           backgroundColor: bg,
           color: role === "other" ? "#0f172a" : dark ? "#ffffff" : "#0f172a",
@@ -5882,10 +5931,10 @@ function ChordFretboard({
     [voicing]
   );
 
-  const displayFrets = isMobileLayout
+  const displayFrets = isNarrowBoardLayout
     ? fretsForCompactVoicing(voicing, maxFret)
     : Array.from({ length: maxFret + 1 }, (_, fret) => fret);
-  const mobileVisibleFrets = isMobileLayout ? normalizeVisibleFrets([0, ...displayFrets], maxFret) : null;
+  const mobileVisibleFrets = isNarrowBoardLayout ? normalizeVisibleFrets([0, ...displayFrets], maxFret) : null;
   const gridCols = fretGridCols(maxFret);
 
   const noteText = voicing
@@ -5918,7 +5967,7 @@ function ChordFretboard({
         </div>
       ) : null}
 
-      {isMobileLayout ? (
+      {isNarrowBoardLayout ? (
         <MobileMainFretboard
           frets={mobileVisibleFrets}
           renderCell={({ sIdx, fret, cellClassName }) => {
@@ -6028,7 +6077,7 @@ function ChordFretboard({
     const noteLabel = buildDetectedCandidateLabelForPc(pc, candidate, chordPreferSharps, showIntervalsLabel, showNotesLabel);
     return (
       <div
-        className={`relative z-20 inline-flex ${fretNoteSizeClass(fret, isMobileLayout, compactOpen)} items-center justify-center rounded-full text-[10px] font-semibold transition-transform duration-150 ${isPlaying ? "scale-110" : ""}`}
+        className={`relative z-20 inline-flex ${fretNoteSizeClass(fret, isNarrowBoardLayout, compactOpen)} items-center justify-center rounded-full text-[10px] font-semibold transition-transform duration-150 ${isPlaying ? "scale-110" : ""}`}
         style={{
           backgroundColor: bg,
           color: role === "other" ? "#0f172a" : dark ? "#ffffff" : "#0f172a",
@@ -6067,10 +6116,10 @@ function ChordFretboard({
           .map((n) => spellNoteFromChordInterval(chordRootPc, mod12(n.pc - chordRootPc), chordPreferSharps))
           .join(" – ")
       : "";
-    const displayFrets = isMobileLayout
+    const displayFrets = isNarrowBoardLayout
       ? fretsForCompactVoicing(voicing, maxFret)
       : Array.from({ length: maxFret + 1 }, (_, fret) => fret);
-    const mobileVisibleFrets = isMobileLayout ? normalizeVisibleFrets([0, ...displayFrets], maxFret) : null;
+    const mobileVisibleFrets = isNarrowBoardLayout ? normalizeVisibleFrets([0, ...displayFrets], maxFret) : null;
     const gridCols = fretGridCols(maxFret);
 
     return (
@@ -6092,7 +6141,7 @@ function ChordFretboard({
           </div>
         ) : null}
 
-        {isMobileLayout ? (
+        {isNarrowBoardLayout ? (
           <MobileMainFretboard
             frets={mobileVisibleFrets}
             renderCell={({ sIdx, fret, cellClassName }) => {
@@ -6379,7 +6428,7 @@ function ChordFretboard({
           )}
         </div>
 
-        {isMobileLayout ? (
+        {isNarrowBoardLayout ? (
           <MobileMainFretboard
             frets={chordDetectVisibleFrets}
             renderCell={({ sIdx, fret, cellClassName }) => {
@@ -6694,7 +6743,7 @@ function ChordFretboard({
       return { notesMap };
     });
 
-    const mobileVisibleFrets = isMobileLayout
+    const mobileVisibleFrets = isNarrowBoardLayout
       ? normalizeVisibleFrets([0, ...Array.from({ length: Math.max(0, nearTo - nearFrom + 1) }, (_, idx) => nearFrom + idx)], maxFret)
       : null;
 
@@ -6765,7 +6814,7 @@ function ChordFretboard({
         className="mt-3"
       >
 
-        {isMobileLayout ? (
+        {isNarrowBoardLayout ? (
           <MobileMainFretboard
             frets={mobileVisibleFrets}
             renderCell={({ sIdx, fret, cellClassName }) => {
@@ -6966,7 +7015,7 @@ function ChordFretboard({
   function RouteLabFretboard() {
     return (
       <>
-        {isMobileLayout ? (
+        {isNarrowBoardLayout ? (
           <MobileMainFretboard
             renderCell={({ sIdx, fret, cellClassName }) => {
               const pc = mod12(STRINGS[sIdx].pc + fret);
@@ -7179,7 +7228,7 @@ function ChordFretboard({
             </div>
           ) : null}
       >
-        {isMobileLayout ? (
+        {isNarrowBoardLayout ? (
           <MobileMainFretboard
             renderCell={({ sIdx, fret, cellClassName }) => {
               const st = STRINGS[sIdx];
@@ -7472,11 +7521,13 @@ function ChordFretboard({
   const wrap = "mx-auto w-full p-3";
   const wrapStyle = isMobileLayout
     ? undefined
-    : {
-        width: "100%",
-        minWidth: `${webAppWidthPx(maxFret, WEB_FRET_CELL_MIN_WIDTH_PX)}px`,
-        maxWidth: `${webAppWidthPx(maxFret, WEB_FRET_CELL_MAX_WIDTH_PX)}px`,
-      };
+    : isCompactLayout
+      ? { width: "100%" }
+      : {
+          width: "100%",
+          minWidth: `${webAppWidthPx(maxFret, WEB_FRET_CELL_MIN_WIDTH_PX)}px`,
+          maxWidth: `${webAppWidthPx(maxFret, WEB_FRET_CELL_MAX_WIDTH_PX)}px`,
+        };
 
   // UI compacto (especialmente para Acordes)
   const UI_SELECT_SM = "h-7 w-full rounded-xl border border-slate-200 bg-white px-2 text-xs shadow-sm hover:bg-sky-50 disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed";
@@ -8196,9 +8247,7 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
       }
     : showBoards;
 
-  const controlsPanelClass = isMobileLayout
-    ? `fixed inset-y-0 right-0 z-50 w-[min(92vw,420px)] overflow-y-auto bg-sky-100 px-3 py-4 shadow-2xl transition-transform duration-200 ${mobileMenuOpen ? "translate-x-0" : "translate-x-full"}`
-    : "";
+  const controlsPanelClass = "";
   const selectedQuickPresetIndex = Math.max(0, Math.min(QUICK_PRESET_COUNT - 1, parseInt(selectedQuickPresetSlot, 10) || 0));
   const selectedQuickPreset = quickPresets[selectedQuickPresetIndex] || null;
   const tonalContextSummary = `${pcToName(rootPc, preferSharps)} ${scaleName} · armonización ${harmonyMode === "functional_minor" ? "funcional menor" : "diatónica"}`;
@@ -10757,7 +10806,11 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
 
         {(boardVisibility.chords || boardVisibility.nearChords) ? <StudyPanel /> : null}
 
-        {boardVisibility.configuration ? renderConfigPanel() : null}
+        {boardVisibility.configuration ? (
+          <div className="hidden xl:block">
+            {renderConfigPanel()}
+          </div>
+        ) : null}
       </div>
     );
   }
@@ -10827,11 +10880,9 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
           cursor: not-allowed;
         }
       `}</style>
-      {isMobileLayout ? (
-        <div className={`fixed inset-0 z-40 bg-slate-900/35 transition-opacity duration-200 ${mobileMenuOpen ? "opacity-100" : "pointer-events-none opacity-0"}`}
-          onClick={() => setMobileMenuOpen(false)} />
-      ) : null}
-      <div ref={appRootRef} className={`${wrap} ${isMobileLayout ? "pb-28" : ""}`.trim()} style={wrapStyle}>
+      <div className={`fixed inset-0 z-40 bg-slate-900/35 transition-opacity duration-200 ${mobileMenuOpen ? "opacity-100" : "pointer-events-none opacity-0"}`}
+        onClick={() => setMobileMenuOpen(false)} />
+      <div ref={appRootRef} className={`${wrap} ${isCompactLayout ? "pb-28" : ""}`.trim()} style={wrapStyle}>
         <header className="mb-3">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
@@ -10897,29 +10948,7 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
 
         <div className="space-y-4">
           <div className="space-y-4">
-            <div className={`${controlsPanelClass} space-y-4`.trim()}>
-              {isMobileLayout ? (
-                <div className="mb-3 space-y-3 xl:hidden">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <div className="text-sm font-semibold text-slate-800">Configuración</div>
-                      <div className="text-xs text-slate-600">Ajustes globales y visuales de la app.</div>
-                    </div>
-                    <button type="button" className="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200 bg-white shadow-sm"
-                      onClick={() => setMobileMenuOpen(false)} title="Cerrar configuración">
-                      <X className="h-4 w-4" />
-                    </button>
-                  </div>
-                  <div className="flex items-center gap-2 rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-200">
-                    <span className="text-xs font-semibold text-slate-700">Ayuda</span>
-                    <button type="button" className={UI_BTN_SM + " w-auto px-3"} onClick={() => setManualOpen(true)}>
-                      Abrir
-                    </button>
-                  </div>
-                </div>
-              ) : null}
-              {effectiveBoards.configuration && isMobileLayout ? renderConfigPanel() : null}
-
+            <div className="space-y-4">
               {!isMobileLayout ? renderTonalContextPanel() : null}
             </div>
 
@@ -10999,6 +11028,37 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
             </div>
           </>
         ) : null}
+        {mobileMenuOpen ? (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4">
+            <div
+              className="w-full max-w-[420px] overflow-y-auto rounded-2xl bg-sky-100 shadow-2xl ring-1 ring-slate-200 sm:max-w-[720px]"
+              style={{ maxHeight: "calc(100dvh - 32px)" }}
+            >
+              <div className="sticky top-0 z-10 flex items-start justify-between gap-3 rounded-t-2xl border-b border-slate-200 bg-[#c7d8e5] px-3 py-3">
+                <div className="min-w-0">
+                  <div className="text-base font-semibold text-slate-800">Configuración</div>
+                  <div className="text-xs text-slate-600">Ajustes globales y visuales de la app.</div>
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  <button type="button" className={UI_BTN_SM + " w-auto px-3"} onClick={() => setManualOpen(true)}>
+                    Ayuda
+                  </button>
+                  <button
+                    type="button"
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200 bg-white shadow-sm"
+                    onClick={() => setMobileMenuOpen(false)}
+                    title="Cerrar configuración"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+              <div className="p-3">
+                {renderConfigPanel()}
+              </div>
+            </div>
+          </div>
+        ) : null}
         {isMobileLayout && mobileChordEditorOpen && !chordDetectMode ? (
           <div
             className="fixed inset-0 z-40 touch-none overscroll-contain bg-slate-900/35 xl:hidden"
@@ -11054,23 +11114,28 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
         ) : null}
         {MobileStandardsCatalogOverlay()}
         {renderMobileNearSlotEditorPortal()}
-        {isMobileLayout ? (
+        {isCompactLayout ? (
           <div className="pointer-events-none fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] z-30 flex justify-center px-3 xl:hidden">
             <div className="pointer-events-auto w-[min(92vw,430px)] rounded-[30px] border border-slate-200/80 bg-white/96 p-2 shadow-[0_14px_38px_rgba(15,23,42,0.16)] backdrop-blur-md">
               <div className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${MOBILE_BOTTOM_NAV_OPTIONS.length}, minmax(0, 1fr))` }}>
-              {MOBILE_BOTTOM_NAV_OPTIONS.map((option) => (
+              {MOBILE_BOTTOM_NAV_OPTIONS.map((option) => {
+                const isNavActive = isMobileLayout
+                  ? mobileBottomNavSelectedSection === option.value
+                  : showBoards[option.value] === true;
+                return (
                 <button
                   key={option.value}
                   type="button"
-                  className={`flex min-h-[58px] flex-col items-center justify-center gap-1 rounded-[22px] px-1.5 py-2 text-[10px] font-semibold leading-tight transition-colors ${mobileBottomNavSelectedSection === option.value ? "bg-[#71a3c1] text-slate-900 shadow-[0_8px_20px_rgba(113,163,193,0.28)]" : "bg-transparent text-slate-600 hover:bg-sky-50 hover:text-slate-900"}`}
+                  className={`flex min-h-[58px] flex-col items-center justify-center gap-1 rounded-[22px] px-1.5 py-2 text-[10px] font-semibold leading-tight transition-colors ${isNavActive ? "bg-[#71a3c1] text-slate-900 shadow-[0_8px_20px_rgba(113,163,193,0.28)]" : "bg-transparent text-slate-600 hover:bg-sky-50 hover:text-slate-900"}`}
                   onClick={() => selectBoardView(option.value)}
                   title={option.label}
                   aria-disabled={mobileSectionTransition ? "true" : undefined}
                 >
-                  <option.icon className={`shrink-0 ${mobileBottomNavSelectedSection === option.value ? "h-[18px] w-[18px]" : "h-[17px] w-[17px]"}`} aria-hidden="true" />
+                  <option.icon className={`shrink-0 ${isNavActive ? "h-[18px] w-[18px]" : "h-[17px] w-[17px]"}`} aria-hidden="true" />
                   <span className={`block max-w-full text-center leading-tight ${option.value === "standards" ? "text-[9px]" : ""}`}>{option.label}</span>
                 </button>
-              ))}
+                );
+              })}
               </div>
             </div>
           </div>
