@@ -161,6 +161,14 @@ export function chordSuffixFromUI({ quality, suspension = "none", structure, ext
   if (structure === "tetrad") {
     const addCount = (ext6 ? 1 : 0) + (ext9 ? 1 : 0) + (ext11 ? 1 : 0) + (ext13 ? 1 : 0);
 
+    // Sin 7ª ni adds: el resultado es una triada de 3 notas
+    if (!ext7 && addCount === 0) {
+      if (isSus) return sus === "sus4" ? "sus4" : "sus2";
+      if (isMajLike) return "major";
+      if (isMin) return "minor";
+      return "dim";
+    }
+
     // add6/add9/add11/add13 (sin 7ª)
     if (!ext7 && addCount === 1) {
       if (ext6) return isMin ? "m6" : "6";
@@ -305,12 +313,13 @@ export function chordEffectiveStructureForName(structure, ext7, ext6, suspension
   return structure;
 }
 
-export function chordDisplayNameFromUI({ rootPc, preferSharps, quality, suspension = "none", structure, ext7, ext6, ext9, ext11, ext13 }) {
+export function chordDisplayNameFromUI({ rootPc, preferSharps, quality, suspension = "none", structure, ext7, ext6, ext9, ext11, ext13, omit = "none" }) {
   const rootName = pcToName(mod12(rootPc), !!preferSharps);
   const effStructure = chordEffectiveStructureForName(structure, !!ext7, !!ext6, suspension);
+  const omitSuffix = omit !== "none" ? `(no${omit})` : "";
 
   if (AppVoicingStudyCore.isMultiAddChordSelection({ ext7: !!ext7, ext6: !!ext6, ext9: !!ext9, ext11: !!ext11, ext13: !!ext13 })) {
-    return `${rootName}${AppVoicingStudyCore.buildMultiAddDisplaySuffix({ quality, suspension, ext6: !!ext6, ext9: !!ext9, ext11: !!ext11, ext13: !!ext13 })}`;
+    return `${rootName}${AppVoicingStudyCore.buildMultiAddDisplaySuffix({ quality, suspension, ext6: !!ext6, ext9: !!ext9, ext11: !!ext11, ext13: !!ext13 })}${omitSuffix}`;
   }
 
   let suf = chordSuffixFromUI({
@@ -331,7 +340,42 @@ export function chordDisplayNameFromUI({ rootPc, preferSharps, quality, suspensi
   else if (typeof suf === "string" && suf.startsWith("m(")) disp = suf;
   else if (typeof suf === "string") disp = suf;
 
-  return `${rootName}${disp}`;
+  const base = `${rootName}${disp}`;
+
+  // Con 7ª activa: usar notación add explícita cuando procede
+  if (!!ext7) {
+    const addParts = [];
+    if (structure === "tetrad") {
+      // Cuatriada: todas las extensiones sobre la 7ª son adds explícitos
+      if (!!ext9) addParts.push("9");
+      if (!!ext11) addParts.push("11");
+      if (!!ext13) addParts.push("13");
+      if (!!ext6) addParts.push("6");
+    } else {
+      // Acorde: solo cuando la extensión implicaría intermedias ausentes
+      if (!!ext13 && !ext9 && !ext11) addParts.push("13");
+      else if (!!ext11 && !ext9) addParts.push("11");
+      // ext9 solo: "9" es notación compacta estándar (X7+9)
+    }
+    if (addParts.length > 0) {
+      const omitPart = omit !== "none" ? `,no${omit}` : "";
+      if (structure === "tetrad") {
+        return `${base}(add${addParts.join(",")}${omitPart})`;
+      }
+      // Acorde: recalcular base sin extensiones superiores para obtener "maj7"/"7"/"m7"
+      const rawBaseSuf = chordSuffixFromUI({
+        quality, suspension, structure: effStructure,
+        ext7: true, ext6: false, ext9: false, ext11: false, ext13: false,
+      });
+      let cleanDisp = "";
+      if (rawBaseSuf && CHORD_SUFFIX_DISPLAY[rawBaseSuf] != null) cleanDisp = CHORD_SUFFIX_DISPLAY[rawBaseSuf];
+      else if (typeof rawBaseSuf === "string" && rawBaseSuf.startsWith("m(")) cleanDisp = rawBaseSuf;
+      else if (typeof rawBaseSuf === "string") cleanDisp = rawBaseSuf;
+      const cleanBase = `${rootName}${cleanDisp}`;
+      return `${cleanBase}(add${addParts.join(",")}${omitPart})`;
+    }
+  }
+  return `${base}${omitSuffix}`;
 }
 
 export function chordDisplaySuffixOnly({ quality, suspension = "none", structure, ext7, ext6, ext9, ext11, ext13 }) {
@@ -1319,23 +1363,43 @@ export const DROP_FORM_STRING_SETS = {
   drop24_set2: [[1, 2, 4, 5]],
 };
 
-export function buildChordIntervals({ quality, suspension, structure, ext7, ext6, ext9, ext11, ext13 }) {
+export function buildChordIntervals({ quality, suspension, structure, ext7, ext6, ext9, ext11, ext13, omit = "none" }) {
   const sus = suspension || "none";
   const third = sus === "sus2" ? 2 : sus === "sus4" ? 5 : quality === "maj" || quality === "dom" ? 4 : 3;
   const fifth = sus !== "none" ? 7 : quality === "dim" || quality === "hdim" ? 6 : 7;
 
   const out = [0, third, fifth];
 
-  // CUATRIADA "teórica":
-  // - Por defecto incluye 7ª.
-  // - Si activas 6/9/11/13 (solo una), se convierte en add6/add9/add11/add13 (sin 7ª).
+  // CUATRIADA: máximo 1 slot de extensión sin omit, 2 con omit activo.
+  // ext7 ocupa 1 slot; cada add (6/9/11/13) ocupa 1 slot adicional.
+  // Cap defensivo: si el estado es inválido (más extensiones de las permitidas),
+  // se truncan en orden de prioridad (ext7 > ext6 > ext9 > ext11 > ext13).
   if (structure === "tetrad") {
-    const addCount = (ext6 ? 1 : 0) + (ext9 ? 1 : 0) + (ext11 ? 1 : 0) + (ext13 ? 1 : 0);
-    if (addCount) {
-      const addInt = ext13 ? 9 : ext11 ? 5 : ext9 ? 2 : 9; // ext6 por defecto
-      out.push(addInt);
-      return Array.from(new Set(out.map(mod12))).sort((a, b) => a - b);
+    const maxExtSlots = 1 + (omit !== "none" ? 1 : 0);
+    let extSlotsUsed = 0;
+    if (ext7) {
+      const seventh = quality === "maj" ? 11 : quality === "dim" ? 9 : 10;
+      out.push(seventh);
+      extSlotsUsed++;
     }
+    const addCandidates = [
+      { active: ext6, interval: 9 },
+      { active: ext9, interval: 2 },
+      { active: ext11, interval: 5 },
+      { active: ext13, interval: 9 },
+    ];
+    for (const { active, interval } of addCandidates) {
+      if (!active) continue;
+      if (extSlotsUsed >= maxExtSlots) break;
+      out.push(interval);
+      extSlotsUsed++;
+    }
+    let result = Array.from(new Set(out.map(mod12))).sort((a, b) => a - b);
+    if (omit !== "none") {
+      const omitInt = omit === "1" ? 0 : omit === "3" ? mod12(third) : omit === "5" ? mod12(fifth) : null;
+      if (omitInt !== null) result = result.filter((i) => i !== omitInt);
+    }
+    return result;
   }
 
   // 7ª
@@ -1372,7 +1436,12 @@ export function buildChordIntervals({ quality, suspension, structure, ext7, ext6
   // add6 en triada
   if (structure === "triad" && ext6) out.push(9);
 
-  return Array.from(new Set(out.map(mod12))).sort((a, b) => a - b);
+  let result = Array.from(new Set(out.map(mod12))).sort((a, b) => a - b);
+  if (omit !== "none") {
+    const omitInt = omit === "1" ? 0 : omit === "3" ? mod12(third) : omit === "5" ? mod12(fifth) : null;
+    if (omitInt !== null) result = result.filter((i) => i !== omitInt);
+  }
+  return result;
 }
 
 export function seventhOffsetForQuality(quality) {
@@ -1382,7 +1451,7 @@ export function seventhOffsetForQuality(quality) {
   return 10;
 }
 
-export function chordBassInterval({ quality, suspension, structure, inversion, ext7, ext6, ext9, ext11, ext13 }) {
+export function chordBassInterval({ quality, suspension, structure, inversion, ext7, ext6, ext9, ext11, ext13, omit = "none" }) {
   const sus = suspension || "none";
   const third = sus === "sus2" ? 2 : sus === "sus4" ? 5 : quality === "maj" || quality === "dom" ? 4 : 3;
   const fifth = sus !== "none" ? 7 : quality === "dim" || quality === "hdim" ? 6 : 7;
@@ -1399,8 +1468,13 @@ export function chordBassInterval({ quality, suspension, structure, inversion, e
     if (addInt != null) degrees = [0, third, fifth, addInt];
   }
 
-  if (inversion === "1") return degrees[1] ?? 0;
-  if (inversion === "2") return degrees[2] ?? 0;
+  if (omit !== "none") {
+    const omitInt = omit === "1" ? 0 : omit === "3" ? mod12(third) : omit === "5" ? mod12(fifth) : null;
+    if (omitInt !== null) degrees = degrees.filter((d) => mod12(d) !== omitInt);
+  }
+
+  if (inversion === "1") return degrees[1] ?? degrees[0];
+  if (inversion === "2") return degrees[2] ?? degrees[0];
   if (inversion === "3") return degrees[3] ?? degrees[0];
   return degrees[0];
 }

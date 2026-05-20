@@ -4,6 +4,7 @@ import { Blocks, BookOpen, ChevronLeft, ChevronRight, Eraser, HelpCircle, Info, 
 import {
   buildDetectedCandidateBadgeItems as buildDetectedCandidateBadgeItemsPure,
   detectChordReadings as detectChordReadingsPure,
+  detectOmitFromCandidate as detectOmitFromCandidatePure,
   formatChordName as formatChordNamePure,
   resolveDetectedCandidateFromContext as resolveDetectedCandidateFromContextPure,
 } from "./music/chordDetectionEngine.js";
@@ -356,7 +357,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "4.52";
+const APP_VERSION = "4.71";
 
 function chordDbUrl(keyName, suffix) {
   // Ruta RELATIVA dentro de /public (sin base) => chords-db/...
@@ -515,6 +516,8 @@ export default function FretboardScalesPage() {
   const [chordExt9, setChordExt9] = useState(false);
   const [chordExt11, setChordExt11] = useState(false);
   const [chordExt13, setChordExt13] = useState(false);
+  const [chordOmit, setChordOmit] = useState("none");
+  const [chordCopyNotice, setChordCopyNotice] = useState(null);
   // --------------------------------------------------------------------------
   // ESTADO: DETECCIÓN DE ACORDES EN MÁSTIL
   // --------------------------------------------------------------------------
@@ -720,32 +723,11 @@ export default function FretboardScalesPage() {
     setChordInversion("root");
   }, [chordForm, chordPositionForm, chordStructure, chordExt7, chordExt6, chordExt9, chordExt11, chordExt13]);
 
-  // Regla (cuatriada):
-  // - Por defecto incluye 7ª.
-  // - Si activas 9/11/13 (solo una), se desactiva 7ª y pasa a ser add9/add11/add13.
+  // Cuatriada: inicializa 7ª=true al entrar en tetrad.
   useEffect(() => {
-    if (chordStructure !== "tetrad") return;
+    if (chordStructure === "tetrad") setChordExt7(true);
+  }, [chordStructure]);
 
-    if (chordExt13) {
-      if (chordExt11) setChordExt11(false);
-      if (chordExt9) setChordExt9(false);
-      if (chordExt6) setChordExt6(false);
-    } else if (chordExt11) {
-      if (chordExt9) setChordExt9(false);
-      if (chordExt6) setChordExt6(false);
-    } else if (chordExt9) {
-      if (chordExt6) setChordExt6(false);
-    }
-
-    if (chordExt6) {
-      if (chordExt9) setChordExt9(false);
-      if (chordExt11) setChordExt11(false);
-      if (chordExt13) setChordExt13(false);
-    }
-
-    const addCount = (chordExt6 ? 1 : 0) + (chordExt9 ? 1 : 0) + (chordExt11 ? 1 : 0) + (chordExt13 ? 1 : 0);
-    setChordExt7(addCount === 0);
-  }, [chordStructure, chordExt6, chordExt9, chordExt11, chordExt13]);
 
 
   // --------------------------------------------------------------------------
@@ -1486,6 +1468,12 @@ export default function FretboardScalesPage() {
     return () => window.clearTimeout(t);
   }, [configNotice]);
 
+  useEffect(() => {
+    if (!chordCopyNotice) return;
+    const t = window.setTimeout(() => setChordCopyNotice(null), 3500);
+    return () => window.clearTimeout(t);
+  }, [chordCopyNotice]);
+
   function queueReloadNotice(type, text) {
     try {
       if (typeof window === "undefined") return;
@@ -1885,6 +1873,7 @@ export default function FretboardScalesPage() {
     return spellNoteFromChordInterval(chordRootPc, bassInterval, chordPreferSharps);
   }, [activeGuideToneVoicing, chordRootPc, chordPreferSharps, guideToneDef, guideToneInversion]);
 
+
   const chordIntervals = useMemo(
     () =>
       buildChordIntervals({
@@ -1896,8 +1885,9 @@ export default function FretboardScalesPage() {
         ext9: chordExt9,
         ext11: chordExt11,
         ext13: chordExt13,
+        omit: chordOmit,
       }),
-    [chordQuality, chordSuspension, chordStructure, chordExt7, chordExt6, chordExt9, chordExt11, chordExt13]
+    [chordQuality, chordSuspension, chordStructure, chordExt7, chordExt6, chordExt9, chordExt11, chordExt13, chordOmit]
   );
   const chordDegreeLabels = useMemo(
     () => buildChordDegreeLabelsFromUi({
@@ -1954,8 +1944,9 @@ export default function FretboardScalesPage() {
       ext9: chordExt9,
       ext11: chordExt11,
       ext13: chordExt13,
+      omit: chordOmit,
     }),
-    [chordRootPc, chordQuality, chordSuspension, chordStructure, chordInversion, chordForm, chordExt7, chordExt6, chordExt9, chordExt11, chordExt13]
+    [chordRootPc, chordQuality, chordSuspension, chordStructure, chordInversion, chordForm, chordExt7, chordExt6, chordExt9, chordExt11, chordExt13, chordOmit]
   );
 
   const chordBassInt = useMemo(
@@ -2768,9 +2759,11 @@ export default function FretboardScalesPage() {
       setChordQuartalReference(p.quartalReference || "root");
       setChordQuartalSelectedFrets(null);
       setChordQuartalVoicingIdx(0);
+      setChordOmit("none");
       return;
     }
 
+    const detectedOmit = detectOmitFromCandidatePure(candidate);
     setChordFamily("tertian");
     setChordRootPc(p.rootPc);
     setChordSpellPreferSharps(!!p.spellPreferSharps);
@@ -2785,12 +2778,17 @@ export default function FretboardScalesPage() {
     setChordExt9(!!p.ext9);
     setChordExt11(!!p.ext11);
     setChordExt13(!!p.ext13);
+    setChordOmit(detectedOmit);
     if (requiredMaxDist != null && requiredMaxDist !== chordMaxDist) {
       setChordMaxDist(requiredMaxDist);
     }
     pendingChordRestoreRef.current = { active: true, frets: wantedFrets };
     setChordSelectedFrets(wantedFrets);
     setChordVoicingIdx(0);
+
+    const chordName = formatChordNamePure(candidate);
+    const omitLabel = detectedOmit !== "none" ? ` · Omitir ${detectedOmit}` : "";
+    setChordCopyNotice(`Copiado en Acorde: ${chordName}${omitLabel}`);
   }
 
   function toggleChordDetectCell(sIdx, fret) {
@@ -2903,6 +2901,7 @@ export default function FretboardScalesPage() {
         ext9: chordExt9,
         ext11: chordExt11,
         ext13: chordExt13,
+        omit: chordOmit,
       });
 
   const chordSectionDisplayName = buildChordHeaderSummary({
@@ -3923,6 +3922,7 @@ export default function FretboardScalesPage() {
           ext9: chordExt9,
           ext11: chordExt11,
           ext13: chordExt13,
+          omit: chordOmit,
         }),
         notes: mainSpelledNotes,
         intervals: chordDegreeLabels || mainIntervals.map((i) => intervalToChordToken(i, { ext6: chordExt6, ext9: chordExt9 && chordStructure !== "triad", ext11: chordExt11 && chordStructure !== "triad", ext13: chordExt13 && chordStructure !== "triad" })),
@@ -3941,7 +3941,7 @@ export default function FretboardScalesPage() {
     const plan = nearComputed.ranked[idx]?.plan || null;
     const voicing = nearComputed.selected[idx] || null;
     return buildNearSlotStudyEntry(slot, plan, voicing, idx);
-  }, [studyTarget, chordDetectMode, chordDetectSelectedCandidate, chordDetectSelectedNotes, chordFamily, chordRootPc, chordPreferSharps, chordQuality, chordSuspension, chordStructure, chordExt7, chordExt6, chordExt9, chordExt11, chordExt13, chordIntervals, chordDegreeLabels, chordEnginePlan, activeChordVoicing, chordBassPc, chordInversion, chordPositionForm, maxFret, chordQuartalPitchSets, activeQuartalVoicing, chordQuartalCurrentRootPc, chordQuartalDisplayName, chordQuartalSpread, chordQuartalType, chordQuartalReference, chordQuartalScaleName, guideToneDef, activeGuideToneVoicing, guideToneDisplayName, guideToneForm, guideToneInversion, guideToneQuality, guideToneBassNote, nearSlots, nearComputed, buildNearSlotStudyEntry]);
+  }, [studyTarget, chordDetectMode, chordDetectSelectedCandidate, chordDetectSelectedNotes, chordFamily, chordRootPc, chordPreferSharps, chordQuality, chordSuspension, chordStructure, chordExt7, chordExt6, chordExt9, chordExt11, chordExt13, chordOmit, chordIntervals, chordDegreeLabels, chordEnginePlan, activeChordVoicing, chordBassPc, chordInversion, chordPositionForm, maxFret, chordQuartalPitchSets, activeQuartalVoicing, chordQuartalCurrentRootPc, chordQuartalDisplayName, chordQuartalSpread, chordQuartalType, chordQuartalReference, chordQuartalScaleName, guideToneDef, activeGuideToneVoicing, guideToneDisplayName, guideToneForm, guideToneInversion, guideToneQuality, guideToneBassNote, nearSlots, nearComputed, buildNearSlotStudyEntry]);
 
   // --------------------------------------------------------------------------
   // COMPONENTES UI INTERNOS: PANEL DE ESTUDIO
@@ -4519,7 +4519,7 @@ export default function FretboardScalesPage() {
               <InfoTitle label="Modo estudio" info={CHORD_STUDY_INFO_TEXT} alwaysShow />
             </div>
             <div className="space-y-0.5 text-xs text-slate-600">
-              <div><span className="font-medium text-slate-700">Lectura estudiada:</span> {d?.chordName}{studyRelativeChord ? ` · ${studyRelativeChord.shortText}` : ""}</div>
+              <div data-testid="study-lectura"><span className="font-medium text-slate-700">Lectura estudiada:</span> {d?.chordName}{studyRelativeChord ? ` · ${studyRelativeChord.shortText}` : ""}</div>
               <div><span className="font-medium text-slate-700">Acorde de referencia:</span> {refChordDisplayName ?? "sin referencia"}</div>
               <div><span className="font-medium text-slate-700">Escala activa:</span> {pcToName(rootPc, autoPreferSharps)} {scaleName}</div>
               {chordRefEnabled ? (
@@ -4533,7 +4533,7 @@ export default function FretboardScalesPage() {
                 Exportar PDF
               </button>
             ) : null}
-            <button type="button" className={UI_BTN_SM + " w-auto px-3"} onClick={() => setStudyOpen((v) => !v)}>
+            <button type="button" data-testid="study-toggle" className={UI_BTN_SM + " w-auto px-3"} onClick={() => setStudyOpen((v) => !v)}>
               {studyOpen ? "Ocultar" : "Ver análisis"}
             </button>
           </div>
@@ -4545,7 +4545,7 @@ export default function FretboardScalesPage() {
             <div className="rounded-xl border border-slate-200 bg-slate-100 p-3">
               <div className="text-xs font-semibold text-slate-700">Identidad</div>
               <div className="mt-2 space-y-1 text-xs text-slate-600">
-                <div><b>Nombre:</b> {d?.chordName}</div>
+                <div data-testid="study-identidad-nombre"><b>Nombre:</b> {d?.chordName}</div>
                 <div><b>Relativo:</b> {studyRelativeChord ? `${studyRelativeChord.kind} · ${studyRelativeChord.label}` : "—"}</div>
                 <div><b>Capa:</b> {chordEngineLayerLabel(d?.plan)}</div>
                 {(d?.plan?.suspension === "sus2" || d?.plan?.suspension === "sus4") ? (
@@ -5565,13 +5565,14 @@ export default function FretboardScalesPage() {
     );
   }
 
-  function ToggleButton({ active, onClick, children, title }) {
+  function ToggleButton({ active, onClick, children, title, testId }) {
     const fallbackTitle = typeof children === "string" ? children : "";
     return (
       <button
         type="button"
         onClick={onClick}
         title={title || fallbackTitle}
+        data-testid={testId}
         className={`rounded-xl px-2 py-1.5 text-sm ring-1 ring-slate-200 shadow-sm ${active ? "bg-[#71a3c1] text-slate-900" : "bg-white text-slate-700 hover:bg-sky-50 hover:text-slate-900"}`}
       >
         {children}
@@ -6486,6 +6487,7 @@ function ChordFretboard({
                       <button
                         key={`${sIdx}-${fret}`}
                         type="button"
+                        data-testid={`chord-detect-cell-${sIdx}-${fret}`}
                         onClick={() => toggleChordDetectCell(sIdx, fret)}
                         className={`group relative isolate flex h-8 overflow-visible items-center justify-center rounded-lg border ${fret === 0 ? "border-slate-300" : "border-slate-200"} ${item ? "z-[4]" : "z-0"} ${item?.isPlaying ? "ring-2 ring-sky-300 ring-offset-1 ring-offset-white" : ""} bg-slate-50 hover:ring-2 hover:ring-slate-300`}
                       >
@@ -6549,9 +6551,9 @@ function ChordFretboard({
             : "Añade notas en el mástil para ver lecturas posibles."}
           className="mt-3"
         >
-          <div className="space-y-2">
+          <div className="space-y-2" data-testid="detected-chord-list">
             {chordDetectCandidatesRanked.length ? chordDetectCandidatesRanked.map((cand) => (
-              <div key={cand.id} className={`flex items-start gap-3 rounded-xl border px-3 py-2 text-xs text-slate-700 ${cand.contextual || cand.referencePromoted ? "border-amber-200 bg-amber-50" : "border-slate-200 bg-sky-50"}`}>
+              <div key={cand.id} data-testid={`detected-chord-${cand.id}`} className={`flex items-start gap-3 rounded-xl border px-3 py-2 text-xs text-slate-700 ${cand.contextual || cand.referencePromoted ? "border-amber-200 bg-amber-50" : "border-slate-200 bg-sky-50"}`}>
                 <label className="flex min-w-0 flex-1 items-start gap-3">
                   <input
                     type="radio"
@@ -6566,12 +6568,13 @@ function ChordFretboard({
                         <span className="rounded bg-amber-200 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800">por referencia</span>
                       </div>
                     )}
-                    <div className="font-semibold text-slate-800">{formatChordNamePure(cand)}</div>
+                    <div data-testid={`detected-chord-name-${cand.id}`} className="font-semibold text-slate-800">{formatChordNamePure(cand)}</div>
                     <div>{cand.intervalPairsText}</div>
                   </div>
                 </label>
                 <button
                   type="button"
+                  data-testid={`detected-copy-${cand.id}`}
                   className={UI_BTN_SM + " w-auto shrink-0 px-3"}
                   onClick={() => applyDetectedCandidate(cand)}
                   disabled={!cand.uiPatch}
@@ -8510,7 +8513,8 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
       );
     }
     return (
-      <div className={commonClass}>
+      <div className={commonClass} data-testid="chord-chips">
+        <span data-testid="chord-title" className="sr-only">{chordBaseDisplayName}</span>
         <ChordNoteBadgeStrip items={chordHeaderBadgeItems} bassNote={chordHeaderBassNote} colorMap={colors} />
       </div>
     );
@@ -8552,6 +8556,7 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
           </button>
           <select
             className={voicingSelectClass}
+            data-testid="voicing-select"
             style={isMobileLayout ? undefined : { width: fnLabelWidthCh(selectedVoicingLabel, 20, 2), maxWidth: "218px" }}
             value={selectedFrets || voicings[currentIdx]?.frets || ""}
             onChange={(e) => {
@@ -10065,6 +10070,7 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
               headerAside={<label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-700">
                   <input
                     type="checkbox"
+                    data-testid="chord-detect-toggle"
                     checked={chordDetectMode}
                     onChange={(e) => setChordDetectMode(e.target.checked)}
                     className="h-4 w-4 rounded border-slate-300"
@@ -10073,6 +10079,11 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
                 </label>}
               bodyClassName="space-y-2"
             >
+              {chordCopyNotice ? (
+                <div data-testid="chord-copy-notice" className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700">
+                  {chordCopyNotice}
+                </div>
+              ) : null}
               {isMobileLayout && !chordDetectMode ? renderMobileChordSummaryCard() : null}
               {(() => {
                 const chordEditorPanel = (
@@ -10354,6 +10365,7 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
                       <div className="mt-1 flex items-center gap-1.5">
                         <select
                           className={UI_SELECT_SM_TONE}
+                          data-testid="select-tone"
                           style={isMobileLayout ? undefined : { width: "50px" }}
                           value={chordUiLetterFromPc(chordRootPc, !!chordSpellPreferSharps)}
                           onChange={(e) => {
@@ -10420,7 +10432,7 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
                     <div className={isMobileLayout ? "min-w-0 order-5 col-span-2" : "min-w-0"}>
                       <label className={UI_LABEL_SM}>Calidad / Sus</label>
                       <div className="mt-1 flex flex-nowrap gap-1.5">
-                        <select className={chordAutoSelectClass} style={isMobileLayout ? undefined : { width: chordQualitySelectWidth }} value={chordQuality} onChange={(e) => setChordQuality(e.target.value)}>
+                        <select className={chordAutoSelectClass} data-testid="select-quality" style={isMobileLayout ? undefined : { width: chordQualitySelectWidth }} value={chordQuality} onChange={(e) => setChordQuality(e.target.value)}>
                           {CHORD_QUALITIES.map((q) => (
                             <option key={q.value} value={q.value}
                               disabled={
@@ -10440,6 +10452,7 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
                             const v = e.target.value;
                             setChordSuspension(v);
                             if (v !== "none" && (chordQuality === "dim" || chordQuality === "hdim")) setChordQuality("maj");
+                            if (v !== "none" && chordOmit === "3") setChordOmit("none");
                           }}
                           title="Suspensión: reemplaza la 3ª por 2ª o 4ª"
                         >
@@ -10454,6 +10467,7 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
                       <label className={UI_LABEL_SM}>Estructura</label>
                       <select
                         className={chordSelectClass + " mt-1"}
+                        data-testid="select-structure"
                         value={chordStructure}
                         onChange={(e) => {
                           const val = e.target.value;
@@ -10464,6 +10478,20 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
                             setChordExt9(false);
                             setChordExt11(false);
                             setChordExt13(false);
+                          }
+                          if (val === "tetrad") {
+                            const maxExtSlots = 1 + (chordOmit !== "none" ? 1 : 0);
+                            let slotsUsed = chordExt7 ? 1 : 0;
+                            const addCleanup = [
+                              { active: chordExt6, set: setChordExt6 },
+                              { active: chordExt9, set: setChordExt9 },
+                              { active: chordExt11, set: setChordExt11 },
+                              { active: chordExt13, set: setChordExt13 },
+                            ];
+                            for (const { active, set } of addCleanup) {
+                              if (!active) continue;
+                              if (slotsUsed >= maxExtSlots) { set(false); } else { slotsUsed++; }
+                            }
                           }
                           if (val === "triad" || val === "tetrad") {
                             setChordInversion("all");
@@ -10485,6 +10513,7 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
                       {chordEnginePlan.ui.usesManualForm ? (
                         <select
                           className={chordAutoSelectClass + " mt-1"}
+                          data-testid="select-form"
                           style={isMobileLayout ? undefined : { width: chordFormSelectWidth }}
                           value={chordForm}
                           onChange={(e) => {
@@ -10513,7 +10542,7 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
 
                     <div className={isMobileLayout ? "min-w-0 order-3" : "min-w-0"}>
                       <label className={UI_LABEL_SM}>Inversión</label>
-                      <select className={chordAutoSelectClass + " mt-1"} style={isMobileLayout ? undefined : { width: chordInversionSelectWidth }} value={chordInversion} onChange={(e) => setChordInversion(e.target.value)}>
+                      <select className={chordAutoSelectClass + " mt-1"} data-testid="select-inversion" style={isMobileLayout ? undefined : { width: chordInversionSelectWidth }} value={chordInversion} onChange={(e) => setChordInversion(e.target.value)}>
                         {CHORD_INVERSIONS.map((inv) => (
                           <option key={inv.value} value={inv.value} disabled={!chordEnginePlan.ui.allowThirdInversion && inv.value === "3"}>
                             {inv.label}
@@ -10527,22 +10556,24 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
                       <div className={UI_EXT_GRID}>
                         {chordEnginePlan.ui.ext.showSeven ? (
                           <label className="inline-flex items-center gap-2">
-                            <input type="checkbox" checked={hasEffectiveSeventh({ structure: chordStructure, ext7: chordExt7, ext6: chordExt6, ext9: chordExt9, ext11: chordExt11, ext13: chordExt13 })} onChange={(e) => setChordExt7(e.target.checked)} disabled={!chordEnginePlan.ui.ext.canToggleSeven} /> 7
+                            <input type="checkbox" data-testid="ext-7" checked={hasEffectiveSeventh({ structure: chordStructure, ext7: chordExt7, ext6: chordExt6, ext9: chordExt9, ext11: chordExt11, ext13: chordExt13 })} onChange={(e) => setChordExt7(e.target.checked)} disabled={!chordEnginePlan.ui.ext.canToggleSeven} /> 7
                           </label>
                         ) : null}
                         {chordEnginePlan.ui.ext.showSix ? (
                           <label className="inline-flex items-center gap-2">
                             <input
                               type="checkbox"
+                              data-testid="ext-6"
                               checked={chordExt6}
                               onChange={(e) => {
                                 const v = e.target.checked;
                                 setChordExt6(v);
-                                if (v) setChordExt13(false);
-                                if (chordStructure === "tetrad") {
-                                  setChordExt9(false);
-                                  setChordExt11(false);
-                                  setChordExt13(false);
+                                if (v) {
+                                  setChordExt13(false); // 6↔13 siempre mutuamente exclusivos
+                                  if (chordStructure === "tetrad" && chordOmit === "none") {
+                                    setChordExt9(false);
+                                    setChordExt11(false);
+                                  }
                                 }
                               }}
                               disabled={!chordEnginePlan.ui.ext.canToggleSix}
@@ -10551,17 +10582,13 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
                         ) : null}
                         {chordEnginePlan.ui.ext.showNine ? (
                           <label className="inline-flex items-center gap-2">
-                            <input type="checkbox" checked={chordExt9}
+                            <input type="checkbox" data-testid="ext-9" checked={chordExt9}
                               onChange={(e) => {
                                 const v = e.target.checked;
-                                if (chordStructure === "tetrad") {
-                                  setChordExt9(v);
-                                  if (v) {
-                                    setChordExt11(false);
-                                    setChordExt13(false);
-                                  }
-                                } else {
-                                  setChordExt9(v);
+                                setChordExt9(v);
+                                if (v && chordStructure === "tetrad" && chordOmit === "none") {
+                                  setChordExt11(false);
+                                  setChordExt13(false);
                                 }
                               }}
                               disabled={!chordEnginePlan.ui.ext.canToggleNine}
@@ -10570,17 +10597,13 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
                         ) : null}
                         {chordEnginePlan.ui.ext.showEleven ? (
                           <label className="inline-flex items-center gap-2">
-                            <input type="checkbox" checked={chordExt11}
+                            <input type="checkbox" data-testid="ext-11" checked={chordExt11}
                               onChange={(e) => {
                                 const v = e.target.checked;
-                                if (chordStructure === "tetrad") {
-                                  setChordExt11(v);
-                                  if (v) {
-                                    setChordExt9(false);
-                                    setChordExt13(false);
-                                  }
-                                } else {
-                                  setChordExt11(v);
+                                setChordExt11(v);
+                                if (v && chordStructure === "tetrad" && chordOmit === "none") {
+                                  setChordExt9(false);
+                                  setChordExt13(false);
                                 }
                               }}
                               disabled={!chordEnginePlan.ui.ext.canToggleEleven}
@@ -10589,18 +10612,16 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
                         ) : null}
                         {chordEnginePlan.ui.ext.showThirteen ? (
                           <label className="inline-flex items-center gap-2">
-                            <input type="checkbox" checked={chordExt13}
+                            <input type="checkbox" data-testid="ext-13" checked={chordExt13}
                               onChange={(e) => {
                                 const v = e.target.checked;
-                                if (chordStructure === "tetrad") {
-                                  setChordExt13(v);
-                                  if (v) {
-                                    setChordExt6(false);
+                                setChordExt13(v);
+                                if (v) {
+                                  setChordExt6(false); // 6↔13 siempre mutuamente exclusivos
+                                  if (chordStructure === "tetrad" && chordOmit === "none") {
                                     setChordExt9(false);
                                     setChordExt11(false);
                                   }
-                                } else {
-                                  setChordExt13(v);
                                 }
                               }}
                               disabled={!chordEnginePlan.ui.ext.canToggleThirteen}
@@ -10609,6 +10630,22 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
                         ) : null}
                       </div>
                     </div>
+
+                    <div className={isMobileLayout ? "min-w-0 order-7 col-span-2" : "min-w-0"}>
+                      <label className={UI_LABEL_SM}>Omitir</label>
+                      <div className="mt-1 grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+                        <label className="inline-flex items-center gap-2">
+                          <input type="checkbox" data-testid="omit-1" checked={chordOmit === "1"} onChange={(e) => setChordOmit(e.target.checked ? "1" : "none")} disabled={chordOmit === "1" && !chordEnginePlan.ui.omit?.canToggleOff} /> 1
+                        </label>
+                        <label className="inline-flex items-center gap-2">
+                          <input type="checkbox" data-testid="omit-3" checked={chordOmit === "3"} onChange={(e) => setChordOmit(e.target.checked ? "3" : "none")} disabled={chordSuspension !== "none" || (chordOmit === "3" && !chordEnginePlan.ui.omit?.canToggleOff)} /> 3
+                        </label>
+                        <label className="inline-flex items-center gap-2">
+                          <input type="checkbox" data-testid="omit-5" checked={chordOmit === "5"} onChange={(e) => setChordOmit(e.target.checked ? "5" : "none")} disabled={chordOmit === "5" && !chordEnginePlan.ui.omit?.canToggleOff} /> 5
+                        </label>
+                      </div>
+                    </div>
+
                     {!isMobileLayout ? (
                       <div className="ml-auto flex items-end gap-2">
                         {renderMainChordVoicingPicker("shrink-0")}
@@ -10664,14 +10701,20 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
                     emptyMessage="No he encontrado shells de notas guía con los filtros actuales. Prueba a cambiar forma, inversión o distancia."
                   />
                 ) : (
-                  <ChordFretboard
-                    title="Mástil"
-                    infoText={CHORD_FRETBOARD_INFO_TEXT}
-                    voicing={activeChordVoicing}
-                    voicingIdx={chordVoicingIdx}
-                    voicingTotal={Math.max(1, chordVoicings.length)}
-                    emptyMessage={chordDbError || "No he encontrado voicings para este acorde con los filtros actuales. Prueba a cambiar forma, inversión, distancia o permitir cuerdas al aire."}
-                  />
+                  <div data-testid="fretboard-notes">
+                    <ChordFretboard
+                      title="Mástil"
+                      infoText={CHORD_FRETBOARD_INFO_TEXT}
+                      voicing={activeChordVoicing}
+                      voicingIdx={chordVoicingIdx}
+                      voicingTotal={Math.max(1, chordVoicings.length)}
+                      emptyMessage={
+                        (chordEnginePlan.structure === "tetrad" && !chordEnginePlan.ext7)
+                          ? "No hay 7ª activa: esto no es una cuatriada. Activa la 7ª o cambia la estructura a Acorde/Add."
+                          : (chordDbError || "No he encontrado voicings para este acorde con los filtros actuales. Prueba a cambiar forma, inversión, distancia o permitir cuerdas al aire.")
+                      }
+                    />
+                  </div>
                 )
               )}
             </PanelBlock>
@@ -10909,7 +10952,7 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
               <ToggleButton active={effectiveBoards.route} onClick={() => selectBoardView("route")} title="Muestra el mástil de ruta">
                 <NavIconLabel icon={Route} label="Ruta" />
               </ToggleButton>
-              <ToggleButton active={effectiveBoards.chords} onClick={() => selectBoardView("chords")} title="Muestra el panel de acordes">
+              <ToggleButton active={effectiveBoards.chords} onClick={() => selectBoardView("chords")} title="Muestra el panel de acordes" testId="nav-chords">
                 <NavIconLabel icon={ChordDiagramIcon} label="Acordes" />
               </ToggleButton>
               <ToggleButton active={effectiveBoards.nearChords} onClick={() => selectBoardView("nearChords")} title="Muestra el panel de acordes cercanos">

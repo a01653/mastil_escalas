@@ -10,6 +10,9 @@ npm run build      # Production build (output to dist/)
 npm run preview    # Preview production build
 npm run lint       # ESLint
 npm run test       # Run all Vitest tests (no watch)
+npm run test:e2e              # Run Playwright E2E tests
+npm run audit:chords          # Audit chord detection / naming regressions
+npm run audit:copy-readings   # Audit Investigar en mástil → Copiar en Acorde flow
 ```
 
 Run a single test file:
@@ -95,6 +98,78 @@ If the change affects formatting, imports, or general structure, also run:
 ```bash
 npm run lint
 ```
+
+E2E validation
+
+If the change affects any UI flow or visual state, run:
+```bash
+npm run test:e2e
+```
+
+This is mandatory for changes involving:
+
+src/App.jsx
+chord builder UI
+"Investigar en mástil"
+"Copiar en Acorde"
+"Modo estudio"
+chord chips
+chord names
+fretboard note rendering
+checkboxes for extensions or omissions
+selects for tone, quality, structure, form, inversion, distance
+mobile/desktop layout behavior
+
+Manual preview does not replace E2E tests.
+
+Musical audits
+
+If the change affects chord detection, naming, ranking, omissions, extensions, voicings, fret-pattern analysis, or copying detected readings into the chord builder, run:
+
+```bash
+npm run audit:chords
+npm run audit:copy-readings
+```
+
+The copy-readings audit must distinguish between:
+
+physical fret patterns, such as 1x22x3
+direct note sets, such as ["D","F","A","E"]
+
+If a test case declares a fret pattern, notes must be derived from the same analysis core used by scripts/analyzeFrets.mjs.
+
+Do not replace a physical pattern with hardcoded notes unless the case is explicitly marked as a note-set test.
+
+Regression tests
+
+When fixing a bug:
+
+Add or update a test that fails before the fix and passes after it.
+For UI/state bugs, add or update a Playwright E2E test.
+For music logic bugs, add or update unit tests.
+For detection/copy/naming bugs, add or update the relevant audit case.
+
+Do not claim a bug is fixed only because the app works manually.
+
+Preview
+
+If the change affects the interface, run:
+```bash
+npm run preview
+```
+
+Use the Bash tool with run_in_background: true.
+
+Do not use shell-specific constructs like &, Start-Process, or PowerShell cmdlets.
+
+Read the preview output and report the URL.
+
+Manual preview is useful for confirmation, but it does not replace:
+```bash
+npm run test:e2e
+```
+
+
 
 Work is not done if any of these commands fail.
 

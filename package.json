@@ -1,7 +1,7 @@
 {
   "name": "escalas",
   "private": true,
-  "version": "4.52",
+  "version": "4.71",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -11,8 +11,10 @@
     "test": "vitest run",
     "audit:chords": "node scripts/auditChordDetection.mjs",
     "audit:study": "node scripts/auditStudy.mjs",
+    "audit:copy-readings": "node scripts/auditCopyReadings.mjs",
     "analyze:frets": "node scripts/analyzeFrets.mjs",
-    "generate:manual": "node scripts/generateManual.mjs"
+    "generate:manual": "node scripts/generateManual.mjs",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "lucide-react": "^0.577.0",
@@ -21,6 +23,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
+    "@playwright/test": "^1.60.0",
     "@tailwindcss/vite": "^4.2.1",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",

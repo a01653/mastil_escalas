@@ -162,38 +162,95 @@ En este proyecto, el orden de prioridad es:
 
 ## Validación obligatoria tras cualquier cambio
 
-Después de cualquier modificación de código, especialmente en:
-
-- src/App.jsx
-- src/music/chordDetectionEngine.js
-- src/music/chordDetectionEngine.test.js
-- cualquier fichero relacionado con acordes, escalas, notas, intervalos o UI musical
-
-hay que ejecutar obligatoriamente:
+Después de cualquier modificación de código hay que ejecutar obligatoriamente:
 
 npm test
 npm run build
+
+No se puede dar el trabajo por terminado si alguno de estos comandos falla.
 
 Si el cambio afecta a formato, imports, estructura general o puede provocar warnings de calidad, ejecutar también:
 
 npm run lint
 
-No se puede dar el trabajo por terminado si alguno de estos comandos falla.
+## Validación E2E obligatoria
 
-Además, si el cambio afecta a la detección musical, nomenclatura de acordes, ranking o leyenda visual:
+Si el cambio afecta a cualquiera de estos puntos:
 
-1) Añadir o actualizar tests antes de validar.
-2) Ejecutar npm test.
-3) Ejecutar npm run build.
-4) Revisar visualmente en preview si el cambio afecta a la interfaz:
+- src/App.jsx
+- UI de Acordes
+- Investigar en mástil
+- Copiar en Acorde
+- Modo estudio
+- checkboxes de extensiones u omisiones
+- selects de tono, calidad, estructura, forma o inversión
+- visualización de chips, notas, nombres o voicings
+
+hay que ejecutar obligatoriamente:
+
+npm run test:e2e
+
+No basta con revisar manualmente en preview.
+
+## Auditorías musicales obligatorias
+
+Si el cambio afecta a:
+
+- detección de acordes
+- nomenclatura/canonicalName
+- ranking de candidatos
+- omisiones no3/no5/no1
+- extensiones 6, 9, 11, 13, b2, b9, etc.
+- copia desde Investigar en mástil
+- generación de voicings
+- análisis de patrones de trastes
+
+hay que ejecutar además:
+
+npm run audit:chords
+npm run audit:copy-readings
+
+La auditoría de copy-readings debe validar patrones físicos reales cuando el caso indique un patrón de trastes. No debe sustituir un patrón por una lista de notas hardcodeada salvo que el caso esté marcado explícitamente como noteSet.
+
+## Tests nuevos o modificados
+
+Si se corrige un bug, antes de darlo por cerrado hay que añadir o actualizar al menos un test que falle antes del cambio y pase después.
+
+Para bugs de UI, añadir o actualizar test E2E.
+
+Para bugs de lógica musical, añadir o actualizar test unitario y, si aplica, auditoría.
+
+## Preview
+
+Si el cambio afecta visualmente a la interfaz, ejecutar:
 
 npm run preview
 
+y revisar manualmente el caso cambiado.
+
+El preview no sustituye a:
+
+npm run test:e2e
+
+## Versión
+
+Después de cualquier cambio funcional hay que incrementar APP_VERSION en src/App.jsx y la versión en package.json si aplica.
+
+No incrementar versión dos veces para el mismo cambio.
+
+## Entrega final obligatoria
+
 Codex debe indicar al final de cada entrega:
 
-- Qué ficheros modificó.
+- Versión entregada.
+- Ficheros modificados.
 - Qué tests añadió o cambió.
 - Resultado de npm test.
 - Resultado de npm run build.
+- Resultado de npm run test:e2e, si aplica.
+- Resultado de npm run audit:chords, si aplica.
+- Resultado de npm run audit:copy-readings, si aplica.
+- Si ejecutó npm run lint o no.
 - Si ejecutó npm run preview o no.
-- APP_VERSION actualizado.
+- URL del preview si está activo.
+- Si quedan shells/previews abiertos.

@@ -666,7 +666,7 @@ export function bassIntervalsForSelection(plan) {
     suspension: plan.suspension,
     structure: plan.structure,
     inversion: inv,
-    chordIntervals: plan.intervals,
+    omit: plan.omit,
     ext7: plan.ext7,
     ext6: plan.ext6,
     ext9: plan.ext9,
@@ -824,11 +824,7 @@ export function buildMultiAddDisplaySuffix({ quality, suspension = "none", ext6,
   return `add${parts.join(",")}`;
 }
 
-export function hasEffectiveSeventh({ structure, ext7, ext6, ext9, ext11, ext13 }) {
-  if (structure === "tetrad") {
-    const addOnly = ((ext6 ? 1 : 0) + (ext9 ? 1 : 0) + (ext11 ? 1 : 0) + (ext13 ? 1 : 0)) > 0;
-    return !addOnly;
-  }
+export function hasEffectiveSeventh({ ext7 }) {
   return !!ext7;
 }
 
@@ -843,8 +839,26 @@ export function chordFifthOffsetFromUI(quality, suspension) {
   return quality === "dim" || quality === "hdim" ? 6 : 7;
 }
 
-export function buildChordUiRestrictions({ structure, ext7, ext6, ext9, ext11, ext13 }) {
+export function buildChordUiRestrictions({ structure, ext7, ext6, ext9, ext11, ext13, omit = "none" }) {
   const dropEligible = isStrictFourNoteDropEligible({ structure, ext7, ext6, ext9, ext11, ext13 });
+  const isTetrad = structure === "tetrad";
+
+  // Tetrad slot model (explicit ext7):
+  // ext7 and each add extension (6/9/11/13) each cost 1 slot.
+  // Omitting a base note frees one extra extension slot (maxExtSlots 1→2).
+  const maxExtSlots = isTetrad ? 1 + (omit !== "none" ? 1 : 0) : 0;
+  const addActive   = (ext6 ? 1 : 0) + (ext9 ? 1 : 0) + (ext11 ? 1 : 0) + (ext13 ? 1 : 0);
+  const ext7Active  = ext7 ? 1 : 0;
+  const currentUsed = addActive + ext7Active;
+
+  const addCanActivate   = isTetrad ? currentUsed + 1 <= maxExtSlots : true;
+  const sevenCanActivate = !isTetrad || ext7 || addActive + 1 <= maxExtSlots;
+  const addToggle = (isActive) => !isTetrad || isActive || addCanActivate;
+
+  // Omit can only be deactivated when restoring the omitted base note keeps the
+  // total within the tetrad limit: 3 base + (addActive + ext7Active) ≤ 4 → extensions ≤ 1.
+  const canToggleOmitOff = !isTetrad || (addActive + ext7Active) <= 1;
+
   return {
     usesManualForm: structureUsesManualForm(structure),
     allowThirdInversion: structure !== "triad",
@@ -855,11 +869,16 @@ export function buildChordUiRestrictions({ structure, ext7, ext6, ext9, ext11, e
       showNine: structure !== "triad",
       showEleven: structure !== "triad",
       showThirteen: structure !== "triad",
-      canToggleSeven: structure === "chord",
-      canToggleSix: structure !== "triad",
-      canToggleNine: structure !== "triad",
-      canToggleEleven: structure !== "triad",
-      canToggleThirteen: structure !== "triad",
+      // ext7 disabled only when adding it would exceed the note limit.
+      canToggleSeven: structure === "chord" || (isTetrad && (ext7 || sevenCanActivate)),
+      // 6 and 13 share the same pitch class; disable each when the other is active.
+      canToggleSix:      structure !== "triad" && addToggle(ext6)  && !(ext13 && !ext6),
+      canToggleNine:     structure !== "triad" && addToggle(ext9),
+      canToggleEleven:   structure !== "triad" && addToggle(ext11),
+      canToggleThirteen: structure !== "triad" && addToggle(ext13) && !(ext6 && !ext13),
+    },
+    omit: {
+      canToggleOff: canToggleOmitOff,
     },
   };
 }
@@ -876,6 +895,7 @@ export function buildChordEnginePlan({
   ext9,
   ext11,
   ext13,
+  omit = "none",
 }) {
   const inversionSelection = normalizeChordInversionSelection(inversion);
   const inversionSingle = inversionSelection === "all" ? "root" : inversionSelection;
@@ -884,13 +904,13 @@ export function buildChordEnginePlan({
   const seventhOffset = hasEffectiveSeventh({ structure, ext7, ext6, ext9, ext11, ext13 }) ? seventhOffsetForQuality(quality) : null;
   const singleAddOffset = singleAddOffsetFromUi({ ext6, ext9, ext11, ext13 });
   const topVoiceOffset = seventhOffset ?? singleAddOffset;
-  const intervals = buildChordIntervals({ quality, suspension, structure, ext7, ext6, ext9, ext11, ext13 });
+  const intervals = buildChordIntervals({ quality, suspension, structure, ext7, ext6, ext9, ext11, ext13, omit });
   const bassInterval = chordBassInterval({
     quality,
     suspension,
     structure,
     inversion: inversionSingle,
-    chordIntervals: intervals,
+    omit,
     ext7,
     ext6,
     ext9,
@@ -935,7 +955,16 @@ export function buildChordEnginePlan({
     generator = "json";
   }
 
-  const ui = buildChordUiRestrictions({ structure, ext7, ext6, ext9, ext11, ext13 });
+  if (omit !== "none") {
+    generator = intervals.length >= 3 ? "exact" : "none";
+  }
+
+  // Cuatriada sin 7ª: no es una cuatriada válida; suprimir voicings.
+  if (structure === "tetrad" && !ext7) {
+    generator = "none";
+  }
+
+  const ui = buildChordUiRestrictions({ structure, ext7, ext6, ext9, ext11, ext13, omit });
 
   return {
     rootPc: mod12(rootPc),
@@ -950,6 +979,7 @@ export function buildChordEnginePlan({
     ext9,
     ext11,
     ext13,
+    omit,
     thirdOffset,
     fifthOffset,
     seventhOffset,

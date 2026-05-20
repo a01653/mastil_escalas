@@ -2753,6 +2753,9 @@ export function buildChordBadgeItems({ notes, intervals, degreeLabels, ext6 = fa
     })
     .filter(Boolean)
     .sort((a, b) => {
+      const oa = _chordBadgeRoleOrder(a.role);
+      const ob = _chordBadgeRoleOrder(b.role);
+      if (oa !== ob) return oa - ob;
       return a.interval - b.interval;
     })
     .map((item) => ({ note: item.note, degree: item.degree, role: item.role }));
