@@ -212,6 +212,49 @@ npm run audit:copy-readings
 
 La auditoría de copy-readings debe validar patrones físicos reales cuando el caso indique un patrón de trastes. No debe sustituir un patrón por una lista de notas hardcodeada salvo que el caso esté marcado explícitamente como noteSet.
 
+## Auditoría masiva de UI de Acordes
+
+Si el cambio afecta a cualquiera de estos puntos:
+
+- constructor de Acordes
+- generación de voicings
+- select de inversión
+- forma, estructura, distancia o filtros de voicing
+- checkboxes de extensiones u omisiones
+- chips, notas, bajo, título o nombres de acordes
+- coherencia entre fórmula solicitada y voicing real
+- mensajes de ausencia de voicings o notas insuficientes
+
+hay que ejecutar obligatoriamente:
+
+npm run audit:chord-ui-matrix
+
+Resultado mínimo aceptable:
+
+- 0 FAIL
+- 0 WARN, salvo que el usuario acepte expresamente una limitación documentada
+
+Esta auditoría debe detectar, como mínimo:
+
+- FORMULA_VOICING_MISMATCH
+- OMIT_NOT_PRESERVED
+- TITLE_STATE_MISMATCH
+- INSUFFICIENT_NOTES_MESSAGE_MISMATCH
+- INVERSION_LABEL_MISMATCH
+- BASS_REAL_MISMATCH
+- FUNCTIONAL_LABEL_MISMATCH
+- CHECKBOX_CHIP_MISMATCH
+
+No se debe ocultar un fallo con un fallback silencioso ni cambiar etiquetas solo para que pase un caso aislado.
+
+## E2E lento de matriz de acordes
+
+Si el cambio afecta de forma profunda a Acordes, inversiones, omit, extensiones, chips, títulos, bajo real o copia de lecturas, hay que ejecutar también:
+
+npm run test:e2e:chord-matrix
+
+Este test no sustituye a `npm run test:e2e`; lo complementa.
+
 ## Tests nuevos o modificados
 
 Si se corrige un bug, antes de darlo por cerrado hay que añadir o actualizar al menos un test que falle antes del cambio y pase después.
@@ -219,6 +262,35 @@ Si se corrige un bug, antes de darlo por cerrado hay que añadir o actualizar al
 Para bugs de UI, añadir o actualizar test E2E.
 
 Para bugs de lógica musical, añadir o actualizar test unitario y, si aplica, auditoría.
+
+## Flujo recomendado de validación
+
+Cambios generales:
+
+1. npm test
+2. npm run build
+
+Cambios en música, acordes, detección, naming o voicings:
+
+1. npm run audit:chord-ui-matrix
+2. npm run audit:copy-readings
+3. npm run audit:chords
+4. npm test
+5. npm run build
+6. npm run test:e2e
+
+Cambios fuertes en Acordes, inversiones, omit, extensiones, chips, título, bajo real o copiar lecturas:
+
+1. npm run audit:chord-ui-matrix
+2. npm run audit:copy-readings
+3. npm run audit:chords
+4. npm run audit:study
+5. npm test
+6. npm run build
+7. npm run test:e2e
+8. npm run test:e2e:chord-matrix
+
+`npm run audit:chords -- --no-cache` queda reservado para cambios profundos en el motor de detección o análisis físico de voicings, porque puede ser más lento.
 
 ## Preview
 
@@ -248,8 +320,11 @@ Codex debe indicar al final de cada entrega:
 - Resultado de npm test.
 - Resultado de npm run build.
 - Resultado de npm run test:e2e, si aplica.
+- Resultado de npm run test:e2e:chord-matrix, si aplica.
 - Resultado de npm run audit:chords, si aplica.
 - Resultado de npm run audit:copy-readings, si aplica.
+- Resultado de npm run audit:chord-ui-matrix, si aplica.
+- Resultado de npm run audit:study, si aplica.
 - Si ejecutó npm run lint o no.
 - Si ejecutó npm run preview o no.
 - URL del preview si está activo.

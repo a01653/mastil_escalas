@@ -358,7 +358,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "4.81";
+const APP_VERSION = "4.83";
 
 function chordDbUrl(keyName, suffix) {
   // Ruta RELATIVA dentro de /public (sin base) => chords-db/...
@@ -2278,19 +2278,7 @@ export default function FretboardScalesPage() {
       if (!chordDb?.positions?.length) return [];
 
       const allowed = new Set(plan.intervals.map(mod12));
-      const required = new Set([mod12(plan.thirdOffset)]);
-      const noTensions = !plan.ext7 && !plan.ext6 && !plan.ext9 && !plan.ext11 && !plan.ext13;
-
-      if (noTensions) {
-        required.add(0);
-        required.add(mod12(plan.fifthOffset));
-      } else {
-        if (plan.ext7 && plan.seventhOffset != null) required.add(mod12(plan.seventhOffset));
-        if (plan.ext6) required.add(9);
-        if (plan.ext9) required.add(2);
-        if (plan.ext11) required.add(5);
-        if (plan.ext13) required.add(9);
-      }
+      const required = new Set(plan.intervals.map(mod12));
 
       const outStrict = [];
       const outLoose = [];
@@ -2333,11 +2321,11 @@ export default function FretboardScalesPage() {
         else if (plan.inversion !== "all") outLoose.push(item);
       }
 
-      // Si el DB no contiene voicings para la inversión solicitada, usar generación algorítmica exacta.
       let list;
       if (outStrict.length) {
         list = outStrict;
       } else if (plan.inversion !== "root" && plan.inversion !== "all" && selectedBassIntervals.length === 1) {
+        // DB no tiene voicings para esta inversión: generar algorítmicamente con el bajo correcto.
         list = dedupeAndSortVoicings(generateExactIntervalChordVoicings({
           rootPc: plan.rootPc,
           intervals: plan.intervals,
@@ -2345,8 +2333,17 @@ export default function FretboardScalesPage() {
           maxFret,
           maxSpan: chordMaxDist,
         }).map((v) => normalizeGeneratedVoicingForDisplay(v, plan.rootPc, plan.rootPc)));
-      } else {
+      } else if (outLoose.length) {
         list = outLoose;
+      } else {
+        // DB agotado (ningún voicing completo tras el filtro estricto): fallback exacto con raíz.
+        list = dedupeAndSortVoicings(generateExactIntervalChordVoicings({
+          rootPc: plan.rootPc,
+          intervals: plan.intervals,
+          bassInterval: selectedBassIntervals[0] ?? 0,
+          maxFret,
+          maxSpan: chordMaxDist,
+        }).map((v) => normalizeGeneratedVoicingForDisplay(v, plan.rootPc, plan.rootPc)));
       }
       list.sort((a, b) => ((a._extra ?? 0) - (b._extra ?? 0)) || (a.minFret - b.minFret) || (a.span - b.span) || (a.maxFret - b.maxFret));
       const finalJson = finalizeMainVoicings(list);
@@ -3716,19 +3713,7 @@ export default function FretboardScalesPage() {
         }
 
         const allowed = new Set(plan.intervals.map(mod12));
-        const required = new Set([mod12(plan.thirdOffset)]);
-        const noTensions = !slot.ext7 && !slot.ext6 && !slot.ext9 && !slot.ext11 && !slot.ext13;
-
-        if (noTensions) {
-          required.add(0);
-          required.add(mod12(plan.fifthOffset));
-        } else {
-          if (slot.ext7 && plan.seventhOffset != null) required.add(mod12(plan.seventhOffset));
-          if (slot.ext6) required.add(9);
-          if (slot.ext9) required.add(2);
-          if (slot.ext11) required.add(5);
-          if (slot.ext13) required.add(9);
-        }
+        const required = new Set(plan.intervals.map(mod12));
 
         const strict = [];
         const loose = [];
@@ -3783,8 +3768,16 @@ export default function FretboardScalesPage() {
             maxFret,
             maxSpan,
           }).map((v) => normalizeGeneratedVoicingForDisplay(v, plan.rootPc, plan.rootPc)));
-        } else {
+        } else if (loose.length) {
           list = loose;
+        } else {
+          list = dedupeAndSortVoicings(generateExactIntervalChordVoicings({
+            rootPc: plan.rootPc,
+            intervals: plan.intervals,
+            bassInterval: selectedBassIntervals[0] ?? 0,
+            maxFret,
+            maxSpan,
+          }).map((v) => normalizeGeneratedVoicingForDisplay(v, plan.rootPc, plan.rootPc)));
         }
         list.sort((a, b) => ((a._extra ?? 0) - (b._extra ?? 0)) || (a.minFret - b.minFret) || (a.span - b.span) || (a.maxFret - b.maxFret));
         return { plan, ranked: finalize(list), err: null };
@@ -10788,9 +10781,11 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
                       voicingIdx={chordVoicingIdx}
                       voicingTotal={Math.max(1, chordVoicingsDisplay.length)}
                       emptyMessage={
-                        (chordEnginePlan.structure === "tetrad" && !chordEnginePlan.ext7)
-                          ? "No hay 7ª activa: esto no es una cuatriada. Activa la 7ª o cambia la estructura a Acorde/Add."
-                          : (chordDbError || "No he encontrado voicings para este acorde con los filtros actuales. Prueba a cambiar forma, inversión, distancia o permitir cuerdas al aire.")
+                        chordEnginePlan.insufficientNotes
+                          ? "No hay notas suficientes para formar un acorde. Añade una extensión o desactiva una omisión."
+                          : (chordEnginePlan.structure === "tetrad" && !chordEnginePlan.ext7)
+                            ? "No hay 7ª activa: esto no es una cuatriada. Activa la 7ª o cambia la estructura a Acorde/Add."
+                            : (chordDbError || "No he encontrado voicings para este acorde con los filtros actuales. Prueba a cambiar forma, inversión, distancia o permitir cuerdas al aire.")
                       }
                     />
                   </div>

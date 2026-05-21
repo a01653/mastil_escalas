@@ -11,8 +11,10 @@ npm run preview    # Preview production build
 npm run lint       # ESLint
 npm run test       # Run all Vitest tests (no watch)
 npm run test:e2e              # Run Playwright E2E tests
+npm run test:e2e:chord-matrix # Run slow/parametric chord matrix E2E tests on demand
 npm run audit:chords          # Audit chord detection / naming regressions
 npm run audit:copy-readings   # Audit Investigar en mástil → Copiar en Acorde flow
+npm run audit:chord-ui-matrix # Audit chord builder UI/state/voicing consistency matrix
 ```
 
 Run a single test file:
@@ -131,6 +133,25 @@ npm run audit:chords
 npm run audit:copy-readings
 ```
 
+If the change affects the chord builder UI, voicing generation, inversion selector, form/structure/distance filters, extension/omit checkboxes, chord chips, bass label, title naming, insufficient-note messages, or formula-vs-voicing consistency, also run:
+
+```bash
+npm run audit:chord-ui-matrix
+```
+
+Expected result for `audit:chord-ui-matrix`: 0 FAIL and 0 WARN, unless the user explicitly accepts a documented limitation.
+
+The matrix audit must catch at least:
+
+- FORMULA_VOICING_MISMATCH
+- OMIT_NOT_PRESERVED
+- TITLE_STATE_MISMATCH
+- INSUFFICIENT_NOTES_MESSAGE_MISMATCH
+- INVERSION_LABEL_MISMATCH
+- BASS_REAL_MISMATCH
+- FUNCTIONAL_LABEL_MISMATCH
+- CHECKBOX_CHIP_MISMATCH
+
 The copy-readings audit must distinguish between:
 
 physical fret patterns, such as 1x22x3
@@ -139,6 +160,16 @@ direct note sets, such as ["D","F","A","E"]
 If a test case declares a fret pattern, notes must be derived from the same analysis core used by scripts/analyzeFrets.mjs.
 
 Do not replace a physical pattern with hardcoded notes unless the case is explicitly marked as a note-set test.
+
+Slow chord matrix E2E
+
+If the change deeply affects Acordes, inversions, omissions, extensions, chord chips, title naming, real bass, or copying readings, run:
+
+```bash
+npm run test:e2e:chord-matrix
+```
+
+This does not replace `npm run test:e2e`; it complements it.
 
 Regression tests
 
@@ -173,13 +204,48 @@ npm run test:e2e
 
 Work is not done if any of these commands fail.
 
+Recommended validation flow
+
+General changes:
+
+```bash
+npm test
+npm run build
+```
+
+Music/chord/detection/naming/voicing changes:
+
+```bash
+npm run audit:chord-ui-matrix
+npm run audit:copy-readings
+npm run audit:chords
+npm test
+npm run build
+npm run test:e2e
+```
+
+Deep chord builder changes (Acordes, inversions, omit, extensions, chips, title, real bass, copy readings):
+
+```bash
+npm run audit:chord-ui-matrix
+npm run audit:copy-readings
+npm run audit:chords
+npm run audit:study
+npm test
+npm run build
+npm run test:e2e
+npm run test:e2e:chord-matrix
+```
+
+`npm run audit:chords -- --no-cache` is reserved for deeper chord-detection or physical-voicing changes because it can be slower.
+
 If the change affects chord detection, chord naming, ranking, or visual legend:
 1. Add or update tests before validating.
 2. Run `npm test`.
 3. Run `npm run build`.
 4. Review visually in preview: `npm run preview`.
 
-At the end of each delivery, report: which files were modified, which tests were added or changed, result of `npm test`, result of `npm run build`, whether `npm run preview` was run, and the updated `APP_VERSION`.
+At the end of each delivery, report: which files were modified, which tests were added or changed, result of `npm test`, result of `npm run build`, result of `npm run test:e2e` when applicable, result of `npm run test:e2e:chord-matrix` when applicable, result of `npm run audit:chords` when applicable, result of `npm run audit:copy-readings` when applicable, result of `npm run audit:chord-ui-matrix` when applicable, whether `npm run lint` and `npm run preview` were run, the preview URL if active, any open preview/shells, and the updated `APP_VERSION`.
 
 ## Publication
 

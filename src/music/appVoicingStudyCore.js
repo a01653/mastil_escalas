@@ -977,6 +977,8 @@ export function buildChordEnginePlan({
     generator = "json";
   }
 
+  const insufficientNotes = omit !== "none" && intervals.length < 3;
+
   if (omit !== "none") {
     generator = intervals.length >= 3 ? "exact" : "none";
   }
@@ -1018,6 +1020,7 @@ export function buildChordEnginePlan({
     extended,
     layer,
     generator,
+    insufficientNotes,
     ui,
   };
 }

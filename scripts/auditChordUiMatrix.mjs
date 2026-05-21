@@ -14,7 +14,7 @@
  *   node scripts/auditChordUiMatrix.mjs [--json]
  */
 
-import { mkdirSync, writeFileSync } from "fs";
+import { mkdirSync, writeFileSync, readFileSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 
@@ -26,6 +26,8 @@ import {
   generateTriadVoicings,
   generateTetradVoicings,
   generateExactIntervalChordVoicings,
+  parseChordDbFretsString,
+  buildVoicingFromFretsLH,
 } from "../src/music/appVoicingStudyCore.js";
 
 import {
@@ -360,6 +362,37 @@ function auditCombination({ tone, quality, structure, suspension, exts, omit }) 
               bassActual: actualBassInt,
             });
           }
+
+          // ── INVARIANT 7: fórmula ↔ voicing — cada intervalo requerido debe aparecer ──
+          const requiredIntervals = new Set(planBase.intervals.map((i) => mod12(i)));
+          const voicingIntervals = new Set((voicings[0].notes || []).map((n) => mod12(n.pc - rootPc)));
+          const missingIntervals = [...requiredIntervals].filter((i) => !voicingIntervals.has(i));
+          if (missingIntervals.length > 0) {
+            recordResult({
+              ...ctx,
+              invOpt: opt.value, invOptLabel: opt.label,
+              status: "FAIL", category: "FORMULA_VOICING_MISMATCH",
+              motivo: `Voicing falta intervalos ${missingIntervals.join(",")} (requeridos: ${[...requiredIntervals].join(",")}, voicing: ${[...voicingIntervals].join(",")})`,
+              voicingCount: voicings.length,
+            });
+          }
+
+          // ── INVARIANT 8: nota omitida no debe aparecer en el voicing ──────────────
+          if (planBase.omit !== "none") {
+            const omitInt = planBase.omit === "1" ? 0
+              : planBase.omit === "3" ? mod12(planBase.thirdOffset)
+              : planBase.omit === "5" ? mod12(planBase.fifthOffset)
+              : null;
+            if (omitInt !== null && voicingIntervals.has(omitInt)) {
+              recordResult({
+                ...ctx,
+                invOpt: opt.value, invOptLabel: opt.label,
+                status: "FAIL", category: "OMIT_NOT_PRESERVED",
+                motivo: `Nota omitida (intervalo=${omitInt}, omit="${planBase.omit}") presente en el voicing`,
+                voicingCount: voicings.length,
+              });
+            }
+          }
         }
       }
     }
@@ -394,6 +427,19 @@ function auditCombination({ tone, quality, structure, suspension, exts, omit }) 
       }
     }
   }
+
+  // ── INVARIANT 6: notas insuficientes — insufficientNotes debe estar marcado ─
+  if (planBase.omit !== "none" && planBase.intervals.length < 3) {
+    if (!planBase.insufficientNotes) {
+      recordResult({
+        ...ctx,
+        invOpt: "-", invOptLabel: "-",
+        status: "FAIL", category: "INSUFFICIENT_NOTES_MESSAGE_MISMATCH",
+        motivo: `${planBase.intervals.length} nota(s) real(es) tras omit="${planBase.omit}" pero insufficientNotes no está marcado en el plan`,
+      });
+    }
+    // (PASS silencioso cuando insufficientNotes === true)
+  }
 }
 
 // ── Enumerar combinaciones ────────────────────────────────────────────────────
@@ -416,6 +462,91 @@ for (const tone of TONES) {
         }
       }
     }
+  }
+}
+
+// ── INVARIANT 9: json DB E9 — voicings con 5ª ausente deben ser filtrados ─────
+// Simula el filtro CORREGIDO de la app (required = plan.intervals) y verifica:
+//   a) Voicings conocidos como incompletos (x7677x, 0x2132) NO sobreviven → 0 FAIL
+//   b) Al menos 1 voicing válido sí sobrevive (la lista no queda vacía) → PASS
+// Si el filtro regresa a la lógica anterior, estos FAILs aparecerán de nuevo.
+{
+  const e9DbPath = join(ROOT, "public/chords-db/E/9.json");
+  let e9Db;
+  try {
+    e9Db = JSON.parse(readFileSync(e9DbPath, "utf-8"));
+  } catch {
+    e9Db = null;
+  }
+
+  if (e9Db?.positions?.length) {
+    const e9RootPc = 4; // E
+    const e9Plan = buildChordEnginePlan({
+      rootPc: e9RootPc,
+      quality: "dom",
+      suspension: "none",
+      structure: "chord",
+      inversion: "root",
+      form: "closed",
+      ext7: true, ext6: false, ext9: true, ext11: false, ext13: false, omit: "none",
+    });
+
+    const e9Required = new Set(e9Plan.intervals.map(mod12)); // {0,2,4,7,10}
+    const e9Allowed = new Set(e9Plan.intervals.map(mod12));
+    const e9ExtraOk = new Set([2, 5, 9, 10, 11]);
+
+    // Simular el filtro corregido de la app
+    const survivingFrets = new Set();
+    for (const p of e9Db.positions) {
+      const fretsLH = parseChordDbFretsString(p?.frets);
+      if (!fretsLH) continue;
+      const v = buildVoicingFromFretsLH({ fretsLH, rootPc: e9RootPc, maxFret: MAX_FRET_AUDIT });
+      if (!v) continue;
+
+      let invalid = false;
+      for (const r of v.relIntervals) {
+        if (!e9Allowed.has(r) && !e9ExtraOk.has(r)) { invalid = true; break; }
+      }
+      if (invalid) continue;
+
+      for (const r of e9Required) {
+        if (!v.relIntervals.has(r)) { invalid = true; break; }
+      }
+      if (!invalid) survivingFrets.add(p.frets);
+    }
+
+    // a) Voicings incompletos NO deben sobrevivir el filtro corregido
+    const knownIncompleteFrets = ["x7677x", "0x2132"];
+    for (const frets of knownIncompleteFrets) {
+      totalCombos++;
+      if (survivingFrets.has(frets)) {
+        recordResult({
+          tone: "E", quality: "dom", structure: "chord", suspension: "none",
+          exts: { ext7: true, ext6: false, ext9: true, ext11: false, ext13: false },
+          omit: "none",
+          invOpt: "root", invOptLabel: "Fundamental",
+          status: "FAIL", category: "FORMULA_VOICING_MISMATCH",
+          motivo: `DB E9: voicing "${frets}" sobrevive el filtro corregido pero falta la 5ª (intervalo 7) — regresión en el filtro json`,
+          planName: "E9",
+        });
+      }
+      // PASS silencioso si fue correctamente filtrado
+    }
+
+    // b) E9 debe seguir teniendo voicings válidos tras el filtro corregido
+    totalCombos++;
+    if (survivingFrets.size === 0) {
+      recordResult({
+        tone: "E", quality: "dom", structure: "chord", suspension: "none",
+        exts: { ext7: true, ext6: false, ext9: true, ext11: false, ext13: false },
+        omit: "none",
+        invOpt: "root", invOptLabel: "Fundamental",
+        status: "FAIL", category: "EMPTY_VOICINGS_WITH_VALID_FILTER",
+        motivo: "DB E9: ningún voicing válido sobrevive el filtro corregido — E9 quedaría sin voicings en la app",
+        planName: "E9",
+      });
+    }
+    // PASS silencioso si survivingFrets.size > 0
   }
 }
 

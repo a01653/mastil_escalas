@@ -824,6 +824,52 @@ describe("buildChordHeaderSummary — etiqueta funcional para acorde no-estánda
   });
 });
 
+// ── buildChordEnginePlan — flag insufficientNotes ────────────────────────────
+describe("buildChordEnginePlan — insufficientNotes detecta < 3 notas tras omit", () => {
+  const base = { quality: "maj", suspension: "none", form: "closed", inversion: "root" };
+
+  test("F(no1) chord sin ext: insufficientNotes=true, generator=none", () => {
+    const plan = buildChordEnginePlan({ ...base, rootPc: 5, structure: "chord",
+      ext7: false, ext6: false, ext9: false, ext11: false, ext13: false, omit: "1" });
+    expect(plan.insufficientNotes).toBe(true);
+    expect(plan.generator).toBe("none");
+    expect(plan.intervals.length).toBeLessThan(3);
+  });
+
+  test("F(no3) chord sin ext: insufficientNotes=true", () => {
+    const plan = buildChordEnginePlan({ ...base, rootPc: 5, structure: "chord",
+      ext7: false, ext6: false, ext9: false, ext11: false, ext13: false, omit: "3" });
+    expect(plan.insufficientNotes).toBe(true);
+  });
+
+  test("F(no5) chord sin ext: insufficientNotes=true", () => {
+    const plan = buildChordEnginePlan({ ...base, rootPc: 5, structure: "chord",
+      ext7: false, ext6: false, ext9: false, ext11: false, ext13: false, omit: "5" });
+    expect(plan.insufficientNotes).toBe(true);
+  });
+
+  test("Fadd13(no1) chord: 3 notas → insufficientNotes=false, generator=exact", () => {
+    const plan = buildChordEnginePlan({ ...base, rootPc: 5, structure: "chord",
+      ext7: false, ext6: false, ext9: false, ext11: false, ext13: true, omit: "1" });
+    expect(plan.insufficientNotes).toBe(false);
+    expect(plan.generator).toBe("exact");
+    expect(plan.intervals.length).toBeGreaterThanOrEqual(3);
+  });
+
+  test("Fmaj7(no5) chord: 3 notas → insufficientNotes=false", () => {
+    const plan = buildChordEnginePlan({ ...base, rootPc: 5, structure: "chord",
+      ext7: true, ext6: false, ext9: false, ext11: false, ext13: false, omit: "5" });
+    expect(plan.insufficientNotes).toBe(false);
+    expect(plan.intervals.length).toBeGreaterThanOrEqual(3);
+  });
+
+  test("F sin omit: insufficientNotes=false siempre", () => {
+    const plan = buildChordEnginePlan({ ...base, rootPc: 5, structure: "chord",
+      ext7: false, ext6: false, ext9: false, ext11: false, ext13: false, omit: "none" });
+    expect(plan.insufficientNotes).toBe(false);
+  });
+});
+
 // ── computeInversionSelectorOptions — multiAdd expone todas las extensiones ──
 describe("computeInversionSelectorOptions — multiAdd expone todas las extensiones add", () => {
   test("Fadd9,11: selector incluye 'Bajo 9' Y 'Bajo 11' en posiciones 3 y 4", () => {

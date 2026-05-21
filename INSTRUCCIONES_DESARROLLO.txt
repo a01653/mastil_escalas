@@ -36,6 +36,18 @@ Qué significa cada fichero de tests:
   detectionInvariants.test.js  – Invariantes generales (todo acorde min tiene b3, etc.).
   mastilDebug.test.js          – Tests del parser de digitaciones de consola (analyzeFrets).
 
+Tests E2E principales (Playwright):
+  npm run test:e2e
+
+Tests E2E lentos / matriz de acordes:
+  npm run test:e2e:chord-matrix
+
+  Cuándo usarlos:
+    - test:e2e: siempre que cambie UI, flujo de Acordes, copiar lecturas, modo estudio
+      o cualquier interacción visible.
+    - test:e2e:chord-matrix: obligatorio si se toca Acordes, voicings, inversiones,
+      omit, extensiones, chips, naming o el flujo Investigar en mástil → Copiar en Acorde.
+
 
 AUDITORÍA MASIVA DE DETECCIÓN DE ACORDES
 -----------------------------------------
@@ -54,6 +66,61 @@ AUDITORÍA MASIVA DE DETECCIÓN DE ACORDES
     - "Xm7b5" puro siempre tiene b3, b5, b7 visibles
     - slash /X coincide con bassPc de la lectura
     - no hay lecturas duplicadas con mismo contenido
+
+
+AUDITORÍA MASIVA DE ACORDES / UI
+---------------------------------
+  npm run audit:chord-ui-matrix
+
+  Qué hace: recorre una matriz amplia de combinaciones de la pestaña Acordes
+  y valida coherencia entre:
+    - fórmula solicitada
+    - título del acorde
+    - chips visibles
+    - extensiones activas
+    - omit/no1/no3/no5
+    - bajo real del voicing
+    - selector de inversión
+    - notas reales del patrón
+    - número de voicings
+
+  Detecta estados musicales engañosos o inconsistentes, por ejemplo:
+    - FORMULA_VOICING_MISMATCH
+    - OMIT_NOT_PRESERVED
+    - TITLE_STATE_MISMATCH
+    - INSUFFICIENT_NOTES_MESSAGE_MISMATCH
+    - INVERSION_LABEL_MISMATCH
+    - BASS_REAL_MISMATCH
+    - FUNCTIONAL_LABEL_MISMATCH
+    - ORDINAL_LABEL_MIXED_WITH_BASS_LABEL
+    - CHECKBOX_CHIP_MISMATCH
+
+  Resultado esperado antes de entregar cambios de Acordes:
+    0 FAIL, 0 WARN
+
+  Si aparece un WARN, no ocultarlo. Debe quedar justificado en el informe o
+  convertirse en un FAIL/corrección si realmente es un bug.
+
+
+AUDITORÍA DE COPIAR LECTURAS A ACORDES
+---------------------------------------
+  npm run audit:copy-readings
+
+  Qué hace: valida el flujo:
+    Investigar en mástil → Posibles acordes → Copiar en Acorde
+
+  Comprueba:
+    - lectura primaria y candidatos secundarios
+    - estructura copiada
+    - extensiones
+    - omit/no1/no3/no5
+    - bajo/slash
+    - patrón físico copiado cuando aplica
+    - bloqueo de lecturas no representables en la UI
+
+  Resultado esperado:
+    todos los casos PASS
+
 
 
 AUDITORÍA DEL MODO ESTUDIO
@@ -167,12 +234,59 @@ ACTUALIZAR VERSIÓN ANTES DE UN BUILD FINAL
 
 FLUJO RECOMENDADO ANTES DE ENTREGAR
 -------------------------------------
+
+Cambios generales:
   1.  npm test
-  2.  npm run audit:chords
-  3.  npm run audit:chords -- --no-cache
+  2.  npm run build
+
+Cambios en música, acordes, detección, naming, voicings o modo estudio:
+  1.  npm run audit:chord-ui-matrix
+  2.  npm run audit:copy-readings
+  3.  npm run audit:chords
   4.  npm run audit:study
-  5.  npm run build
-  (Si la UI cambia, también: npm run preview — comprobar visualmente)
+  5.  npm test
+  6.  npm run build
+  7.  npm run test:e2e
+
+Cambios fuertes en Acordes, inversiones, omit, extensiones, chips, voicings
+o Copiar lecturas desde Investigar en mástil:
+  1.  npm run audit:chord-ui-matrix
+  2.  npm run audit:copy-readings
+  3.  npm run audit:chords
+  4.  npm run audit:study
+  5.  npm test
+  6.  npm run build
+  7.  npm run test:e2e
+  8.  npm run test:e2e:chord-matrix
+
+Cambios profundos en el motor de detección de acordes:
+  1.  npm run audit:chords
+  2.  npm run audit:chords -- --no-cache
+  3.  npm test
+  4.  npm run build
+
+Si cambia la UI:
+  npm run preview
+  Comprobar visualmente la URL local antes de entregar.
+
+Resultado mínimo aceptable para cambios de Acordes:
+  - audit:chord-ui-matrix → 0 FAIL, 0 WARN
+  - audit:copy-readings → todo PASS
+  - audit:chords → 0 errores
+  - audit:study → sin errores inesperados
+  - npm test → todo PASS
+  - npm run build → OK
+  - E2E aplicables → todo PASS
+
+Codex/Claude debe indicar al final de cada entrega:
+  - ficheros modificados
+  - tests añadidos o cambiados
+  - resultado de npm test
+  - resultado de npm run build
+  - resultado de las auditorías aplicables
+  - resultado de los E2E aplicables
+  - si ejecutó npm run preview o no
+  - APP_VERSION actualizado
 
 
 AYUDA DE CONSOLA (window.mastilDebug)

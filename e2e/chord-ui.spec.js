@@ -1091,6 +1091,129 @@ test("58. Activar omit1 estando en Fundamental → selector se sanea a opción v
   expect(availableValues).toContain(currentValue);
 });
 
+// ── Tests 60-63: notas insuficientes tras omit ─────────────────────────────
+
+test("60. F + Acorde + omit1 sin extensiones: mensaje 'No hay notas suficientes'", async ({ page }) => {
+  await goToChords(page);
+  await selectTone(page, "F");
+  await selectQuality(page, "maj");
+  await selectStructure(page, "chord");
+
+  await page.getByTestId("ext-7").uncheck();
+  await page.getByTestId("omit-1").check();
+
+  const optionCount = await page.getByTestId("voicing-select").locator("option").count();
+  expect(optionCount).toBe(0);
+
+  await expect(page.getByText("No hay notas suficientes")).toBeVisible();
+  await expect(page.getByText("filtros actuales")).not.toBeVisible();
+});
+
+test("61. F + Acorde + omit3 sin extensiones: mensaje 'No hay notas suficientes'", async ({ page }) => {
+  await goToChords(page);
+  await selectTone(page, "F");
+  await selectQuality(page, "maj");
+  await selectStructure(page, "chord");
+
+  await page.getByTestId("ext-7").uncheck();
+  await page.getByTestId("omit-3").check();
+
+  const optionCount = await page.getByTestId("voicing-select").locator("option").count();
+  expect(optionCount).toBe(0);
+
+  await expect(page.getByText("No hay notas suficientes")).toBeVisible();
+  await expect(page.getByText("filtros actuales")).not.toBeVisible();
+});
+
+test("62. F + Acorde + omit5 sin extensiones: mensaje 'No hay notas suficientes'", async ({ page }) => {
+  await goToChords(page);
+  await selectTone(page, "F");
+  await selectQuality(page, "maj");
+  await selectStructure(page, "chord");
+
+  await page.getByTestId("ext-7").uncheck();
+  await page.getByTestId("omit-5").check();
+
+  const optionCount = await page.getByTestId("voicing-select").locator("option").count();
+  expect(optionCount).toBe(0);
+
+  await expect(page.getByText("No hay notas suficientes")).toBeVisible();
+  await expect(page.getByText("filtros actuales")).not.toBeVisible();
+});
+
+test("63. Fadd13(no1) + Acorde: 3 notas reales → genera voicings, sin aviso de notas insuficientes", async ({ page }) => {
+  await goToChords(page);
+  await selectTone(page, "F");
+  await selectQuality(page, "maj");
+  await selectStructure(page, "chord");
+
+  await page.getByTestId("ext-7").uncheck();
+  await page.getByTestId("ext-13").check();
+  await page.getByTestId("omit-1").check();
+
+  const optionCount = await page.getByTestId("voicing-select").locator("option").count();
+  expect(optionCount).toBeGreaterThan(0);
+
+  await expect(page.getByText("No hay notas suficientes")).not.toBeVisible();
+});
+
+// ── Tests 64-67: E9 sin omit → x7677x filtrado, voicings completos ────────────
+
+async function setupE9(page) {
+  await goToChords(page);
+  await selectTone(page, "E");
+  await selectStructure(page, "chord");
+  await selectQuality(page, "dom");
+  await page.getByTestId("ext-7").check();
+  await page.getByTestId("ext-9").check();
+  // omit queda en "none" por defecto
+}
+
+test("64. E9 sin omit: x7677x NO aparece entre los voicings disponibles", async ({ page }) => {
+  await setupE9(page);
+
+  const opts = await page.getByTestId("voicing-select").locator("option").evaluateAll(
+    (els) => els.map((o) => o.value)
+  );
+  expect(opts, `x7677x no debe aparecer en E9 sin omit5. Opciones: ${opts.join(", ")}`).not.toContain("x7677x");
+});
+
+test("65. E9 sin omit: hay voicings disponibles y el título no contiene 'no5'", async ({ page }) => {
+  await setupE9(page);
+
+  const optionCount = await page.getByTestId("voicing-select").locator("option").count();
+  expect(optionCount, "E9 sin omit debe tener al menos 1 voicing").toBeGreaterThan(0);
+
+  const title = await page.getByTestId("chord-title").textContent();
+  expect(title).toContain("E9");
+  expect(title).not.toContain("no5");
+});
+
+test("66. E9 sin omit: chips incluyen las 5 notas — E, G#, B, D, F#", async ({ page }) => {
+  await setupE9(page);
+
+  const chips = await page.getByTestId("chord-chips").textContent();
+  expect(chips).toContain("E");
+  expect(chips).toContain("G#");
+  expect(chips).toContain("B");
+  expect(chips).toContain("D");
+  expect(chips).toContain("F#");
+});
+
+test("67. E9 sin omit: Modo Estudio muestra las 5 notas en Construcción", async ({ page }) => {
+  await setupE9(page);
+
+  await page.getByTestId("study-toggle").click();
+  await expect(page.getByTestId("study-construccion-notas")).toBeVisible({ timeout: 3000 });
+
+  const notasText = await page.getByTestId("study-construccion-notas").textContent();
+  expect(notasText).toContain("E");
+  expect(notasText).toContain("G#");
+  expect(notasText).toContain("B");
+  expect(notasText).toContain("D");
+  expect(notasText).toContain("F#");
+});
+
 // ── Test 59 ────────────────────────────────────────────────────────────────
 test("59. Fdim7(add13,no1): para cualquier inversión seleccionada, summary nunca dice 'Fundamental'", async ({ page }) => {
   await goToChords(page);
