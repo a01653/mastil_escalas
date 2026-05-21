@@ -440,6 +440,28 @@ function auditCombination({ tone, quality, structure, suspension, exts, omit }) 
     }
     // (PASS silencioso cuando insufficientNotes === true)
   }
+
+  // ── INVARIANT 10: calidades que implican 7ª deben tener ext7 activo en el plan ─
+  // Dominante ("dom") y semidisminuido ("hdim") tienen la 7ª en su nombre/definición.
+  // En estructura "chord" la 7ª no se fuerza automáticamente por estructura,
+  // por lo que el useEffect de coherencia UI debe haberla activado.
+  const qualityImplies7 = (quality === "dom" || quality === "hdim");
+  if (qualityImplies7 && structure === "chord" && !planBase.ext7) {
+    recordResult({
+      ...ctx,
+      invOpt: "-", invOptLabel: "-",
+      status: "FAIL", category: "QUALITY_SEVENTH_SYNC_MISMATCH",
+      motivo: `quality=${quality} structure=chord pero ext7=false en plan (la 7ª está implícita en el nombre de la calidad)`,
+    });
+  }
+  if (qualityImplies7 && structure === "chord" && planBase.seventhOffset == null) {
+    recordResult({
+      ...ctx,
+      invOpt: "-", invOptLabel: "-",
+      status: "FAIL", category: "QUALITY_SEVENTH_SYNC_MISMATCH",
+      motivo: `quality=${quality} structure=chord pero seventhOffset=null en plan`,
+    });
+  }
 }
 
 // ── Enumerar combinaciones ────────────────────────────────────────────────────
@@ -455,6 +477,8 @@ for (const tone of TONES) {
           // Sus2+ext9 y sus4+ext11 son UI-imposibles: el grado ya está incluido en la suspensión.
           if (suspension === "sus2" && exts.ext9) continue;
           if (suspension === "sus4" && exts.ext11) continue;
+          // dom+chord+!ext7 y hdim+chord+!ext7 son UI-imposibles: el useEffect fuerza ext7=true.
+          if ((quality === "dom" || quality === "hdim") && structure === "chord" && !exts.ext7) continue;
           for (const omit of OMITS) {
             totalCombos++;
             auditCombination({ tone, quality, structure, suspension, exts, omit });

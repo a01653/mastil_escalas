@@ -358,7 +358,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "4.83";
+const APP_VERSION = "4.84";
 
 function chordDbUrl(keyName, suffix) {
   // Ruta RELATIVA dentro de /public (sin base) => chords-db/...
@@ -701,6 +701,14 @@ export default function FretboardScalesPage() {
   // --------------------------------------------------------------------------
 
   useEffect(() => {
+    // Dominante en Acorde siempre implica 7ª (sin ella es mayor, no dominante).
+    if (chordQuality === "dom" && chordStructure === "chord" && !chordExt7) {
+      setChordExt7(true);
+    }
+    // m7b5 en Acorde siempre implica 7ª (la "7" forma parte del nombre).
+    if (chordQuality === "hdim" && chordStructure === "chord" && !chordExt7) {
+      setChordExt7(true);
+    }
     // m7(b5) sin 7ª no existe como triada: se degrada a disminuido.
     if (chordQuality === "hdim" && chordStructure === "triad" && !chordExt7) {
       setChordQuality("dim");
@@ -2345,6 +2353,28 @@ export default function FretboardScalesPage() {
           maxSpan: chordMaxDist,
         }).map((v) => normalizeGeneratedVoicingForDisplay(v, plan.rootPc, plan.rootPc)));
       }
+
+      // Acordes extendidos/chord: complementar DB con generación algorítmica para
+      // capturar voicings de posición baja que el DB no contiene (ej. x76777 para E9).
+      if (plan.layer === "extended" || plan.layer === "chord") {
+        const algoVoicings = dedupeAndSortVoicings(
+          generateExactIntervalChordVoicings({
+            rootPc: plan.rootPc,
+            intervals: plan.intervals,
+            bassInterval: selectedBassIntervals[0] ?? 0,
+            maxFret,
+            maxSpan: chordMaxDist,
+          }).map((v) => normalizeGeneratedVoicingForDisplay(v, plan.rootPc, plan.rootPc))
+        );
+        const seenFrets = new Set((list || []).map((v) => v.frets));
+        for (const v of algoVoicings) {
+          if (!seenFrets.has(v.frets)) {
+            list = list || [];
+            list.push({ ...v, _extra: 0 });
+          }
+        }
+      }
+
       list.sort((a, b) => ((a._extra ?? 0) - (b._extra ?? 0)) || (a.minFret - b.minFret) || (a.span - b.span) || (a.maxFret - b.maxFret));
       const finalJson = finalizeMainVoicings(list);
       return finalJson.slice(0, 60);

@@ -1214,6 +1214,64 @@ test("67. E9 sin omit: Modo Estudio muestra las 5 notas en Construcción", async
   expect(notasText).toContain("F#");
 });
 
+// ── Tests 68-70: Calidad Dominante/m7b5 fuerza ext7 ──────────────────────
+
+test("68. E Dominante + Acorde: ext-7 se activa automáticamente y el título es E7", async ({ page }) => {
+  await goToChords(page);
+  await selectTone(page, "E");
+  await selectStructure(page, "chord");
+  await selectQuality(page, "dom");
+  // Sin tocar manualmente el checkbox ext-7
+
+  await expect(page.getByTestId("ext-7")).toBeChecked();
+
+  const title = await page.getByTestId("chord-title").textContent();
+  expect(title, "El título debe ser E7, no E mayor").toContain("E7");
+  expect(title).not.toMatch(/^E\s*$/);
+
+  const chips = await page.getByTestId("chord-chips").textContent();
+  expect(chips, "Los chips deben incluir D (b7)").toContain("D");
+});
+
+test("69. E m7b5 + Acorde: ext-7 se activa automáticamente y los chips contienen b7", async ({ page }) => {
+  await goToChords(page);
+  await selectTone(page, "E");
+  await selectStructure(page, "chord");
+  await selectQuality(page, "hdim");
+  // Sin tocar manualmente el checkbox ext-7
+
+  await expect(page.getByTestId("ext-7")).toBeChecked();
+
+  const chips = await page.getByTestId("chord-chips").textContent();
+  expect(chips, "Los chips deben incluir D (b7)").toContain("D");
+  expect(chips, "Los chips deben incluir G (b3)").toContain("G");
+  expect(chips, "Los chips deben incluir Bb/A# (b5)").toMatch(/Bb|A#/);
+});
+
+test("70. E7 + activar 9: x76777 aparece como voicing válido de E9", async ({ page }) => {
+  await goToChords(page);
+  await selectTone(page, "E");
+  await selectStructure(page, "chord");
+  await selectQuality(page, "dom");
+  await expect(page.getByTestId("ext-7")).toBeChecked();
+  await page.getByTestId("ext-9").check();
+
+  const title = await page.getByTestId("chord-title").textContent();
+  expect(title, "El título debe ser E9").toContain("E9");
+
+  const opts = await page.getByTestId("voicing-select").locator("option").evaluateAll(
+    (els) => els.map((o) => o.value)
+  );
+  expect(opts, `x76777 debe aparecer entre los voicings de E9. Opciones: ${opts.join(", ")}`).toContain("x76777");
+
+  const chips = await page.getByTestId("chord-chips").textContent();
+  expect(chips).toContain("E");
+  expect(chips).toContain("G#");
+  expect(chips).toContain("D");
+  expect(chips).toContain("F#");
+  expect(chips).toContain("B");
+});
+
 // ── Test 59 ────────────────────────────────────────────────────────────────
 test("59. Fdim7(add13,no1): para cualquier inversión seleccionada, summary nunca dice 'Fundamental'", async ({ page }) => {
   await goToChords(page);
