@@ -193,6 +193,7 @@ const {
   explainStudyRules,
   buildChordNamingExplanation,
   actualInversionLabelFromVoicing,
+  computeInversionSelectorOptions,
   deriveDetectedCandidateCopyInversion,
   analyzeVoicingVsPlan,
   analyzeScaleTensionsForChord,
@@ -357,7 +358,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "4.71";
+const APP_VERSION = "4.81";
 
 function chordDbUrl(keyName, suffix) {
   // Ruta RELATIVA dentro de /public (sin base) => chords-db/...
@@ -518,6 +519,7 @@ export default function FretboardScalesPage() {
   const [chordExt13, setChordExt13] = useState(false);
   const [chordOmit, setChordOmit] = useState("none");
   const [chordCopyNotice, setChordCopyNotice] = useState(null);
+  const [chordCopiedEntry, setChordCopiedEntry] = useState(null); // { voicing, fingerprint } — voicing físico copiado desde Investigar
   // --------------------------------------------------------------------------
   // ESTADO: DETECCIÓN DE ACORDES EN MÁSTIL
   // --------------------------------------------------------------------------
@@ -727,6 +729,7 @@ export default function FretboardScalesPage() {
   useEffect(() => {
     if (chordStructure === "tetrad") setChordExt7(true);
   }, [chordStructure]);
+
 
 
 
@@ -1949,6 +1952,16 @@ export default function FretboardScalesPage() {
     [chordRootPc, chordQuality, chordSuspension, chordStructure, chordInversion, chordForm, chordExt7, chordExt6, chordExt9, chordExt11, chordExt13, chordOmit]
   );
 
+  const chordInversionOptions = useMemo(() => computeInversionSelectorOptions(chordEnginePlan), [chordEnginePlan]);
+
+  // Sanitiza la inversión cuando la opción seleccionada deja de existir (ej. omit activa
+  // reduce los grados efectivos y "3ª inversión" ya no es una posición válida).
+  useEffect(() => {
+    if (!chordInversionOptions.some((o) => o.value === chordInversion)) {
+      setChordInversion("all");
+    }
+  }, [chordInversionOptions, chordInversion]);
+
   const chordBassInt = useMemo(
     () =>
       chordBassInterval({
@@ -2320,7 +2333,21 @@ export default function FretboardScalesPage() {
         else if (plan.inversion !== "all") outLoose.push(item);
       }
 
-      const list = outStrict.length ? outStrict : outLoose;
+      // Si el DB no contiene voicings para la inversión solicitada, usar generación algorítmica exacta.
+      let list;
+      if (outStrict.length) {
+        list = outStrict;
+      } else if (plan.inversion !== "root" && plan.inversion !== "all" && selectedBassIntervals.length === 1) {
+        list = dedupeAndSortVoicings(generateExactIntervalChordVoicings({
+          rootPc: plan.rootPc,
+          intervals: plan.intervals,
+          bassInterval: selectedBassIntervals[0],
+          maxFret,
+          maxSpan: chordMaxDist,
+        }).map((v) => normalizeGeneratedVoicingForDisplay(v, plan.rootPc, plan.rootPc)));
+      } else {
+        list = outLoose;
+      }
       list.sort((a, b) => ((a._extra ?? 0) - (b._extra ?? 0)) || (a.minFret - b.minFret) || (a.span - b.span) || (a.maxFret - b.maxFret));
       const finalJson = finalizeMainVoicings(list);
       return finalJson.slice(0, 60);
@@ -2329,11 +2356,23 @@ export default function FretboardScalesPage() {
     return [];
   }, [chordEnginePlan, chordDb, chordMaxDist, chordAllowOpenStrings, maxFret]);
 
-  const chordVoicingsSig = useMemo(() => chordVoicings.map((v) => v.frets).join("|"), [chordVoicings]);
+  // Amplía chordVoicings con el voicing copiado desde Investigar si no está ya en la lista
+  // y el fingerprint de parámetros coincide con el estado actual del constructor.
+  // El fingerprint cubre todos los parámetros que afectan al generador (incluyendo inversión,
+  // forma y distancia) para que cualquier cambio manual invalide la inyección "(copiado)".
+  const chordVoicingsDisplay = useMemo(() => {
+    if (!chordCopiedEntry?.voicing?.frets) return chordVoicings;
+    const fp = `${chordRootPc}|${chordQuality}|${chordSuspension}|${chordStructure}|${chordExt7?1:0}|${chordExt6?1:0}|${chordExt9?1:0}|${chordExt11?1:0}|${chordExt13?1:0}|${chordOmit}|${chordInversion}|${chordForm}|${chordMaxDist}`;
+    if (chordCopiedEntry.fingerprint !== fp) return chordVoicings;
+    if (chordVoicings.some((v) => v.frets === chordCopiedEntry.voicing.frets)) return chordVoicings;
+    return [{ ...chordCopiedEntry.voicing, isCopied: true }, ...chordVoicings];
+  }, [chordVoicings, chordCopiedEntry, chordRootPc, chordQuality, chordSuspension, chordStructure, chordExt7, chordExt6, chordExt9, chordExt11, chordExt13, chordOmit, chordInversion, chordForm, chordMaxDist]);
+
+  const chordVoicingsSig = useMemo(() => chordVoicingsDisplay.map((v) => v.frets).join("|"), [chordVoicingsDisplay]);
 
   useEffect(() => {
     if (!storageHydrated) return;
-    if (!chordVoicings.length) {
+    if (!chordVoicingsDisplay.length) {
       if (!pendingChordRestoreRef.current.active && chordVoicingIdx !== 0) setChordVoicingIdx(0);
       return;
     }
@@ -2343,7 +2382,7 @@ export default function FretboardScalesPage() {
       if (wanted == null) {
         pendingChordRestoreRef.current = { active: false, frets: null };
       } else {
-        const restoredIdx = chordVoicings.findIndex((v) => v.frets === wanted);
+        const restoredIdx = chordVoicingsDisplay.findIndex((v) => v.frets === wanted);
         if (restoredIdx >= 0) {
           if (restoredIdx !== chordVoicingIdx) {
             skipChordVoicingRefSyncRef.current = true;
@@ -2357,7 +2396,7 @@ export default function FretboardScalesPage() {
       }
     }
 
-    const keepIdx = chordSelectedFrets ? chordVoicings.findIndex((v) => v.frets === chordSelectedFrets) : -1;
+    const keepIdx = chordSelectedFrets ? chordVoicingsDisplay.findIndex((v) => v.frets === chordSelectedFrets) : -1;
     if (keepIdx >= 0) {
       if (keepIdx !== chordVoicingIdx) {
         skipChordVoicingRefSyncRef.current = true;
@@ -2367,19 +2406,19 @@ export default function FretboardScalesPage() {
     }
 
     const ref = lastChordVoicingRef.current;
-    const idx = nearestVoicingIndex(ref, chordVoicings);
-    const nextFrets = chordVoicings[idx]?.frets ?? null;
+    const idx = nearestVoicingIndex(ref, chordVoicingsDisplay);
+    const nextFrets = chordVoicingsDisplay[idx]?.frets ?? null;
     if (idx !== chordVoicingIdx) {
       skipChordVoicingRefSyncRef.current = true;
       setChordVoicingIdx(idx);
     }
     if (nextFrets !== chordSelectedFrets) setChordSelectedFrets(nextFrets);
-  }, [storageHydrated, chordVoicings, chordVoicingsSig, chordVoicingIdx, chordSelectedFrets]);
+  }, [storageHydrated, chordVoicingsDisplay, chordVoicingsSig, chordVoicingIdx, chordSelectedFrets]);
 
   useEffect(() => {
     if (!storageHydrated) return;
-    const current = chordVoicings[chordVoicingIdx] || chordVoicings[0] || null;
-    const selectedStillExists = !!chordSelectedFrets && chordVoicings.some((v) => v.frets === chordSelectedFrets);
+    const current = chordVoicingsDisplay[chordVoicingIdx] || chordVoicingsDisplay[0] || null;
+    const selectedStillExists = !!chordSelectedFrets && chordVoicingsDisplay.some((v) => v.frets === chordSelectedFrets);
 
     if (!pendingChordRestoreRef.current.active && !selectedStillExists) {
       const nextFrets = current?.frets ?? null;
@@ -2391,9 +2430,9 @@ export default function FretboardScalesPage() {
       return;
     }
     if (current) lastChordVoicingRef.current = current;
-  }, [storageHydrated, chordVoicingIdx, chordVoicings, chordVoicingsSig, chordSelectedFrets]);
+  }, [storageHydrated, chordVoicingIdx, chordVoicingsDisplay, chordVoicingsSig, chordSelectedFrets]);
 
-  const activeChordVoicing = chordVoicings[chordVoicingIdx] || chordVoicings[0] || null;
+  const activeChordVoicing = chordVoicingsDisplay[chordVoicingIdx] || chordVoicingsDisplay[0] || null;
 
   // --------------------------------------------------------------------------
   // CÁLCULOS DERIVADOS: DETECCIÓN DE ACORDES EN MÁSTIL
@@ -2770,7 +2809,9 @@ export default function FretboardScalesPage() {
     setChordQuality(p.quality);
     setChordSuspension(p.suspension || "none");
     setChordStructure(p.structure);
-    setChordInversion(detectedInversion || p.inversion || "root");
+    // Si hay patrón físico, usar "all" para que el generador cubra todas las inversiones
+    // y encuentre el patrón copiado en la lista normal sin necesitar inyección "(copiado)".
+    setChordInversion(manualCopiedVoicing ? "all" : (detectedInversion || p.inversion || "root"));
     setChordPositionForm(p.positionForm || "open");
     setChordForm(p.form || p.positionForm || "open");
     setChordExt7(!!p.ext7);
@@ -2781,6 +2822,18 @@ export default function FretboardScalesPage() {
     setChordOmit(detectedOmit);
     if (requiredMaxDist != null && requiredMaxDist !== chordMaxDist) {
       setChordMaxDist(requiredMaxDist);
+    }
+    // Inyectar el voicing físico copiado si no está en la lista generada.
+    // El fingerprint incluye todos los parámetros que afectan al generador de voicings:
+    // cambiar cualquiera de ellos invalida la inyección y evita que "(copiado)" reaparezca.
+    if (manualCopiedVoicing?.frets) {
+      const fpInversion = "all";
+      const fpForm = p.form || p.positionForm || "open";
+      const fpMaxDist = requiredMaxDist != null ? requiredMaxDist : chordMaxDist;
+      const fp = `${p.rootPc}|${p.quality}|${p.suspension||"none"}|${p.structure}|${p.ext7?1:0}|${p.ext6?1:0}|${p.ext9?1:0}|${p.ext11?1:0}|${p.ext13?1:0}|${detectedOmit}|${fpInversion}|${fpForm}|${fpMaxDist}`;
+      setChordCopiedEntry({ voicing: manualCopiedVoicing, fingerprint: fp });
+    } else {
+      setChordCopiedEntry(null);
     }
     pendingChordRestoreRef.current = { active: true, frets: wantedFrets };
     setChordSelectedFrets(wantedFrets);
@@ -3719,7 +3772,20 @@ export default function FretboardScalesPage() {
           else if (plan.inversion !== "all") loose.push(item);
         }
 
-        const list = strict.length ? strict : loose;
+        let list;
+        if (strict.length) {
+          list = strict;
+        } else if (plan.inversion !== "root" && plan.inversion !== "all" && selectedBassIntervals.length === 1) {
+          list = dedupeAndSortVoicings(generateExactIntervalChordVoicings({
+            rootPc: plan.rootPc,
+            intervals: plan.intervals,
+            bassInterval: selectedBassIntervals[0],
+            maxFret,
+            maxSpan,
+          }).map((v) => normalizeGeneratedVoicingForDisplay(v, plan.rootPc, plan.rootPc)));
+        } else {
+          list = loose;
+        }
         list.sort((a, b) => ((a._extra ?? 0) - (b._extra ?? 0)) || (a.minFret - b.minFret) || (a.span - b.span) || (a.maxFret - b.maxFret));
         return { plan, ranked: finalize(list), err: null };
       }
@@ -4605,7 +4671,7 @@ export default function FretboardScalesPage() {
               <div className="text-xs font-semibold text-slate-700">Construcción</div>
               <div className="mt-2 space-y-1 text-xs text-slate-600">
                 <div><b>Fórmula:</b> {d?.intervals?.join(" · ") || "—"}</div>
-                <div><b>Notas:</b> {d?.notes?.join(" · ") || "—"}</div>
+                <div data-testid="study-construccion-notas"><b>Notas:</b> {d?.notes?.join(" · ") || "—"}</div>
                 <div><b>Bajo:</b> {d?.bassName || "—"}</div>
                 <div><b>Inversión:</b> {d?.inversionLabel}</div>
               </div>
@@ -6520,9 +6586,11 @@ function ChordFretboard({
             value={voicingInputText}
             onChange={(e) => setVoicingInputText(e.target.value.toLowerCase())}
             className="w-28 rounded border border-slate-300 bg-white px-2 py-1 font-mono text-xs text-slate-700 focus:border-blue-400 focus:outline-none"
+            data-testid="chord-detect-pattern-input"
           />
           <button
             disabled={voicingInputText.length !== 6}
+            data-testid="chord-detect-apply-btn"
             onClick={() => {
               const FRET_CHARS = "0123456789ab";
               const newKeys = [];
@@ -7195,19 +7263,21 @@ function ChordFretboard({
     );
   }
 
-  function Fretboard({ title, subtitle, mode }) {
+  function Fretboard({ title, subtitle, mode, testId }) {
     // mode: scale | patterns | route
     const showAllNotes = showNonScale;
     const usesKingOverlay = mode === "scale" && isKingBoxEligibleScale && showKingBoxes;
 
     return (
       <PanelBlock
+        data-testid={testId}
         title={<InfoTitle label={title} info={subtitle} />}
         titleTooltip={!isMobileLayout ? subtitle : ""}
         headerAside={mode === "patterns" ? (
             <div className="flex items-center gap-2">
               <div className="text-xs font-semibold text-slate-700">Modo patrones:</div>
               <select
+                data-testid="pattern-mode-select"
                 className={UI_SELECT_SM + " w-44"}
                 value={patternsMode}
                 onChange={(e) => setPatternsMode(e.target.value)}
@@ -7562,7 +7632,7 @@ function ChordFretboard({
   const chordQualitySelectWidth = fnMaxLabelCh(CHORD_QUALITIES, 10);
   const chordSuspensionSelectWidth = fnMaxLabelCh(["Sus —", "sus2", "sus4"], 8);
   const chordFormSelectWidth = fnMaxLabelCh(CHORD_FORMS, 10);
-  const chordInversionSelectWidth = fnMaxLabelCh(CHORD_INVERSIONS, 10);
+  const chordInversionSelectWidth = fnMaxLabelCh(chordInversionOptions, 10);
   const chordSelectClass = isMobileLayout ? UI_SELECT_SM_COMPACT : UI_SELECT_SM;
   const chordAutoSelectClass = isMobileLayout ? UI_SELECT_SM_COMPACT : UI_SELECT_SM_AUTO;
   const _chordVoicingSelectClass = isMobileLayout ? UI_SELECT_SM_COMPACT : `${UI_SELECT_SM} min-w-0 flex-1`;
@@ -8515,6 +8585,7 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
     return (
       <div className={commonClass} data-testid="chord-chips">
         <span data-testid="chord-title" className="sr-only">{chordBaseDisplayName}</span>
+        <span data-testid="chord-controls-summary" aria-hidden="true" className="sr-only" data-content={chordSectionDisplayName} />
         <ChordNoteBadgeStrip items={chordHeaderBadgeItems} bassNote={chordHeaderBassNote} colorMap={colors} />
       </div>
     );
@@ -8524,12 +8595,12 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
     if (chordDetectMode) return null;
     const isQuartal = chordFamily === "quartal";
     const isGuideTones = chordFamily === "guide_tones";
-    const voicings = isQuartal ? chordQuartalVoicings : isGuideTones ? guideToneVoicings : chordVoicings;
+    const voicings = isQuartal ? chordQuartalVoicings : isGuideTones ? guideToneVoicings : chordVoicingsDisplay;
     const currentIdx = isQuartal ? chordQuartalVoicingIdx : isGuideTones ? guideToneVoicingIdx : chordVoicingIdx;
     const selectedFrets = isQuartal ? chordQuartalSelectedFrets : isGuideTones ? guideToneSelectedFrets : chordSelectedFrets;
     const setIdx = isQuartal ? setChordQuartalVoicingIdx : isGuideTones ? setGuideToneVoicingIdx : setChordVoicingIdx;
     const setSelectedFrets = isQuartal ? setChordQuartalSelectedFrets : isGuideTones ? setGuideToneSelectedFrets : setChordSelectedFrets;
-    const voicingOptionLabels = voicings.map((v, i) => `${i + 1}. ${v.frets}${isQuartal && v.quartalDegree != null ? ` · ${fnBuildQuartalDegreeLabel(v.quartalDegree)}` : ""} (dist ${v.reach ?? (v.span + 1)})`);
+    const voicingOptionLabels = voicings.map((v, i) => `${i + 1}. ${v.frets}${v.isCopied ? " (copiado)" : ""}${isQuartal && v.quartalDegree != null ? ` · ${fnBuildQuartalDegreeLabel(v.quartalDegree)}` : ""} (dist ${v.reach ?? (v.span + 1)})`);
     const selectedOptionIdx = Math.max(0, voicings.findIndex((v) => v.frets === (selectedFrets || voicings[currentIdx]?.frets || "")));
     const selectedVoicingLabel = voicingOptionLabels[selectedOptionIdx] || "Voicing";
     const voicingSelectClass = isMobileLayout ? `${UI_SELECT_SM_COMPACT} min-w-0 flex-1` : UI_SELECT_SM_AUTO;
@@ -8964,6 +9035,7 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
               <label className={UI_LABEL_SM}>Nota raíz</label>
               <div className="mt-1 flex items-center gap-1.5">
                 <select
+                  data-testid="scale-root-select"
                   className={UI_SELECT_SM_TONE}
                   value={scaleRootLetter}
                   onChange={(e) => {
@@ -9043,6 +9115,7 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
           <div className="min-w-0">
             <label className={UI_LABEL_SM}>Escala</label>
             <select
+              data-testid="scale-mode-select"
               className={UI_SELECT_SM_AUTO + " mt-1 w-full sm:w-auto"}
               style={{ width: scaleSelectWidth }}
               value={scaleName}
@@ -9781,6 +9854,7 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
         ) : (
           <div className="grid gap-3 xl:grid-cols-[290px_minmax(0,1fr)]">
             <PanelBlock
+              data-testid="standards-catalog-panel"
               level="subsection"
               title="Catálogo"
               description={collectionLabel}
@@ -9862,12 +9936,13 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
               ) : null}
 
               {!standardsCatalogLoading && !standardsCatalogError && filteredStandards.length ? (
-                <div className="max-h-[28rem] space-y-2 overflow-y-auto pr-1 xl:max-h-[70vh]">
+                <div data-testid="standards-list" className="max-h-[28rem] space-y-2 overflow-y-auto pr-1 xl:max-h-[70vh]">
                   {filteredStandards.map((item) => {
                     const selected = item.id === selectedStandard?.id;
                     return (
                       <button
                         key={item.id}
+                        data-testid={`standard-item-${item.id}`}
                         type="button"
                         className={`w-full rounded-2xl border px-3 py-3 text-left shadow-sm transition-colors ${selected ? "border-sky-300 bg-sky-50" : "border-slate-200 bg-white hover:bg-sky-50"}`}
                         onClick={() => selectStandardItem(item.id)}
@@ -9919,6 +9994,7 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
                 </PanelBlock>
 
                 <PanelBlock
+                  data-testid="standards-chart-panel"
                   level="subsection"
                   title="Forma"
                 >
@@ -10008,10 +10084,11 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
     return (
       <div className={paneClassName}>
         {showMobileTonalContext ? renderMobileTonalContextCard() : null}
-        {boardVisibility.scale ? <Fretboard title="Escala" subtitle={SCALE_INFO_TEXT} mode="scale" /> : null}
-        {boardVisibility.patterns ? <Fretboard title="Patrones" subtitle={PATTERNS_INFO_TEXT} mode="patterns" /> : null}
+        {boardVisibility.scale ? <Fretboard title="Escala" subtitle={SCALE_INFO_TEXT} mode="scale" testId="fretboard-scale" /> : null}
+        {boardVisibility.patterns ? <Fretboard title="Patrones" subtitle={PATTERNS_INFO_TEXT} mode="patterns" testId="fretboard-patterns" /> : null}
         {boardVisibility.route ? (
           <PanelBlock
+            data-testid="route-panel"
             title={<InfoTitle label="Ruta musical" info={routeLabPickHelpText} />}
             titleTooltip={!isMobileLayout ? routeLabPickHelpText : ""}
             headerAside={<div className="text-xs text-slate-600">
@@ -10028,6 +10105,7 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
               <div>
                 <label className={UI_LABEL_SM}>Inicio</label>
                 <input
+                  data-testid="route-start-input"
                   className={UI_INPUT_SM + " mt-1 w-full"}
                   value={routeLabStartCode}
                   inputMode="numeric"
@@ -10038,6 +10116,7 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
               <div>
                 <label className={UI_LABEL_SM}>Fin</label>
                 <input
+                  data-testid="route-end-input"
                   className={UI_INPUT_SM + " mt-1 w-full"}
                   value={routeLabEndCode}
                   inputMode="numeric"
@@ -10543,8 +10622,8 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
                     <div className={isMobileLayout ? "min-w-0 order-3" : "min-w-0"}>
                       <label className={UI_LABEL_SM}>Inversión</label>
                       <select className={chordAutoSelectClass + " mt-1"} data-testid="select-inversion" style={isMobileLayout ? undefined : { width: chordInversionSelectWidth }} value={chordInversion} onChange={(e) => setChordInversion(e.target.value)}>
-                        {CHORD_INVERSIONS.map((inv) => (
-                          <option key={inv.value} value={inv.value} disabled={!chordEnginePlan.ui.allowThirdInversion && inv.value === "3"}>
+                        {chordInversionOptions.map((inv) => (
+                          <option key={inv.value} value={inv.value}>
                             {inv.label}
                           </option>
                         ))}
@@ -10707,7 +10786,7 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
                       infoText={CHORD_FRETBOARD_INFO_TEXT}
                       voicing={activeChordVoicing}
                       voicingIdx={chordVoicingIdx}
-                      voicingTotal={Math.max(1, chordVoicings.length)}
+                      voicingTotal={Math.max(1, chordVoicingsDisplay.length)}
                       emptyMessage={
                         (chordEnginePlan.structure === "tetrad" && !chordEnginePlan.ext7)
                           ? "No hay 7ª activa: esto no es una cuatriada. Activa la 7ª o cambia la estructura a Acorde/Add."
@@ -10723,6 +10802,7 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
 
         {boardVisibility.nearChords ? (
           <PanelBlock
+            data-testid="near-chords-panel"
             title={isMobileLayout ? (
               <span className="inline-flex items-center gap-2">
                 <span>Acordes cercanos</span>
@@ -10943,22 +11023,22 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
           <div className="mt-2 hidden items-center gap-3 xl:flex">
             <span className="text-xs font-semibold text-slate-700">Menu</span>
             <div className="flex flex-wrap items-center gap-2">
-              <ToggleButton active={effectiveBoards.scale} onClick={() => selectBoardView("scale")} title="Muestra el mástil de la escala">
+              <ToggleButton active={effectiveBoards.scale} onClick={() => selectBoardView("scale")} title="Muestra el mástil de la escala" testId="nav-scale">
                 <NavIconLabel icon={Music} label="Escala" />
               </ToggleButton>
-              <ToggleButton active={effectiveBoards.patterns} onClick={() => selectBoardView("patterns")} title="Muestra el mástil de patrones">
+              <ToggleButton active={effectiveBoards.patterns} onClick={() => selectBoardView("patterns")} title="Muestra el mástil de patrones" testId="nav-patterns">
                 <NavIconLabel icon={Blocks} label="Patrones" />
               </ToggleButton>
-              <ToggleButton active={effectiveBoards.route} onClick={() => selectBoardView("route")} title="Muestra el mástil de ruta">
+              <ToggleButton active={effectiveBoards.route} onClick={() => selectBoardView("route")} title="Muestra el mástil de ruta" testId="nav-route">
                 <NavIconLabel icon={Route} label="Ruta" />
               </ToggleButton>
               <ToggleButton active={effectiveBoards.chords} onClick={() => selectBoardView("chords")} title="Muestra el panel de acordes" testId="nav-chords">
                 <NavIconLabel icon={ChordDiagramIcon} label="Acordes" />
               </ToggleButton>
-              <ToggleButton active={effectiveBoards.nearChords} onClick={() => selectBoardView("nearChords")} title="Muestra el panel de acordes cercanos">
+              <ToggleButton active={effectiveBoards.nearChords} onClick={() => selectBoardView("nearChords")} title="Muestra el panel de acordes cercanos" testId="nav-near-chords">
                 <NavIconLabel icon={Waypoints} label="Acordes cercanos" />
               </ToggleButton>
-              <ToggleButton active={effectiveBoards.standards} onClick={() => selectBoardView("standards")} title="Muestra la sección de standards de jazz">
+              <ToggleButton active={effectiveBoards.standards} onClick={() => selectBoardView("standards")} title="Muestra la sección de standards de jazz" testId="nav-standards">
                 <NavIconLabel icon={BookOpen} label="Standards" />
               </ToggleButton>
               <ToggleButton active={effectiveBoards.configuration} onClick={() => selectBoardView("configuration")} title="Muestra u oculta la configuración general">

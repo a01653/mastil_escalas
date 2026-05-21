@@ -1,7 +1,7 @@
 {
   "name": "escalas",
   "private": true,
-  "version": "4.71",
+  "version": "4.81",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -14,7 +14,9 @@
     "audit:copy-readings": "node scripts/auditCopyReadings.mjs",
     "analyze:frets": "node scripts/analyzeFrets.mjs",
     "generate:manual": "node scripts/generateManual.mjs",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:e2e:chord-matrix": "playwright test e2e/chord-matrix.slow.spec.js",
+    "audit:chord-ui-matrix": "node scripts/auditChordUiMatrix.mjs"
   },
   "dependencies": {
     "lucide-react": "^0.577.0",

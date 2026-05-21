@@ -839,3 +839,283 @@ test("17. Fadd13(no5): chips F A D — mismo resultado que F6(no5)", async ({ pa
   expect(chips).toContain("D"); // 13th of F major = same pc as 6th
   expect(chips).not.toContain("C"); // 5th omitted
 });
+
+// ── Test 49 ────────────────────────────────────────────────────────────────
+test("49. Fmaj7(no5): selector de inversión muestra Bajo 3, Bajo 7 — sin '3ª inversión'", async ({ page }) => {
+  await goToChords(page);
+  await selectTone(page, "F");
+  await selectQuality(page, "maj");
+  await selectStructure(page, "tetrad");
+
+  await expect(page.getByTestId("ext-7")).toBeChecked();
+  await page.getByTestId("omit-5").check();
+
+  const invSelect = page.getByTestId("select-inversion");
+  await expect(invSelect).toBeVisible({ timeout: 3000 });
+
+  const invOpts = await invSelect.locator("option").allTextContents();
+  expect(invOpts).toContain("Bajo 3");
+  expect(invOpts).toContain("Bajo 7");
+  expect(invOpts).not.toContain("3ª inversión");
+  expect(invOpts).not.toContain("1ª inversión");
+  expect(invOpts).not.toContain("2ª inversión");
+});
+
+// ── Test 50 ────────────────────────────────────────────────────────────────
+test("50. Fmaj7 completo (sin omit): selector muestra 1ª/2ª/3ª inversión ordinales", async ({ page }) => {
+  await goToChords(page);
+  await selectTone(page, "F");
+  await selectQuality(page, "maj");
+  await selectStructure(page, "tetrad");
+
+  await expect(page.getByTestId("ext-7")).toBeChecked();
+
+  const invSelect = page.getByTestId("select-inversion");
+  await expect(invSelect).toBeVisible({ timeout: 3000 });
+
+  const invOpts = await invSelect.locator("option").allTextContents();
+  expect(invOpts).toContain("1ª inversión");
+  expect(invOpts).toContain("2ª inversión");
+  expect(invOpts).toContain("3ª inversión");
+  expect(invOpts).not.toContain("Bajo 3");
+  expect(invOpts).not.toContain("Bajo 7");
+});
+
+// ── Test 51 ────────────────────────────────────────────────────────────────
+test("51. Fmaj7 en estructura Acorde: cambiar inversión cambia el voicing", async ({ page }) => {
+  await goToChords(page);
+  await selectTone(page, "F");
+  await selectQuality(page, "maj");
+  await selectStructure(page, "chord");
+
+  // En estructura Acorde, ext-7 no se activa sola — activar manualmente para Fmaj7
+  const ext7 = page.getByTestId("ext-7");
+  if (!(await ext7.isChecked())) {
+    await ext7.check();
+  }
+  await expect(ext7).toBeChecked();
+
+  const invSelect = page.getByTestId("select-inversion");
+  const voicingSelect = page.getByTestId("voicing-select");
+  await expect(invSelect).toBeVisible({ timeout: 3000 });
+  await expect(voicingSelect).toBeVisible({ timeout: 3000 });
+
+  // Fundamental
+  await invSelect.selectOption("root");
+  await page.waitForTimeout(300);
+  const rootVoicing = await voicingSelect.evaluate((el) => el.value);
+
+  // 1ª inversión (bajo A)
+  await invSelect.selectOption("1");
+  await page.waitForTimeout(300);
+  const inv1Voicing = await voicingSelect.evaluate((el) => el.value);
+
+  // 2ª inversión (bajo C)
+  await invSelect.selectOption("2");
+  await page.waitForTimeout(300);
+  const inv2Voicing = await voicingSelect.evaluate((el) => el.value);
+
+  // 3ª inversión (bajo E)
+  await invSelect.selectOption("3");
+  await page.waitForTimeout(300);
+  const inv3Voicing = await voicingSelect.evaluate((el) => el.value);
+
+  // Los cuatro voicings deben ser distintos entre sí
+  const all4 = [rootVoicing, inv1Voicing, inv2Voicing, inv3Voicing];
+  const unique = new Set(all4);
+  expect(unique.size, `Se esperaban 4 voicings distintos pero algunos coinciden: ${all4.join(", ")}`).toBe(4);
+
+  // Cada voicing debe ser no vacío
+  for (const v of all4) {
+    expect(v, "Voicing vacío para alguna inversión").toBeTruthy();
+  }
+});
+
+// ── Test 52 ────────────────────────────────────────────────────────────────
+test("52. Fdim(add9): selector de inversión muestra 'Bajo b5', no 'Bajo #4'", async ({ page }) => {
+  await goToChords(page);
+  await selectTone(page, "F");
+  await selectQuality(page, "dim");
+  await selectStructure(page, "tetrad");
+
+  // Activar add9 (ext9): estructura add sin 7ª → isNonStandard=true
+  await page.getByTestId("ext-7").uncheck();
+  await page.getByTestId("ext-9").check();
+
+  const invSelect = page.getByTestId("select-inversion");
+  await expect(invSelect).toBeVisible({ timeout: 3000 });
+
+  const invOpts = await invSelect.locator("option").allTextContents();
+  expect(invOpts).not.toContain("Bajo #4");
+  // La quinta disminuida (b5) en Fdim(add9) debe mostrarse como Bajo b5
+  const hasBajoBm5 = invOpts.some((t) => t.includes("b5"));
+  expect(hasBajoBm5, `Se esperaba "Bajo b5" pero opciones: ${invOpts.join(" | ")}`).toBe(true);
+});
+
+// ── Test 53 ────────────────────────────────────────────────────────────────
+test("53. Fadd13 (sin 7ª): selector muestra 'Bajo 13', no 'Bajo 6'", async ({ page }) => {
+  await goToChords(page);
+  await selectTone(page, "F");
+  await selectQuality(page, "maj");
+  await selectStructure(page, "tetrad");
+
+  await page.getByTestId("ext-7").uncheck();
+  await page.getByTestId("ext-13").check();
+
+  const invSelect = page.getByTestId("select-inversion");
+  await expect(invSelect).toBeVisible({ timeout: 3000 });
+
+  const invOpts = await invSelect.locator("option").allTextContents();
+  expect(invOpts).toContain("Bajo 13");
+  expect(invOpts).not.toContain("Bajo 6");
+});
+
+// ── Test 54 ────────────────────────────────────────────────────────────────
+test("54. Fmaj7(no5): seleccionar 'Bajo 7' → chord-controls-summary coincide, no '3ª inversión'", async ({ page }) => {
+  await goToChords(page);
+  await selectTone(page, "F");
+  await selectQuality(page, "maj");
+  await selectStructure(page, "tetrad");
+
+  await expect(page.getByTestId("ext-7")).toBeChecked();
+  await page.getByTestId("omit-5").check();
+
+  const invSelect = page.getByTestId("select-inversion");
+  await expect(invSelect).toBeVisible({ timeout: 3000 });
+
+  const invOpts = await invSelect.locator("option").allTextContents();
+  expect(invOpts).toContain("Bajo 7");
+
+  await invSelect.selectOption({ label: "Bajo 7" });
+  await page.waitForTimeout(300);
+
+  const summaryText = await page.getByTestId("chord-controls-summary").getAttribute("data-content");
+  expect(summaryText).toContain("Bajo 7");
+  expect(summaryText).not.toContain("3ª inversión");
+});
+
+// ── Test 55 ────────────────────────────────────────────────────────────────
+test("55. Fmaj7 completo: selector '3ª inversión' = summary '3ª inversión' (regresión)", async ({ page }) => {
+  await goToChords(page);
+  await selectTone(page, "F");
+  await selectQuality(page, "maj");
+  await selectStructure(page, "tetrad");
+
+  await expect(page.getByTestId("ext-7")).toBeChecked();
+
+  const invSelect = page.getByTestId("select-inversion");
+  await expect(invSelect).toBeVisible({ timeout: 3000 });
+
+  await invSelect.selectOption({ label: "3ª inversión" });
+  await page.waitForTimeout(300);
+
+  const summaryText = await page.getByTestId("chord-controls-summary").getAttribute("data-content");
+  expect(summaryText).toContain("3ª inversión");
+  expect(summaryText).not.toContain("Bajo 7");
+});
+
+// ── Test 56 ────────────────────────────────────────────────────────────────
+test("56. Fdim(add9): seleccionar 'Bajo b5' → summary muestra 'Bajo b5', no '2ª inversión'", async ({ page }) => {
+  await goToChords(page);
+  await selectTone(page, "F");
+  await selectQuality(page, "dim");
+  await selectStructure(page, "tetrad");
+
+  await page.getByTestId("ext-7").uncheck();
+  await page.getByTestId("ext-9").check();
+
+  const invSelect = page.getByTestId("select-inversion");
+  await expect(invSelect).toBeVisible({ timeout: 3000 });
+
+  const invOpts = await invSelect.locator("option").allTextContents();
+  expect(invOpts.some((t) => t.includes("b5"))).toBe(true);
+
+  await invSelect.selectOption({ label: "Bajo b5" });
+  await page.waitForTimeout(300);
+
+  const voicingCount = await page.getByTestId("voicing-select").locator("option").count();
+  if (voicingCount === 0) return;
+
+  const summaryText = await page.getByTestId("chord-controls-summary").getAttribute("data-content");
+  expect(summaryText, `Se esperaba 'b5' en summary: "${summaryText}"`).toContain("b5");
+  expect(summaryText).not.toContain("2ª inversión");
+});
+
+// ── Test 57 ────────────────────────────────────────────────────────────────
+test("57. Fdim7(add13,no1): selector NO tiene 'Fundamental', SÍ tiene 'Bajo b3/b5/13'", async ({ page }) => {
+  await goToChords(page);
+  await selectTone(page, "F");
+  await selectQuality(page, "dim");
+  await selectStructure(page, "tetrad");
+
+  // dim7 requiere ext-7; añadir ext-13 y activar omit-1
+  await expect(page.getByTestId("ext-7")).toBeChecked();
+  await page.getByTestId("omit-1").check();
+  // Con omit1 activo, ext-13 debe habilitarse (slot liberado)
+  await page.getByTestId("ext-13").check();
+
+  const invSelect = page.getByTestId("select-inversion");
+  await expect(invSelect).toBeVisible({ timeout: 3000 });
+
+  const invOpts = await invSelect.locator("option").allTextContents();
+  expect(invOpts, `Opciones inesperadas: ${invOpts.join(" | ")}`).not.toContain("Fundamental");
+  expect(invOpts).toContain("Bajo b3");
+  expect(invOpts).toContain("Bajo b5");
+  expect(invOpts).toContain("Bajo 13");
+  expect(invOpts).toContain("Todas");
+});
+
+// ── Test 58 ────────────────────────────────────────────────────────────────
+test("58. Activar omit1 estando en Fundamental → selector se sanea a opción válida", async ({ page }) => {
+  await goToChords(page);
+  await selectTone(page, "F");
+  await selectQuality(page, "dim");
+  await selectStructure(page, "tetrad");
+
+  await expect(page.getByTestId("ext-7")).toBeChecked();
+
+  const invSelect = page.getByTestId("select-inversion");
+  await invSelect.selectOption("root");
+  expect(await invSelect.inputValue()).toBe("root");
+
+  // Activar omit-1: la raíz desaparece del acorde
+  await page.getByTestId("omit-1").check();
+  await page.waitForTimeout(200);
+
+  // El selector ya no debe mostrar "root" — debe haber cambiado a una opción válida
+  const currentValue = await invSelect.inputValue();
+  expect(currentValue, `Selector fantasma en "root" tras activar omit1: ${currentValue}`).not.toBe("root");
+
+  // El valor actual debe existir entre las opciones disponibles
+  const availableValues = await invSelect.locator("option").evaluateAll((opts) => opts.map((o) => o.value));
+  expect(availableValues).toContain(currentValue);
+});
+
+// ── Test 59 ────────────────────────────────────────────────────────────────
+test("59. Fdim7(add13,no1): para cualquier inversión seleccionada, summary nunca dice 'Fundamental'", async ({ page }) => {
+  await goToChords(page);
+  await selectTone(page, "F");
+  await selectQuality(page, "dim");
+  await selectStructure(page, "tetrad");
+
+  await expect(page.getByTestId("ext-7")).toBeChecked();
+  await page.getByTestId("omit-1").check();
+  await page.getByTestId("ext-13").check();
+
+  const invSelect = page.getByTestId("select-inversion");
+  await expect(invSelect).toBeVisible({ timeout: 3000 });
+
+  // Recorrer todas las opciones disponibles — ninguna debe producir "Fundamental" en el título
+  const optValues = await invSelect.locator("option").evaluateAll((opts) => opts.map((o) => o.value));
+  for (const val of optValues) {
+    if (val === "all") continue;
+    await invSelect.selectOption(val);
+    await page.waitForTimeout(200);
+    const summaryText = await page.getByTestId("chord-controls-summary").getAttribute("data-content");
+    expect(
+      summaryText,
+      `Con inversión "${val}", summary no debe contener 'Fundamental': "${summaryText}"`
+    ).not.toContain("Fundamental");
+  }
+});
+

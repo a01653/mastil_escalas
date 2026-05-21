@@ -46,6 +46,7 @@ import {
   detectOmitFromCandidate,
 } from "../src/music/chordDetectionEngine.js";
 import { analyzeFretsCore } from "../src/music/analyzeFretsCore.js";
+import { parseFretString } from "../src/music/parseFretString.js";
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 const ROOT  = join(__dir, "..");
@@ -163,6 +164,21 @@ const CASES = [
     expectStructure: "chord",
     expectExt9: true,
     expectOmit: "none",
+  },
+
+  {
+    id: "P9",
+    description: "x132xx — primary Fadd11(no5)/Bb: voicing copiado conserva x132xx, no sustituye por 11x2xx",
+    motivo: "El patrón físico del mástil debe viajar con la copia; si el generador no lo produce, se inyecta como opción (copiado) en el selector.",
+    fretsPattern: "x132xx",
+    expectPrimaryName: "Fadd11(no5)/Bb",
+    expectUiPatch: true,
+    expectStructure: "chord",
+    expectExt7: false,
+    expectExt11: true,
+    expectOmit: "5",
+    expectCopiedVoicingPattern: "x132xx",
+    forbiddenCopiedPattern: "11x2xx",
   },
 
   // ── Notas directas (analyzeSelectedNotes) ─────────────────────────────────
@@ -296,6 +312,19 @@ const CASES = [
     expectOmit: "5",
   },
   {
+    id: "N-F1",
+    description: "Notas F,A,Bb/Bb — primary Fadd11(no5)/Bb: structure=chord, ext11=true, omit=5",
+    motivo: "Bug fix: al copiar Fadd11(no5)/Bb, el omit=5 se perdía porque detectOmitFromCandidate no leía missingLabels en candidatos de catálogo",
+    notes: ["F", "A", "Bb"],
+    bass: "Bb",
+    expectPrimaryName: "Fadd11(no5)/Bb",
+    expectUiPatch: true,
+    expectStructure: "chord",
+    expectExt7: false,
+    expectExt11: true,
+    expectOmit: "5",
+  },
+  {
     id: "N-G1",
     description: "Notas A,C,E,F,G/A — candidato secundario Am7(b13): b13 no representable → uiPatch=null",
     motivo: "Valida bloqueo de candidato: b13 (extensión alterada) no es representable → botón Copiar deshabilitado",
@@ -308,6 +337,13 @@ const CASES = [
 ];
 
 // ─── Lógica de análisis ───────────────────────────────────────────────────────
+
+// Normaliza un patrón físico de mástil al formato que produce buildManualSelectionVoicing.
+// Para trastes 0-9 es identidad; para trastes ≥10 usa base36 (a=10, b=11, …).
+function computeCopiedVoicingFrets(fretsPattern) {
+  const { frets } = parseFretString(fretsPattern);
+  return frets.map((f) => (f === null ? "x" : f.toString(36))).join("");
+}
 
 function getReadings(tc) {
   if (tc.fretsPattern) {
@@ -438,6 +474,17 @@ function checkCase(tc) {
       failures.push(`ext13: esperado ${tc.expectExt13}, obtenido ${copy.ext13}`);
     if (tc.expectOmit !== undefined && copy.omit !== tc.expectOmit)
       failures.push(`omit: esperado "${tc.expectOmit}", obtenido "${copy.omit}"`);
+  }
+
+  // Verificar que el voicing físico del mástil se conserva en la copia (solo para fretsPattern)
+  if (tc.fretsPattern && (tc.expectCopiedVoicingPattern !== undefined || tc.forbiddenCopiedPattern !== undefined)) {
+    const copiedFrets = computeCopiedVoicingFrets(tc.fretsPattern);
+    if (tc.expectCopiedVoicingPattern !== undefined && copiedFrets !== tc.expectCopiedVoicingPattern) {
+      failures.push(`Voicing copiado: esperado "${tc.expectCopiedVoicingPattern}", obtenido "${copiedFrets}"`);
+    }
+    if (tc.forbiddenCopiedPattern !== undefined && copiedFrets === tc.forbiddenCopiedPattern) {
+      failures.push(`Voicing copiado es "${tc.forbiddenCopiedPattern}" (patrón prohibido — el generador habría sustituido la digitación original)`);
+    }
   }
 
   for (const r of readings) {

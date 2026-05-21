@@ -286,6 +286,180 @@ test("42. Cadd9: copiado como estructura Acorde (no Cuatriada), sin aviso de 7ª
   }
 });
 
+// ── Test 44: Fadd11(no5)/Bb — estado completo tras copiar a Acordes ──────────
+test("44. Fadd11(no5)/Bb: estado completo tras copiar — omit5, ext11, chips sin C, Lectura estudiada", async ({ page }) => {
+  await goToChords(page);
+  await enableDetectMode(page);
+
+  // Notas: Bb como bajo (LowE fret 6 = pc 10), F (D fret 3 = pc 5), A (G fret 2 = pc 9)
+  // Ventana de mástil: frets 2-6, span=4 — dentro del límite de investigación
+  await selectNote(page, 5, PC.Bb);  // LowE fret 6 = Bb (bajo)
+  await selectNote(page, 3, PC.F);   // D string fret 3 = F (raíz)
+  await selectNote(page, 2, PC.A);   // G string fret 2 = A (tercera mayor)
+
+  await page.waitForTimeout(400);
+
+  const list = page.getByTestId("detected-chord-list");
+  await expect(list).toBeVisible();
+
+  // 1. La lectura primaria detectada debe ser Fadd11(no5)/Bb
+  await expect(page.getByText(/Lectura detectada.*Fadd11\(no5\)\/Bb/)).toBeVisible({ timeout: 5000 });
+
+  // El botón Copiar del candidato primario (primer botón habilitado) debe estar activo
+  const firstEnabledCopyBtn = list.locator("[data-testid^='detected-copy-']")
+    .filter({ hasNot: page.locator("[disabled]") })
+    .first();
+  await expect(firstEnabledCopyBtn).toBeVisible({ timeout: 3000 });
+  await firstEnabledCopyBtn.click();
+
+  // 2. El aviso coincide con la lectura detectada — contiene Fadd11(no5)
+  await expect(page.getByTestId("chord-copy-notice")).toBeVisible({ timeout: 3000 });
+  const noticeText = await page.getByTestId("chord-copy-notice").textContent();
+  expect(noticeText).toMatch(/Fadd11\(no5\)/);
+
+  // Desactivar modo investigación para inspeccionar el constructor de acordes
+  await page.getByTestId("chord-detect-toggle").uncheck();
+
+  // 3. Título refleja (no5) — confirma que omit=5 se aplicó
+  await expect(page.getByTestId("chord-title")).toContainText("no5", { timeout: 3000 });
+
+  // 4. omit-5 está checked
+  await expect(page.getByTestId("omit-5")).toBeChecked();
+
+  // 5. ext-11 está checked
+  await expect(page.getByTestId("ext-11")).toBeChecked();
+
+  // 6. ext-7 NO está checked (Fadd11 es un add, sin séptima)
+  await expect(page.getByTestId("ext-7")).not.toBeChecked();
+
+  // 7. Chips contienen F, A, Bb y NO contienen C (quinta omitida)
+  const chips = await page.getByTestId("chord-chips").textContent();
+  expect(chips).toContain("F");
+  expect(chips).toContain("A");
+  expect(chips).toContain("Bb");
+  expect(chips).not.toContain("C");
+
+  // 8. Modo estudio — Lectura estudiada contiene Fadd11(no5)
+  const lecturaText = await page.getByTestId("study-lectura").textContent();
+  expect(lecturaText).toContain("Fadd11(no5)");
+
+  // 9. Texto "Notas:" en sección Construcción NO contiene C (requiere expandir modo estudio)
+  await page.getByTestId("study-toggle").click();
+  const notasText = await page.getByTestId("study-construccion-notas").textContent();
+  expect(notasText).toContain("F");
+  expect(notasText).toContain("A");
+  expect(notasText).toContain("Bb");
+  // "C" podría aparecer como parte de "Construcción" pero no en las notas del acorde
+  // Verificamos que la nota C (quinta de F) no está en la lista de notas separada por ·
+  expect(notasText).not.toMatch(/\bC\b/);
+});
+
+// ── Test 45: x132xx — voicing físico conservado tras copiar ──────────────────
+test("45. x132xx→Fadd11(no5)/Bb: voicing-select contiene x132xx y queda seleccionado", async ({ page }) => {
+  await goToChords(page);
+  await enableDetectMode(page);
+
+  // Aplicar el patrón físico x132xx mediante el input de mástil manual
+  const patternInput = page.getByTestId("chord-detect-pattern-input");
+  await expect(patternInput).toBeVisible();
+  await patternInput.fill("x132xx");
+  await page.getByTestId("chord-detect-apply-btn").click();
+
+  await page.waitForTimeout(400);
+
+  // Verificar detección: la lectura primaria debe ser Fadd11(no5)/Bb
+  await expect(page.getByText(/Lectura detectada.*Fadd11\(no5\)\/Bb/)).toBeVisible({ timeout: 5000 });
+
+  // Copiar el candidato primario
+  const list = page.getByTestId("detected-chord-list");
+  await expect(list).toBeVisible();
+  const firstEnabledCopyBtn = list.locator("[data-testid^='detected-copy-']")
+    .filter({ hasNot: page.locator("[disabled]") })
+    .first();
+  await expect(firstEnabledCopyBtn).toBeVisible({ timeout: 3000 });
+  await firstEnabledCopyBtn.click();
+
+  // Verificar aviso
+  await expect(page.getByTestId("chord-copy-notice")).toBeVisible({ timeout: 3000 });
+  const noticeText = await page.getByTestId("chord-copy-notice").textContent();
+  expect(noticeText).toMatch(/Fadd11\(no5\)/);
+
+  // Desactivar modo investigación para ver el selector de voicings
+  await page.getByTestId("chord-detect-toggle").uncheck();
+
+  // Verificar estado del constructor de acordes
+  await expect(page.getByTestId("chord-title")).toContainText("no5", { timeout: 3000 });
+  await expect(page.getByTestId("omit-5")).toBeChecked();
+  await expect(page.getByTestId("ext-11")).toBeChecked();
+  await expect(page.getByTestId("ext-7")).not.toBeChecked();
+
+  // El voicing-select debe contener x132xx como opción NORMAL (sin etiqueta "(copiado)")
+  const voicingSelect = page.getByTestId("voicing-select");
+  await expect(voicingSelect).toBeVisible({ timeout: 3000 });
+
+  const allOptions = await voicingSelect.locator("option").allTextContents();
+  const hasX132xx = allOptions.some((t) => t.includes("x132xx"));
+  expect(hasX132xx, `Ninguna opción tiene x132xx. Opciones: ${allOptions.join(" | ")}`).toBe(true);
+
+  // No debe aparecer como fallback "(copiado)" — el generador ya lo produce normalmente
+  const isCopiedLabel = allOptions.some((t) => t.includes("x132xx") && t.includes("copiado"));
+  expect(isCopiedLabel, `x132xx aparece con etiqueta "(copiado)" pero debería ser voicing normal. Opciones: ${allOptions.join(" | ")}`).toBe(false);
+
+  // La opción seleccionada debe ser x132xx
+  const selectedValue = await voicingSelect.evaluate((el) => el.value);
+  expect(selectedValue, `Valor seleccionado: "${selectedValue}", esperado "x132xx"`).toBe("x132xx");
+
+  // Chips: Bb, F, A — sin C
+  const chips = await page.getByTestId("chord-chips").textContent();
+  expect(chips).toContain("F");
+  expect(chips).toContain("A");
+  expect(chips).toContain("Bb");
+  expect(chips).not.toContain("C");
+
+  // Asegurar que no se seleccionó 11x2xx (la otra digitación)
+  expect(selectedValue).not.toBe("11x2xx");
+});
+
+// ── Test 46: Invariante — cambiar inversión después de copiar limpia la inyección ──
+test("46. x132xx copiado: al cambiar inversión, voicing no persiste como '(copiado)'", async ({ page }) => {
+  await goToChords(page);
+  await enableDetectMode(page);
+
+  const patternInput = page.getByTestId("chord-detect-pattern-input");
+  await expect(patternInput).toBeVisible();
+  await patternInput.fill("x132xx");
+  await page.getByTestId("chord-detect-apply-btn").click();
+  await page.waitForTimeout(400);
+
+  await expect(page.getByText(/Lectura detectada.*Fadd11\(no5\)\/Bb/)).toBeVisible({ timeout: 5000 });
+
+  const list = page.getByTestId("detected-chord-list");
+  const firstEnabledCopyBtn = list.locator("[data-testid^='detected-copy-']")
+    .filter({ hasNot: page.locator("[disabled]") }).first();
+  await firstEnabledCopyBtn.click();
+  await page.getByTestId("chord-detect-toggle").uncheck();
+
+  // Estado inicial: x132xx en la lista SIN etiqueta "(copiado)"
+  const voicingSelect = page.getByTestId("voicing-select");
+  await expect(voicingSelect).toBeVisible({ timeout: 3000 });
+  const optionsBefore = await voicingSelect.locator("option").allTextContents();
+  expect(
+    optionsBefore.some((t) => t.includes("copiado")),
+    `No debe haber "(copiado)" antes de cambiar parámetros. Opciones: ${optionsBefore.join(" | ")}`
+  ).toBe(false);
+
+  // Cambiar inversión de "all" a "root" — invalida el fingerprint del voicing copiado
+  await page.getByTestId("select-inversion").selectOption("root");
+  await page.waitForTimeout(200);
+
+  // x132xx (bajo=Bb) no está en voicings root-position → no debe inyectarse como "(copiado)"
+  const optionsAfter = await voicingSelect.locator("option").allTextContents();
+  expect(
+    optionsAfter.some((t) => t.includes("copiado")),
+    `No debe haber "(copiado)" tras cambiar inversión a "root". Opciones: ${optionsAfter.join(" | ")}`
+  ).toBe(false);
+});
+
 // ── Test 43: Verificación de integridad del aviso de copia ───────────────────
 test("43. El aviso 'Copiado en Acorde' aparece tras pulsar el botón y desaparece solo", async ({ page }) => {
   await goToChords(page);
@@ -321,4 +495,60 @@ test("43. El aviso 'Copiado en Acorde' aparece tras pulsar el botón y desaparec
     // Si no hay botón habilitado, el test pasa trivialmente
     console.log("No se encontró botón habilitado para Am. Verificando que la UI no crashea.");
   }
+});
+
+// ── Test 47: Fadd11(no5) — selector de inversión no muestra "3ª inversión" ──
+test("47. Fadd11(no5): el selector de inversión no contiene '3ª inversión'", async ({ page }) => {
+  await goToChords(page);
+  await enableDetectMode(page);
+
+  const patternInput = page.getByTestId("chord-detect-pattern-input");
+  await expect(patternInput).toBeVisible();
+  await patternInput.fill("x132xx");
+  await page.getByTestId("chord-detect-apply-btn").click();
+
+  await expect(page.getByText(/Lectura detectada.*Fadd11\(no5\)\/Bb/)).toBeVisible({ timeout: 5000 });
+
+  const list = page.getByTestId("detected-chord-list");
+  const firstEnabledCopyBtn = list.locator("[data-testid^='detected-copy-']")
+    .filter({ hasNot: page.locator("[disabled]") })
+    .first();
+  await firstEnabledCopyBtn.click();
+
+  await page.getByTestId("chord-detect-toggle").uncheck();
+
+  const invSelect = page.getByTestId("select-inversion");
+  await expect(invSelect).toBeVisible({ timeout: 3000 });
+
+  const invOptions = await invSelect.locator("option").allTextContents();
+  const hasTercera = invOptions.some((t) => t.includes("3ª inversión"));
+  expect(hasTercera, `"3ª inversión" no debería aparecer en Fadd11(no5). Opciones: ${invOptions.join(" | ")}`).toBe(false);
+});
+
+// ── Test 48: Fadd11(no5) — selector de inversión contiene "Bajo 11" ─────────
+test("48. Fadd11(no5): el selector de inversión contiene 'Bajo 11'", async ({ page }) => {
+  await goToChords(page);
+  await enableDetectMode(page);
+
+  const patternInput = page.getByTestId("chord-detect-pattern-input");
+  await expect(patternInput).toBeVisible();
+  await patternInput.fill("x132xx");
+  await page.getByTestId("chord-detect-apply-btn").click();
+
+  await expect(page.getByText(/Lectura detectada.*Fadd11\(no5\)\/Bb/)).toBeVisible({ timeout: 5000 });
+
+  const list = page.getByTestId("detected-chord-list");
+  const firstEnabledCopyBtn = list.locator("[data-testid^='detected-copy-']")
+    .filter({ hasNot: page.locator("[disabled]") })
+    .first();
+  await firstEnabledCopyBtn.click();
+
+  await page.getByTestId("chord-detect-toggle").uncheck();
+
+  const invSelect = page.getByTestId("select-inversion");
+  await expect(invSelect).toBeVisible({ timeout: 3000 });
+
+  const invOptions = await invSelect.locator("option").allTextContents();
+  const hasBajo11 = invOptions.some((t) => t.includes("Bajo 11"));
+  expect(hasBajo11, `"Bajo 11" debería aparecer en Fadd11(no5). Opciones: ${invOptions.join(" | ")}`).toBe(true);
 });

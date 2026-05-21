@@ -1,7 +1,7 @@
 {
   "summary": {
-    "total": 20,
-    "passed": 20,
+    "total": 22,
+    "passed": 22,
     "failed": 0
   },
   "cases": [
@@ -288,6 +288,39 @@
         "Asus4/F",
         "E7sus4(no5)/F",
         "Cuartal E/F"
+      ],
+      "pass": true,
+      "failures": [],
+      "warnings": []
+    },
+    {
+      "id": "P9",
+      "description": "x132xx — primary Fadd11(no5)/Bb: voicing copiado conserva x132xx, no sustituye por 11x2xx",
+      "motivo": "El patrón físico del mástil debe viajar con la copia; si el generador no lo produce, se inyecta como opción (copiado) en el selector.",
+      "tipoSeleccion": "primary",
+      "entrada": "x132xx",
+      "derivedNotes": [
+        "Bb",
+        "F",
+        "A"
+      ],
+      "primaryName": "Fadd11(no5)/Bb",
+      "expectPrimaryName": "Fadd11(no5)/Bb",
+      "expectCandidateName": null,
+      "expectCandidateIncludes": null,
+      "candidateName": "Fadd11(no5)/Bb",
+      "copiedStructure": "chord",
+      "copiedExt7": false,
+      "copiedExt9": false,
+      "copiedExt11": true,
+      "copiedExt13": false,
+      "copiedExt6": false,
+      "copiedOmit": "5",
+      "uiPatchEnabled": true,
+      "candidates": [
+        "Fadd11(no5)/Bb",
+        "Bbm(maj7,nob3)",
+        "A#m(maj7,nob3)"
       ],
       "pass": true,
       "failures": [],
@@ -721,6 +754,42 @@
         "Gm(addb2)/Bb",
         "Dm7(b5,add11,no3,nob7)/Bb",
         "Cuartal mixto Ab/Bb"
+      ],
+      "pass": true,
+      "failures": [],
+      "warnings": []
+    },
+    {
+      "id": "N-F1",
+      "description": "Notas F,A,Bb/Bb — primary Fadd11(no5)/Bb: structure=chord, ext11=true, omit=5",
+      "motivo": "Bug fix: al copiar Fadd11(no5)/Bb, el omit=5 se perdía porque detectOmitFromCandidate no leía missingLabels en candidatos de catálogo",
+      "tipoSeleccion": "primary",
+      "entrada": {
+        "notes": [
+          "F",
+          "A",
+          "Bb"
+        ],
+        "bass": "Bb"
+      },
+      "derivedNotes": null,
+      "primaryName": "Fadd11(no5)/Bb",
+      "expectPrimaryName": "Fadd11(no5)/Bb",
+      "expectCandidateName": null,
+      "expectCandidateIncludes": null,
+      "candidateName": "Fadd11(no5)/Bb",
+      "copiedStructure": "chord",
+      "copiedExt7": false,
+      "copiedExt9": false,
+      "copiedExt11": true,
+      "copiedExt13": false,
+      "copiedExt6": false,
+      "copiedOmit": "5",
+      "uiPatchEnabled": true,
+      "candidates": [
+        "Fadd11(no5)/Bb",
+        "Bbm(maj7,nob3)",
+        "A#m(maj7,nob3)"
       ],
       "pass": true,
       "failures": [],

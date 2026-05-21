@@ -350,6 +350,37 @@ describe("Omitir nota en la fórmula del acorde", () => {
       const cand = makeCandidate("maj7(no1)");
       expect(detectOmitFromCandidate(cand)).toBe("1");
     });
+
+    test("6. Candidato de catálogo con missingLabels=['5'] → detecta omit='5' aunque suffix no tenga 'no5'", () => {
+      // Simula Fadd11(no5)/Bb: formula.suffix='add11' (catálogo original), missingLabels=['5']
+      const cand = {
+        formula: { suffix: "add11" },
+        uiPatch: { suspension: "none" },
+        missingLabels: ["5"],
+        name: "Fadd11(no5)/Bb",
+      };
+      expect(detectOmitFromCandidate(cand)).toBe("5");
+    });
+
+    test("7. Candidato de catálogo con missingLabels=['3'] (sin suspensión) → detecta omit='3'", () => {
+      const cand = {
+        formula: { suffix: "7" },
+        uiPatch: { suspension: "none" },
+        missingLabels: ["3"],
+        name: "F7(no3)",
+      };
+      expect(detectOmitFromCandidate(cand)).toBe("3");
+    });
+
+    test("8. Candidato de catálogo con missingLabels=[] → devuelve omit='none'", () => {
+      const cand = {
+        formula: { suffix: "add11" },
+        uiPatch: { suspension: "none" },
+        missingLabels: [],
+        name: "Fadd11",
+      };
+      expect(detectOmitFromCandidate(cand)).toBe("none");
+    });
   });
 });
 

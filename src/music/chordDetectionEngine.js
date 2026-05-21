@@ -1388,9 +1388,10 @@ export function buildSyntheticSelectedNotes(noteNames, bassName = null) {
 export function detectOmitFromCandidate(candidate) {
   const suffix = String(candidate?.formula?.suffix || "");
   const suspension = String(candidate?.uiPatch?.suspension || candidate?.formula?.ui?.suspension || "none");
-  if (suffix.includes("no5")) return "5";
-  if (suffix.includes("no3") && suspension === "none") return "3";
-  if (suffix.includes("no1")) return "1";
+  const missing = Array.isArray(candidate?.missingLabels) ? candidate.missingLabels : [];
+  if (suffix.includes("no5") || missing.includes("5")) return "5";
+  if ((suffix.includes("no3") || missing.includes("3")) && suspension === "none") return "3";
+  if (suffix.includes("no1") || missing.includes("1")) return "1";
   return "none";
 }
 

@@ -1,6 +1,6 @@
 # Auditoría: Copiar lecturas a Acordes
 
-**Total**: 20 | **PASS**: 20 | **FAIL**: 0
+**Total**: 22 | **PASS**: 22 | **FAIL**: 0
 
 | ID | Tipo | Entrada | Notas | Primary real | Esperado / Candidato buscado | Candidato obtenido | Estr. | Ext | Omit | Motivo | Resultado |
 |----|------|---------|-------|--------------|------------------------------|--------------------|-------|-----|------|--------|-----------|
@@ -12,6 +12,7 @@
 | P6 | primary | `6x678x` | Bb Ab D G | Bb7(add13,no5) | `Bb7(add13,no5)` | Bb7(add13,no5) | chord | 7,13 | 5 | Valida primary desde patrón físico; dominante 7(add13,no5) con omit=5 | ✅ |
 | P7 | primary | `1x223x` | F E A D | Fmaj7(add13,no5) | `Fmaj7(add13,no5)` | Fmaj7(add13,no5) | chord | 7,13 | 5 | Valida primary desde patrón físico; notas F E A D → la primary es Fmaj7(add13,no5), no Dm(add9)/F | ✅ |
 | P8 | 2°candidato | `1x223x` | F E A D | Fmaj7(add13,no5) | `Dm(add9)/F` (2°) | Dm(add9)/F | chord | 9 | none | Valida que candidato secundario Dm(add9)/F es copiable desde el mismo patrón que P7 | ✅ |
+| P9 | primary | `x132xx` | Bb F A | Fadd11(no5)/Bb | `Fadd11(no5)/Bb` | Fadd11(no5)/Bb | chord | 11 | 5 | El patrón físico del mástil debe viajar con la copia; si el generador no lo produce, se inyecta como opción (copiado) en el selector. | ✅ |
 | N-A1 | 2°candidato | D,F,A,E/F | D F A E | Fmaj7(add13,no5) | `Dm(add9)/F` (2°) | Dm(add9)/F | chord | 9 | none | Caso A: add9 menor no debe degradar a structure=tetrad aunque la primary sea otra lectura | ✅ |
 | N-A2 | primary | C,E,G,D/C | C E G D | Cadd9 | `Cadd9` | Cadd9 | chord | 9 | none | Valida add9 mayor como primary: structure=chord con ext9 activo y ext7 inactivo | ✅ |
 | N-A3 | primary | C,E,F,G/C | C E F G | Cadd11 | `Cadd11` | Cadd11 | chord | 11 | none | Valida add11 mayor como primary: structure=chord con ext11 activo y ext7 inactivo | ✅ |
@@ -23,4 +24,5 @@
 | N-D3 | 2°candidato | F,G,A,C,D,E/F | F G A C D E | C6(add9,11)/F | `Fmaj13` (2°) | Fmaj13 | chord | 7,9,13 | none | Caso D: Fmaj13 completo (con 5ª) debe ser copiable como candidato secundario | ✅ |
 | N-D4 | 2°candidato | F,G,A,D,E/F | F G A D E | Dm(add9,11)/F | `Fmaj13(no5)` (2°) | Fmaj13(no5) | chord | 7,9,13 | 5 | Caso D: Fmaj13(no5) debe ser copiable como candidato secundario; omit=5 derivado del sufijo | ✅ |
 | N-E1 | primary | Bb,Ab,D,G/Bb | Bb Ab D G | Bb7(add13,no5) | `Bb7(add13,no5)` | Bb7(add13,no5) | chord | 7,13 | 5 | Valida dom7(add13,no5) como primary copiable; omit=5 y ext13 deben pasarse al copiar | ✅ |
+| N-F1 | primary | F,A,Bb/Bb | F A Bb | Fadd11(no5)/Bb | `Fadd11(no5)/Bb` | Fadd11(no5)/Bb | chord | 11 | 5 | Bug fix: al copiar Fadd11(no5)/Bb, el omit=5 se perdía porque detectOmitFromCandidate no leía missingLabels en candidatos de catálogo | ✅ |
 | N-G1 | 2°regex | A,C,E,F,G/A | A C E F G | C6(add11)/A | /b13|b6/ (2°) | Am7(b13) | BLOQ. | — | — | Valida bloqueo de candidato: b13 (extensión alterada) no es representable → botón Copiar deshabilitado | ✅ |

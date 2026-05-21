@@ -7,6 +7,7 @@ export default defineConfig({
     exclude: ["e2e/**", "node_modules/**"],
   },
   base: "/mastil_escalas/",
+  preview: { port: 4185, strictPort: true },
   plugins: [
     react({
       babel: {

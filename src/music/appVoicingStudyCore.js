@@ -9,6 +9,7 @@ const mod12 = (...args) => AppMusicBasics.mod12(...args);
 const pcToName = (...args) => AppMusicBasics.pcToName(...args);
 const pitchAt = (...args) => AppMusicBasics.pitchAt(...args);
 const intervalToDegreeToken = (...args) => AppMusicBasics.intervalToDegreeToken(...args);
+const intervalToSimpleChordDegreeToken = (...args) => AppMusicBasics.intervalToSimpleChordDegreeToken(...args);
 const chordDisplayNameFromUI = (...args) => AppMusicBasics.chordDisplayNameFromUI(...args);
 const chordDisplaySuffixOnly = (...args) => AppMusicBasics.chordDisplaySuffixOnly(...args);
 const buildHarmonyDegreeChord = (...args) => AppMusicBasics.buildHarmonyDegreeChord(...args);
@@ -600,7 +601,7 @@ export function structureUsesManualForm(structure) {
 }
 
 export function normalizeChordInversionSelection(value) {
-  return ["root", "1", "2", "3", "all"].includes(value) ? value : "root";
+  return ["root", "1", "2", "3", "4", "5", "all"].includes(value) ? value : "root";
 }
 
 export function normalizeChordFormToInversion(form) {
@@ -608,11 +609,14 @@ export function normalizeChordFormToInversion(form) {
   return normalized === "all" ? "root" : normalized;
 }
 
-export function concreteInversionsForSelection(selection, allowThirdInversion = true) {
-  const allowed = allowThirdInversion ? ["root", "1", "2", "3"] : ["root", "1", "2"];
+export function concreteInversionsForSelection(selection, allowThirdInversion = true, maxPositions = 3) {
+  const base = allowThirdInversion ? ["root", "1", "2", "3"] : ["root", "1", "2"];
+  if (maxPositions > 3) {
+    for (let p = 4; p <= Math.min(maxPositions, 5); p++) base.push(String(p));
+  }
   const normalized = normalizeChordInversionSelection(selection);
-  if (normalized === "all") return allowed;
-  return allowed.includes(normalized) ? [normalized] : ["root"];
+  if (normalized === "all") return base;
+  return base.includes(normalized) ? [normalized] : ["root"];
 }
 
 export function positionFormLabel(value) {
@@ -655,12 +659,30 @@ export function buildChordHeaderSummary({ name, plan, voicing, positionForm }) {
   if (shape.position) parts.push(shape.position);
   if (shape.drop) parts.push(shape.drop);
 
-  parts.push(voicing ? actualInversionLabelFromVoicing(plan, voicing) : selectedInversionLabel(plan.inversion, plan.ui?.allowThirdInversion));
+  let invLabel;
+  if (voicing) {
+    invLabel = actualInversionLabelFromVoicing(plan, voicing);
+  } else {
+    const isNonStd = !!(plan.singleAdd || plan.multiAdd || plan.omit !== "none");
+    if (isNonStd && plan.rootPc != null && plan.inversion && plan.inversion !== "all") {
+      const bassInt = AppMusicBasics.chordBassInterval({
+        quality: plan.quality, suspension: plan.suspension, structure: plan.structure,
+        inversion: plan.inversion, omit: plan.omit,
+        ext7: plan.ext7, ext6: plan.ext6, ext9: plan.ext9, ext11: plan.ext11, ext13: plan.ext13,
+      });
+      const syntheticVoicing = { bassPc: AppMusicBasics.mod12(plan.rootPc + bassInt) };
+      invLabel = actualInversionLabelFromVoicing(plan, syntheticVoicing);
+    } else {
+      invLabel = selectedInversionLabel(plan.inversion, plan.ui?.allowThirdInversion);
+    }
+  }
+  parts.push(invLabel);
   return parts.filter(Boolean).join(" - ");
 }
 
 export function bassIntervalsForSelection(plan) {
-  const inversions = concreteInversionsForSelection(plan?.inversion, plan?.ui?.allowThirdInversion);
+  const maxPositions = plan?.multiAdd ? 5 : 3;
+  const inversions = concreteInversionsForSelection(plan?.inversion, plan?.ui?.allowThirdInversion, maxPositions);
   return Array.from(new Set(inversions.map((inv) => chordBassInterval({
     quality: plan.quality,
     suspension: plan.suspension,
@@ -946,7 +968,7 @@ export function buildChordEnginePlan({
     generator = "exact";
   } else if (chordFamily && singleAdd) {
     layer = "add";
-    generator = "tetrad";
+    generator = "exact";
   } else if (extended) {
     layer = "extended";
     generator = "json";
@@ -1176,22 +1198,83 @@ export function requestedFormLabel(plan) {
   return isOpenForm(plan.form) ? "Abierto" : "Cerrado";
 }
 
+// Reconstruye los grados efectivos del acorde después de aplicar omit,
+// siguiendo la misma lógica que chordBassInterval en appMusicBasics.
+function buildEffectiveDegreesForPlan(plan) {
+  let degrees = [0, plan.thirdOffset, plan.fifthOffset];
+  if (plan.seventhOffset != null) {
+    degrees = [0, plan.thirdOffset, plan.fifthOffset, plan.seventhOffset];
+  } else if (plan.singleAddOffset != null) {
+    // Incluir TODAS las extensiones add activas en orden ascendente de grado.
+    const addOffsets = [];
+    if (plan.ext9) addOffsets.push(2);
+    if (plan.ext11) addOffsets.push(5);
+    if (plan.ext6 || plan.ext13) addOffsets.push(9);
+    degrees = [0, plan.thirdOffset, plan.fifthOffset, ...addOffsets];
+  }
+  if (plan.omit !== "none") {
+    const omitInt = plan.omit === "1" ? 0
+      : plan.omit === "3" ? mod12(plan.thirdOffset)
+      : plan.omit === "5" ? mod12(plan.fifthOffset)
+      : null;
+    if (omitInt !== null) degrees = degrees.filter((d) => mod12(d) !== omitInt);
+  }
+  return degrees;
+}
+
+function labelForInversionBass(bi, plan, isNonStandard) {
+  const b = mod12(bi);
+  // Acordes tercianos estándar: etiquetas ordinales
+  if (!isNonStandard) {
+    if (b === mod12(plan.thirdOffset)) return "1ª inversión";
+    if (b === mod12(plan.fifthOffset)) return "2ª inversión";
+    if (plan.seventhOffset != null && b === mod12(plan.seventhOffset)) return "3ª inversión";
+  }
+  // Extensiones add
+  if (plan.ext9  && b === 2) return "Bajo 9";
+  if (plan.ext11 && b === 5) return "Bajo 11";
+  if (plan.ext13 && b === 9) return "Bajo 13";
+  if (plan.ext6  && b === 9) return "Bajo 6";
+  // 7ª en el bajo: ordinal solo si es un acorde tertiano estándar; semántico si hay omit/add
+  if (!isNonStandard && plan.seventhOffset != null && b === mod12(plan.seventhOffset)) return "3ª inversión";
+  // Grado semántico genérico: usar notación de grado de acorde (b5 no #4, #5 no b6)
+  return `Bajo ${intervalToSimpleChordDegreeToken(b)}`;
+}
+
+/**
+ * Calcula las opciones {value, label} del selector de inversión del constructor de acordes.
+ * - Acordes tercianos estándar → etiquetas ordinales (1ª inversión, 2ª inversión, 3ª inversión).
+ * - Acordes add / omit → etiquetas semánticas por bajo real (Bajo 3, Bajo 11, etc.).
+ * - Las posiciones que omit elimina no aparecen como opción.
+ * - Si omit1/no1 está activo, "Fundamental" no aparece.
+ */
+export function computeInversionSelectorOptions(plan) {
+  if (!plan) return AppMusicBasics.CHORD_INVERSIONS;
+  const isNonStandard = !!(plan.singleAdd || plan.multiAdd || (plan.omit !== "none"));
+  const degrees = buildEffectiveDegreesForPlan(plan);
+  const options = [];
+  // "Fundamental" solo si la raíz (0) sigue presente (no hay omit1)
+  if (degrees.some((d) => mod12(d) === 0)) {
+    options.push({ value: "root", label: "Fundamental" });
+  }
+  const posValues = ["1", "2", "3", "4", "5"];
+  let posIdx = 0;
+  for (let i = 0; i < degrees.length && posIdx < posValues.length; i++) {
+    if (mod12(degrees[i]) === 0) continue; // raíz ya incluida como "Fundamental"
+    const label = labelForInversionBass(degrees[i], plan, isNonStandard);
+    options.push({ value: posValues[posIdx], label });
+    posIdx++;
+  }
+  options.push({ value: "all", label: "Todas" });
+  return options;
+}
+
 export function actualInversionLabelFromVoicing(plan, voicing) {
   if (!plan || !voicing) return "—";
   const bassInt = mod12(voicing.bassPc - plan.rootPc);
   if (bassInt === 0) return "Fundamental";
-  if (bassInt === mod12(plan.thirdOffset)) return "1ª inversión";
-  if (bassInt === mod12(plan.fifthOffset)) return "2ª inversión";
-  // "3ª inversión" solo cuando el bajo es realmente la 7ª; add6/add9/add11/add13 no son inversiones
-  if (plan.seventhOffset != null && bassInt === mod12(plan.seventhOffset)) return "3ª inversión";
-  // Extensiones add sin 7ª: usar nombre de grado extendido (9, 11, 13, 6), no intervalo cromático
-  if (plan.singleAdd && plan.singleAddOffset != null && bassInt === mod12(plan.singleAddOffset)) {
-    if (plan.ext9)  return "Bajo 9";
-    if (plan.ext11) return "Bajo 11";
-    if (plan.ext13) return "Bajo 13";
-    if (plan.ext6)  return "Bajo 6";
-  }
-  return `Bajo ${intervalToDegreeToken(bassInt)}`;
+  const isNonStandard = !!(plan.singleAdd || plan.multiAdd || plan.omit !== "none");
+  return labelForInversionBass(bassInt, plan, isNonStandard);
 }
 
 export function deriveDetectedCandidateCopyInversion(candidate) {

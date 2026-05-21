@@ -6,7 +6,10 @@ import {
   analyzeChordScaleCompatibility,
   actualInversionLabelFromVoicing,
   buildChordEnginePlan,
+  computeInversionSelectorOptions,
+  buildChordHeaderSummary,
 } from "./appVoicingStudyCore.js";
+import { chordBassInterval, chordDisplayNameFromUI } from "./appMusicBasics.js";
 
 // C Mayor scale intervals: 0 2 4 5 7 9 11
 const C_MAJOR_INTERVALS = [0, 2, 4, 5, 7, 9, 11];
@@ -465,5 +468,451 @@ describe("actualInversionLabelFromVoicing — extensiones add vs inversiones rea
 
   test("Bbadd9 fundamental → 'Fundamental'", () => {
     expect(actualInversionLabelFromVoicing(planAdd9, { bassPc: 10 })).toBe("Fundamental");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// computeInversionSelectorOptions — etiquetas dinámicas del selector de inversión
+// ---------------------------------------------------------------------------
+describe("computeInversionSelectorOptions — etiquetas dinámicas del selector", () => {
+  function planFor(params) {
+    return buildChordEnginePlan(params);
+  }
+
+  test("Cmaj7 (cuatriada tertiana estándar): etiquetas ordinales 1ª/2ª/3ª inversión", () => {
+    const plan = planFor({ rootPc: 0, quality: "maj", structure: "tetrad", ext7: true });
+    const opts = computeInversionSelectorOptions(plan);
+    const values = opts.map((o) => o.value);
+    const labels = opts.map((o) => o.label);
+    expect(values).toEqual(["root", "1", "2", "3", "all"]);
+    expect(labels[1]).toBe("1ª inversión");
+    expect(labels[2]).toBe("2ª inversión");
+    expect(labels[3]).toBe("3ª inversión");
+  });
+
+  test("Cm (tríada): solo Fundamental, 1ª, 2ª inversión, Todas — sin 3ª", () => {
+    const plan = planFor({ rootPc: 0, quality: "min", structure: "triad" });
+    const opts = computeInversionSelectorOptions(plan);
+    const values = opts.map((o) => o.value);
+    expect(values).toEqual(["root", "1", "2", "all"]);
+    expect(values).not.toContain("3");
+  });
+
+  test("Fadd11(no5): etiquetas semánticas — Fundamental, Bajo 11, Todas — sin 3ª inversión", () => {
+    // F=5, ext11, omit=5 → degrees=[0,4,5] after omit → posiciones 0,1,2
+    const plan = planFor({ rootPc: 5, quality: "maj", structure: "tetrad", ext11: true, omit: "5" });
+    const opts = computeInversionSelectorOptions(plan);
+    const values = opts.map((o) => o.value);
+    const labels = opts.map((o) => o.label);
+    expect(values).not.toContain("3");
+    expect(labels).toContain("Bajo 11");
+    expect(labels).not.toContain("3ª inversión");
+    expect(labels[0]).toBe("Fundamental");
+    expect(labels[labels.length - 1]).toBe("Todas");
+  });
+
+  test("Cadd9: sin omit — etiquetas semánticas incluyen Bajo 9", () => {
+    const plan = planFor({ rootPc: 0, quality: "maj", structure: "tetrad", ext9: true });
+    const opts = computeInversionSelectorOptions(plan);
+    const labels = opts.map((o) => o.label);
+    expect(labels).toContain("Bajo 9");
+    expect(labels).not.toContain("3ª inversión");
+  });
+
+  test("C7 (dom7, tetrad estándar): etiquetas ordinales sin mezcla semántica", () => {
+    const plan = planFor({ rootPc: 0, quality: "dom", structure: "tetrad", ext7: true });
+    const opts = computeInversionSelectorOptions(plan);
+    const labels = opts.map((o) => o.label);
+    expect(labels[1]).toBe("1ª inversión");
+    expect(labels[2]).toBe("2ª inversión");
+    expect(labels[3]).toBe("3ª inversión");
+    expect(labels.some((l) => l.startsWith("Bajo"))).toBe(false);
+  });
+
+  test("Fmaj7(no5): etiquetas todas semánticas — Fundamental, Bajo 3, Bajo 7, Todas — sin '3ª inversión'", () => {
+    // F=5, maj7, omit=5 → degrees=[0,4,11] después de omit → 3 posiciones
+    const plan = planFor({ rootPc: 5, quality: "maj", structure: "tetrad", ext7: true, omit: "5" });
+    const opts = computeInversionSelectorOptions(plan);
+    const labels = opts.map((o) => o.label);
+    expect(labels).toContain("Fundamental");
+    expect(labels).toContain("Bajo 3");
+    expect(labels).toContain("Bajo 7");
+    expect(labels).toContain("Todas");
+    expect(labels).not.toContain("3ª inversión");
+    expect(labels).not.toContain("1ª inversión");
+    expect(labels).not.toContain("2ª inversión");
+  });
+
+  test("Fmaj7 completo (sin omit): etiquetas ordinales — incluye '3ª inversión'", () => {
+    const plan = planFor({ rootPc: 5, quality: "maj", structure: "tetrad", ext7: true });
+    const opts = computeInversionSelectorOptions(plan);
+    const labels = opts.map((o) => o.label);
+    expect(labels).toContain("1ª inversión");
+    expect(labels).toContain("2ª inversión");
+    expect(labels).toContain("3ª inversión");
+    expect(labels).not.toContain("Bajo 3");
+    expect(labels).not.toContain("Bajo 7");
+  });
+
+  test("C7(no5): etiquetas semánticas — Bajo b7, no '3ª inversión'", () => {
+    // dom7, omit=5 → degrees=[0,4,10] → Bajo b7 para la 7ª
+    const plan = planFor({ rootPc: 0, quality: "dom", structure: "tetrad", ext7: true, omit: "5" });
+    const opts = computeInversionSelectorOptions(plan);
+    const labels = opts.map((o) => o.label);
+    expect(labels).toContain("Bajo b7");
+    expect(labels).not.toContain("3ª inversión");
+  });
+
+  test("Fdim con add (isNonStandard): b5 aparece como 'Bajo b5', no 'Bajo #4'", () => {
+    // Fdim(add9): singleAdd=true → isNonStandard=true → fallback genérico para b5
+    const plan = planFor({ rootPc: 5, quality: "dim", structure: "tetrad", ext9: true });
+    const opts = computeInversionSelectorOptions(plan);
+    const labels = opts.map((o) => o.label);
+    expect(labels).not.toContain("Bajo #4");
+    expect(labels).toContain("Bajo b5");
+  });
+
+  test("Fdim7 completo (sin add/omit): b5 aparece como '2ª inversión' (etiqueta ordinal correcta)", () => {
+    // Fdim7 estándar: isNonStandard=false → ordinal para todos
+    const plan = planFor({ rootPc: 5, quality: "dim", structure: "tetrad", ext7: true });
+    const opts = computeInversionSelectorOptions(plan);
+    const labels = opts.map((o) => o.label);
+    expect(labels).toContain("2ª inversión");
+    expect(labels).not.toContain("Bajo #4");
+    expect(labels).not.toContain("Bajo b5");
+  });
+
+  test("null plan → devuelve CHORD_INVERSIONS de fallback", () => {
+    const opts = computeInversionSelectorOptions(null);
+    expect(Array.isArray(opts)).toBe(true);
+    expect(opts.length).toBeGreaterThan(0);
+  });
+
+  test("Fdim7(add13,no1): sin 'Fundamental', con 'Bajo b3', 'Bajo b5', 'Bajo 13'", () => {
+    // Fdim7 + ext13 + omit1: raíz omitida → 'Fundamental' no debe aparecer
+    const plan = planFor({ rootPc: 5, quality: "dim", structure: "tetrad", ext7: true, ext13: true, omit: "1" });
+    const opts = computeInversionSelectorOptions(plan);
+    const values = opts.map((o) => o.value);
+    const labels = opts.map((o) => o.label);
+    expect(labels).not.toContain("Fundamental");
+    expect(values).not.toContain("root");
+    expect(labels).toContain("Bajo b3");
+    expect(labels).toContain("Bajo b5");
+    expect(labels).toContain("Bajo 13");
+    expect(labels[labels.length - 1]).toBe("Todas");
+  });
+
+  test("Fdim7(add13,no1): opciones en orden correcto — b3, b5, 13, Todas", () => {
+    const plan = planFor({ rootPc: 5, quality: "dim", structure: "tetrad", ext7: true, ext13: true, omit: "1" });
+    const opts = computeInversionSelectorOptions(plan);
+    const labels = opts.map((o) => o.label);
+    expect(labels).toEqual(["Bajo b3", "Bajo b5", "Bajo 13", "Todas"]);
+  });
+
+  test("Fmaj7 completo (sin omit): sigue teniendo 'Fundamental' — no regresión", () => {
+    const plan = planFor({ rootPc: 5, quality: "maj", structure: "tetrad", ext7: true });
+    const opts = computeInversionSelectorOptions(plan);
+    const labels = opts.map((o) => o.label);
+    expect(labels[0]).toBe("Fundamental");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// actualInversionLabelFromVoicing — fuente única (unificada con labelForInversionBass)
+// ---------------------------------------------------------------------------
+describe("actualInversionLabelFromVoicing — fuente única tras unificación", () => {
+  test("Fadd13: bajo D (singleAdd, bassInt=9) → 'Bajo 13', no 'Bajo 6'", () => {
+    // F=5, D=pc2, bassInt=mod12(2-5)=9. singleAdd=true (ext13 sin ext7)
+    const plan = buildChordEnginePlan({
+      rootPc: 5, quality: "maj", suspension: "none", structure: "tetrad",
+      inversion: "root", form: "open",
+      ext7: false, ext6: false, ext9: false, ext11: false, ext13: true,
+    });
+    expect(actualInversionLabelFromVoicing(plan, { bassPc: 2 })).toBe("Bajo 13");
+  });
+
+  test("Fadd11,13: bajo D (multiAdd=true, bassInt=9) → 'Bajo 13', no 'Bajo 6'", () => {
+    // F=5, ext11+ext13 sin ext7 → multiAdd=true; ext13 prioritario en singleAddOffset
+    const plan = buildChordEnginePlan({
+      rootPc: 5, quality: "maj", suspension: "none", structure: "tetrad",
+      inversion: "root", form: "open",
+      ext7: false, ext6: false, ext9: false, ext11: true, ext13: true,
+    });
+    expect(actualInversionLabelFromVoicing(plan, { bassPc: 2 })).toBe("Bajo 13");
+  });
+
+  test("Fdim(add9): bajo Cb/B (bassInt=6, isNonStandard) → 'Bajo b5', no '2ª inversión'", () => {
+    // F=5, Cb/B=pc11, bassInt=mod12(11-5)=6. singleAdd=true (ext9 sin ext7)
+    const plan = buildChordEnginePlan({
+      rootPc: 5, quality: "dim", suspension: "none", structure: "tetrad",
+      inversion: "root", form: "open",
+      ext7: false, ext6: false, ext9: true, ext11: false, ext13: false,
+    });
+    expect(actualInversionLabelFromVoicing(plan, { bassPc: 11 })).toBe("Bajo b5");
+  });
+
+  test("Fmaj7 completo (estándar): bajo E (bassInt=11) → '3ª inversión'", () => {
+    // F=5, E=pc4, bassInt=mod12(4-5)=11. isNonStandard=false → ordinal
+    const plan = buildChordEnginePlan({
+      rootPc: 5, quality: "maj", suspension: "none", structure: "tetrad",
+      inversion: "root", form: "open",
+      ext7: true, ext6: false, ext9: false, ext11: false, ext13: false,
+    });
+    expect(actualInversionLabelFromVoicing(plan, { bassPc: 4 })).toBe("3ª inversión");
+  });
+
+  test("Fmaj7(no5): bajo E (bassInt=11, omit=5) → 'Bajo 7'", () => {
+    // omit=5 → isNonStandard=true → ordinal desactivado → genérico: 'Bajo 7'
+    const plan = buildChordEnginePlan({
+      rootPc: 5, quality: "maj", suspension: "none", structure: "tetrad",
+      inversion: "root", form: "open",
+      ext7: true, ext6: false, ext9: false, ext11: false, ext13: false, omit: "5",
+    });
+    expect(actualInversionLabelFromVoicing(plan, { bassPc: 4 })).toBe("Bajo 7");
+  });
+});
+
+// ── chordBassInterval — coherencia con computeInversionSelectorOptions ────────
+
+describe("chordBassInterval — consistencia con selector (omit1 y triad+add)", () => {
+  // Bug resuelto: omit1 desplazaba el índice posicional (degrees[1]=fifth en vez de degrees[0]=third)
+
+  test("Fmaj(no1): inversion='1' → bajo 3ª (interval=4), no 5ª", () => {
+    // Con omit1, el primer no-raíz es el tercero. Antes retornaba degrees[1]=fifth.
+    expect(chordBassInterval({ quality: "maj", suspension: "none", structure: "triad",
+      inversion: "1", omit: "1",
+      ext7: false, ext6: false, ext9: false, ext11: false, ext13: false,
+    })).toBe(4);
+  });
+
+  test("Fmaj(no1): inversion='2' → bajo 5ª (interval=7), no 3ª", () => {
+    expect(chordBassInterval({ quality: "maj", suspension: "none", structure: "triad",
+      inversion: "2", omit: "1",
+      ext7: false, ext6: false, ext9: false, ext11: false, ext13: false,
+    })).toBe(7);
+  });
+
+  test("Fmaj7(no1): inversion='1' → bajo 3ª (interval=4)", () => {
+    expect(chordBassInterval({ quality: "maj", suspension: "none", structure: "tetrad",
+      inversion: "1", omit: "1",
+      ext7: true, ext6: false, ext9: false, ext11: false, ext13: false,
+    })).toBe(4);
+  });
+
+  test("Fmaj7(no1): inversion='3' → bajo 7ª (interval=11)", () => {
+    expect(chordBassInterval({ quality: "maj", suspension: "none", structure: "tetrad",
+      inversion: "3", omit: "1",
+      ext7: true, ext6: false, ext9: false, ext11: false, ext13: false,
+    })).toBe(11);
+  });
+
+  test("Fdim7(add13,no1): inversion='1' → bajo b3 (interval=3)", () => {
+    expect(chordBassInterval({ quality: "dim", suspension: "none", structure: "tetrad",
+      inversion: "1", omit: "1",
+      ext7: true, ext6: false, ext9: false, ext11: false, ext13: true,
+    })).toBe(3);
+  });
+
+  test("Fdim7(add13,no1): inversion='3' → bajo dim7/13 (interval=9)", () => {
+    expect(chordBassInterval({ quality: "dim", suspension: "none", structure: "tetrad",
+      inversion: "3", omit: "1",
+      ext7: true, ext6: false, ext9: false, ext11: false, ext13: true,
+    })).toBe(9);
+  });
+
+  // Bug resuelto: structure="triad" con add no incluía el grado add
+  test("F(add6) triad: inversion='3' → bajo 6ª (interval=9), no 5ª", () => {
+    expect(chordBassInterval({ quality: "maj", suspension: "none", structure: "triad",
+      inversion: "3", omit: "none",
+      ext7: false, ext6: true, ext9: false, ext11: false, ext13: false,
+    })).toBe(9);
+  });
+
+  test("F(add9) triad: inversion='3' → bajo 9ª (interval=2), no 5ª", () => {
+    expect(chordBassInterval({ quality: "maj", suspension: "none", structure: "triad",
+      inversion: "3", omit: "none",
+      ext7: false, ext6: false, ext9: true, ext11: false, ext13: false,
+    })).toBe(2);
+  });
+
+  test("F(add13) chord: inversion='3' → bajo 13ª (interval=9)", () => {
+    expect(chordBassInterval({ quality: "maj", suspension: "none", structure: "chord",
+      inversion: "3", omit: "none",
+      ext7: false, ext6: false, ext9: false, ext11: false, ext13: true,
+    })).toBe(9);
+  });
+
+  // Sin regresión para acordes estándar (sin omit, con 7ª)
+  test("Fmaj7 (sin omit): inversion='1' → bajo 3ª (interval=4)", () => {
+    expect(chordBassInterval({ quality: "maj", suspension: "none", structure: "tetrad",
+      inversion: "1", omit: "none",
+      ext7: true, ext6: false, ext9: false, ext11: false, ext13: false,
+    })).toBe(4);
+  });
+
+  test("Fmaj7 (sin omit): inversion='3' → bajo 7ª (interval=11)", () => {
+    expect(chordBassInterval({ quality: "maj", suspension: "none", structure: "tetrad",
+      inversion: "3", omit: "none",
+      ext7: true, ext6: false, ext9: false, ext11: false, ext13: false,
+    })).toBe(11);
+  });
+
+  test("Fdim7 (sin omit): inversion='2' → bajo b5 (interval=6)", () => {
+    expect(chordBassInterval({ quality: "dim", suspension: "none", structure: "tetrad",
+      inversion: "2", omit: "none",
+      ext7: true, ext6: false, ext9: false, ext11: false, ext13: false,
+    })).toBe(6);
+  });
+});
+
+// ── chordDisplayNameFromUI — dim + add sin 7ª ─────────────────────────────────
+describe("chordDisplayNameFromUI — dim+add sin séptima conserva calidad", () => {
+  const base = { rootPc: 5, preferSharps: false, omit: "none", suspension: "none" };
+  const exts = (ext9, ext11, ext13) => ({ ext7: false, ext6: false, ext9, ext11, ext13 });
+
+  test("Fdim(add9) structure=tetrad: nombre correcto", () => {
+    expect(chordDisplayNameFromUI({ ...base, quality: "dim", structure: "tetrad", ...exts(true,false,false) }))
+      .toBe("Fdim(add9)");
+  });
+  test("Fdim(add11) structure=tetrad: nombre correcto", () => {
+    expect(chordDisplayNameFromUI({ ...base, quality: "dim", structure: "tetrad", ...exts(false,true,false) }))
+      .toBe("Fdim(add11)");
+  });
+  test("Fdim(add13) structure=tetrad: nombre correcto", () => {
+    expect(chordDisplayNameFromUI({ ...base, quality: "dim", structure: "tetrad", ...exts(false,false,true) }))
+      .toBe("Fdim(add13)");
+  });
+  test("Fdim(add9) structure=chord: nombre correcto", () => {
+    expect(chordDisplayNameFromUI({ ...base, quality: "dim", structure: "chord", ...exts(true,false,false) }))
+      .toBe("Fdim(add9)");
+  });
+  test("Fdim7 (con ext7) no cambia: 'Fdim7'", () => {
+    expect(chordDisplayNameFromUI({ ...base, quality: "dim", structure: "tetrad", ext7: true, ext6: false, ext9: false, ext11: false, ext13: false }))
+      .toBe("Fdim7");
+  });
+});
+
+// ── buildChordHeaderSummary — etiqueta funcional cuando no hay voicing ─────────
+describe("buildChordHeaderSummary — etiqueta funcional para acorde no-estándar sin voicing", () => {
+  test("Fdim(add9) inv=2 sin voicing: summary contiene 'Bajo b5', no '2ª inversión'", () => {
+    const plan = buildChordEnginePlan({ rootPc: 5, quality: "dim", suspension: "none", structure: "tetrad",
+      inversion: "2", form: "closed",
+      ext7: false, ext6: false, ext9: true, ext11: false, ext13: false, omit: "none",
+    });
+    const summary = buildChordHeaderSummary({ name: "Fdim(add9)", plan, voicing: null, positionForm: "closed" });
+    expect(summary).toContain("Bajo b5");
+    expect(summary).not.toContain("2ª inversión");
+  });
+
+  test("Fmaj7(no5) inv=1 sin voicing: summary contiene 'Bajo 3', no '1ª inversión'", () => {
+    const plan = buildChordEnginePlan({ rootPc: 5, quality: "maj", suspension: "none", structure: "tetrad",
+      inversion: "1", form: "closed",
+      ext7: true, ext6: false, ext9: false, ext11: false, ext13: false, omit: "5",
+    });
+    const summary = buildChordHeaderSummary({ name: "Fmaj7(no5)", plan, voicing: null, positionForm: "closed" });
+    expect(summary).toContain("Bajo 3");
+    expect(summary).not.toContain("1ª inversión");
+  });
+
+  test("Fmaj7 (estándar) inv=1 sin voicing: summary contiene '1ª inversión' (ordinal correcto)", () => {
+    const plan = buildChordEnginePlan({ rootPc: 5, quality: "maj", suspension: "none", structure: "tetrad",
+      inversion: "1", form: "closed",
+      ext7: true, ext6: false, ext9: false, ext11: false, ext13: false, omit: "none",
+    });
+    const summary = buildChordHeaderSummary({ name: "Fmaj7", plan, voicing: null, positionForm: "closed" });
+    expect(summary).toContain("1ª inversión");
+  });
+});
+
+// ── computeInversionSelectorOptions — multiAdd expone todas las extensiones ──
+describe("computeInversionSelectorOptions — multiAdd expone todas las extensiones add", () => {
+  test("Fadd9,11: selector incluye 'Bajo 9' Y 'Bajo 11' en posiciones 3 y 4", () => {
+    const plan = buildChordEnginePlan({
+      rootPc: 5, quality: "maj", suspension: "none", structure: "chord",
+      inversion: "root", form: "closed",
+      ext7: false, ext6: false, ext9: true, ext11: true, ext13: false,
+    });
+    const opts = computeInversionSelectorOptions(plan);
+    const values = opts.map((o) => o.value);
+    const labels = opts.map((o) => o.label);
+    expect(values).toContain("4");
+    expect(labels).toContain("Bajo 9");
+    expect(labels).toContain("Bajo 11");
+    expect(labels).not.toContain("3ª inversión");
+    expect(labels[labels.length - 1]).toBe("Todas");
+  });
+
+  test("Fadd9,11: orden correcto — root, Bajo 3, Bajo 5, Bajo 9, Bajo 11, Todas", () => {
+    const plan = buildChordEnginePlan({
+      rootPc: 5, quality: "maj", suspension: "none", structure: "chord",
+      inversion: "root", form: "closed",
+      ext7: false, ext6: false, ext9: true, ext11: true, ext13: false,
+    });
+    const opts = computeInversionSelectorOptions(plan);
+    const labels = opts.map((o) => o.label);
+    expect(labels).toEqual(["Fundamental", "Bajo 3", "Bajo 5", "Bajo 9", "Bajo 11", "Todas"]);
+  });
+
+  test("Fadd9,11,13: selector incluye posiciones 1-5 con etiquetas semánticas", () => {
+    const plan = buildChordEnginePlan({
+      rootPc: 5, quality: "maj", suspension: "none", structure: "chord",
+      inversion: "root", form: "closed",
+      ext7: false, ext6: false, ext9: true, ext11: true, ext13: true,
+    });
+    const opts = computeInversionSelectorOptions(plan);
+    const values = opts.map((o) => o.value);
+    const labels = opts.map((o) => o.label);
+    expect(values).toContain("5");
+    expect(labels).toEqual(["Fundamental", "Bajo 3", "Bajo 5", "Bajo 9", "Bajo 11", "Bajo 13", "Todas"]);
+  });
+
+  test("Fm(add9,13): selector incluye 'Bajo 9' y 'Bajo 13'", () => {
+    const plan = buildChordEnginePlan({
+      rootPc: 5, quality: "min", suspension: "none", structure: "chord",
+      inversion: "root", form: "closed",
+      ext7: false, ext6: false, ext9: true, ext11: false, ext13: true,
+    });
+    const opts = computeInversionSelectorOptions(plan);
+    const labels = opts.map((o) => o.label);
+    expect(labels).toContain("Bajo 9");
+    expect(labels).toContain("Bajo 13");
+  });
+});
+
+// ── chordBassInterval — posiciones 4 y 5 para multiAdd ───────────────────────
+describe("chordBassInterval — posiciones 4 y 5 en acordes multiAdd", () => {
+  test("Fadd9,11: inversion='3' → bajo 9ª (interval=2)", () => {
+    expect(chordBassInterval({ quality: "maj", suspension: "none", structure: "chord",
+      inversion: "3", omit: "none",
+      ext7: false, ext6: false, ext9: true, ext11: true, ext13: false,
+    })).toBe(2);
+  });
+
+  test("Fadd9,11: inversion='4' → bajo 11ª (interval=5)", () => {
+    expect(chordBassInterval({ quality: "maj", suspension: "none", structure: "chord",
+      inversion: "4", omit: "none",
+      ext7: false, ext6: false, ext9: true, ext11: true, ext13: false,
+    })).toBe(5);
+  });
+
+  test("Fadd9,11,13: inversion='4' → bajo 11ª (interval=5)", () => {
+    expect(chordBassInterval({ quality: "maj", suspension: "none", structure: "chord",
+      inversion: "4", omit: "none",
+      ext7: false, ext6: false, ext9: true, ext11: true, ext13: true,
+    })).toBe(5);
+  });
+
+  test("Fadd9,11,13: inversion='5' → bajo 13ª (interval=9)", () => {
+    expect(chordBassInterval({ quality: "maj", suspension: "none", structure: "chord",
+      inversion: "5", omit: "none",
+      ext7: false, ext6: false, ext9: true, ext11: true, ext13: true,
+    })).toBe(9);
+  });
+
+  test("Fadd9 (singleAdd): inversion='3' → sigue retornando bajo 9ª (interval=2) — sin regresión", () => {
+    expect(chordBassInterval({ quality: "maj", suspension: "none", structure: "chord",
+      inversion: "3", omit: "none",
+      ext7: false, ext6: false, ext9: true, ext11: false, ext13: false,
+    })).toBe(2);
   });
 });

@@ -172,6 +172,11 @@ export function chordSuffixFromUI({ quality, suspension = "none", structure, ext
     // add6/add9/add11/add13 (sin 7ª)
     if (!ext7 && addCount === 1) {
       if (ext6) return isMin ? "m6" : "6";
+      if (q2 === "dim") {
+        if (ext13) return "dim(add13)";
+        if (ext11) return "dim(add11)";
+        if (ext9) return "dim(add9)";
+      }
       if (ext13) return isMin ? "m(add13)" : "add13";
       if (ext11) return isMin ? "m(add11)" : "add11";
       if (ext9) return isMin ? "m(add9)" : "add9";
@@ -207,7 +212,10 @@ export function chordSuffixFromUI({ quality, suspension = "none", structure, ext
   if (ext6 && !ext7 && !ext9 && !ext11 && !ext13) return isMin ? "m6" : "6";
 
   if (q2 === "dim") {
-    if (ext13 || ext11 || ext9 || ext7) return "dim7";
+    if (ext7) return "dim7";
+    if (ext13) return "dim(add13)";
+    if (ext11) return "dim(add11)";
+    if (ext9) return "dim(add9)";
     return "dim";
   }
 
@@ -1462,10 +1470,14 @@ export function chordBassInterval({ quality, suspension, structure, inversion, e
   if (has7) {
     const seventh = seventhOffsetForQuality(quality);
     degrees = [0, third, fifth, seventh];
-  } else if (structure !== "triad") {
-    // cuatriada/chord sin 7ª: el 4º grado será add6/add9/add11/add13 (si existe)
-    const addInt = ext13 ? 9 : ext11 ? 5 : ext9 ? 2 : ext6 ? 9 : null;
-    if (addInt != null) degrees = [0, third, fifth, addInt];
+  } else {
+    // Sin 7ª: incluir TODAS las extensiones add activas en orden ascendente de grado,
+    // consistente con buildEffectiveDegreesForPlan y computeInversionSelectorOptions.
+    const addOffsets = [];
+    if (ext9) addOffsets.push(2);
+    if (ext11) addOffsets.push(5);
+    if (ext6 || ext13) addOffsets.push(9);
+    if (addOffsets.length > 0) degrees = [0, third, fifth, ...addOffsets];
   }
 
   if (omit !== "none") {
@@ -1473,10 +1485,16 @@ export function chordBassInterval({ quality, suspension, structure, inversion, e
     if (omitInt !== null) degrees = degrees.filter((d) => mod12(d) !== omitInt);
   }
 
-  if (inversion === "1") return degrees[1] ?? degrees[0];
-  if (inversion === "2") return degrees[2] ?? degrees[0];
-  if (inversion === "3") return degrees[3] ?? degrees[0];
-  return degrees[0];
+  // Mapeo consistente con computeInversionSelectorOptions:
+  // "1" = primer grado no-raíz, "2" = segundo, "3" = tercero (o último disponible).
+  // Esto garantiza coherencia con omit1 (donde la raíz desaparece y los índices se desplazan).
+  const nonRoot = degrees.filter((d) => mod12(d) !== 0);
+  if (inversion === "1") return nonRoot[0] ?? degrees[0] ?? 0;
+  if (inversion === "2") return nonRoot[1] ?? nonRoot[0] ?? degrees[0] ?? 0;
+  if (inversion === "3") return nonRoot[2] ?? nonRoot[nonRoot.length - 1] ?? degrees[degrees.length - 1] ?? 0;
+  if (inversion === "4") return nonRoot[3] ?? nonRoot[nonRoot.length - 1] ?? degrees[degrees.length - 1] ?? 0;
+  if (inversion === "5") return nonRoot[4] ?? nonRoot[nonRoot.length - 1] ?? degrees[degrees.length - 1] ?? 0;
+  return degrees.find((d) => mod12(d) === 0) ?? degrees[0] ?? 0;
 }
 
 export function intervalToChordToken(semi, { ext6, ext9, ext11, ext13 }) {
