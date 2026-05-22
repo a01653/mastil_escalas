@@ -15,6 +15,74 @@ const NAV_TABS = [
   { id: "nav-standards",   label: "Standards" },
 ];
 
+// ── S0: Desktop Configuración oculta Contexto tonal; otras pestañas lo mantienen ──
+test("S0. Desktop: Configuración oculta Contexto tonal; Escala/Acordes lo mantienen", async ({ page }) => {
+  await page.goto("/");
+  await page.waitForLoadState("networkidle");
+
+  await expect(page.getByText("Contexto tonal", { exact: true })).toBeVisible();
+
+  await page.getByTestId("nav-configuration").click();
+  await expect(page.getByText("Contexto tonal", { exact: true })).toHaveCount(0);
+
+  await page.getByTestId("nav-scale").click();
+  await expect(page.getByText("Contexto tonal", { exact: true })).toBeVisible();
+
+  await page.getByTestId("nav-chords").click();
+  await expect(page.getByText("Contexto tonal", { exact: true })).toBeVisible();
+});
+
+// ── S0b: Móvil/compacto — abrir Configuración no rompe la navegación ────────
+test("S0b. Móvil: abrir Configuración desde el menú no rompe la navegación", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  await page.waitForLoadState("networkidle");
+
+  const openConfigBtn = page.getByTitle("Abrir configuración");
+  await expect(openConfigBtn).toBeVisible();
+  await openConfigBtn.click();
+
+  await expect(page.getByText("Ajustes globales y visuales de la app.")).toBeVisible();
+  await page.getByTitle("Cerrar configuración").nth(1).click();
+
+  await expect(page.getByText("Ajustes globales y visuales de la app.")).toHaveCount(0);
+  await expect(page.getByTitle("Abrir configuración")).toBeVisible();
+  await expect(page.locator("body")).not.toBeEmpty();
+});
+
+// ── S0c: Desktop → móvil desde Configuración cae en Acordes ─────────────────
+test("S0c. Desktop a móvil: si vienes de Configuración, el layout compacto activa Acordes", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+  await page.waitForLoadState("networkidle");
+
+  await page.getByTestId("nav-configuration").click();
+  await expect(page.getByText("Contexto tonal", { exact: true })).toHaveCount(0);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.waitForTimeout(300);
+
+  await expect(page.getByTestId("chord-chips")).toBeVisible();
+  await expect(page.locator("body")).not.toBeEmpty();
+});
+
+// ── S0d: Desktop → compacto desde Configuración cae en Acordes ─────────────
+test("S0d. Desktop a compacto: si vienes de Configuración, el layout compacto activa Acordes", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+  await page.waitForLoadState("networkidle");
+
+  await page.getByTestId("nav-configuration").click();
+  await expect(page.getByText("Contexto tonal", { exact: true })).toHaveCount(0);
+
+  await page.setViewportSize({ width: 1024, height: 900 });
+  await page.waitForTimeout(300);
+
+  await expect(page.getByTestId("chord-chips")).toBeVisible();
+  await expect(page.getByText("Ajustes globales y visuales de la app.")).toHaveCount(0);
+  await expect(page.locator("body")).not.toBeEmpty();
+});
+
 // ── S1: Navegación general ────────────────────────────────────────────────────
 test("S1. Recorrer todas las pestañas principales sin crash ni pantalla en blanco", async ({ page }) => {
   const errors = [];

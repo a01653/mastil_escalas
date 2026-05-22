@@ -47,15 +47,6 @@ async function selectNote(page, sIdx, pc) {
   await cell.click();
 }
 
-async function waitForCandidate(page, namePattern, timeout = 5000) {
-  const list = page.getByTestId("detected-chord-list");
-  await expect(list).toBeVisible({ timeout });
-  // Buscar texto del candidato en la lista
-  const match = list.locator("div.font-semibold").filter({ hasText: namePattern });
-  await expect(match.first()).toBeVisible({ timeout });
-  return match.first();
-}
-
 // ── Test 38: Caso A — Dm(add9)/F no debe activar aviso de "sin 7ª" ────────────
 test("38. Dm(add9)/F: al copiar, estructura es Acorde (chord), no aparece aviso sin 7ª", async ({ page }) => {
   await goToChords(page);
@@ -551,4 +542,136 @@ test("48. Fadd11(no5): el selector de inversión contiene 'Bajo 11'", async ({ p
   const invOptions = await invSelect.locator("option").allTextContents();
   const hasBajo11 = invOptions.some((t) => t.includes("Bajo 11"));
   expect(hasBajo11, `"Bajo 11" debería aparecer en Fadd11(no5). Opciones: ${invOptions.join(" | ")}`).toBe(true);
+});
+
+// ── Test 49: Asus2 x0220x — salto automático a Acorde real ──────────────────
+test("49. Asus2 x0220x: copia directa a Acorde con cuerdas al aire y voicing real", async ({ page }) => {
+  await goToChords(page);
+  await expect(page.getByTestId("toggle-allow-open-strings")).not.toBeChecked();
+  await enableDetectMode(page);
+
+  const patternInput = page.getByTestId("chord-detect-pattern-input");
+  await expect(patternInput).toBeVisible();
+  await patternInput.fill("x0220x");
+  await page.getByTestId("chord-detect-apply-btn").click();
+
+  const asus2Name = page.getByText(/Lectura detectada.*Asus2/);
+  await expect(asus2Name).toBeVisible({ timeout: 5000 });
+
+  const list = page.getByTestId("detected-chord-list");
+  const asus2Row = list.locator("div").filter({ hasText: /Asus2/ }).first();
+  const copyBtn = asus2Row.locator("[data-testid^='detected-copy-']").first();
+  await expect(copyBtn).toBeVisible({ timeout: 3000 });
+  await expect(copyBtn).toBeEnabled();
+  await copyBtn.click();
+
+  await page.getByTestId("chord-detect-toggle").uncheck();
+
+  const structureSelect = page.getByTestId("select-structure");
+  await expect(structureSelect).toHaveValue("chord");
+  await expect(page.getByTestId("toggle-allow-open-strings")).toBeChecked();
+
+  const voicingSelect = page.getByTestId("voicing-select");
+  await expect(voicingSelect).toBeVisible({ timeout: 3000 });
+
+  const options = await voicingSelect.locator("option").allTextContents();
+  const x0220xOption = options.find((text) => text.includes("x0220x"));
+  expect(x0220xOption, `Ninguna opción contiene x0220x tras la copia directa. Opciones: ${options.join(" | ")}`).toBeTruthy();
+  expect(x0220xOption, `x0220x debe aparecer como voicing real en Acorde. Opciones: ${options.join(" | ")}`).toContain("x0220x");
+  expect(x0220xOption, `x0220x debe conservar la distancia visible. Opciones: ${options.join(" | ")}`).toContain("(dist 1)");
+  expect(x0220xOption, `x0220x no debe aparecer como '(copiado)'. Opciones: ${options.join(" | ")}`).not.toContain("copiado");
+  expect(x0220xOption, `x0220x no debe llevar alias estructural. Opciones: ${options.join(" | ")}`).not.toContain("en Acorde");
+  expect(x0220xOption, `x0220x no debe llevar aviso largo. Opciones: ${options.join(" | ")}`).not.toContain("cuerdas al aire");
+  expect(
+    options.some((text) => text.includes("copiado") || text.includes("en Acorde") || text.includes("cuerdas al aire")),
+    `No debe haber alias informativos en el selector. Opciones: ${options.join(" | ")}`
+  ).toBe(false);
+
+  await expect(page.getByTestId("copy-resolution-hint")).toHaveCount(0);
+
+  const summaryText = await page.getByTestId("chord-controls-summary").getAttribute("data-content");
+  expect(summaryText, `El resumen del acorde debe incluir el patrón al final. Valor: ${summaryText}`).toContain("(x0220x)");
+
+  const selectedValue = await voicingSelect.evaluate((el) => el.value);
+  expect(selectedValue).toBe("x0220x");
+});
+
+// ── Test 50: Asus2 x0220x — voicing real cuando Acorde permite abiertas ─────
+test("50. Asus2 en Acorde con cuerdas al aire ON: x0220x aparece como voicing real", async ({ page }) => {
+  await goToChords(page);
+
+  await page.getByTestId("select-tone").selectOption("A");
+  await page.getByTestId("select-suspension").selectOption("sus2");
+  await page.getByTestId("select-structure").selectOption("chord");
+  await page.getByTestId("toggle-allow-open-strings").check();
+
+  const voicingSelect = page.getByTestId("voicing-select");
+  await expect(voicingSelect).toBeVisible({ timeout: 3000 });
+
+  const options = await voicingSelect.locator("option").allTextContents();
+  const x0220xOption = options.find((text) => text.includes("x0220x"));
+  expect(x0220xOption, `Ninguna opción contiene x0220x. Opciones: ${options.join(" | ")}`).toBeTruthy();
+  expect(x0220xOption, `x0220x debe aparecer como voicing real, sin sufijo de copia. Opciones: ${options.join(" | ")}`).not.toContain("copiado");
+  expect(x0220xOption, `x0220x debe aparecer como voicing real, sin alias estructural. Opciones: ${options.join(" | ")}`).not.toContain("en Acorde");
+  expect(x0220xOption, `x0220x debe aparecer como voicing real, sin aviso extra. Opciones: ${options.join(" | ")}`).not.toContain("cuerdas al aire");
+});
+
+// ── Test 52: Asus2 002200 — salto automático a Acorde real ─────────────────
+test("52. Asus2 002200: copia directa a Acorde real con cuerdas al aire", async ({ page }) => {
+  await goToChords(page);
+  await expect(page.getByTestId("toggle-allow-open-strings")).not.toBeChecked();
+  await enableDetectMode(page);
+
+  const patternInput = page.getByTestId("chord-detect-pattern-input");
+  await expect(patternInput).toBeVisible();
+  await patternInput.fill("002200");
+  await page.getByTestId("chord-detect-apply-btn").click();
+
+  const asus2Name = page.getByText(/Lectura detectada.*Asus2/);
+  await expect(asus2Name).toBeVisible({ timeout: 5000 });
+
+  const list = page.getByTestId("detected-chord-list");
+  const asus2Row = list.locator("div").filter({ hasText: /Asus2/ }).first();
+  const copyBtn = asus2Row.locator("[data-testid^='detected-copy-']").first();
+  await expect(copyBtn).toBeVisible({ timeout: 3000 });
+  await expect(copyBtn).toBeEnabled();
+  await copyBtn.click();
+
+  await page.getByTestId("chord-detect-toggle").uncheck();
+
+  const structureSelect = page.getByTestId("select-structure");
+  await expect(structureSelect).toHaveValue("chord");
+  await expect(page.getByTestId("toggle-allow-open-strings")).toBeChecked();
+
+  const voicingSelect = page.getByTestId("voicing-select");
+  await expect(voicingSelect).toBeVisible({ timeout: 3000 });
+
+  const options = await voicingSelect.locator("option").allTextContents();
+  const voicingOption = options.find((text) => text.includes("002200"));
+  expect(voicingOption, `Ninguna opción contiene 002200 tras la copia directa. Opciones: ${options.join(" | ")}`).toBeTruthy();
+  expect(voicingOption, `002200 debe aparecer como voicing real en Acorde. Opciones: ${options.join(" | ")}`).toContain("002200");
+  expect(voicingOption, `002200 debe conservar la distancia visible. Opciones: ${options.join(" | ")}`).toContain("(dist 1)");
+  expect(voicingOption, `002200 no debe aparecer como '(copiado)'. Opciones: ${options.join(" | ")}`).not.toContain("copiado");
+  expect(voicingOption, `002200 no debe llevar alias estructural. Opciones: ${options.join(" | ")}`).not.toContain("en Acorde");
+  expect(voicingOption, `002200 no debe llevar aviso largo. Opciones: ${options.join(" | ")}`).not.toContain("cuerdas al aire");
+
+  await expect(page.getByTestId("copy-resolution-hint")).toHaveCount(0);
+
+  const summaryText = await page.getByTestId("chord-controls-summary").getAttribute("data-content");
+  expect(summaryText, `El resumen del acorde debe incluir el patrón al final. Valor: ${summaryText}`).toContain("(002200)");
+
+  const selectedValue = await voicingSelect.evaluate((el) => el.value);
+  expect(selectedValue).toBe("002200");
+});
+
+// ── Test 51: Investigar sin lectura y con patrón vacío muestra el sufijo ────
+test("51. Investigar en mástil: sin lectura detectada todavía muestra el patrón entre paréntesis", async ({ page }) => {
+  await goToChords(page);
+  await enableDetectMode(page);
+
+  const patternInput = page.getByTestId("chord-detect-pattern-input");
+  await patternInput.fill("xxxxxx");
+  await page.getByTestId("chord-detect-apply-btn").click();
+
+  await expect(page.getByText("Sin lectura detectada todavía (xxxxxx)", { exact: true })).toBeVisible({ timeout: 5000 });
 });

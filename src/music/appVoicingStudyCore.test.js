@@ -5,9 +5,11 @@ import {
   buildChordResolutionRoman,
   analyzeChordScaleCompatibility,
   actualInversionLabelFromVoicing,
+  buildVoicingFromFretsLH,
   buildChordEnginePlan,
   computeInversionSelectorOptions,
   buildChordHeaderSummary,
+  resolveCopiedVoicingAcrossStructures,
 } from "./appVoicingStudyCore.js";
 import { chordBassInterval, chordDisplayNameFromUI } from "./appMusicBasics.js";
 
@@ -822,6 +824,17 @@ describe("buildChordHeaderSummary — etiqueta funcional para acorde no-estánda
     const summary = buildChordHeaderSummary({ name: "Fmaj7", plan, voicing: null, positionForm: "closed" });
     expect(summary).toContain("1ª inversión");
   });
+
+  test("Asus2 con voicing x0220x: el sufijo del voicing queda al final del summary", () => {
+    const plan = buildChordEnginePlan({ rootPc: 9, quality: "maj", suspension: "sus2", structure: "triad",
+      inversion: "all", form: "open",
+      ext7: false, ext6: false, ext9: false, ext11: false, ext13: false, omit: "none",
+    });
+    const voicing = buildVoicingFromFretsLH({ fretsLH: [null, 0, 2, 2, 0, null], rootPc: 9, maxFret: 15 });
+    const summary = buildChordHeaderSummary({ name: "Asus2", plan, voicing, positionForm: "open" });
+    expect(summary).toContain("(x0220x)");
+    expect(summary.endsWith("(x0220x)")).toBe(true);
+  });
 });
 
 // ── buildChordEnginePlan — flag insufficientNotes ────────────────────────────
@@ -960,5 +973,147 @@ describe("chordBassInterval — posiciones 4 y 5 en acordes multiAdd", () => {
       inversion: "3", omit: "none",
       ext7: false, ext6: false, ext9: true, ext11: false, ext13: false,
     })).toBe(2);
+  });
+});
+
+describe("resolveCopiedVoicingAcrossStructures", () => {
+  test("Asus2 x0220x: desde Triada con cuerdas al aire activas resuelve el voicing real en Acorde", () => {
+    const manualVoicing = buildVoicingFromFretsLH({
+      fretsLH: [null, 0, 2, 2, 0, null],
+      rootPc: 9,
+      maxFret: 15,
+    });
+
+    const resolved = resolveCopiedVoicingAcrossStructures({
+      voicing: manualVoicing,
+      rootPc: 9,
+      quality: "maj",
+      suspension: "sus2",
+      structure: "triad",
+      ext7: false,
+      ext6: false,
+      ext9: false,
+      ext11: false,
+      ext13: false,
+      omit: "none",
+      form: "open",
+      allowOpenStrings: true,
+      maxFret: 15,
+      maxSpan: 4,
+    });
+
+    expect(resolved.structure).toBe("chord");
+    expect(resolved.voicing?.frets).toBe("x0220x");
+    expect(resolved.analysis.relIntervals).toEqual([0, 2, 7]);
+    expect(resolved.analysis.hasOpenStrings).toBe(true);
+    expect(resolved.analysis.soundingStringsCount).toBe(4);
+    expect(resolved.analysis.hasExtensions).toBe(false);
+    expect(resolved.compatibleWithCurrentFilters).toBe(false);
+    expect(resolved.matchesRequestedStructure).toBe(false);
+    expect(resolved.requiresStructureChange).toBe(true);
+    expect(resolved.requiresOpenStrings).toBe(false);
+  });
+
+  test("Asus2 x0220x: en Acorde con cuerdas al aire activas se resuelve como voicing normal", () => {
+    const manualVoicing = buildVoicingFromFretsLH({
+      fretsLH: [null, 0, 2, 2, 0, null],
+      rootPc: 9,
+      maxFret: 15,
+    });
+
+    const resolved = resolveCopiedVoicingAcrossStructures({
+      voicing: manualVoicing,
+      rootPc: 9,
+      quality: "maj",
+      suspension: "sus2",
+      structure: "chord",
+      ext7: false,
+      ext6: false,
+      ext9: false,
+      ext11: false,
+      ext13: false,
+      omit: "none",
+      form: "open",
+      allowOpenStrings: true,
+      maxFret: 15,
+      maxSpan: 4,
+    });
+
+    expect(resolved.structure).toBe("chord");
+    expect(resolved.voicing?.frets).toBe("x0220x");
+    expect(resolved.compatibleWithCurrentFilters).toBe(true);
+    expect(resolved.matchesRequestedStructure).toBe(true);
+    expect(resolved.requiresStructureChange).toBe(false);
+    expect(resolved.requiresOpenStrings).toBe(false);
+  });
+
+  test("Asus2 002200 y x0220x: el catálogo real resuelve ambos patrones como voicings de Acorde", () => {
+    const catalogVoicings = [{ frets: "002200" }, { frets: "x0220x" }];
+
+    const voicing002200 = buildVoicingFromFretsLH({
+      fretsLH: [0, 0, 2, 2, 0, 0],
+      rootPc: 9,
+      maxFret: 15,
+    });
+    const resolved002200 = resolveCopiedVoicingAcrossStructures({
+      voicing: voicing002200,
+      rootPc: 9,
+      quality: "maj",
+      suspension: "sus2",
+      structure: "triad",
+      ext7: false,
+      ext6: false,
+      ext9: false,
+      ext11: false,
+      ext13: false,
+      omit: "none",
+      form: "open",
+      allowOpenStrings: false,
+      maxFret: 15,
+      maxSpan: 4,
+      catalogVoicings,
+    });
+
+    expect(resolved002200.structure).toBe("chord");
+    expect(resolved002200.voicing?.frets).toBe("002200");
+    expect(resolved002200.analysis.hasOpenStrings).toBe(true);
+    expect(resolved002200.analysis.soundingStringsCount).toBe(6);
+    expect(resolved002200.compatibleWithCurrentFilters).toBe(false);
+    expect(resolved002200.matchesRequestedStructure).toBe(false);
+    expect(resolved002200.requiresStructureChange).toBe(true);
+    expect(resolved002200.requiresOpenStrings).toBe(true);
+
+    const voicingX0220x = buildVoicingFromFretsLH({
+      fretsLH: [null, 0, 2, 2, 0, null],
+      rootPc: 9,
+      maxFret: 15,
+    });
+    const resolvedX0220x = resolveCopiedVoicingAcrossStructures({
+      voicing: voicingX0220x,
+      rootPc: 9,
+      quality: "maj",
+      suspension: "sus2",
+      structure: "triad",
+      ext7: false,
+      ext6: false,
+      ext9: false,
+      ext11: false,
+      ext13: false,
+      omit: "none",
+      form: "open",
+      allowOpenStrings: false,
+      maxFret: 15,
+      maxSpan: 4,
+      catalogVoicings,
+    });
+
+    expect(resolvedX0220x.structure).toBe("chord");
+    expect(resolvedX0220x.voicing?.frets).toBe("x0220x");
+    expect(resolvedX0220x.analysis.hasOpenStrings).toBe(true);
+    expect(resolvedX0220x.analysis.soundingStringsCount).toBe(4);
+    expect(resolvedX0220x.compatibleWithCurrentFilters).toBe(false);
+    expect(resolvedX0220x.matchesRequestedStructure).toBe(false);
+    expect(resolvedX0220x.requiresStructureChange).toBe(true);
+    expect(resolvedX0220x.requiresOpenStrings).toBe(true);
   });
 });

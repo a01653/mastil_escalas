@@ -188,7 +188,6 @@ const {
   buildChordUiRestrictions,
   buildChordEnginePlan,
   chordEngineLayerLabel,
-  chordEngineGeneratorLabel,
   studyVoicingFormLabel,
   explainStudyRules,
   buildChordNamingExplanation,
@@ -204,6 +203,7 @@ const {
   buildStudyAnchorId,
   buildStudySubstitutionGuide,
   classifyManualVoicingShape,
+  resolveCopiedVoicingAcrossStructures,
 } = AppVoicingStudyCore;
 
 import * as AppPatternRouteStaffCore from "./music/appPatternRouteStaffCore.jsx";
@@ -358,7 +358,26 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "4.84";
+const APP_VERSION = "4.91";
+
+function buildChordCopyFingerprint({
+  rootPc,
+  quality,
+  suspension,
+  structure,
+  ext7,
+  ext6,
+  ext9,
+  ext11,
+  ext13,
+  omit,
+  inversion,
+  form,
+  maxDist,
+  allowOpenStrings,
+}) {
+  return `${rootPc}|${quality}|${suspension}|${structure}|${ext7 ? 1 : 0}|${ext6 ? 1 : 0}|${ext9 ? 1 : 0}|${ext11 ? 1 : 0}|${ext13 ? 1 : 0}|${omit}|${inversion}|${form}|${maxDist}|${allowOpenStrings ? 1 : 0}`;
+}
 
 function chordDbUrl(keyName, suffix) {
   // Ruta RELATIVA dentro de /public (sin base) => chords-db/...
@@ -519,7 +538,7 @@ export default function FretboardScalesPage() {
   const [chordExt13, setChordExt13] = useState(false);
   const [chordOmit, setChordOmit] = useState("none");
   const [chordCopyNotice, setChordCopyNotice] = useState(null);
-  const [chordCopiedEntry, setChordCopiedEntry] = useState(null); // { voicing, fingerprint } — voicing físico copiado desde Investigar
+  const [chordCopiedEntry, setChordCopiedEntry] = useState(null); // { voicing, fingerprint } — fallback físico copiado cuando no existe en ningún generador compatible
   // --------------------------------------------------------------------------
   // ESTADO: DETECCIÓN DE ACORDES EN MÁSTIL
   // --------------------------------------------------------------------------
@@ -546,6 +565,11 @@ export default function FretboardScalesPage() {
   const [chordDetectPlayingKeys, setChordDetectPlayingKeys] = useState([]);
   const [chordDetectClearMinHeight, setChordDetectClearMinHeight] = useState(null);
   const chordDetectPlaybackTimersRef = useRef([]);
+  const layoutModeRef = useRef({
+    mobile: false,
+    compact: false,
+    initialized: false,
+  });
 
   useEffect(() => {
     if (typeof window === "undefined" || typeof window.matchMedia !== "function") return undefined;
@@ -629,12 +653,28 @@ export default function FretboardScalesPage() {
       resetMobileSectionSlide();
       return;
     }
-    const firstVisible = MOBILE_SECTION_OPTIONS.find((option) => showBoards[option.value])?.value || "chords";
+    const firstVisibleRaw = MOBILE_SECTION_OPTIONS.find((option) => showBoards[option.value])?.value || "chords";
+    const firstVisible = firstVisibleRaw === "configuration" ? "chords" : firstVisibleRaw;
     setMobileSectionTransition(null);
     setMobileSectionMotion("none");
     resetMobileSectionSlide();
     setMobileActiveSection(firstVisible);
   }, [isMobileLayout, showBoards]);
+
+  useEffect(() => {
+    const prevLayout = layoutModeRef.current;
+    const enteringMobileOrCompact =
+      !prevLayout.initialized ||
+      (!prevLayout.mobile && isMobileLayout) ||
+      (!prevLayout.compact && isCompactLayout);
+    layoutModeRef.current = {
+      mobile: isMobileLayout,
+      compact: isCompactLayout,
+      initialized: true,
+    };
+    if (!enteringMobileOrCompact || !showBoards.configuration) return;
+    setShowBoards((prev) => normalizeBoardVisibility({ ...prev, chords: true, configuration: false }, "chords"));
+  }, [isMobileLayout, isCompactLayout, showBoards.configuration]);
 
   useEffect(() => {
     if (chordDetectMode && mobileChordEditorOpen) {
@@ -756,6 +796,7 @@ export default function FretboardScalesPage() {
   const lastChordVoicingRef = useRef(null);
   const skipChordVoicingRefSyncRef = useRef(false);
   const pendingChordRestoreRef = useRef({ active: false, frets: null });
+  const pendingChordCopyResolutionRef = useRef(null);
   const lastNearVoicingsRef = useRef([null, null, null, null]);
   const skipNearVoicingRefSyncRef = useRef([false, false, false, false]);
   const pendingNearRestoreRef = useRef([
@@ -2074,6 +2115,71 @@ export default function FretboardScalesPage() {
     };
   }, [showBoards.chords, chordRootPc, chordSuffix, chordStructure, chordExt7, chordExt6, chordExt9, chordExt11, chordExt13]);
 
+  const ensureChordDbCatalogVoicings = useCallback(async ({
+    rootPc,
+    quality,
+    suspension,
+    ext7,
+    ext6,
+    ext9,
+    ext11,
+    ext13,
+    omit,
+    bassPc = null,
+    preferredFrets = null,
+  }) => {
+    const suffixBase = chordSuffixFromUI({
+      quality,
+      suspension: suspension || "none",
+      structure: "chord",
+      ext7: !!ext7,
+      ext6: !!ext6,
+      ext9: !!ext9,
+      ext11: !!ext11,
+      ext13: !!ext13,
+      omit: omit || "none",
+    });
+    if (!suffixBase) return [];
+
+    const bassSuffix = bassPc == null ? null : `${suffixBase}_${pcToName(bassPc, chordPreferSharps).toLowerCase()}`;
+    const suffixes = bassSuffix && bassSuffix !== suffixBase ? [suffixBase, bassSuffix] : [suffixBase];
+
+    const keyName = chordDbKeyNameFromPc(rootPc);
+    for (const suffix of suffixes) {
+      const cacheKey = `${keyName}/${suffix}`;
+      const cached = chordDbCache[cacheKey];
+      if (cached?.positions?.length) return cached.positions;
+
+      const cachedErr = chordDbCacheErr[cacheKey];
+      if (cachedErr) continue;
+
+      const urlRel = chordDbUrl(keyName, suffix);
+      const urlLocal = publicRelToLocal(urlRel);
+      const urlFallbackAbs = `${PAGES_BASE}${urlRel}`;
+
+      try {
+        let res = await fetch(urlLocal, { cache: "no-store" });
+        if (!res.ok) {
+          res = await fetch(urlFallbackAbs, { cache: "no-store" });
+        }
+        if (!res.ok) continue;
+
+        const json = await res.json();
+        setChordDbCache((prev) => ({ ...prev, [cacheKey]: json }));
+        const positions = json?.positions?.length ? json.positions : [];
+        if (!preferredFrets) return positions;
+        const wanted = String(preferredFrets || "").trim().toLowerCase();
+        if (!wanted) return positions;
+        if (positions.some((pos) => String(pos?.frets || "").trim().toLowerCase() === wanted)) {
+          return positions;
+        }
+      } catch {
+        continue;
+      }
+    }
+    return [];
+  }, [chordDbCache, chordDbCacheErr, chordPreferSharps, setChordDbCache]);
+
   // Si se cierra el panel, limpia el último URL mostrado
   useEffect(() => {
     if (!showBoards.chords) setChordDbLastUrl(null);
@@ -2383,17 +2489,31 @@ export default function FretboardScalesPage() {
     return [];
   }, [chordEnginePlan, chordDb, chordMaxDist, chordAllowOpenStrings, maxFret]);
 
-  // Amplía chordVoicings con el voicing copiado desde Investigar si no está ya en la lista
-  // y el fingerprint de parámetros coincide con el estado actual del constructor.
-  // El fingerprint cubre todos los parámetros que afectan al generador (incluyendo inversión,
-  // forma y distancia) para que cualquier cambio manual invalide la inyección "(copiado)".
+  const currentChordCopyFingerprint = useMemo(() => buildChordCopyFingerprint({
+    rootPc: chordRootPc,
+    quality: chordQuality,
+    suspension: chordSuspension,
+    structure: chordStructure,
+    ext7: chordExt7,
+    ext6: chordExt6,
+    ext9: chordExt9,
+    ext11: chordExt11,
+    ext13: chordExt13,
+    omit: chordOmit,
+    inversion: chordInversion,
+    form: chordForm,
+    maxDist: chordMaxDist,
+    allowOpenStrings: chordAllowOpenStrings,
+  }), [chordRootPc, chordQuality, chordSuspension, chordStructure, chordExt7, chordExt6, chordExt9, chordExt11, chordExt13, chordOmit, chordInversion, chordForm, chordMaxDist, chordAllowOpenStrings]);
+
+  // Amplía chordVoicings solo con un fallback "(copiado)" cuando el patrón físico no existe
+  // en ningún generador compatible y el fingerprint coincide con el estado actual.
   const chordVoicingsDisplay = useMemo(() => {
     if (!chordCopiedEntry?.voicing?.frets) return chordVoicings;
-    const fp = `${chordRootPc}|${chordQuality}|${chordSuspension}|${chordStructure}|${chordExt7?1:0}|${chordExt6?1:0}|${chordExt9?1:0}|${chordExt11?1:0}|${chordExt13?1:0}|${chordOmit}|${chordInversion}|${chordForm}|${chordMaxDist}`;
-    if (chordCopiedEntry.fingerprint !== fp) return chordVoicings;
+    if (chordCopiedEntry.fingerprint !== currentChordCopyFingerprint) return chordVoicings;
     if (chordVoicings.some((v) => v.frets === chordCopiedEntry.voicing.frets)) return chordVoicings;
     return [{ ...chordCopiedEntry.voicing, isCopied: true }, ...chordVoicings];
-  }, [chordVoicings, chordCopiedEntry, chordRootPc, chordQuality, chordSuspension, chordStructure, chordExt7, chordExt6, chordExt9, chordExt11, chordExt13, chordOmit, chordInversion, chordForm, chordMaxDist]);
+  }, [chordVoicings, chordCopiedEntry, currentChordCopyFingerprint]);
 
   const chordVoicingsSig = useMemo(() => chordVoicingsDisplay.map((v) => v.frets).join("|"), [chordVoicingsDisplay]);
 
@@ -2441,6 +2561,83 @@ export default function FretboardScalesPage() {
     }
     if (nextFrets !== chordSelectedFrets) setChordSelectedFrets(nextFrets);
   }, [storageHydrated, chordVoicingsDisplay, chordVoicingsSig, chordVoicingIdx, chordSelectedFrets]);
+
+  useEffect(() => {
+    if (!storageHydrated) return;
+    const pending = pendingChordCopyResolutionRef.current;
+    if (!pending?.frets) return;
+    if (chordSelectedFrets !== pending.frets) return;
+
+    const needsStructure = !!pending.structure && chordStructure !== pending.structure;
+    const needsOpenStrings = !!pending.allowOpenStrings && !chordAllowOpenStrings;
+    if (!needsStructure && !needsOpenStrings) {
+      pendingChordCopyResolutionRef.current = null;
+      return;
+    }
+
+    if (needsStructure) setChordStructure(pending.structure);
+    if (needsOpenStrings) setChordAllowOpenStrings(true);
+  }, [storageHydrated, chordSelectedFrets, chordStructure, chordAllowOpenStrings]);
+
+  useEffect(() => {
+    if (!storageHydrated) return;
+    if (!chordCopyNotice?.startsWith("Copiado en Acorde")) return;
+    if (!chordSelectedFrets) return;
+    if (chordStructure === "chord" && chordAllowOpenStrings) return;
+    const selectedVoicing = buildVoicingFromFretsLH({
+      fretsLH: parseChordDbFretsString(chordSelectedFrets),
+      rootPc: chordRootPc,
+      maxFret,
+    });
+    const selectedBassPc = selectedVoicing?.bassPc ?? chordBassPc;
+
+    let alive = true;
+    (async () => {
+      const catalogVoicings = await ensureChordDbCatalogVoicings({
+        rootPc: chordRootPc,
+        quality: chordQuality,
+        suspension: chordSuspension,
+        ext7: chordExt7,
+        ext6: chordExt6,
+        ext9: chordExt9,
+        ext11: chordExt11,
+        ext13: chordExt13,
+        omit: chordOmit,
+        bassPc: selectedBassPc,
+        preferredFrets: chordSelectedFrets,
+      });
+      if (!alive || !catalogVoicings.length) return;
+
+      const selected = String(chordSelectedFrets || "").trim().toLowerCase();
+      const existsInChordCatalog = catalogVoicings.some((candidate) => String(candidate?.frets || "").trim().toLowerCase() === selected);
+      if (!existsInChordCatalog) return;
+
+      if (chordStructure !== "chord") setChordStructure("chord");
+      if (!chordAllowOpenStrings) setChordAllowOpenStrings(true);
+    })();
+
+    return () => {
+      alive = false;
+    };
+  }, [
+    storageHydrated,
+    chordCopyNotice,
+    chordSelectedFrets,
+    chordStructure,
+    chordAllowOpenStrings,
+    chordRootPc,
+    chordQuality,
+    chordSuspension,
+    chordExt7,
+    chordExt6,
+    chordExt9,
+    chordExt11,
+    chordExt13,
+    chordOmit,
+    chordBassPc,
+    maxFret,
+    ensureChordDbCatalogVoicings,
+  ]);
 
   useEffect(() => {
     if (!storageHydrated) return;
@@ -2803,7 +3000,37 @@ export default function FretboardScalesPage() {
     setChordDetectPrioritizeContextTouched(true);
   }
 
-  function applyDetectedCandidate(candidate) {
+  function applyChordStructureSelection(value) {
+    setChordStructure(value);
+    if (value === "triad") {
+      setChordExt6(false);
+      setChordExt7(false);
+      setChordExt9(false);
+      setChordExt11(false);
+      setChordExt13(false);
+    }
+    if (value === "tetrad") {
+      const maxExtSlots = 1 + (chordOmit !== "none" ? 1 : 0);
+      let slotsUsed = chordExt7 ? 1 : 0;
+      const addCleanup = [
+        { active: chordExt6, set: setChordExt6 },
+        { active: chordExt9, set: setChordExt9 },
+        { active: chordExt11, set: setChordExt11 },
+        { active: chordExt13, set: setChordExt13 },
+      ];
+      for (const { active, set } of addCleanup) {
+        if (!active) continue;
+        if (slotsUsed >= maxExtSlots) { set(false); } else { slotsUsed++; }
+      }
+    }
+    if (value === "triad" || value === "tetrad") {
+      setChordInversion("all");
+      setChordPositionForm("open");
+      setChordForm("open");
+    }
+  }
+
+  async function applyDetectedCandidate(candidate) {
     if (!candidate) return;
     setChordDetectCandidateId(candidate.id);
     if (!candidate.uiPatch) return;
@@ -2812,6 +3039,8 @@ export default function FretboardScalesPage() {
     const p = candidate.uiPatch;
     const detectedInversion = deriveDetectedCandidateCopyInversion(candidate);
     const manualCopiedVoicing = buildManualSelectionVoicing(chordDetectSelectedNotes, p.rootPc, maxFret);
+    const copiedHasOpenStrings = manualCopiedVoicing ? voicingHasOpenStrings(manualCopiedVoicing) : false;
+    const nextAllowOpenStrings = chordAllowOpenStrings || copiedHasOpenStrings;
     const wantedFrets = manualCopiedVoicing?.frets || null;
     const requiredMaxDist = manualCopiedVoicing?.reach ? clampChordMaxDistForReach(manualCopiedVoicing.reach) : null;
 
@@ -2830,17 +3059,87 @@ export default function FretboardScalesPage() {
     }
 
     const detectedOmit = detectOmitFromCandidatePure(candidate);
+    const fpInversion = manualCopiedVoicing ? "all" : (detectedInversion || p.inversion || "root");
+    const fpForm = p.form || p.positionForm || "open";
+    const fpMaxDist = requiredMaxDist != null ? requiredMaxDist : chordMaxDist;
+    let catalogVoicings = chordDb?.positions || [];
+    if (manualCopiedVoicing?.frets) {
+      const chordCatalogVoicings = await ensureChordDbCatalogVoicings({
+        rootPc: p.rootPc,
+        quality: p.quality,
+        suspension: p.suspension || "none",
+        ext7: !!p.ext7,
+        ext6: !!p.ext6,
+        ext9: !!p.ext9,
+        ext11: !!p.ext11,
+        ext13: !!p.ext13,
+        omit: detectedOmit,
+        bassPc: manualCopiedVoicing?.bassPc ?? null,
+        preferredFrets: wantedFrets,
+      });
+      if (chordCatalogVoicings.length) {
+        catalogVoicings = chordCatalogVoicings;
+      }
+    }
+    const exactChordCatalogMatch = !!manualCopiedVoicing?.frets
+      && catalogVoicings.some((candidate) => String(candidate?.frets || "").trim().toLowerCase() === String(wantedFrets || "").trim().toLowerCase());
+    const resolvedCopy = manualCopiedVoicing?.frets
+      ? resolveCopiedVoicingAcrossStructures({
+          voicing: manualCopiedVoicing,
+          rootPc: p.rootPc,
+          quality: p.quality,
+          suspension: p.suspension || "none",
+          structure: p.structure,
+          ext7: !!p.ext7,
+          ext6: !!p.ext6,
+          ext9: !!p.ext9,
+          ext11: !!p.ext11,
+          ext13: !!p.ext13,
+          omit: detectedOmit,
+          form: fpForm,
+          allowOpenStrings: nextAllowOpenStrings,
+          maxFret,
+          maxSpan: fpMaxDist,
+          catalogVoicings,
+        })
+      : null;
+    const denseOpenStringFallback = !exactChordCatalogMatch
+      && !resolvedCopy?.structure
+      && !!manualCopiedVoicing?.frets
+      && copiedHasOpenStrings
+      && (manualCopiedVoicing.notes?.length ?? 0) >= 5;
+    const effectiveResolvedCopy = exactChordCatalogMatch
+      ? {
+          structure: "chord",
+          voicing: manualCopiedVoicing,
+          compatibleWithCurrentFilters: false,
+          matchesRequestedStructure: false,
+          requiresStructureChange: true,
+          requiresOpenStrings: true,
+        }
+      : (resolvedCopy || (denseOpenStringFallback
+      ? {
+          structure: "chord",
+          voicing: manualCopiedVoicing,
+          compatibleWithCurrentFilters: false,
+          matchesRequestedStructure: false,
+          requiresStructureChange: true,
+          requiresOpenStrings: true,
+        }
+      : null));
+    const targetStructure = effectiveResolvedCopy?.structure || p.structure;
     setChordFamily("tertian");
     setChordRootPc(p.rootPc);
     setChordSpellPreferSharps(!!p.spellPreferSharps);
     setChordQuality(p.quality);
     setChordSuspension(p.suspension || "none");
-    setChordStructure(p.structure);
+    applyChordStructureSelection(targetStructure);
+    setChordAllowOpenStrings(nextAllowOpenStrings);
     // Si hay patrón físico, usar "all" para que el generador cubra todas las inversiones
-    // y encuentre el patrón copiado en la lista normal sin necesitar inyección "(copiado)".
-    setChordInversion(manualCopiedVoicing ? "all" : (detectedInversion || p.inversion || "root"));
+    // y seleccione el patrón real cuando exista en alguna estructura compatible.
+    setChordInversion(fpInversion);
     setChordPositionForm(p.positionForm || "open");
-    setChordForm(p.form || p.positionForm || "open");
+    setChordForm(fpForm);
     setChordExt7(!!p.ext7);
     setChordExt6(!!p.ext6);
     setChordExt9(!!p.ext9);
@@ -2850,20 +3149,43 @@ export default function FretboardScalesPage() {
     if (requiredMaxDist != null && requiredMaxDist !== chordMaxDist) {
       setChordMaxDist(requiredMaxDist);
     }
-    // Inyectar el voicing físico copiado si no está en la lista generada.
-    // El fingerprint incluye todos los parámetros que afectan al generador de voicings:
-    // cambiar cualquiera de ellos invalida la inyección y evita que "(copiado)" reaparezca.
+    let restoreFrets = wantedFrets;
+    // Si no existe ninguna coincidencia real en estructuras compatibles, reservar el
+    // fallback "(copiado)" como último recurso dentro de la estructura final.
     if (manualCopiedVoicing?.frets) {
-      const fpInversion = "all";
-      const fpForm = p.form || p.positionForm || "open";
-      const fpMaxDist = requiredMaxDist != null ? requiredMaxDist : chordMaxDist;
-      const fp = `${p.rootPc}|${p.quality}|${p.suspension||"none"}|${p.structure}|${p.ext7?1:0}|${p.ext6?1:0}|${p.ext9?1:0}|${p.ext11?1:0}|${p.ext13?1:0}|${detectedOmit}|${fpInversion}|${fpForm}|${fpMaxDist}`;
-      setChordCopiedEntry({ voicing: manualCopiedVoicing, fingerprint: fp });
+      const fp = buildChordCopyFingerprint({
+        rootPc: p.rootPc,
+        quality: p.quality,
+        suspension: p.suspension || "none",
+        structure: targetStructure,
+        ext7: !!p.ext7,
+        ext6: !!p.ext6,
+        ext9: !!p.ext9,
+        ext11: !!p.ext11,
+        ext13: !!p.ext13,
+        omit: detectedOmit,
+        inversion: fpInversion,
+        form: fpForm,
+        maxDist: fpMaxDist,
+        allowOpenStrings: nextAllowOpenStrings,
+      });
+      const fallbackCopiedEntry = !effectiveResolvedCopy?.structure
+        ? { voicing: manualCopiedVoicing, fingerprint: fp }
+        : null;
+      setChordCopiedEntry(fallbackCopiedEntry);
     } else {
       setChordCopiedEntry(null);
+      restoreFrets = null;
     }
-    pendingChordRestoreRef.current = { active: true, frets: wantedFrets };
-    setChordSelectedFrets(wantedFrets);
+    pendingChordRestoreRef.current = { active: true, frets: restoreFrets };
+    pendingChordCopyResolutionRef.current = manualCopiedVoicing?.frets
+      ? {
+          frets: restoreFrets,
+          structure: targetStructure,
+          allowOpenStrings: nextAllowOpenStrings,
+        }
+      : null;
+    setChordSelectedFrets(restoreFrets);
     setChordVoicingIdx(0);
 
     const chordName = formatChordNamePure(candidate);
@@ -2929,6 +3251,15 @@ export default function FretboardScalesPage() {
     },
     [chordDetectSelectedNotes, chordDetectSelectedCandidate, chordRootPc, maxFret]
   );
+
+  const chordDetectPhysicalPatternText = useMemo(() => {
+    const manualVoicing = chordDetectSelectedNotes.length
+      ? buildManualSelectionVoicing(chordDetectSelectedNotes, chordDetectSelectedCandidate?.rootPc ?? chordRootPc, maxFret)
+      : null;
+    if (manualVoicing?.frets) return manualVoicing.frets;
+    const typedPattern = String(voicingInputText || "").trim().toLowerCase();
+    return typedPattern.length === 6 ? typedPattern : "";
+  }, [chordDetectSelectedNotes, chordDetectSelectedCandidate, chordRootPc, maxFret, voicingInputText]);
 
   const _chordDetectSelectedCandidateNotesText = useMemo(() => {
     if (!chordDetectSelectedCandidate) return "";
@@ -5972,6 +6303,7 @@ function ChordCircle({ role, isBass, displayLabel, titleText, fret = 1, compactO
         <span>Permitir cuerdas al aire</span>
         <input
           type="checkbox"
+          data-testid="toggle-allow-open-strings"
           checked={chordAllowOpenStrings}
           onChange={(e) => {
             setChordAllowOpenStrings(e.target.checked);
@@ -6436,6 +6768,7 @@ function ChordFretboard({
             const rawNotes = Array.isArray(cand.visibleNotes) ? Array.from(new Set(cand.visibleNotes.filter(Boolean))) : [];
             notesPart = rawNotes.join(" - ");
           }
+          const physicalPatternSuffix = chordDetectPhysicalPatternText ? ` (${chordDetectPhysicalPatternText})` : "";
           return (
             <div className="mb-2 flex min-h-[44px] flex-wrap items-center gap-x-1">
               {chordPart ? (
@@ -6444,9 +6777,12 @@ function ChordFretboard({
                   <span className="text-base font-semibold text-sky-700">{chordPart}</span>
                   {notesPart ? <span className="text-base text-slate-400">·</span> : null}
                   {notesPart ? <span className="text-base font-semibold text-slate-600">{notesPart}</span> : null}
+                  {physicalPatternSuffix ? <span className="text-base font-semibold text-slate-600">{physicalPatternSuffix}</span> : null}
                 </>
               ) : (
-                <span className="text-base text-slate-400">Sin lectura detectada todavía</span>
+                <span className="text-base text-slate-400">
+                  Sin lectura detectada todavía{physicalPatternSuffix}
+                </span>
               )}
             </div>
           );
@@ -8343,7 +8679,6 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
       }
     : showBoards;
 
-  const controlsPanelClass = "";
   const selectedQuickPresetIndex = Math.max(0, Math.min(QUICK_PRESET_COUNT - 1, parseInt(selectedQuickPresetSlot, 10) || 0));
   const selectedQuickPreset = quickPresets[selectedQuickPresetIndex] || null;
   const tonalContextSummary = `${pcToName(rootPc, preferSharps)} ${scaleName} · armonización ${harmonyMode === "functional_minor" ? "funcional menor" : "diatónica"}`;
@@ -8553,6 +8888,7 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
 
   const mobileChordSummaryFullText = chordControlsSummary();
   const mobileChordSummaryCompactText = mobileChordSummaryFullText.replace(/\bCuatriada\b/g, "Cuatri");
+  const hideDesktopTonalContextOnConfiguration = !isMobileLayout && !isCompactLayout && effectiveBoards.configuration;
 
   useEffect(() => {
     if (!isMobileLayout) {
@@ -10548,6 +10884,7 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
                         </select>
                         <select
                           className={chordAutoSelectClass}
+                          data-testid="select-suspension"
                           style={isMobileLayout ? undefined : { width: chordSuspensionSelectWidth }}
                           value={chordSuspension}
                           onChange={(e) => {
@@ -10571,36 +10908,7 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
                         className={chordSelectClass + " mt-1"}
                         data-testid="select-structure"
                         value={chordStructure}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setChordStructure(val);
-                          if (val === "triad") {
-                            setChordExt6(false);
-                            setChordExt7(false);
-                            setChordExt9(false);
-                            setChordExt11(false);
-                            setChordExt13(false);
-                          }
-                          if (val === "tetrad") {
-                            const maxExtSlots = 1 + (chordOmit !== "none" ? 1 : 0);
-                            let slotsUsed = chordExt7 ? 1 : 0;
-                            const addCleanup = [
-                              { active: chordExt6, set: setChordExt6 },
-                              { active: chordExt9, set: setChordExt9 },
-                              { active: chordExt11, set: setChordExt11 },
-                              { active: chordExt13, set: setChordExt13 },
-                            ];
-                            for (const { active, set } of addCleanup) {
-                              if (!active) continue;
-                              if (slotsUsed >= maxExtSlots) { set(false); } else { slotsUsed++; }
-                            }
-                          }
-                          if (val === "triad" || val === "tetrad") {
-                            setChordInversion("all");
-                            setChordPositionForm("open");
-                            setChordForm("open");
-                          }
-                        }}
+                        onChange={(e) => applyChordStructureSelection(e.target.value)}
                       >
                         {CHORD_STRUCTURES.map((s) => (
                           <option key={s.value} value={s.value}>
@@ -11066,7 +11374,7 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
               <ToggleButton active={effectiveBoards.standards} onClick={() => selectBoardView("standards")} title="Muestra la sección de standards de jazz" testId="nav-standards">
                 <NavIconLabel icon={BookOpen} label="Standards" />
               </ToggleButton>
-              <ToggleButton active={effectiveBoards.configuration} onClick={() => selectBoardView("configuration")} title="Muestra u oculta la configuración general">
+              <ToggleButton active={effectiveBoards.configuration} onClick={() => selectBoardView("configuration")} title="Muestra u oculta la configuración general" testId="nav-configuration">
                 <NavIconLabel icon={Settings} label="Configuración" />
               </ToggleButton>
               <button type="button" className={UI_BTN_SM + " inline-flex w-auto items-center gap-1.5 px-3"} onClick={() => setManualOpen(true)}>
@@ -11097,7 +11405,7 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
         <div className="space-y-4">
           <div className="space-y-4">
             <div className="space-y-4">
-              {!isMobileLayout ? renderTonalContextPanel() : null}
+              {!isMobileLayout && !hideDesktopTonalContextOnConfiguration ? renderTonalContextPanel() : null}
             </div>
 
             {/* MÁSTILES */}

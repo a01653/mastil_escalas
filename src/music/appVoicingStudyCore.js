@@ -9,7 +9,9 @@ const mod12 = (...args) => AppMusicBasics.mod12(...args);
 const pcToName = (...args) => AppMusicBasics.pcToName(...args);
 const pitchAt = (...args) => AppMusicBasics.pitchAt(...args);
 const intervalToDegreeToken = (...args) => AppMusicBasics.intervalToDegreeToken(...args);
+const intervalToChordToken = (...args) => AppMusicBasics.intervalToChordToken(...args);
 const intervalToSimpleChordDegreeToken = (...args) => AppMusicBasics.intervalToSimpleChordDegreeToken(...args);
+const voicingHasOpenStrings = (...args) => AppMusicBasics.voicingHasOpenStrings(...args);
 const chordDisplayNameFromUI = (...args) => AppMusicBasics.chordDisplayNameFromUI(...args);
 const chordDisplaySuffixOnly = (...args) => AppMusicBasics.chordDisplaySuffixOnly(...args);
 const buildHarmonyDegreeChord = (...args) => AppMusicBasics.buildHarmonyDegreeChord(...args);
@@ -677,7 +679,9 @@ export function buildChordHeaderSummary({ name, plan, voicing, positionForm }) {
     }
   }
   parts.push(invLabel);
-  return parts.filter(Boolean).join(" - ");
+  const summary = parts.filter(Boolean).join(" - ");
+  if (voicing?.frets) return `${summary} (${voicing.frets})`;
+  return summary;
 }
 
 export function bassIntervalsForSelection(plan) {
@@ -1022,6 +1026,366 @@ export function buildChordEnginePlan({
     generator,
     insufficientNotes,
     ui,
+  };
+}
+
+function finalizeSearchVoicingsForPlan({ plan, voicings, maxFret, maxSpan, allowOpenStrings = false }) {
+  const base = dedupeAndSortVoicings(voicings);
+  if (!allowOpenStrings) return base.filter((voicing) => !voicingHasOpenStrings(voicing));
+  const allowedIntervals = new Set((plan.intervals || []).map(mod12));
+  const requiredIntervals = new Set((plan.intervals || []).map(mod12));
+  const selectedBassIntervals = bassIntervalsForSelection(plan);
+
+  if (plan.structure === "chord") {
+    return augmentVoicingsWithChordToneDuplicatesInWindow({
+      voicings: base,
+      rootPc: plan.rootPc,
+      allowedIntervals,
+      requiredIntervals,
+      allowedBassIntervals: selectedBassIntervals,
+      nearFrom: 0,
+      nearTo: maxFret,
+      maxFret,
+      maxSpan,
+    });
+  }
+
+  const exactNoteCount = allowedIntervals.size;
+  if (exactNoteCount < 3 || exactNoteCount > 4) return base;
+
+  return augmentExactVoicingsWithOpenSubstitutions({
+    voicings: base,
+    rootPc: plan.rootPc,
+    allowedIntervals,
+    requiredIntervals,
+    allowedBassIntervals: selectedBassIntervals,
+    nearFrom: 0,
+    nearTo: maxFret,
+    maxFret,
+    maxSpan,
+    exactNoteCount,
+  });
+}
+
+function generateSearchVoicingsForPlan({ plan, maxFret, maxSpan, allowOpenStrings = false }) {
+  if (!plan || plan.generator === "none") return [];
+
+  const inversionChoices = concreteInversionsForSelection(plan.inversion, plan.ui?.allowThirdInversion);
+  const selectedBassIntervals = bassIntervalsForSelection(plan);
+  const rootCandidates = symmetricRootCandidatesForPlan(plan);
+
+  if (plan.generator === "triad") {
+    const tri = dedupeAndSortVoicings(rootCandidates.flatMap((rootCandidate) =>
+      inversionChoices.flatMap((inv) =>
+        filterVoicingsByForm(generateTriadVoicings({
+          rootPc: rootCandidate,
+          thirdOffset: plan.thirdOffset,
+          fifthOffset: plan.fifthOffset,
+          inversion: inv,
+          maxFret,
+          maxSpan,
+        }), plan.form).map((v) => normalizeGeneratedVoicingForDisplay(v, plan.rootPc, rootCandidate))
+      )
+    ));
+    return finalizeSearchVoicingsForPlan({ plan, voicings: tri, maxFret, maxSpan, allowOpenStrings }).slice(0, 60);
+  }
+
+  if (plan.generator === "drop") {
+    if (plan.topVoiceOffset == null) return [];
+    const tet = dedupeAndSortVoicings(rootCandidates.flatMap((rootCandidate) =>
+      inversionChoices.flatMap((inv) =>
+        generateDropTetradVoicings({
+          rootPc: rootCandidate,
+          thirdOffset: plan.thirdOffset,
+          fifthOffset: plan.fifthOffset,
+          seventhOffset: plan.topVoiceOffset,
+          form: plan.form,
+          inversion: inv,
+          maxFret,
+          maxSpan,
+        }).map((v) => normalizeGeneratedVoicingForDisplay(v, plan.rootPc, rootCandidate))
+      )
+    ));
+    return finalizeSearchVoicingsForPlan({ plan, voicings: tet, maxFret, maxSpan, allowOpenStrings }).slice(0, 60);
+  }
+
+  if (plan.generator === "tetrad") {
+    const tet = plan.form === "open"
+      ? buildOpenSupersetTetradVoicings({
+          rootCandidates,
+          inversionChoices,
+          plan,
+          maxFret,
+          maxSpan,
+        })
+      : (() => {
+          const topVoiceOffset = plan.topVoiceOffset;
+          if (topVoiceOffset == null) return [];
+          return dedupeAndSortVoicings(rootCandidates.flatMap((rootCandidate) =>
+            inversionChoices.flatMap((inv) =>
+              filterVoicingsByForm(generateTetradVoicings({
+                rootPc: rootCandidate,
+                thirdOffset: plan.thirdOffset,
+                fifthOffset: plan.fifthOffset,
+                seventhOffset: topVoiceOffset,
+                inversion: inv,
+                maxFret,
+                maxSpan,
+              }), plan.form).map((v) => normalizeGeneratedVoicingForDisplay(v, plan.rootPc, rootCandidate))
+            )
+          ));
+        })();
+    return finalizeSearchVoicingsForPlan({ plan, voicings: tet, maxFret, maxSpan, allowOpenStrings }).slice(0, 60);
+  }
+
+  const exact = dedupeAndSortVoicings(selectedBassIntervals.flatMap((bassInterval) =>
+    generateExactIntervalChordVoicings({
+      rootPc: plan.rootPc,
+      intervals: plan.intervals,
+      bassInterval,
+      maxFret,
+      maxSpan,
+    }).map((v) => normalizeGeneratedVoicingForDisplay(v, plan.rootPc, plan.rootPc))
+  ));
+  return finalizeSearchVoicingsForPlan({ plan, voicings: exact, maxFret, maxSpan, allowOpenStrings }).slice(0, 60);
+}
+
+export function analyzeChordVoicingForCopy({
+  voicing,
+  rootPc,
+  quality,
+  suspension = "none",
+  ext6 = false,
+  ext9 = false,
+  ext11 = false,
+  ext13 = false,
+}) {
+  const notes = Array.isArray(voicing?.notes) ? voicing.notes : [];
+  const pitchClasses = Array.from(new Set(notes.map((n) => mod12(n.pc)))).sort((a, b) => a - b);
+  const relIntervals = Array.from(new Set(notes.map((n) => mod12(n.pc - rootPc)))).sort((a, b) => a - b);
+  const hasOpenStrings = notes.some((note) => note.fret === 0);
+  const degreeLabels = relIntervals.map((interval) => intervalToChordToken(interval, {
+    ext6,
+    ext9: ext9 && suspension !== "sus2",
+    ext11: ext11 && suspension !== "sus4",
+    ext13,
+  }));
+  const tensionIntervals = [];
+  if (ext9 && suspension !== "sus2" && relIntervals.includes(2)) tensionIntervals.push(2);
+  if (ext11 && suspension !== "sus4" && relIntervals.includes(5)) tensionIntervals.push(5);
+  if ((ext6 || ext13) && relIntervals.includes(9)) tensionIntervals.push(9);
+  const hasSeventh = relIntervals.some((interval) => interval === 10 || interval === 11 || (quality === "dim" && interval === 9));
+
+  return {
+    pitchClasses,
+    relIntervals,
+    degreeLabels,
+    hasOpenStrings,
+    soundingStringsCount: notes.length,
+    soundingStrings: notes.length,
+    hasSeventh,
+    tensionIntervals,
+    hasExtensions: tensionIntervals.length > 0,
+  };
+}
+
+export function resolveCopiedVoicingAcrossStructures({
+  voicing,
+  rootPc,
+  quality,
+  suspension = "none",
+  structure,
+  ext7 = false,
+  ext6 = false,
+  ext9 = false,
+  ext11 = false,
+  ext13 = false,
+  omit = "none",
+  form = "open",
+  allowOpenStrings = false,
+  maxFret,
+  maxSpan,
+  catalogVoicings = [],
+}) {
+  const normalizedFrets = String(voicing?.frets || "").trim().toLowerCase();
+  const analysis = analyzeChordVoicingForCopy({
+    voicing,
+    rootPc,
+    quality,
+    suspension,
+    ext6,
+    ext9,
+    ext11,
+    ext13,
+  });
+  if (!normalizedFrets) {
+    return {
+      analysis,
+      structure: null,
+      voicing: null,
+      compatibleWithCurrentFilters: false,
+      matchesRequestedStructure: false,
+      requiresStructureChange: false,
+      requiresOpenStrings: false,
+    };
+  }
+
+  const catalogList = Array.isArray(catalogVoicings) ? catalogVoicings : [];
+  const structures = [];
+  const pushStructure = (candidate) => {
+    if (!candidate || structures.includes(candidate)) return;
+    structures.push(candidate);
+  };
+
+  const preferChord = analysis.soundingStringsCount > analysis.pitchClasses.length || analysis.hasExtensions;
+
+  if (preferChord) {
+    pushStructure("chord");
+    pushStructure(structure);
+    pushStructure("triad");
+  } else {
+    pushStructure(structure);
+    pushStructure("triad");
+    pushStructure("chord");
+  }
+  if (analysis.hasSeventh || ext7) pushStructure("tetrad");
+
+  const matchVoicingAgainstPlan = ({ plan, candidateAllowOpenStrings, candidateFrets }) => {
+    if (!plan || !candidateFrets) return null;
+    const candidateVoicing = buildVoicingFromFretsLH({
+      fretsLH: parseChordDbFretsString(candidateFrets),
+      rootPc,
+      maxFret,
+    });
+    if (!candidateVoicing) return null;
+    if (!candidateAllowOpenStrings && voicingHasOpenStrings(candidateVoicing)) return null;
+    if (!isErgonomicVoicing(candidateVoicing, maxSpan)) return null;
+
+    const allowedIntervals = new Set((plan.intervals || []).map(mod12));
+    const rel = new Set((candidateVoicing.notes || []).map((n) => mod12(n.pc - rootPc)));
+    for (const intv of rel) {
+      if (!allowedIntervals.has(intv)) return null;
+    }
+    for (const intv of allowedIntervals) {
+      if (!rel.has(intv)) return null;
+    }
+
+    const bassInt = mod12(candidateVoicing.bassPc - rootPc);
+    const selectedBassIntervals = bassIntervalsForSelection(plan);
+    if (Array.isArray(selectedBassIntervals) && selectedBassIntervals.length && !selectedBassIntervals.includes(bassInt)) return null;
+
+    return candidateVoicing;
+  };
+
+  const findCatalogMatch = (candidateStructure, candidateAllowOpenStrings) => {
+    if (!catalogList.length || candidateStructure !== "chord") return null;
+    const plan = buildChordEnginePlan({
+      rootPc,
+      quality,
+      suspension,
+      structure: candidateStructure,
+      inversion: "all",
+      form,
+      ext7,
+      ext6,
+      ext9,
+      ext11,
+      ext13,
+      omit,
+    });
+    if (plan.generator === "none") return null;
+
+    for (const candidate of catalogList) {
+      if (String(candidate?.frets || "").trim().toLowerCase() !== normalizedFrets) continue;
+      const matchedVoicing = matchVoicingAgainstPlan({
+        plan,
+        candidateAllowOpenStrings,
+        candidateFrets: candidate?.frets,
+      });
+      if (matchedVoicing) {
+        return {
+          structure: candidateStructure,
+          voicing: matchedVoicing,
+        };
+      }
+    }
+    return null;
+  };
+
+  const findMatch = (candidateAllowOpenStrings) => {
+    for (const candidateStructure of structures) {
+      const plan = buildChordEnginePlan({
+        rootPc,
+        quality,
+        suspension,
+        structure: candidateStructure,
+        inversion: "all",
+        form,
+        ext7,
+        ext6,
+        ext9,
+        ext11,
+        ext13,
+        omit,
+      });
+      if (plan.generator === "none") continue;
+
+      const catalogMatch = findCatalogMatch(candidateStructure, candidateAllowOpenStrings);
+      if (catalogMatch) return catalogMatch;
+
+      const candidates = generateSearchVoicingsForPlan({
+        plan,
+        maxFret,
+        maxSpan,
+        allowOpenStrings: candidateAllowOpenStrings,
+      });
+      const match = candidates.find((candidate) => String(candidate?.frets || "").trim().toLowerCase() === normalizedFrets);
+      if (match) {
+        return {
+          structure: candidateStructure,
+          voicing: match,
+        };
+      }
+    }
+    return null;
+  };
+
+  const directMatch = findMatch(allowOpenStrings);
+  if (directMatch) {
+    const matchesRequestedStructure = directMatch.structure === structure;
+    return {
+      analysis,
+      ...directMatch,
+      compatibleWithCurrentFilters: matchesRequestedStructure,
+      matchesRequestedStructure,
+      requiresStructureChange: !matchesRequestedStructure,
+      requiresOpenStrings: false,
+    };
+  }
+
+  if (analysis.hasOpenStrings && !allowOpenStrings) {
+    const openStringMatch = findMatch(true);
+    if (openStringMatch) {
+      const matchesRequestedStructure = openStringMatch.structure === structure;
+      return {
+        analysis,
+        ...openStringMatch,
+        compatibleWithCurrentFilters: false,
+        matchesRequestedStructure,
+        requiresStructureChange: !matchesRequestedStructure,
+        requiresOpenStrings: true,
+      };
+    }
+  }
+
+  return {
+    analysis,
+    structure: null,
+    voicing: null,
+    compatibleWithCurrentFilters: false,
+    matchesRequestedStructure: false,
+    requiresStructureChange: false,
+    requiresOpenStrings: false,
   };
 }
 
