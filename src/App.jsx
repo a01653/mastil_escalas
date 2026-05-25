@@ -1,5 +1,7 @@
-import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+﻿import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import PanelBlock from "./components/PanelBlock.jsx";
+import ChordsPanel from "./components/chords/ChordsPanel.jsx";
 import { Blocks, BookOpen, ChevronLeft, ChevronRight, Eraser, HelpCircle, Info, Menu, Music, Play, Route, Search, Settings, Volume2, VolumeX, Waypoints, X } from "lucide-react";
 import {
   buildDetectedCandidateBadgeItems as buildDetectedCandidateBadgeItemsPure,
@@ -301,47 +303,6 @@ function ChordDiagramIcon({ className = "", ...props }) {
 }
 
 
-const PanelBlock = React.forwardRef(function PanelBlock({
-  as = "section",
-  level = "section",
-  title,
-  description = null,
-  titleTooltip = "",
-  headerAside = null,
-  disabledHeader = false,
-  className = "",
-  headerClassName = "",
-  bodyClassName = "",
-  children,
-  ...rest
-}, ref) {
-  const Tag = as;
-  const headerStyle = {
-    backgroundColor: disabledHeader
-      ? "#f0f0f0"
-      : level === "subsection"
-        ? "var(--subsection-header-bg, #ebf2fa)"
-      : "var(--section-header-bg, #c7d8e5)",
-  };
-  const headerSizeClass = level === "section" ? "min-h-[48px] items-center" : "min-h-[42px] items-center";
-
-  return (
-    <Tag ref={ref} className={`${UI_SECTION_PANEL} ${className}`.trim()} {...rest}>
-      <div
-        className={`flex flex-wrap ${headerSizeClass} justify-between gap-2 border-b border-slate-200 px-3 py-2 ${headerClassName}`.trim()}
-        style={headerStyle}
-      >
-        <div className="min-w-0 flex-1">
-          {title ? <div className={`${level === "section" ? "text-base" : "text-sm"} font-semibold text-slate-800`} title={titleTooltip || undefined}>{title}</div> : null}
-          {description ? <div className="mt-0.5 text-xs text-slate-600">{description}</div> : null}
-        </div>
-        {headerAside ? <div className="min-w-0 shrink-0">{headerAside}</div> : null}
-      </div>
-      <div className={`bg-white p-3 ${bodyClassName}`.trim()}>{children}</div>
-    </Tag>
-  );
-});
-
 // ============================================================================
 // MÁSTIL, AFINACIÓN E INLAYS
 
@@ -358,7 +319,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "4.91";
+const APP_VERSION = "4.99";
 
 function buildChordCopyFingerprint({
   rootPc,
@@ -4935,18 +4896,33 @@ export default function FretboardScalesPage() {
       <section className="rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-200">
         <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
           <div>
-            <div className="text-sm font-semibold text-slate-800">
-              <InfoTitle label="Modo estudio" info={CHORD_STUDY_INFO_TEXT} alwaysShow />
-            </div>
-            <div className="space-y-0.5 text-xs text-slate-600">
-              <div data-testid="study-lectura"><span className="font-medium text-slate-700">Lectura estudiada:</span> {d?.chordName}{studyRelativeChord ? ` · ${studyRelativeChord.shortText}` : ""}</div>
-              <div><span className="font-medium text-slate-700">Acorde de referencia:</span> {refChordDisplayName ?? "sin referencia"}</div>
-              <div><span className="font-medium text-slate-700">Escala activa:</span> {pcToName(rootPc, autoPreferSharps)} {scaleName}</div>
-              {chordRefEnabled ? (
-                <div className="mt-0.5 italic text-slate-500">La referencia solo se usa para priorizar lecturas; el análisis corresponde a {d?.chordName}.</div>
-              ) : null}
-            </div>
-          </div>
+			  <div className="text-base font-bold text-slate-900">
+				<InfoTitle label="Modo estudio" info={CHORD_STUDY_INFO_TEXT} alwaysShow />
+			  </div>
+
+			  <div className="mt-1 space-y-0.5 text-sm leading-6 text-slate-700">
+				<div data-testid="study-lectura">
+				  <span className="font-semibold text-slate-800">Lectura estudiada:</span>{" "}
+				  {d?.chordName}{studyRelativeChord ? ` · ${studyRelativeChord.shortText}` : ""}
+				</div>
+
+				<div>
+				  <span className="font-semibold text-slate-800">Acorde de referencia:</span>{" "}
+				  {refChordDisplayName ?? "sin referencia"}
+				</div>
+
+				<div>
+				  <span className="font-semibold text-slate-800">Escala activa:</span>{" "}
+				  {pcToName(rootPc, autoPreferSharps)} {scaleName}
+				</div>
+
+				{chordRefEnabled ? (
+				  <div className="mt-0.5 italic text-slate-500">
+					La referencia solo se usa para priorizar lecturas; el análisis corresponde a {d?.chordName}.
+				  </div>
+				) : null}
+			  </div>
+			</div>
           <div className="flex flex-wrap items-center gap-2">
             {studyOpen ? (
               <button type="button" className={UI_BTN_SM + " w-auto px-3"} onClick={exportStudyPdf}>
@@ -5993,7 +5969,7 @@ export default function FretboardScalesPage() {
         onClick={onClick}
         title={title || fallbackTitle}
         data-testid={testId}
-        className={`rounded-xl px-2 py-1.5 text-sm ring-1 ring-slate-200 shadow-sm ${active ? "bg-[#71a3c1] text-slate-900" : "bg-white text-slate-700 hover:bg-sky-50 hover:text-slate-900"}`}
+        className={`rounded-xl px-2 py-1.5 text-sm ring-1 ring-slate-200 shadow-sm ${active  ? "bg-sky-600 text-white ring-sky-600"  : "bg-white text-slate-700 hover:bg-sky-50 hover:text-slate-900"}`}
       >
         {children}
       </button>
@@ -6647,380 +6623,405 @@ function ChordFretboard({
     }
 
     const selectedStrings = new Set(chordDetectSelectedNotes.map((n) => n.sIdx));
-    const manualSelectionInfoText = [
-      chordDetectSelectedCandidate
-        ? `Notas de la escala: ${chordDetectSelectedCandidateScaleNotesText}.`
-        : "Pulsa en el mástil para añadir o quitar notas y detectar acordes posibles.",
-      "Arriba a la derecha tienes cuatro iconos: altavoz, play secuencial, play simultáneo y limpiar.",
-      "El altavoz activa o desactiva el sonido al pulsar; si aparece tachado, el sonido inmediato está apagado.",
-      "Play reproduce la selección actual cuerda a cuerda, de 6ª a 1ª, y resalta la nota que está sonando en cada momento.",
-      "El botón con la nota musical dispara todo el voicing a la vez, como un acorde bloque.",
-      "Encima de las notas hay dos opciones: Mantener lectura anterior conserva la selección funcional previa cuando el cambio es pequeño; Referencia prioriza lecturas compatibles con la raíz y calidad indicadas.",
-      "Si Referencia está activa, elige la nota (combo), pulsa b o # si la nota es alterada y selecciona la calidad. Sin b ni # la nota es natural.",
-      "Si está desactivado, la selección automática siempre toma el primer candidato del motor y no depende del orden de pulsación.",
-      "Limpiar borra la selección manual y la lectura elegida.",
-    ].join("\n");
     const chordDetectIconButtonBaseClass = "inline-flex h-8 w-8 items-center justify-center rounded-xl border shadow-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-200 enabled:cursor-pointer disabled:cursor-not-allowed disabled:opacity-50";
 
+    // ── Lectura detectada (computed at top level) ────────────────────────────
+    const cand = chordDetectSelectedCandidate;
+    let chordPart = null;
+    let notesPart = null;
+    if (cand) {
+      const plan = studyData?.plan;
+      const voicing = studyData?.voicing;
+      // Try to classify the manual voicing drop form; fall back to Abierto/Cerrado
+      const detectedFormValue = classifyManualVoicingShape(voicing, cand);
+      const dropLabel = detectedFormValue
+        ? CHORD_FORMS.find((x) => x.value === detectedFormValue)?.label
+        : null;
+      const posLabel = studyVoicingFormLabel(voicing, plan?.form);
+      const invLabel = studyData?.inversionLabel;
+      const parts = [cand.name];
+      if (dropLabel) parts.push(dropLabel);
+      parts.push(posLabel);
+      if (invLabel && invLabel !== "Fundamental") parts.push(invLabel);
+      chordPart = parts.join(" · ");
+      const rawNotes = Array.isArray(cand.visibleNotes) ? Array.from(new Set(cand.visibleNotes.filter(Boolean))) : [];
+      notesPart = rawNotes.join(" - ");
+    }
+    const physicalPatternSuffix = chordDetectPhysicalPatternText ? ` (${chordDetectPhysicalPatternText})` : "";
+
     return (
-      <PanelBlock
+      <div
         ref={chordDetectPanelRef}
         tabIndex={-1}
-        level="subsection"
-        title={<InfoTitle label="Selección manual" info={manualSelectionInfoText} alwaysShow />}
-        titleTooltip={!isMobileLayout ? manualSelectionInfoText : ""}
+        aria-label="Selección manual"
         className="focus:outline-none"
-        headerClassName="items-start"
-        description={isMobileLayout ? (
-          <div className="flex items-center gap-1.5">
-            <div className="text-xs font-semibold text-slate-700">Trastes</div>
-            <button
-              type="button"
-              className={UI_BTN_SM}
-              title="Mover rango 1 traste a la izquierda"
-              onClick={() => setChordDetectWindowStart((start) => Math.max(chordDetectWindowStartMin, start - 1))}
-              disabled={chordDetectWindowFrom <= chordDetectWindowStartMin}
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-            <div className="text-xs text-slate-600 tabular-nums">
-              {chordDetectWindowFrom}–{chordDetectWindowTo}
-            </div>
-            <button
-              type="button"
-              className={UI_BTN_SM}
-              title="Mover rango 1 traste a la derecha"
-              onClick={() => setChordDetectWindowStart((start) => Math.min(chordDetectWindowAllowedStartMax, start + 1))}
-              disabled={chordDetectWindowFrom >= chordDetectWindowAllowedStartMax}
-            >
-              <ChevronRight className="h-4 w-4" />
-            </button>
-          </div>
-        ) : undefined}
-        headerAside={(
-          <div className="flex flex-wrap items-center justify-end gap-1.5">
-            <button
-              type="button"
-              className={`${chordDetectIconButtonBaseClass} ${chordDetectClickAudio ? "border-emerald-300 bg-emerald-50 text-emerald-700 enabled:hover:border-emerald-400 enabled:hover:bg-emerald-100 enabled:hover:text-emerald-800" : "border-slate-200 bg-white text-slate-500 enabled:hover:border-emerald-300 enabled:hover:bg-emerald-50 enabled:hover:text-emerald-700"}`}
-              title={chordDetectClickAudio ? "Desactivar sonido al pulsar" : "Activar sonido al pulsar"}
-              aria-label={chordDetectClickAudio ? "Desactivar sonido al pulsar" : "Activar sonido al pulsar"}
-              aria-pressed={chordDetectClickAudio}
-              onClick={() => setChordDetectClickAudio((value) => !value)}
-            >
-              {chordDetectClickAudio ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
-            </button>
-            <button
-              type="button"
-              className={`${chordDetectIconButtonBaseClass} border-slate-200 bg-white text-slate-600 enabled:hover:border-sky-300 enabled:hover:bg-sky-50 enabled:hover:text-sky-700`}
-              title="Reproducir la selección actual cuerda a cuerda, de 6ª a 1ª"
-              aria-label="Reproducir la selección actual cuerda a cuerda, de 6ª a 1ª"
-              onClick={() => fnPlayChordDetectSelection()}
-              disabled={!chordDetectSelectedKeys.length}
-            >
-              <Play className="h-4 w-4 fill-current" />
-            </button>
-            <button
-              type="button"
-              className={`${chordDetectIconButtonBaseClass} border-slate-200 bg-white text-slate-600 enabled:hover:border-indigo-300 enabled:hover:bg-indigo-50 enabled:hover:text-indigo-700`}
-              title="Reproducir todo el voicing a la vez"
-              aria-label="Reproducir todo el voicing a la vez"
-              onClick={() => fnPlayChordDetectVoicingTogether()}
-              disabled={!chordDetectSelectedKeys.length}
-            >
-              <Music className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              className={`${chordDetectIconButtonBaseClass} ${chordDetectSelectedKeys.length ? "border-slate-200 bg-white text-slate-600 enabled:hover:border-rose-300 enabled:hover:bg-rose-50 enabled:hover:text-rose-700" : "cursor-not-allowed border-slate-200 bg-white text-slate-300 opacity-50"}`}
-              title="Limpiar selección manual"
-              aria-label="Limpiar selección manual"
-              aria-disabled={!chordDetectSelectedKeys.length}
-              onMouseDown={(e) => {
-                if (chordDetectSelectedKeys.length) e.preventDefault();
-              }}
-              onClick={clearChordDetectSelection}
-            >
-              <Eraser className="h-4 w-4" />
-            </button>
-          </div>
-        )}
       >
 
-        {(() => {
-          const cand = chordDetectSelectedCandidate;
-          let chordPart = null;
-          let notesPart = null;
-          if (cand) {
-            const plan = studyData?.plan;
-            const voicing = studyData?.voicing;
-            // Try to classify the manual voicing drop form; fall back to Abierto/Cerrado
-            const detectedFormValue = classifyManualVoicingShape(voicing, cand);
-            const dropLabel = detectedFormValue
-              ? CHORD_FORMS.find((x) => x.value === detectedFormValue)?.label
-              : null;
-            const posLabel = studyVoicingFormLabel(voicing, plan?.form);
-            const invLabel = studyData?.inversionLabel;
-            const parts = [cand.name];
-            if (dropLabel) parts.push(dropLabel);
-            parts.push(posLabel);
-            if (invLabel && invLabel !== "Fundamental") parts.push(invLabel);
-            chordPart = parts.join(" · ");
-            const rawNotes = Array.isArray(cand.visibleNotes) ? Array.from(new Set(cand.visibleNotes.filter(Boolean))) : [];
-            notesPart = rawNotes.join(" - ");
-          }
-          const physicalPatternSuffix = chordDetectPhysicalPatternText ? ` (${chordDetectPhysicalPatternText})` : "";
-          return (
-            <div className="mb-2 flex min-h-[44px] flex-wrap items-center gap-x-1">
-              {chordPart ? (
-                <>
-                  <span className="text-base text-slate-500">Lectura detectada:</span>
-                  <span className="text-base font-semibold text-sky-700">{chordPart}</span>
-                  {notesPart ? <span className="text-base text-slate-400">·</span> : null}
-                  {notesPart ? <span className="text-base font-semibold text-slate-600">{notesPart}</span> : null}
-                  {physicalPatternSuffix ? <span className="text-base font-semibold text-slate-600">{physicalPatternSuffix}</span> : null}
-                </>
-              ) : (
-                <span className="text-base text-slate-400">
-                  Sin lectura detectada todavía{physicalPatternSuffix}
-                </span>
+        {/* ══════════════════════════════════════════════════════════════════
+            Cuadro 1 — Lectura detectada
+        ══════════════════════════════════════════════════════════════════ */}
+        <div className="mb-3 rounded-xl border border-slate-200 bg-white p-3">
+
+          {/* Fila: lectura + badge (izq) · 4 botones (der) */}
+          <div className="flex items-start gap-2">
+            <div className="min-w-0 flex-1">
+              {/* Lectura detectada — physicalPatternSuffix solo en el estado vacío */}
+              <div className="mb-2 flex min-h-[34px] flex-wrap items-center gap-x-1 text-lg leading-7">
+                {chordPart ? (
+                  <>
+                    <span className="text-slate-700">Lectura detectada:</span>
+                    <span className="font-semibold text-sky-700">{chordPart}</span>
+                    {notesPart ? <span className="text-slate-400">·</span> : null}
+                    {notesPart ? <span className="font-semibold text-slate-700">{notesPart}</span> : null}
+                  </>
+                ) : (
+                  <span className="text-slate-400">
+                    Sin lectura detectada todavía{physicalPatternSuffix}
+                  </span>
+                )}
+              </div>
+              {/* ChordNoteBadgeStrip */}
+              <div className="min-h-[42px]">
+                {cand ? (
+                  <div className="overflow-x-auto pb-1">
+                    <ChordNoteBadgeStrip
+                      items={chordDetectSelectedCandidateBadgeItems}
+                      bassNote={chordDetectSelectedCandidateBassNote}
+                      colorMap={colors}
+                      wrap={false}
+                    />
+                  </div>
+                ) : (
+                  <div aria-hidden="true" className="h-[42px]" />
+                )}
+              </div>
+            </div>
+
+			{/* Patrón + 4 botones — derecha */}
+			<div className="flex shrink-0 flex-wrap items-end justify-end gap-2">
+			  <div className="min-w-[118px]">
+				<div className="mb-1 text-[11px] font-semibold text-slate-600">
+				  Patrón
+				</div>
+				<div className="flex h-8 items-center rounded-xl border border-slate-200 bg-white px-3 font-mono text-sm text-slate-900 shadow-sm">
+				  {chordDetectPhysicalPatternText || "—"}
+				</div>
+			  </div>
+              <button
+                type="button"
+                className={`${chordDetectIconButtonBaseClass} ${chordDetectClickAudio ? "border-emerald-300 bg-emerald-50 text-emerald-700 enabled:hover:border-emerald-400 enabled:hover:bg-emerald-100 enabled:hover:text-emerald-800" : "border-slate-200 bg-white text-slate-500 enabled:hover:border-emerald-300 enabled:hover:bg-emerald-50 enabled:hover:text-emerald-700"}`}
+                title={chordDetectClickAudio ? "Desactivar sonido al pulsar" : "Activar sonido al pulsar"}
+                aria-label={chordDetectClickAudio ? "Desactivar sonido al pulsar" : "Activar sonido al pulsar"}
+                aria-pressed={chordDetectClickAudio}
+                onClick={() => setChordDetectClickAudio((value) => !value)}
+              >
+                {chordDetectClickAudio ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+              </button>
+              <button
+                type="button"
+                className={`${chordDetectIconButtonBaseClass} border-slate-200 bg-white text-slate-600 enabled:hover:border-sky-300 enabled:hover:bg-sky-50 enabled:hover:text-sky-700`}
+                title="Reproducir la selección actual cuerda a cuerda, de 6ª a 1ª"
+                aria-label="Reproducir la selección actual cuerda a cuerda, de 6ª a 1ª"
+                onClick={() => fnPlayChordDetectSelection()}
+                disabled={!chordDetectSelectedKeys.length}
+              >
+                <Play className="h-4 w-4 fill-current" />
+              </button>
+              <button
+                type="button"
+                className={`${chordDetectIconButtonBaseClass} border-slate-200 bg-white text-slate-600 enabled:hover:border-indigo-300 enabled:hover:bg-indigo-50 enabled:hover:text-indigo-700`}
+                title="Reproducir todo el voicing a la vez"
+                aria-label="Reproducir todo el voicing a la vez"
+                onClick={() => fnPlayChordDetectVoicingTogether()}
+                disabled={!chordDetectSelectedKeys.length}
+              >
+                <Music className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                className={`${chordDetectIconButtonBaseClass} ${chordDetectSelectedKeys.length ? "border-slate-200 bg-white text-slate-600 enabled:hover:border-rose-300 enabled:hover:bg-rose-50 enabled:hover:text-rose-700" : "cursor-not-allowed border-slate-200 bg-white text-slate-300 opacity-50"}`}
+                title="Limpiar selección manual"
+                aria-label="Limpiar selección manual"
+                aria-disabled={!chordDetectSelectedKeys.length}
+                onMouseDown={(e) => {
+                  if (chordDetectSelectedKeys.length) e.preventDefault();
+                }}
+                onClick={clearChordDetectSelection}
+              >
+                <Eraser className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+
+          {/* Mantener/Referencia (izq) · input patrón + Aplicar (der) */}
+          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-slate-200 pt-3">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+              <label className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-700" title="Intenta conservar la lectura funcional previa cuando el cambio de notas es pequeño.">
+                <input
+                  type="checkbox"
+                  checked={chordDetectPrioritizeContext}
+                  onChange={(e) => updateChordDetectPrioritizeContext(e.target.checked)}
+                  className="h-3.5 w-3.5 rounded border-slate-300"
+                />
+                Mantener lectura anterior
+              </label>
+              <div className="flex items-center gap-1.5">
+                <label className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-700" title="Usa el acorde de referencia como pista para priorizar lecturas compatibles.">
+                  <input
+                    type="checkbox"
+                    checked={chordRefEnabled}
+                    onChange={(e) => setChordRefEnabled(e.target.checked)}
+                    className="h-3.5 w-3.5 rounded border-slate-300"
+                  />
+                  Referencia:
+                </label>
+                <select
+                  value={chordRefNatural}
+                  onChange={(e) => setChordRefNatural(e.target.value)}
+                  disabled={!chordRefEnabled}
+                  className="rounded border border-slate-200 bg-white px-1 py-0.5 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-sky-300 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {CHORD_REF_NATURAL_LETTERS.map((l) => <option key={l} value={l}>{l}</option>)}
+                </select>
+                <button
+                  type="button"
+                  disabled={!chordRefEnabled}
+                  className={`h-6 w-6 rounded-lg border text-xs font-semibold shadow-sm disabled:cursor-not-allowed disabled:opacity-40 ${chordRefAcc === -1 ? "border-sky-400 bg-sky-100 text-sky-800" : "border-slate-200 bg-white text-slate-600 enabled:hover:bg-sky-50"}`}
+                  onClick={() => setChordRefAcc(chordRefAcc === -1 ? 0 : -1)}
+                >b</button>
+                <button
+                  type="button"
+                  disabled={!chordRefEnabled}
+                  className={`h-6 w-6 rounded-lg border text-xs font-semibold shadow-sm disabled:cursor-not-allowed disabled:opacity-40 ${chordRefAcc === 1 ? "border-sky-400 bg-sky-100 text-sky-800" : "border-slate-200 bg-white text-slate-600 enabled:hover:bg-sky-50"}`}
+                  onClick={() => setChordRefAcc(chordRefAcc === 1 ? 0 : 1)}
+                >#</button>
+                <select
+                  value={chordRefQuality}
+                  onChange={(e) => setChordRefQuality(e.target.value)}
+                  disabled={!chordRefEnabled}
+                  className="rounded border border-slate-200 bg-white px-1 py-0.5 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-sky-300 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {CHORD_REF_QUALITIES.map((q) => <option key={q} value={q}>{q}</option>)}
+                </select>
+              </div>
+            </div>
+
+            {/* Input patrón + Aplicar */}
+            <div className="ml-auto flex shrink-0 items-center gap-2">
+              <input
+                type="text"
+                maxLength={6}
+                placeholder="p.ej. x8989b"
+                value={voicingInputText}
+                onChange={(e) => setVoicingInputText(e.target.value.toLowerCase())}
+                className="h-7 w-28 rounded border border-slate-300 bg-white px-2 font-mono text-xs text-slate-700 focus:border-blue-400 focus:outline-none"
+                data-testid="chord-detect-pattern-input"
+              />
+              <button
+                disabled={voicingInputText.length !== 6}
+                data-testid="chord-detect-apply-btn"
+                onClick={() => {
+                  const FRET_CHARS = "0123456789ab";
+                  const newKeys = [];
+                  for (let i = 0; i < 6; i++) {
+                    const ch = voicingInputText[i];
+                    if (ch === "x") continue;
+                    const fret = FRET_CHARS.indexOf(ch);
+                    if (fret === -1) continue;
+                    const sIdx = 5 - i;
+                    newKeys.push(`${sIdx}:${fret}`);
+                  }
+                  setChordDetectSelectedKeys(newKeys);
+                  if (!chordDetectMode) setChordDetectMode(true);
+                }}
+                className="h-7 rounded bg-blue-500 px-2 text-xs font-semibold text-white shadow-sm disabled:opacity-40 enabled:hover:bg-blue-600"
+              >
+                Aplicar
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* ══════════════════════════════════════════════════════════════════
+            Cuadro 2 — Mástil
+        ══════════════════════════════════════════════════════════════════ */}
+        <div className="mb-3 rounded-xl border border-slate-200 bg-white p-3">
+
+          {/* Controles de rango de trastes (solo móvil) */}
+          {isMobileLayout && (
+            <div className="mb-2 flex items-center gap-1.5">
+              <div className="text-xs font-semibold text-slate-700">Trastes</div>
+              <button
+                type="button"
+                className={UI_BTN_SM}
+                title="Mover rango 1 traste a la izquierda"
+                onClick={() => setChordDetectWindowStart((start) => Math.max(chordDetectWindowStartMin, start - 1))}
+                disabled={chordDetectWindowFrom <= chordDetectWindowStartMin}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <div className="text-xs text-slate-600 tabular-nums">
+                {chordDetectWindowFrom}–{chordDetectWindowTo}
+              </div>
+              <button
+                type="button"
+                className={UI_BTN_SM}
+                title="Mover rango 1 traste a la derecha"
+                onClick={() => setChordDetectWindowStart((start) => Math.min(chordDetectWindowAllowedStartMax, start + 1))}
+                disabled={chordDetectWindowFrom >= chordDetectWindowAllowedStartMax}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          )}
+
+          {/* Mástil de investigación — sin cambios */}
+          {isNarrowBoardLayout ? (
+            <MobileMainFretboard
+              frets={chordDetectVisibleFrets}
+              renderCell={({ sIdx, fret, cellClassName }) => {
+                const key = `${sIdx}:${fret}`;
+                const item = selectedMap.get(key);
+
+                return (
+                  <button
+                    key={`${sIdx}-${fret}`}
+                    type="button"
+                    onClick={() => toggleChordDetectCell(sIdx, fret)}
+                    className={`group relative flex w-full overflow-visible items-center justify-center rounded-lg border ${cellClassName} ${
+                      mobileVerticalFretBorderClass(fret)
+                    } ${item?.isPlaying ? "ring-2 ring-sky-300 ring-offset-1 ring-offset-white" : ""} ${fret === 0 ? "bg-transparent" : "bg-slate-50 hover:ring-2 hover:ring-slate-300"}`}
+                  >
+                    <HoverCellNote sIdx={sIdx} fret={fret} visible={!item} />
+                    {item ? (
+                      <ChordInvestigationCircle
+                        pc={item.pc}
+                        fret={fret}
+                        sIdx={sIdx}
+                        candidate={chordDetectSelectedCandidate}
+                        isBass={item.isBass}
+                        isPlaying={item.isPlaying}
+                        compactOpen={fret === 0}
+                      />
+                    ) : (fret === 0 && !selectedStrings.has(sIdx) ? (
+                      <span className="text-base font-semibold leading-none text-slate-400">X</span>
+                    ) : (showNonScale ? (
+                      <div className="text-[10px] text-slate-400">{chordDetectSelectedCandidate ? buildDetectedCandidateBackgroundLabelForPc(mod12(STRINGS[sIdx].pc + fret), chordDetectSelectedCandidate, chordPreferSharps, showIntervalsLabel, showNotesLabel) : labelForCellAt(sIdx, fret)}</div>
+                    ) : null))}
+                  </button>
+                );
+              }}
+            />
+          ) : (
+            <>
+              <div className="grid items-center gap-1" style={{ gridTemplateColumns: fretGridCols(maxFret) }}>
+                <div className="text-xs font-semibold text-slate-600">Cuerda</div>
+                {Array.from({ length: maxFret + 1 }, (_, fret) => (
+                  <div key={fret} className="relative flex flex-col items-center">
+                    <div className="text-[10px] text-slate-600">{fret}</div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-2 space-y-1">
+                {STRINGS.map((st, sIdx) => (
+                  <div key={st.label} className="grid items-center gap-1" style={{ gridTemplateColumns: fretGridCols(maxFret) }}>
+                    <div className="text-xs font-medium text-slate-700">{st.label}</div>
+                    {Array.from({ length: maxFret + 1 }, (_, fret) => {
+                      const key = `${sIdx}:${fret}`;
+                      const item = selectedMap.get(key);
+                      return (
+                        <button
+                          key={`${sIdx}-${fret}`}
+                          type="button"
+                          data-testid={`chord-detect-cell-${sIdx}-${fret}`}
+                          onClick={() => toggleChordDetectCell(sIdx, fret)}
+                          className={`group relative isolate flex h-8 overflow-visible items-center justify-center rounded-lg border ${fret === 0 ? "border-slate-300" : "border-slate-200"} ${item ? "z-[4]" : "z-0"} ${item?.isPlaying ? "ring-2 ring-sky-300 ring-offset-1 ring-offset-white" : ""} bg-slate-50 hover:ring-2 hover:ring-slate-300`}
+                        >
+                          <HoverCellNote sIdx={sIdx} fret={fret} visible={!item} />
+                          {hasInlayCell(fret, sIdx) ? (
+                            <div className="pointer-events-none absolute left-1/2 z-0 -translate-x-1/2 -translate-y-1/2" style={{ top: "78%" }}>
+                              <div className="h-4 w-4 rounded-full opacity-80" style={{ backgroundColor: FRET_INLAY_BG }} />
+                            </div>
+                          ) : null}
+                          {item ? <ChordInvestigationCircle pc={item.pc} fret={fret} sIdx={sIdx} candidate={chordDetectSelectedCandidate} isBass={item.isBass} isPlaying={item.isPlaying} /> : (fret === 0 && !selectedStrings.has(sIdx) ? <span className="text-base font-semibold leading-none text-slate-400">X</span> : (showNonScale ? <div className="text-[10px] text-slate-400">{chordDetectSelectedCandidate ? buildDetectedCandidateBackgroundLabelForPc(mod12(STRINGS[sIdx].pc + fret), chordDetectSelectedCandidate, chordPreferSharps, showIntervalsLabel, showNotesLabel) : labelForCellAt(sIdx, fret)}</div> : null))}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+          <div className="mt-3 text-xs text-slate-600">
+            {chordDetectSelectedNotes.length
+              ? <><b>Notas seleccionadas:</b> {chordDetectSelectedNotesText}. Pulsa de nuevo para quitar una nota.</>
+              : "Notas seleccionadas: —"}
+          </div>
+        </div>
+
+        {/* ══════════════════════════════════════════════════════════════════
+            Cuadro 3 — Posibles acordes
+        ══════════════════════════════════════════════════════════════════ */}
+			<div className="mb-3 rounded-xl border border-slate-200 bg-white">
+			  <div className="px-3 pt-3">
+				<div className="text-base font-bold text-slate-900">
+				  <InfoTitle label="Posibles acordes" info={DETECTED_CHORDS_INFO_TEXT} alwaysShow />
+				</div>
+				<div className="mt-0.5 text-xs text-slate-600">
+				  {chordDetectSelectedNotes.length
+					? "Selecciona una lectura para copiarla a la sección Acorde."
+					: "Añade notas en el mástil para ver lecturas posibles."}
+				</div>
+			  </div>
+
+			  <div className="px-3 pb-3 pt-2">
+            <div className="space-y-2" data-testid="detected-chord-list">
+              {chordDetectCandidatesRanked.length ? chordDetectCandidatesRanked.map((cand) => (
+                <div key={cand.id} data-testid={`detected-chord-${cand.id}`} className={`flex items-start gap-3 rounded-xl border px-3 py-2 text-xs text-slate-700 ${cand.contextual || cand.referencePromoted ? "border-amber-200 bg-amber-50" : "border-slate-200 bg-sky-50"}`}>
+                  <label className="flex min-w-0 flex-1 items-start gap-3">
+                    <input
+                      type="radio"
+                      name="detected-chord"
+                      checked={chordDetectCandidateId === cand.id}
+                      onChange={() => selectDetectedCandidate(cand)}
+                      className="mt-0.5 h-4 w-4"
+                    />
+                    <div className="min-w-0">
+                      {(cand.contextual || cand.referencePromoted) && (
+                        <div className="mb-0.5">
+                          <span className="rounded bg-amber-200 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800">por referencia</span>
+                        </div>
+                      )}
+                      <div data-testid={`detected-chord-name-${cand.id}`} className="font-bold text-slate-800">{formatChordNamePure(cand)}</div>
+                      <div>{cand.intervalPairsText}</div>
+                    </div>
+                  </label>
+                  <button
+                    type="button"
+                    data-testid={`detected-copy-${cand.id}`}
+                    className={UI_BTN_SM + " w-auto shrink-0 px-3"}
+                    onClick={() => applyDetectedCandidate(cand)}
+                    disabled={!cand.uiPatch}
+                    title={cand.uiPatch ? "Copiar esta lectura a la sección Acorde" : "Esta lectura no es compatible con el constructor superior"}
+                  >
+                    Copiar en Acorde
+                  </button>
+                </div>
+              )) : (
+                <div className="rounded-xl border border-dashed border-slate-300 bg-sky-50 px-3 py-3 text-xs text-slate-500">
+                  No hay lecturas claras todavía. Empieza con 3 o 4 notas.
+                </div>
               )}
             </div>
-          );
-        })()}
-
-        <div className="mb-2 flex flex-wrap items-center gap-x-4 gap-y-1">
-          <label className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-700" title="Intenta conservar la lectura funcional previa cuando el cambio de notas es pequeño.">
-            <input
-              type="checkbox"
-              checked={chordDetectPrioritizeContext}
-              onChange={(e) => updateChordDetectPrioritizeContext(e.target.checked)}
-              className="h-3.5 w-3.5 rounded border-slate-300"
-            />
-            Mantener lectura anterior
-          </label>
-          <div className="flex items-center gap-1.5">
-            <label className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-700" title="Usa el acorde de referencia como pista para priorizar lecturas compatibles.">
-              <input
-                type="checkbox"
-                checked={chordRefEnabled}
-                onChange={(e) => setChordRefEnabled(e.target.checked)}
-                className="h-3.5 w-3.5 rounded border-slate-300"
-              />
-              Referencia:
-            </label>
-            <select
-              value={chordRefNatural}
-              onChange={(e) => setChordRefNatural(e.target.value)}
-              disabled={!chordRefEnabled}
-              className="rounded border border-slate-200 bg-white px-1 py-0.5 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-sky-300 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              {CHORD_REF_NATURAL_LETTERS.map((l) => <option key={l} value={l}>{l}</option>)}
-            </select>
-            <button
-              type="button"
-              disabled={!chordRefEnabled}
-              className={`h-6 w-6 rounded-lg border text-xs font-semibold shadow-sm disabled:cursor-not-allowed disabled:opacity-40 ${chordRefAcc === -1 ? "border-sky-400 bg-sky-100 text-sky-800" : "border-slate-200 bg-white text-slate-600 enabled:hover:bg-sky-50"}`}
-              onClick={() => setChordRefAcc(chordRefAcc === -1 ? 0 : -1)}
-            >b</button>
-            <button
-              type="button"
-              disabled={!chordRefEnabled}
-              className={`h-6 w-6 rounded-lg border text-xs font-semibold shadow-sm disabled:cursor-not-allowed disabled:opacity-40 ${chordRefAcc === 1 ? "border-sky-400 bg-sky-100 text-sky-800" : "border-slate-200 bg-white text-slate-600 enabled:hover:bg-sky-50"}`}
-              onClick={() => setChordRefAcc(chordRefAcc === 1 ? 0 : 1)}
-            >#</button>
-            <select
-              value={chordRefQuality}
-              onChange={(e) => setChordRefQuality(e.target.value)}
-              disabled={!chordRefEnabled}
-              className="rounded border border-slate-200 bg-white px-1 py-0.5 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-sky-300 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              {CHORD_REF_QUALITIES.map((q) => <option key={q} value={q}>{q}</option>)}
-            </select>
           </div>
         </div>
 
-        <div className="mb-3 min-h-[56px]">
-          {chordDetectSelectedCandidate ? (
-            <div className="overflow-x-auto pb-1">
-              <ChordNoteBadgeStrip
-                items={chordDetectSelectedCandidateBadgeItems}
-                bassNote={chordDetectSelectedCandidateBassNote}
-                colorMap={colors}
-                wrap={false}
-              />
-            </div>
-          ) : (
-            <div aria-hidden="true" className="h-[56px]" />
-          )}
-        </div>
-
-        {isNarrowBoardLayout ? (
-          <MobileMainFretboard
-            frets={chordDetectVisibleFrets}
-            renderCell={({ sIdx, fret, cellClassName }) => {
-              const key = `${sIdx}:${fret}`;
-              const item = selectedMap.get(key);
-
-              return (
-                <button
-                  key={`${sIdx}-${fret}`}
-                  type="button"
-                  onClick={() => toggleChordDetectCell(sIdx, fret)}
-                  className={`group relative flex w-full overflow-visible items-center justify-center rounded-lg border ${cellClassName} ${
-                    mobileVerticalFretBorderClass(fret)
-                  } ${item?.isPlaying ? "ring-2 ring-sky-300 ring-offset-1 ring-offset-white" : ""} ${fret === 0 ? "bg-transparent" : "bg-slate-50 hover:ring-2 hover:ring-slate-300"}`}
-                >
-                  <HoverCellNote sIdx={sIdx} fret={fret} visible={!item} />
-                  {item ? (
-                    <ChordInvestigationCircle
-                      pc={item.pc}
-                      fret={fret}
-                      sIdx={sIdx}
-                      candidate={chordDetectSelectedCandidate}
-                      isBass={item.isBass}
-                      isPlaying={item.isPlaying}
-                      compactOpen={fret === 0}
-                    />
-                  ) : (fret === 0 && !selectedStrings.has(sIdx) ? (
-                    <span className="text-base font-semibold leading-none text-slate-400">X</span>
-                  ) : (showNonScale ? (
-                    <div className="text-[10px] text-slate-400">{chordDetectSelectedCandidate ? buildDetectedCandidateBackgroundLabelForPc(mod12(STRINGS[sIdx].pc + fret), chordDetectSelectedCandidate, chordPreferSharps, showIntervalsLabel, showNotesLabel) : labelForCellAt(sIdx, fret)}</div>
-                  ) : null))}
-                </button>
-              );
-            }}
-          />
-        ) : (
-          <>
-            <div className="grid items-center gap-1" style={{ gridTemplateColumns: fretGridCols(maxFret) }}>
-              <div className="text-xs font-semibold text-slate-600">Cuerda</div>
-              {Array.from({ length: maxFret + 1 }, (_, fret) => (
-                <div key={fret} className="relative flex flex-col items-center">
-                  <div className="text-[10px] text-slate-600">{fret}</div>
-                </div>
-              ))}
-            </div>
-
-            <div className="mt-2 space-y-1">
-              {STRINGS.map((st, sIdx) => (
-                <div key={st.label} className="grid items-center gap-1" style={{ gridTemplateColumns: fretGridCols(maxFret) }}>
-                  <div className="text-xs font-medium text-slate-700">{st.label}</div>
-                  {Array.from({ length: maxFret + 1 }, (_, fret) => {
-                    const key = `${sIdx}:${fret}`;
-                    const item = selectedMap.get(key);
-                    return (
-                      <button
-                        key={`${sIdx}-${fret}`}
-                        type="button"
-                        data-testid={`chord-detect-cell-${sIdx}-${fret}`}
-                        onClick={() => toggleChordDetectCell(sIdx, fret)}
-                        className={`group relative isolate flex h-8 overflow-visible items-center justify-center rounded-lg border ${fret === 0 ? "border-slate-300" : "border-slate-200"} ${item ? "z-[4]" : "z-0"} ${item?.isPlaying ? "ring-2 ring-sky-300 ring-offset-1 ring-offset-white" : ""} bg-slate-50 hover:ring-2 hover:ring-slate-300`}
-                      >
-                        <HoverCellNote sIdx={sIdx} fret={fret} visible={!item} />
-                        {hasInlayCell(fret, sIdx) ? (
-                          <div className="pointer-events-none absolute left-1/2 z-0 -translate-x-1/2 -translate-y-1/2" style={{ top: "78%" }}>
-                            <div className="h-4 w-4 rounded-full opacity-80" style={{ backgroundColor: FRET_INLAY_BG }} />
-                          </div>
-                        ) : null}
-                        {item ? <ChordInvestigationCircle pc={item.pc} fret={fret} sIdx={sIdx} candidate={chordDetectSelectedCandidate} isBass={item.isBass} isPlaying={item.isPlaying} /> : (fret === 0 && !selectedStrings.has(sIdx) ? <span className="text-base font-semibold leading-none text-slate-400">X</span> : (showNonScale ? <div className="text-[10px] text-slate-400">{chordDetectSelectedCandidate ? buildDetectedCandidateBackgroundLabelForPc(mod12(STRINGS[sIdx].pc + fret), chordDetectSelectedCandidate, chordPreferSharps, showIntervalsLabel, showNotesLabel) : labelForCellAt(sIdx, fret)}</div> : null))}
-                      </button>
-                    );
-                  })}
-                </div>
-              ))}
-            </div>
-          </>
-        )}
-        <div className="mt-3 text-xs text-slate-600">
-          {chordDetectSelectedNotes.length
-            ? <><b>Notas seleccionadas:</b> {chordDetectSelectedNotesText}. Pulsa de nuevo para quitar una nota.</>
-            : "Notas seleccionadas: —"}
-        </div>
-
-        <div className="mt-2 flex items-center gap-2">
-          <input
-            type="text"
-            maxLength={6}
-            placeholder="p.ej. x8989b"
-            value={voicingInputText}
-            onChange={(e) => setVoicingInputText(e.target.value.toLowerCase())}
-            className="w-28 rounded border border-slate-300 bg-white px-2 py-1 font-mono text-xs text-slate-700 focus:border-blue-400 focus:outline-none"
-            data-testid="chord-detect-pattern-input"
-          />
-          <button
-            disabled={voicingInputText.length !== 6}
-            data-testid="chord-detect-apply-btn"
-            onClick={() => {
-              const FRET_CHARS = "0123456789ab";
-              const newKeys = [];
-              for (let i = 0; i < 6; i++) {
-                const ch = voicingInputText[i];
-                if (ch === "x") continue;
-                const fret = FRET_CHARS.indexOf(ch);
-                if (fret === -1) continue;
-                const sIdx = 5 - i;
-                newKeys.push(`${sIdx}:${fret}`);
-              }
-              setChordDetectSelectedKeys(newKeys);
-              if (!chordDetectMode) setChordDetectMode(true);
-            }}
-            className="rounded bg-blue-500 px-2 py-1 text-xs font-semibold text-white disabled:opacity-40 enabled:hover:bg-blue-600"
-          >
-            Aplicar
-          </button>
-        </div>
-
-        <PanelBlock
-          level="subsection"
-          title={<InfoTitle label="Posibles acordes" info={DETECTED_CHORDS_INFO_TEXT} alwaysShow />}
-          description={chordDetectSelectedNotes.length
-            ? "Selecciona una lectura para copiarla a la sección Acorde."
-            : "Añade notas en el mástil para ver lecturas posibles."}
-          className="mt-3"
-        >
-          <div className="space-y-2" data-testid="detected-chord-list">
-            {chordDetectCandidatesRanked.length ? chordDetectCandidatesRanked.map((cand) => (
-              <div key={cand.id} data-testid={`detected-chord-${cand.id}`} className={`flex items-start gap-3 rounded-xl border px-3 py-2 text-xs text-slate-700 ${cand.contextual || cand.referencePromoted ? "border-amber-200 bg-amber-50" : "border-slate-200 bg-sky-50"}`}>
-                <label className="flex min-w-0 flex-1 items-start gap-3">
-                  <input
-                    type="radio"
-                    name="detected-chord"
-                    checked={chordDetectCandidateId === cand.id}
-                    onChange={() => selectDetectedCandidate(cand)}
-                    className="mt-0.5 h-4 w-4"
-                  />
-                  <div className="min-w-0">
-                    {(cand.contextual || cand.referencePromoted) && (
-                      <div className="mb-0.5">
-                        <span className="rounded bg-amber-200 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800">por referencia</span>
-                      </div>
-                    )}
-                    <div data-testid={`detected-chord-name-${cand.id}`} className="font-semibold text-slate-800">{formatChordNamePure(cand)}</div>
-                    <div>{cand.intervalPairsText}</div>
-                  </div>
-                </label>
-                <button
-                  type="button"
-                  data-testid={`detected-copy-${cand.id}`}
-                  className={UI_BTN_SM + " w-auto shrink-0 px-3"}
-                  onClick={() => applyDetectedCandidate(cand)}
-                  disabled={!cand.uiPatch}
-                  title={cand.uiPatch ? "Copiar esta lectura a la sección Acorde" : "Esta lectura no es compatible con el constructor superior"}
-                >
-                  Copiar en Acorde
-                </button>
-              </div>
-            )) : (
-              <div className="rounded-xl border border-dashed border-slate-300 bg-sky-50 px-3 py-3 text-xs text-slate-500">
-                No hay lecturas claras todavía. Empieza con 3 o 4 notas.
-              </div>
-            )}
-          </div>
-        </PanelBlock>
-
+        {/* Pentagrama — sin cambios */}
         {chordDetectStaffEvents.length ? (
           <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
-            <div className="text-xs font-semibold text-slate-700">Pentagrama de la selección actual</div>
+            <div className="text-base font-bold text-slate-900">Pentagrama de la selección actual</div>
             <div className="mt-1 text-xs text-slate-600">
               Se dibuja al pulsar notas, sin esperar a elegir un acorde posible: {chordDetectSelectionPositionsText}
             </div>
@@ -7036,7 +7037,7 @@ function ChordFretboard({
             </div>
           </div>
         ) : null}
-      </PanelBlock>
+      </div>
     );
   }
 
@@ -9581,9 +9582,9 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
           </div>
         ) : null}
 
-        <div className="mt-3">
-          <div className="mt-1 text-xs text-slate-600"><b>Grados:</b> {scaleTetradDegreesText}</div>
-          <div className="mt-0.5 text-xs text-slate-600"><b>Notas:</b> {scaleTetradNotesText}</div>
+        <div className="mt-3 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-sm leading-6 text-slate-700">
+          <span><b>Grados:</b> {scaleTetradDegreesText}<span className="mx-3 select-none text-slate-300">|</span></span>
+          <span><b>Notas:</b> {scaleTetradNotesText}</span>
         </div>
 
       </>
@@ -10502,635 +10503,70 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
         ) : null}
 
         {boardVisibility.chords ? (
-          <div className="space-y-3">
-            <PanelBlock
-              title={<InfoTitle label="Acordes" info={CHORDS_SECTION_INFO_TEXT} alwaysShow />}
-              headerAside={<label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-700">
-                  <input
-                    type="checkbox"
-                    data-testid="chord-detect-toggle"
-                    checked={chordDetectMode}
-                    onChange={(e) => setChordDetectMode(e.target.checked)}
-                    className="h-4 w-4 rounded border-slate-300"
-                  />
-                  Investigar en mástil
-                </label>}
-              bodyClassName="space-y-2"
-            >
-              {chordCopyNotice ? (
-                <div data-testid="chord-copy-notice" className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700">
-                  {chordCopyNotice}
-                </div>
-              ) : null}
-              {isMobileLayout && !chordDetectMode ? renderMobileChordSummaryCard() : null}
-              {(() => {
-                const chordEditorPanel = (
-                  <PanelBlock
-                    as="fieldset"
-                    disabled={!isMobileLayout && chordDetectMode}
-                    level="subsection"
-                    title={<InfoTitle label={isMobileLayout ? "Editar acorde" : chordControlsTitle} info={CHORD_EDITOR_INFO_TEXT} alwaysShow />}
-                    className={isMobileLayout ? "w-full max-h-[calc(100vh-6rem)] shadow-2xl" : (chordDetectMode ? "opacity-70" : "")}
-                    bodyClassName={isMobileLayout ? "max-h-[calc(100vh-11rem)] overflow-y-auto overflow-x-visible" : "overflow-x-auto"}
-                    headerAside={isMobileLayout ? (
-                      <button
-                        type="button"
-                        className="inline-flex h-7 w-7 items-center justify-center rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-700 shadow-sm hover:bg-sky-50"
-                        onClick={() => setMobileChordEditorOpen(false)}
-                        aria-label="Cerrar edición de acorde"
-                      >
-                        X
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        className={UI_BTN_SM + " w-auto px-3"}
-                        title="Abre el análisis del acorde, del voicing y de sus tensiones."
-                        onClick={openMainChordStudy}
-                      >
-                        Estudiar
-                      </button>
-                    )}
-                  >
-                    {!isMobileLayout ? (
-                      <div className="mb-3">
-                        {renderChordBadgeStripBlock()}
-                      </div>
-                    ) : null}
-                    {chordFamily === "quartal" ? (
-                      <div className={isMobileLayout ? chordMobileEditorGridClass : nearSlotDesktopEditorClass}>
-                    <div className="min-w-0">
-                      <label className={UI_LABEL_SM}>Tono</label>
-                      <div className="mt-1 flex items-center gap-1.5">
-                        <select
-                          className={UI_SELECT_SM_TONE}
-                          style={isMobileLayout ? undefined : { width: "50px" }}
-                          value={chordUiLetterFromPc(chordRootPc, !!chordSpellPreferSharps)}
-                          onChange={(e) => {
-                            const letter = e.target.value;
-                            if (Object.prototype.hasOwnProperty.call(NATURAL_PC, letter)) {
-                              setChordRootPc(mod12(NATURAL_PC[letter]));
-                            }
-                          }}
-                        >
-                          {LETTERS.map((l) => (
-                            <option key={l} value={l}>
-                              {l}
-                            </option>
-                          ))}
-                        </select>
-                        <button
-                          type="button"
-                          className={`${UI_BTN_SM} ${chordAccidental && !chordSpellPreferSharps ? "!bg-[#71a3c1] !text-slate-900 !border-[#71a3c1]" : ""}`}
-                          title="Bajar 1 semitono"
-                          onClick={() => {
-                            const letter = chordUiLetterFromPc(chordRootPc, false);
-                            const nat = mod12(NATURAL_PC[letter]);
-                            const cur = mod12(chordRootPc);
-                            if (cur !== nat) {
-                              setChordRootPc(nat);
-                              setChordSpellPreferSharps(false);
-                              return;
-                            }
-                            setChordRootPc(mod12(nat - 1));
-                            setChordSpellPreferSharps(false);
-                          }}
-                        >
-                          b
-                        </button>
-                        <button
-                          type="button"
-                          className={`${UI_BTN_SM} ${chordAccidental && chordSpellPreferSharps ? "!bg-[#71a3c1] !text-slate-900 !border-[#71a3c1]" : ""}`}
-                          title="Subir 1 semitono"
-                          onClick={() => {
-                            const letter = chordUiLetterFromPc(chordRootPc, true);
-                            const nat = mod12(NATURAL_PC[letter]);
-                            const cur = mod12(chordRootPc);
-                            if (cur !== nat) {
-                              setChordRootPc(nat);
-                              setChordSpellPreferSharps(true);
-                              return;
-                            }
-                            setChordRootPc(mod12(nat + 1));
-                            setChordSpellPreferSharps(true);
-                          }}
-                        >
-                          #
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="min-w-0">
-                      <label className={UI_LABEL_SM}>Familia</label>
-                      <select className={chordAutoSelectClass + " mt-1"} style={isMobileLayout ? undefined : { width: chordFamilySelectWidth }} value={chordFamily} onChange={(e) => setChordFamily(e.target.value)}>
-                        {CHORD_FAMILIES.map((item) => (
-                          <option key={item.value} value={item.value}>{item.label}</option>
-                        ))}
-                      </select>
-                    </div>
-                    {chordQuartalReference === "scale" ? (
-                      <div className="min-w-0">
-                        <label className={UI_LABEL_SM}>Escala</label>
-                        <select
-                          className={chordSelectClass + " mt-1"}
-                          value={chordQuartalScaleName}
-                          onChange={(e) => setChordQuartalScaleName(e.target.value)}
-                          title="Escala usada para generar los cuartales diatónicos"
-                        >
-                          {CHORD_QUARTAL_SCALE_NAMES.map((item) => (
-                            <option key={item} value={item}>{item}</option>
-                          ))}
-                        </select>
-                      </div>
-                    ) : null}
-
-                    <div className="min-w-0">
-                      <label className={UI_LABEL_SM} title={`Desde raíz: construye el acorde cuartal partiendo de la tónica elegida.
-Diatónico a escala: toma la tónica elegida como centro tonal y genera acordes cuartales por grados de la escala que selecciones.
-Por eso el resultado puede no tener la misma raíz elegida.`}>Referencia</label>
-                      <select className={chordSelectClass + " mt-1"} value={chordQuartalReference} onChange={(e) => setChordQuartalReference(e.target.value)} title={`Desde raíz: construye el acorde cuartal partiendo de la tónica elegida.
-Diatónico a escala: toma la tónica elegida como centro tonal y genera acordes cuartales por grados de la escala que selecciones.
-Por eso el resultado puede no tener la misma raíz elegida.`}>
-                        {CHORD_QUARTAL_REFERENCES.map((item) => (
-                          <option key={item.value} value={item.value}>{item.label}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className="min-w-0">
-                      <label className={UI_LABEL_SM} title={`Cerrado: las voces quedan apiladas por cuartas sin desplazar ninguna una octava extra.
-Abierto: una o más voces se redistribuyen por octava y la cadena deja de quedar compacta.`}>Apilado</label>
-                      <select className={chordSelectClass + " mt-1"} value={chordQuartalSpread} onChange={(e) => setChordQuartalSpread(e.target.value)} title={`Cerrado: las voces quedan apiladas por cuartas sin desplazar ninguna una octava extra.
-Abierto: una o más voces se redistribuyen por octava y la cadena deja de quedar compacta.`}>
-                        {CHORD_QUARTAL_SPREADS.map((item) => (
-                          <option key={item.value} value={item.value}>{item.label}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className="min-w-0">
-                      <label className={UI_LABEL_SM}>Voces</label>
-                      <select className={chordSelectClass + " mt-1"} value={chordQuartalVoices} onChange={(e) => setChordQuartalVoices(e.target.value)}>
-                        {CHORD_QUARTAL_VOICES.map((item) => (
-                          <option key={item.value} value={item.value}>{item.label}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className="min-w-0">
-                      <label className={UI_LABEL_SM} title={`Puro: todas las cuartas son justas (4J).
-Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>Tipo cuartal</label>
-                      <select className={chordSelectClass + " mt-1"} value={chordQuartalType} onChange={(e) => setChordQuartalType(e.target.value)} title={`Puro: todas las cuartas son justas (4J).
-Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
-                        {CHORD_QUARTAL_TYPES.map((item) => (
-                          <option key={item.value} value={item.value}>{item.label}</option>
-                        ))}
-                      </select>
-                    </div>
-                    {!isMobileLayout ? (
-                      <div className="ml-auto flex items-end gap-2">
-                        {renderMainChordVoicingPicker("shrink-0")}
-                        {renderMainChordDistControl("w-[50px] shrink-0")}
-                      </div>
-                    ) : null}
-                      </div>
-                    ) : chordFamily === "guide_tones" ? (
-                      <div className={isMobileLayout ? chordMobileEditorGridClass : nearSlotDesktopEditorClass}>
-                    <div className="min-w-0">
-                      <label className={UI_LABEL_SM}>Tono</label>
-                      <div className="mt-1 flex items-center gap-1.5">
-                        <select
-                          className={UI_SELECT_SM_TONE}
-                          style={isMobileLayout ? undefined : { width: "50px" }}
-                          value={chordUiLetterFromPc(chordRootPc, !!chordSpellPreferSharps)}
-                          onChange={(e) => {
-                            const letter = e.target.value;
-                            if (Object.prototype.hasOwnProperty.call(NATURAL_PC, letter)) {
-                              setChordRootPc(mod12(NATURAL_PC[letter]));
-                            }
-                          }}
-                        >
-                          {LETTERS.map((l) => (
-                            <option key={l} value={l}>{l}</option>
-                          ))}
-                        </select>
-                        <button
-                          type="button"
-                          className={`${UI_BTN_SM} ${chordAccidental && !chordSpellPreferSharps ? "!bg-[#71a3c1] !text-slate-900 !border-[#71a3c1]" : ""}`}
-                          title="Bajar 1 semitono"
-                          onClick={() => {
-                            const letter = chordUiLetterFromPc(chordRootPc, false);
-                            const nat = mod12(NATURAL_PC[letter]);
-                            const cur = mod12(chordRootPc);
-                            if (cur !== nat) {
-                              setChordRootPc(nat);
-                              setChordSpellPreferSharps(false);
-                              return;
-                            }
-                            setChordRootPc(mod12(nat - 1));
-                            setChordSpellPreferSharps(false);
-                          }}
-                        >b</button>
-                        <button
-                          type="button"
-                          className={`${UI_BTN_SM} ${chordAccidental && chordSpellPreferSharps ? "!bg-[#71a3c1] !text-slate-900 !border-[#71a3c1]" : ""}`}
-                          title="Subir 1 semitono"
-                          onClick={() => {
-                            const letter = chordUiLetterFromPc(chordRootPc, true);
-                            const nat = mod12(NATURAL_PC[letter]);
-                            const cur = mod12(chordRootPc);
-                            if (cur !== nat) {
-                              setChordRootPc(nat);
-                              setChordSpellPreferSharps(true);
-                              return;
-                            }
-                            setChordRootPc(mod12(nat + 1));
-                            setChordSpellPreferSharps(true);
-                          }}
-                        >#</button>
-                      </div>
-                    </div>
-
-                    <div className="min-w-0">
-                      <label className={UI_LABEL_SM}>Familia</label>
-                      <select className={chordSelectClass + " mt-1"} value={chordFamily} onChange={(e) => setChordFamily(e.target.value)}>
-                        {CHORD_FAMILIES.map((item) => (
-                          <option key={item.value} value={item.value}>{item.label}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className="min-w-0">
-                      <label className={UI_LABEL_SM}>Calidad</label>
-                      <select className={chordSelectClass + " mt-1"} value={guideToneQuality} onChange={(e) => setGuideToneQuality(e.target.value)}>
-                        {CHORD_GUIDE_TONE_QUALITIES.map((item) => (
-                          <option key={item.value} value={item.value}>{item.label}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className="min-w-0">
-                      <label className={UI_LABEL_SM}>Forma</label>
-                      <select className={chordSelectClass + " mt-1"} value={guideToneForm} onChange={(e) => setGuideToneForm(e.target.value)}>
-                        {CHORD_GUIDE_TONE_FORMS.map((item) => (
-                          <option key={item.value} value={item.value}>{item.label}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className="min-w-0">
-                      <label className={UI_LABEL_SM}>Inversión</label>
-                      <select className={chordSelectClass + " mt-1"} value={guideToneInversion} onChange={(e) => setGuideToneInversion(e.target.value)}>
-                        {CHORD_GUIDE_TONE_INVERSIONS.map((item) => (
-                          <option key={item.value} value={item.value}>{item.label}</option>
-                        ))}
-                      </select>
-                    </div>
-                    {!isMobileLayout ? (
-                      <div className="ml-auto flex items-end gap-2">
-                        {renderMainChordVoicingPicker("shrink-0")}
-                        {renderMainChordDistControl("w-[50px] shrink-0")}
-                      </div>
-                    ) : null}
-
-                      </div>
-                    ) : (
-                      <div
-                        className={isMobileLayout ? chordMobileEditorTertianGridClass : nearSlotDesktopEditorClass}
-                      >
-                    <div className={isMobileLayout ? "min-w-0 col-span-2" : "min-w-0"}>
-                      <label className={UI_LABEL_SM}>Tono</label>
-                      <div className="mt-1 flex items-center gap-1.5">
-                        <select
-                          className={UI_SELECT_SM_TONE}
-                          data-testid="select-tone"
-                          style={isMobileLayout ? undefined : { width: "50px" }}
-                          value={chordUiLetterFromPc(chordRootPc, !!chordSpellPreferSharps)}
-                          onChange={(e) => {
-                            const letter = e.target.value;
-                            if (Object.prototype.hasOwnProperty.call(NATURAL_PC, letter)) {
-                              setChordRootPc(mod12(NATURAL_PC[letter]));
-                            }
-                          }}
-                        >
-                          {LETTERS.map((l) => (
-                            <option key={l} value={l}>{l}</option>
-                          ))}
-                        </select>
-                        <button
-                          type="button"
-                          className={`${UI_BTN_SM} ${chordAccidental && !chordSpellPreferSharps ? "!bg-[#71a3c1] !text-slate-900 !border-[#71a3c1]" : ""}`}
-                          title="Bajar 1 semitono"
-                          onClick={() => {
-                            const letter = chordUiLetterFromPc(chordRootPc, false);
-                            const nat = mod12(NATURAL_PC[letter]);
-                            const cur = mod12(chordRootPc);
-                            if (cur !== nat) {
-                              setChordRootPc(nat);
-                              setChordSpellPreferSharps(false);
-                              return;
-                            }
-                            setChordRootPc(mod12(nat - 1));
-                            setChordSpellPreferSharps(false);
-                          }}
-                        >
-                          b
-                        </button>
-                        <button
-                          type="button"
-                          className={`${UI_BTN_SM} ${chordAccidental && chordSpellPreferSharps ? "!bg-[#71a3c1] !text-slate-900 !border-[#71a3c1]" : ""}`}
-                          title="Subir 1 semitono"
-                          onClick={() => {
-                            const letter = chordUiLetterFromPc(chordRootPc, true);
-                            const nat = mod12(NATURAL_PC[letter]);
-                            const cur = mod12(chordRootPc);
-                            if (cur !== nat) {
-                              setChordRootPc(nat);
-                              setChordSpellPreferSharps(true);
-                              return;
-                            }
-                            setChordRootPc(mod12(nat + 1));
-                            setChordSpellPreferSharps(true);
-                          }}
-                        >
-                          #
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className={isMobileLayout ? "min-w-0 order-1" : "min-w-0"}>
-                      <label className={UI_LABEL_SM}>Familia</label>
-                      <select className={chordSelectClass + " mt-1"} value={chordFamily} onChange={(e) => setChordFamily(e.target.value)}>
-                        {CHORD_FAMILIES.map((item) => (
-                          <option key={item.value} value={item.value}>{item.label}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className={isMobileLayout ? "min-w-0 order-5 col-span-2" : "min-w-0"}>
-                      <label className={UI_LABEL_SM}>Calidad / Sus</label>
-                      <div className="mt-1 flex flex-nowrap gap-1.5">
-                        <select className={chordAutoSelectClass} data-testid="select-quality" style={isMobileLayout ? undefined : { width: chordQualitySelectWidth }} value={chordQuality} onChange={(e) => setChordQuality(e.target.value)}>
-                          {CHORD_QUALITIES.map((q) => (
-                            <option key={q.value} value={q.value}
-                              disabled={
-                                (q.value === "hdim" && chordStructure === "triad" && !chordExt7) ||
-                                (q.value === "dom" && chordStructure === "triad" && !chordExt7)
-                              }
-                            >
-                              {q.label}
-                            </option>
-                          ))}
-                        </select>
-                        <select
-                          className={chordAutoSelectClass}
-                          data-testid="select-suspension"
-                          style={isMobileLayout ? undefined : { width: chordSuspensionSelectWidth }}
-                          value={chordSuspension}
-                          onChange={(e) => {
-                            const v = e.target.value;
-                            setChordSuspension(v);
-                            if (v !== "none" && (chordQuality === "dim" || chordQuality === "hdim")) setChordQuality("maj");
-                            if (v !== "none" && chordOmit === "3") setChordOmit("none");
-                          }}
-                          title="Suspensión: reemplaza la 3ª por 2ª o 4ª"
-                        >
-                          <option value="none">Sus —</option>
-                          <option value="sus2">sus2</option>
-                          <option value="sus4">sus4</option>
-                        </select>
-                      </div>
-                    </div>
-
-                    <div className={isMobileLayout ? "min-w-0 order-2" : "min-w-0"}>
-                      <label className={UI_LABEL_SM}>Estructura</label>
-                      <select
-                        className={chordSelectClass + " mt-1"}
-                        data-testid="select-structure"
-                        value={chordStructure}
-                        onChange={(e) => applyChordStructureSelection(e.target.value)}
-                      >
-                        {CHORD_STRUCTURES.map((s) => (
-                          <option key={s.value} value={s.value}>
-                            {s.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className={isMobileLayout ? "min-w-0 order-4" : "min-w-0"}>
-                      <label className={UI_LABEL_SM}>Forma</label>
-                      {chordEnginePlan.ui.usesManualForm ? (
-                        <select
-                          className={chordAutoSelectClass + " mt-1"}
-                          data-testid="select-form"
-                          style={isMobileLayout ? undefined : { width: chordFormSelectWidth }}
-                          value={chordForm}
-                          onChange={(e) => {
-                            const v = e.target.value;
-                            setChordForm(v);
-                            if (!isDropForm(v)) setChordPositionForm(v);
-                          }}
-                          title="Elige la disposición del acorde: cerrado, abierto o drop"
-                        >
-                          {CHORD_FORMS.map((form) => (
-                            <option
-                              key={form.value}
-                              value={form.value}
-                              disabled={isDropForm(form.value) && !chordEnginePlan.ui.dropEligible}
-                            >
-                              {form.label}
-                            </option>
-                          ))}
-                        </select>
-                      ) : (
-                        <div className="mt-1 flex h-7 items-center rounded-xl border border-slate-200 bg-slate-100 px-2 text-xs text-slate-500">
-                          Automática
-                        </div>
-                      )}
-                    </div>
-
-                    <div className={isMobileLayout ? "min-w-0 order-3" : "min-w-0"}>
-                      <label className={UI_LABEL_SM}>Inversión</label>
-                      <select className={chordAutoSelectClass + " mt-1"} data-testid="select-inversion" style={isMobileLayout ? undefined : { width: chordInversionSelectWidth }} value={chordInversion} onChange={(e) => setChordInversion(e.target.value)}>
-                        {chordInversionOptions.map((inv) => (
-                          <option key={inv.value} value={inv.value}>
-                            {inv.label}
-                          </option>
-                        ))}
-                      </select>
-                        </div>
-
-                    <div className={isMobileLayout ? "min-w-0 order-6 col-span-2" : "min-w-0"}>
-                      <label className={UI_LABEL_SM}>Extensiones</label>
-                      <div className={UI_EXT_GRID}>
-                        {chordEnginePlan.ui.ext.showSeven ? (
-                          <label className="inline-flex items-center gap-2">
-                            <input type="checkbox" data-testid="ext-7" checked={hasEffectiveSeventh({ structure: chordStructure, ext7: chordExt7, ext6: chordExt6, ext9: chordExt9, ext11: chordExt11, ext13: chordExt13 })} onChange={(e) => setChordExt7(e.target.checked)} disabled={!chordEnginePlan.ui.ext.canToggleSeven} /> 7
-                          </label>
-                        ) : null}
-                        {chordEnginePlan.ui.ext.showSix ? (
-                          <label className="inline-flex items-center gap-2">
-                            <input
-                              type="checkbox"
-                              data-testid="ext-6"
-                              checked={chordExt6}
-                              onChange={(e) => {
-                                const v = e.target.checked;
-                                setChordExt6(v);
-                                if (v) {
-                                  setChordExt13(false); // 6↔13 siempre mutuamente exclusivos
-                                  if (chordStructure === "tetrad" && chordOmit === "none") {
-                                    setChordExt9(false);
-                                    setChordExt11(false);
-                                  }
-                                }
-                              }}
-                              disabled={!chordEnginePlan.ui.ext.canToggleSix}
-                            /> 6
-                          </label>
-                        ) : null}
-                        {chordEnginePlan.ui.ext.showNine ? (
-                          <label className="inline-flex items-center gap-2">
-                            <input type="checkbox" data-testid="ext-9" checked={chordExt9}
-                              onChange={(e) => {
-                                const v = e.target.checked;
-                                setChordExt9(v);
-                                if (v && chordStructure === "tetrad" && chordOmit === "none") {
-                                  setChordExt11(false);
-                                  setChordExt13(false);
-                                }
-                              }}
-                              disabled={!chordEnginePlan.ui.ext.canToggleNine}
-                            /> 9
-                          </label>
-                        ) : null}
-                        {chordEnginePlan.ui.ext.showEleven ? (
-                          <label className="inline-flex items-center gap-2">
-                            <input type="checkbox" data-testid="ext-11" checked={chordExt11}
-                              onChange={(e) => {
-                                const v = e.target.checked;
-                                setChordExt11(v);
-                                if (v && chordStructure === "tetrad" && chordOmit === "none") {
-                                  setChordExt9(false);
-                                  setChordExt13(false);
-                                }
-                              }}
-                              disabled={!chordEnginePlan.ui.ext.canToggleEleven}
-                            /> 11
-                          </label>
-                        ) : null}
-                        {chordEnginePlan.ui.ext.showThirteen ? (
-                          <label className="inline-flex items-center gap-2">
-                            <input type="checkbox" data-testid="ext-13" checked={chordExt13}
-                              onChange={(e) => {
-                                const v = e.target.checked;
-                                setChordExt13(v);
-                                if (v) {
-                                  setChordExt6(false); // 6↔13 siempre mutuamente exclusivos
-                                  if (chordStructure === "tetrad" && chordOmit === "none") {
-                                    setChordExt9(false);
-                                    setChordExt11(false);
-                                  }
-                                }
-                              }}
-                              disabled={!chordEnginePlan.ui.ext.canToggleThirteen}
-                            /> 13
-                          </label>
-                        ) : null}
-                      </div>
-                    </div>
-
-                    <div className={isMobileLayout ? "min-w-0 order-7 col-span-2" : "min-w-0"}>
-                      <label className={UI_LABEL_SM}>Omitir</label>
-                      <div className="mt-1 grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
-                        <label className="inline-flex items-center gap-2">
-                          <input type="checkbox" data-testid="omit-1" checked={chordOmit === "1"} onChange={(e) => setChordOmit(e.target.checked ? "1" : "none")} disabled={chordOmit === "1" && !chordEnginePlan.ui.omit?.canToggleOff} /> 1
-                        </label>
-                        <label className="inline-flex items-center gap-2">
-                          <input type="checkbox" data-testid="omit-3" checked={chordOmit === "3"} onChange={(e) => setChordOmit(e.target.checked ? "3" : "none")} disabled={chordSuspension !== "none" || (chordOmit === "3" && !chordEnginePlan.ui.omit?.canToggleOff)} /> 3
-                        </label>
-                        <label className="inline-flex items-center gap-2">
-                          <input type="checkbox" data-testid="omit-5" checked={chordOmit === "5"} onChange={(e) => setChordOmit(e.target.checked ? "5" : "none")} disabled={chordOmit === "5" && !chordEnginePlan.ui.omit?.canToggleOff} /> 5
-                        </label>
-                      </div>
-                    </div>
-
-                    {!isMobileLayout ? (
-                      <div className="ml-auto flex items-end gap-2">
-                        {renderMainChordVoicingPicker("shrink-0")}
-                        {renderMainChordDistControl("w-[50px] shrink-0")}
-                      </div>
-                    ) : null}
-                      </div>
-                    )}
-                  </PanelBlock>
-                );
-                if (isMobileLayout) {
-                  return mobileChordEditorOpen && !chordDetectMode && typeof document !== "undefined"
-                    ? createPortal(
-                      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 xl:hidden">
-                        <div className="w-full max-w-[430px]">
-                          {chordEditorPanel}
-                        </div>
-                      </div>,
-                      document.body
-                    )
-                    : null;
-                }
-                return chordDetectMode ? null : chordEditorPanel;
-              })()}
-              {chordDetectMode ? (
-                <div
-                  ref={chordDetectInvestigationAreaRef}
-                  style={chordDetectClearMinHeight ? { minHeight: chordDetectClearMinHeight } : undefined}
-                >
-                  {renderChordInvestigationFretboard()}
-                </div>
-              ) : (
-                chordFamily === "quartal" ? (
-                  <ChordFretboard
-                    title="Mástil"
-                    infoText={CHORD_FRETBOARD_INFO_TEXT}
-                    subtitle={`${chordQuartalUiText}${chordQuartalStepText ? ` · ${chordQuartalStepText}` : ""}.`}
-                    voicing={activeQuartalVoicing}
-                    voicingIdx={chordQuartalVoicingIdx}
-                    voicingTotal={Math.max(1, chordQuartalVoicings.length)}
-                    emptyMessage={`No he encontrado apilados ${chordQuartalSpread === "open" ? "abiertos" : "cerrados"} con la distancia actual. Prueba a subir la distancia o cambiar el apilado.`}
-                    roleForPc={quartalRoleOfPc}
-                    labelForPc={labelForQuartalPc}
-                    noteNameForPc={quartalNoteNameForPc}
-                  />
-                ) : chordFamily === "guide_tones" ? (
-                  <GuideToneFretboard
-                    title="Mástil"
-                    infoText={CHORD_FRETBOARD_INFO_TEXT}
-                    voicing={activeGuideToneVoicing}
-                    voicingIdx={guideToneVoicingIdx}
-                    voicingTotal={Math.max(1, guideToneVoicings.length)}
-                    emptyMessage="No he encontrado shells de notas guía con los filtros actuales. Prueba a cambiar forma, inversión o distancia."
-                  />
-                ) : (
-                  <div data-testid="fretboard-notes">
-                    <ChordFretboard
-                      title="Mástil"
-                      infoText={CHORD_FRETBOARD_INFO_TEXT}
-                      voicing={activeChordVoicing}
-                      voicingIdx={chordVoicingIdx}
-                      voicingTotal={Math.max(1, chordVoicingsDisplay.length)}
-                      emptyMessage={
-                        chordEnginePlan.insufficientNotes
-                          ? "No hay notas suficientes para formar un acorde. Añade una extensión o desactiva una omisión."
-                          : (chordEnginePlan.structure === "tetrad" && !chordEnginePlan.ext7)
-                            ? "No hay 7ª activa: esto no es una cuatriada. Activa la 7ª o cambia la estructura a Acorde/Add."
-                            : (chordDbError || "No he encontrado voicings para este acorde con los filtros actuales. Prueba a cambiar forma, inversión, distancia o permitir cuerdas al aire.")
-                      }
-                    />
-                  </div>
-                )
-              )}
-            </PanelBlock>
-          </div>
+          <ChordsPanel
+            layout={{ isMobileLayout, mobileChordEditorOpen, setMobileChordEditorOpen }}
+            chordCtrl={{
+              chordDetectMode, setChordDetectMode,
+              chordCopyNotice,
+              chordFamily, setChordFamily,
+              chordRootPc, setChordRootPc,
+              chordSpellPreferSharps, setChordSpellPreferSharps,
+              chordAccidental,
+              chordQuality, setChordQuality,
+              chordSuspension, setChordSuspension,
+              chordStructure, applyChordStructureSelection,
+              chordForm, setChordForm, setChordPositionForm,
+              chordInversion, setChordInversion, chordInversionOptions,
+              chordExt7, setChordExt7,
+              chordExt6, setChordExt6,
+              chordExt9, setChordExt9,
+              chordExt11, setChordExt11,
+              chordExt13, setChordExt13,
+              chordOmit, setChordOmit,
+              chordEnginePlan,
+              chordControlsTitle,
+              chordBaseDisplayName,
+            }}
+            quartalCtrl={{
+              chordQuartalType, setChordQuartalType,
+              chordQuartalVoices, setChordQuartalVoices,
+              chordQuartalSpread, setChordQuartalSpread,
+              chordQuartalReference, setChordQuartalReference,
+              chordQuartalScaleName, setChordQuartalScaleName,
+            }}
+            guideToneCtrl={{
+              guideToneQuality, setGuideToneQuality,
+              guideToneForm, setGuideToneForm,
+              guideToneInversion, setGuideToneInversion,
+            }}
+            uiCls={{
+              chordSelectClass, chordAutoSelectClass,
+              chordMobileEditorGridClass, chordMobileEditorTertianGridClass,
+              nearSlotDesktopEditorClass,
+              chordFamilySelectWidth, chordFormSelectWidth,
+              chordInversionSelectWidth, chordSuspensionSelectWidth, chordQualitySelectWidth,
+            }}
+            voicingData={{
+              chordQuartalUiText, chordQuartalStepText,
+              activeQuartalVoicing, chordQuartalVoicingIdx, chordQuartalVoicings,
+              quartalRoleOfPc, labelForQuartalPc, quartalNoteNameForPc,
+              activeGuideToneVoicing, guideToneVoicingIdx, guideToneVoicings,
+              activeChordVoicing, chordVoicingIdx, chordVoicingsDisplay,
+              chordDbError,
+            }}
+            detectArea={{ chordDetectInvestigationAreaRef, chordDetectClearMinHeight }}
+            renderFns={{
+              renderChordBadgeStripBlock,
+              renderMainChordVoicingPicker,
+              renderMainChordDistControl,
+              renderMobileChordSummaryCard,
+              renderChordInvestigationFretboard,
+              openMainChordStudy,
+              InfoTitle,
+              ChordFretboard,
+              GuideToneFretboard,
+            }}
+          />
         ) : null}
 
         {boardVisibility.nearChords ? (
