@@ -3239,15 +3239,6 @@ export default function FretboardScalesPage() {
     return noteText ? `${noteText} · bajo en ${bassName}` : `bajo en ${bassName}`;
   }, [chordDetectSelectedCandidate, chordPreferSharps]);
 
-  const chordDetectSelectedCandidateScaleNotesText = useMemo(() => {
-    if (!chordDetectSelectedCandidate) return "";
-    return spellScaleNotes({
-      rootPc: chordDetectSelectedCandidate.rootPc,
-      scaleIntervals,
-      preferSharps: chordDetectSelectedCandidate.preferSharps ?? chordPreferSharps,
-    }).join(", ");
-  }, [chordDetectSelectedCandidate, scaleIntervals, chordPreferSharps]);
-
   const chordDetectSelectedCandidateBadgeItems = useMemo(() => {
     return buildDetectedCandidateBadgeItemsPure(chordDetectSelectedCandidate, chordPreferSharps);
   }, [chordDetectSelectedCandidate, chordPreferSharps]);
@@ -6276,7 +6267,6 @@ function ChordCircle({ role, isBass, displayLabel, titleText, fret = 1, compactO
         className={`inline-flex items-center gap-2 text-xs font-semibold text-slate-700 ${className}`.trim()}
         title={chordFamily === "quartal" ? "Incluye cuerdas al aire en la búsqueda de voicings cuartales." : chordFamily === "guide_tones" ? "Incluye cuerdas al aire en la búsqueda de shells de notas guía." : "Permite usar cuerdas al aire como opción de voicing. La distancia se calcula solo con las notas pisadas."}
       >
-        <span>Permitir cuerdas al aire</span>
         <input
           type="checkbox"
           data-testid="toggle-allow-open-strings"
@@ -6296,6 +6286,7 @@ function ChordCircle({ role, isBass, displayLabel, titleText, fret = 1, compactO
           }}
           className="h-4 w-4 rounded border-slate-300"
         />
+        <span>Permitir cuerdas al aire</span>
       </label>
     );
   }
@@ -6347,16 +6338,11 @@ function ChordFretboard({
       level="subsection"
       title={infoText ? <InfoTitle label={title} info={infoText} alwaysShow /> : title}
       description={voicing ? `Notas: ${noteText}.${subtitle ? ` ${subtitle}` : ""}` : subtitle}
-      headerAside={(
-        <div className="flex flex-col items-end gap-1">
-          {renderChordAllowOpenStringsToggle("justify-end")}
-          {voicing ? (
-            <div className="text-xs text-slate-600">
-              Voicing {Math.min(voicingIdx + 1, voicingTotal)}/{voicingTotal}: <b>{voicing.frets}</b>
-            </div>
-          ) : null}
+      headerAside={voicing ? (
+        <div className="text-xs text-slate-600">
+          Voicing {Math.min(voicingIdx + 1, voicingTotal)}/{voicingTotal}: <b>{voicing.frets}</b>
         </div>
-      )}
+      ) : null}
     >
 
       {!voicing && emptyMessage ? (
@@ -6525,12 +6511,7 @@ function ChordFretboard({
         level="subsection"
         title={infoText ? <InfoTitle label={title} info={infoText} alwaysShow /> : title}
         description={`${voicing ? `Notas: ${noteText}. ` : ""}Shells de 3 notas con 1, 3 y 7 según la calidad. Forma e inversión afectan al voicing real.`}
-        headerAside={(
-          <div className="flex flex-col items-end gap-1">
-            {renderChordAllowOpenStringsToggle("justify-end")}
-            {voicing ? <div className="text-xs text-slate-600">Voicing {Math.min(voicingIdx + 1, voicingTotal)}/{voicingTotal}: <b>{voicing.frets}</b></div> : null}
-          </div>
-        )}
+        headerAside={voicing ? <div className="text-xs text-slate-600">Voicing {Math.min(voicingIdx + 1, voicingTotal)}/{voicingTotal}: <b>{voicing.frets}</b></div> : null}
       >
 
         {!voicing && emptyMessage ? (
@@ -6623,7 +6604,7 @@ function ChordFretboard({
     }
 
     const selectedStrings = new Set(chordDetectSelectedNotes.map((n) => n.sIdx));
-    const chordDetectIconButtonBaseClass = "inline-flex h-8 w-8 items-center justify-center rounded-xl border shadow-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-200 enabled:cursor-pointer disabled:cursor-not-allowed disabled:opacity-50";
+    const chordDetectIconButtonBaseClass = "inline-flex h-7 w-7 items-center justify-center rounded-xl border shadow-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-200 enabled:cursor-pointer disabled:cursor-not-allowed disabled:opacity-50";
 
     // ── Lectura detectada (computed at top level) ────────────────────────────
     const cand = chordDetectSelectedCandidate;
@@ -6703,7 +6684,7 @@ function ChordFretboard({
 				<div className="mb-1 text-[11px] font-semibold text-slate-600">
 				  Patrón
 				</div>
-				<div className="flex h-8 items-center rounded-xl border border-slate-200 bg-white px-3 font-mono text-sm text-slate-900 shadow-sm">
+				<div className="flex h-7 items-center rounded-xl border border-slate-200 bg-white px-3 font-mono text-xs text-slate-900 shadow-sm">
 				  {chordDetectPhysicalPatternText || "—"}
 				</div>
 			  </div>
@@ -10561,6 +10542,7 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
               renderMainChordDistControl,
               renderMobileChordSummaryCard,
               renderChordInvestigationFretboard,
+              renderChordAllowOpenStringsToggle,
               openMainChordStudy,
               InfoTitle,
               ChordFretboard,

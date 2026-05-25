@@ -49,13 +49,12 @@ export default function ChordsPanel({
     chordDetectMode, setChordDetectMode,
     chordCopyNotice,
     chordFamily, setChordFamily,
-    chordRootPc,
     chordSpellPreferSharps,
     chordAccidental,
     chordQuality, setChordQuality,
-    chordSuspension, setChordSuspension,
+    chordSuspension,
     chordStructure, applyChordStructureSelection,
-    chordForm, setChordForm,
+    chordForm,
     chordInversion, setChordInversion, chordInversionOptions,
     chordExt7, setChordExt7,
     chordExt6,
@@ -107,6 +106,7 @@ export default function ChordsPanel({
     renderMainChordDistControl,
     renderMobileChordSummaryCard,
     renderChordInvestigationFretboard,
+    renderChordAllowOpenStringsToggle,
     openMainChordStudy,
     InfoTitle,
     ChordFretboard,
@@ -177,18 +177,28 @@ const modeToggle = (
   </div>
 );
 
-  // ── Nombre del acorde en azul (visible en modo acorde, desktop) ──────────────
-  const chordNameBadge =
-    !chordDetectMode && !isMobileLayout && chordBaseDisplayName ? (
-      <span className="text-sm font-bold text-sky-700">{chordBaseDisplayName}</span>
-    ) : null;
-
   // ── Cabecera del outer PanelBlock ────────────────────────────────────────────
   const sectionTitle = (
     <span className="inline-flex flex-wrap items-center gap-2">
       <InfoTitle label="Acordes" info={CHORDS_SECTION_INFO_TEXT} alwaysShow />
     </span>
   );
+  
+  const chordControlsRestTitle = (() => {
+    let raw = chordControlsTitle || "";
+    // Quitar prefijo "Acorde NAME" o solo "NAME"
+    const withAcorde = chordBaseDisplayName ? `Acorde ${chordBaseDisplayName}` : null;
+    if (withAcorde && raw.startsWith(withAcorde)) {
+      raw = raw.slice(withAcorde.length).replace(/^\s*[-·]\s*/, "");
+    } else if (chordBaseDisplayName && raw.startsWith(chordBaseDisplayName)) {
+      raw = raw.slice(chordBaseDisplayName.length).replace(/^\s*[-·]\s*/, "");
+    }
+    // Quitar sufijo (frets) al final
+    raw = raw.replace(/\s*\([^)]+\)\s*$/, "");
+    // Usar " · " como separador en lugar de " - "
+    raw = raw.replace(/\s+-\s+/g, " · ");
+    return raw.trim();
+  })();
 
   // ── Editor de acorde (subsección) ───────────────────────────────────────────
   const chordEditorPanel = (
@@ -196,13 +206,32 @@ const modeToggle = (
       as="fieldset"
       disabled={!isMobileLayout && chordDetectMode}
       level="subsection"
-      title={
-        <InfoTitle
-          label={isMobileLayout ? "Editar acorde" : chordControlsTitle}
-          info={CHORD_EDITOR_INFO_TEXT}
-          alwaysShow
-        />
-      }
+		title={
+		  isMobileLayout ? (
+			<InfoTitle
+			  label="Editar acorde"
+			  info={CHORD_EDITOR_INFO_TEXT}
+			  alwaysShow
+			/>
+		  ) : (
+			<span className="inline-flex flex-wrap items-center gap-x-1 text-lg font-bold text-slate-950">
+			  <InfoTitle
+				label={
+				  <span>
+					<span className="text-sky-700">
+					  {chordBaseDisplayName || chordControlsTitle}
+					</span>
+					{chordControlsRestTitle && chordBaseDisplayName ? (
+					  <span className="text-slate-950"> · {chordControlsRestTitle}</span>
+					) : null}
+				  </span>
+				}
+				info={CHORD_EDITOR_INFO_TEXT}
+				alwaysShow
+			  />
+			</span>
+		  )
+		}
       className={
         isMobileLayout
           ? "w-full max-h-[calc(100vh-6rem)] shadow-2xl"
@@ -226,14 +255,18 @@ const modeToggle = (
             X
           </button>
         ) : (
-          <button
-            type="button"
-            className={UI_BTN_SM + " w-auto px-3"}
-            title="Abre el análisis del acorde, del voicing y de sus tensiones."
-            onClick={openMainChordStudy}
-          >
-            Estudiar
-          </button>
+          <div className="flex items-end gap-2">
+            {renderMainChordVoicingPicker("shrink-0")}
+            {renderMainChordDistControl("w-[50px]")}
+            <button
+              type="button"
+              className={UI_BTN_SM + " w-auto px-3"}
+              title="Abre el análisis del acorde, del voicing y de sus tensiones."
+              onClick={openMainChordStudy}
+            >
+              Estudiar
+            </button>
+          </div>
         )
       }
     >
@@ -359,12 +392,10 @@ const modeToggle = (
             </select>
           </div>
 
-          {!isMobileLayout ? (
-            <div className="ml-auto flex items-end gap-2">
-              {renderMainChordVoicingPicker("shrink-0")}
-              {renderMainChordDistControl("w-[50px] shrink-0")}
-            </div>
-          ) : null}
+          <div className="min-w-0 self-end">
+            {renderChordAllowOpenStringsToggle()}
+          </div>
+
         </div>
 
       /* ── Familia guide tones ─────────────────────────────────────────────── */
@@ -450,12 +481,10 @@ const modeToggle = (
             </select>
           </div>
 
-          {!isMobileLayout ? (
-            <div className="ml-auto flex items-end gap-2">
-              {renderMainChordVoicingPicker("shrink-0")}
-              {renderMainChordDistControl("w-[50px] shrink-0")}
-            </div>
-          ) : null}
+          <div className="min-w-0 self-end">
+            {renderChordAllowOpenStringsToggle()}
+          </div>
+
         </div>
 
       /* ── Familia terciaria (default) ─────────────────────────────────────── */
@@ -674,12 +703,12 @@ const modeToggle = (
             </div>
           </div>
 
-          {!isMobileLayout ? (
-            <div className="ml-auto flex items-end gap-2">
-              {renderMainChordVoicingPicker("shrink-0")}
-              {renderMainChordDistControl("w-[50px] shrink-0")}
+          <div className={isMobileLayout ? "min-w-0 order-8 col-span-2" : "min-w-0"}>
+            <div className="rounded-xl border border-slate-200 px-3 py-2">
+              {renderChordAllowOpenStringsToggle()}
             </div>
-          ) : null}
+          </div>
+
         </div>
       )}
     </PanelBlock>

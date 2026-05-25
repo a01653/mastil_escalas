@@ -351,18 +351,18 @@ export function chordDisplayNameFromUI({ rootPc, preferSharps, quality, suspensi
   const base = `${rootName}${disp}`;
 
   // Con 7ª activa: usar notación add explícita cuando procede
-  if (!!ext7) {
+  if (ext7) {
     const addParts = [];
     if (structure === "tetrad") {
       // Cuatriada: todas las extensiones sobre la 7ª son adds explícitos
-      if (!!ext9) addParts.push("9");
-      if (!!ext11) addParts.push("11");
-      if (!!ext13) addParts.push("13");
-      if (!!ext6) addParts.push("6");
+      if (ext9) addParts.push("9");
+      if (ext11) addParts.push("11");
+      if (ext13) addParts.push("13");
+      if (ext6) addParts.push("6");
     } else {
       // Acorde: solo cuando la extensión implicaría intermedias ausentes
-      if (!!ext13 && !ext9 && !ext11) addParts.push("13");
-      else if (!!ext11 && !ext9) addParts.push("11");
+      if (ext13 && !ext9 && !ext11) addParts.push("13");
+      else if (ext11 && !ext9) addParts.push("11");
       // ext9 solo: "9" es notación compacta estándar (X7+9)
     }
     if (addParts.length > 0) {
@@ -1459,7 +1459,7 @@ export function seventhOffsetForQuality(quality) {
   return 10;
 }
 
-export function chordBassInterval({ quality, suspension, structure, inversion, ext7, ext6, ext9, ext11, ext13, omit = "none" }) {
+export function chordBassInterval({ quality, suspension, inversion, ext7, ext6, ext9, ext11, ext13, omit = "none" }) {
   const sus = suspension || "none";
   const third = sus === "sus2" ? 2 : sus === "sus4" ? 5 : quality === "maj" || quality === "dom" ? 4 : 3;
   const fifth = sus !== "none" ? 7 : quality === "dim" || quality === "hdim" ? 6 : 7;

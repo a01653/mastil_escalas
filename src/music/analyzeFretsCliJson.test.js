@@ -19,7 +19,7 @@ function run(...args) {
 function runJson(...args) {
   const { exitCode, stdout, stderr } = run(...args, "--json");
   let json = null;
-  try { json = JSON.parse(stdout); } catch {}
+  try { json = JSON.parse(stdout); } catch { /* ignore parse error */ }
   return { exitCode, json, raw: stdout, stderr };
 }
 

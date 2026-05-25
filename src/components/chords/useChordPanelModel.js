@@ -17,7 +17,7 @@ export function useChordPanelModel({ chordCtrl }) {
     chordRootPc, setChordRootPc,
     chordSpellPreferSharps, setChordSpellPreferSharps,
     chordQuality, setChordQuality,
-    chordSuspension, setChordSuspension,
+    setChordSuspension,
     chordStructure,
     chordExt7, chordExt6, setChordExt6,
     chordExt9, setChordExt9,

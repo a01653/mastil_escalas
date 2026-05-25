@@ -10,10 +10,8 @@
 
 import {
   analyzeSelectedNotes,
-  mod12,
   noteNameToPc,
   pcToName,
-  preferSharpsFromMajorTonicPc,
 } from "./chordDetectionEngine.js";
 import { analyzeFretsCore } from "./analyzeFretsCore.js";
 
