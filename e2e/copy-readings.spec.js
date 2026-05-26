@@ -297,7 +297,7 @@ test("44. Fadd11(no5)/Bb: estado completo tras copiar — omit5, ext11, chips si
   await expect(list).toBeVisible();
 
   // 1. La lectura primaria detectada debe ser Fadd11(no5)/Bb
-  await expect(page.getByText(/Lectura detectada.*Fadd11\(no5\)\/Bb/)).toBeVisible({ timeout: 5000 });
+  await expect(page.locator('[aria-label="Selección manual"]').getByText(/Fadd11\(no5\)\/Bb/).first()).toBeVisible({ timeout: 5000 });
 
   // El botón Copiar del candidato primario (primer botón habilitado) debe estar activo
   const firstEnabledCopyBtn = list.locator("[data-testid^='detected-copy-']")
@@ -362,7 +362,7 @@ test("45. x132xx→Fadd11(no5)/Bb: voicing-select contiene x132xx y queda selecc
   await page.waitForTimeout(400);
 
   // Verificar detección: la lectura primaria debe ser Fadd11(no5)/Bb
-  await expect(page.getByText(/Lectura detectada.*Fadd11\(no5\)\/Bb/)).toBeVisible({ timeout: 5000 });
+  await expect(page.locator('[aria-label="Selección manual"]').getByText(/Fadd11\(no5\)\/Bb/).first()).toBeVisible({ timeout: 5000 });
 
   // Copiar el candidato primario
   const list = page.getByTestId("detected-chord-list");
@@ -425,7 +425,7 @@ test("46. x132xx copiado: al cambiar inversión, voicing no persiste como '(copi
   await page.getByTestId("chord-detect-apply-btn").click();
   await page.waitForTimeout(400);
 
-  await expect(page.getByText(/Lectura detectada.*Fadd11\(no5\)\/Bb/)).toBeVisible({ timeout: 5000 });
+  await expect(page.locator('[aria-label="Selección manual"]').getByText(/Fadd11\(no5\)\/Bb/).first()).toBeVisible({ timeout: 5000 });
 
   const list = page.getByTestId("detected-chord-list");
   const firstEnabledCopyBtn = list.locator("[data-testid^='detected-copy-']")
@@ -501,7 +501,7 @@ test("47. Fadd11(no5): el selector de inversión no contiene '3ª inversión'", 
   await patternInput.fill("x132xx");
   await page.getByTestId("chord-detect-apply-btn").click();
 
-  await expect(page.getByText(/Lectura detectada.*Fadd11\(no5\)\/Bb/)).toBeVisible({ timeout: 5000 });
+  await expect(page.locator('[aria-label="Selección manual"]').getByText(/Fadd11\(no5\)\/Bb/).first()).toBeVisible({ timeout: 5000 });
 
   const list = page.getByTestId("detected-chord-list");
   const firstEnabledCopyBtn = list.locator("[data-testid^='detected-copy-']")
@@ -529,7 +529,7 @@ test("48. Fadd11(no5): el selector de inversión contiene 'Bajo 11'", async ({ p
   await patternInput.fill("x132xx");
   await page.getByTestId("chord-detect-apply-btn").click();
 
-  await expect(page.getByText(/Lectura detectada.*Fadd11\(no5\)\/Bb/)).toBeVisible({ timeout: 5000 });
+  await expect(page.locator('[aria-label="Selección manual"]').getByText(/Fadd11\(no5\)\/Bb/).first()).toBeVisible({ timeout: 5000 });
 
   const list = page.getByTestId("detected-chord-list");
   const firstEnabledCopyBtn = list.locator("[data-testid^='detected-copy-']")
@@ -558,7 +558,7 @@ test("49. Asus2 x0220x: copia directa a Acorde con cuerdas al aire y voicing rea
   await patternInput.fill("x0220x");
   await page.getByTestId("chord-detect-apply-btn").click();
 
-  const asus2Name = page.getByText(/Lectura detectada.*Asus2/);
+  const asus2Name = page.getByText(/Asus2/).first();
   await expect(asus2Name).toBeVisible({ timeout: 5000 });
 
   const list = page.getByTestId("detected-chord-list");
@@ -630,7 +630,7 @@ test("52. Asus2 002200: copia directa a Acorde real con cuerdas al aire", async 
   await patternInput.fill("002200");
   await page.getByTestId("chord-detect-apply-btn").click();
 
-  const asus2Name = page.getByText(/Lectura detectada.*Asus2/);
+  const asus2Name = page.getByText(/Asus2/).first();
   await expect(asus2Name).toBeVisible({ timeout: 5000 });
 
   const list = page.getByTestId("detected-chord-list");

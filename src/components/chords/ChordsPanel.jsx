@@ -1,4 +1,6 @@
+import { useState, useCallback } from "react";
 import { createPortal } from "react-dom";
+import { Copy, Check } from "lucide-react";
 import PanelBlock from "../PanelBlock.jsx";
 import * as AppStaticData from "../../music/appStaticData.js";
 import * as AppMusicBasics from "../../music/appMusicBasics.js";
@@ -8,7 +10,6 @@ import { useChordPanelModel } from "./useChordPanelModel.js";
 const {
   CHORDS_SECTION_INFO_TEXT,
   CHORD_EDITOR_INFO_TEXT,
-  CHORD_FRETBOARD_INFO_TEXT,
   LETTERS,
 } = AppStaticData;
 const {
@@ -29,6 +30,32 @@ const { isDropForm } = AppVoicingStudyCore;
 
 // UI constants (mismas clases que App.jsx – puras, sin dependencia de estado)
 const UI_BTN_SM = "h-7 w-7 rounded-xl border border-slate-200 bg-white text-xs font-semibold shadow-sm hover:bg-sky-50 disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed";
+
+// ── Botón copiar voicing (reutilizable) ─────────────────────────────────────
+export function CopyVoicingButton({ frets }) {
+  const [copied, setCopied] = useState(false);
+  const handleCopy = useCallback(() => {
+    if (!frets) return;
+    navigator.clipboard.writeText(frets).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  }, [frets]);
+  return (
+    <button
+      type="button"
+      className={`inline-flex items-center justify-center ${UI_BTN_SM} transition-colors${
+        copied ? " !bg-emerald-100 !border-emerald-400 !text-emerald-700" : ""
+      }`}
+      title={copied ? "¡Copiado!" : frets ? `Copiar voicing (${frets})` : "Sin voicing para copiar"}
+      onClick={handleCopy}
+      disabled={!frets}
+      aria-label="Copiar voicing al portapapeles"
+    >
+      {copied ? <Check size={14} /> : <Copy size={14} />}
+    </button>
+  );
+}
 const UI_LABEL_SM = "block text-[11px] font-semibold text-slate-700";
 const UI_SELECT_SM_TONE = "h-7 w-[60px] rounded-xl border border-slate-200 bg-white px-1 text-xs shadow-sm hover:bg-sky-50 disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed";
 const UI_EXT_GRID = "mt-1 grid grid-cols-3 gap-x-3 gap-y-1 text-xs";
@@ -90,11 +117,10 @@ export default function ChordsPanel({
   } = uiCls;
 
   const {
-    chordQuartalUiText, chordQuartalStepText,
-    activeQuartalVoicing, chordQuartalVoicingIdx, chordQuartalVoicings,
+    activeQuartalVoicing,
     quartalRoleOfPc, labelForQuartalPc, quartalNoteNameForPc,
-    activeGuideToneVoicing, guideToneVoicingIdx, guideToneVoicings,
-    activeChordVoicing, chordVoicingIdx, chordVoicingsDisplay,
+    activeGuideToneVoicing,
+    activeChordVoicing,
     chordDbError,
   } = voicingData;
 
@@ -128,6 +154,14 @@ export default function ChordsPanel({
     handleFormChange,
   } = useChordPanelModel({ chordCtrl });
 
+const extensionGridClass = isMobileLayout
+  ? "mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs"
+  : UI_EXT_GRID;
+
+const omitGridClass = isMobileLayout
+  ? "mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs"
+  : "mt-1 grid grid-cols-2 gap-x-3 gap-y-1 text-xs";
+
   // ── Toggle Modo acorde / Investigar en mástil ────────────────────────────────
   // El <label> envuelve el input[type=checkbox] con absolute inset-0 opacity-0
   // para que Playwright pueda usar .check()/.uncheck() sobre data-testid="chord-detect-toggle".
@@ -136,7 +170,7 @@ export default function ChordsPanel({
 const modeToggle = (
   <div
     className="relative inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white p-1 shadow-sm"
-    title={chordDetectMode ? "Pasar a modo acorde" : "Investigar acordes en el mástil"}
+    title={chordDetectMode ? "Cambiar a modo auto" : "Cambiar a modo manual"}
   >
     {/* Se mantiene solo para compatibilidad con Playwright */}
     <input
@@ -159,7 +193,7 @@ const modeToggle = (
           : "bg-white text-slate-700 hover:bg-slate-50"
       }`}
     >
-      Modo acorde
+      Auto
     </button>
 
     <button
@@ -172,7 +206,7 @@ const modeToggle = (
           : "bg-white text-slate-700 hover:bg-slate-50"
       }`}
     >
-      Investigar en mástil
+      Manual
     </button>
   </div>
 );
@@ -180,7 +214,7 @@ const modeToggle = (
   // ── Cabecera del outer PanelBlock ────────────────────────────────────────────
   const sectionTitle = (
     <span className="inline-flex flex-wrap items-center gap-2">
-      <InfoTitle label="Acordes" info={CHORDS_SECTION_INFO_TEXT} alwaysShow />
+      <InfoTitle label="Acordes" info={chordDetectMode ? CHORDS_SECTION_INFO_TEXT : CHORD_EDITOR_INFO_TEXT} alwaysShow />
     </span>
   );
   
@@ -200,82 +234,27 @@ const modeToggle = (
     return raw.trim();
   })();
 
-  // ── Editor de acorde (subsección) ───────────────────────────────────────────
-  const chordEditorPanel = (
-    <PanelBlock
-      as="fieldset"
-      disabled={!isMobileLayout && chordDetectMode}
-      level="subsection"
-		title={
-		  isMobileLayout ? (
-			<InfoTitle
-			  label="Editar acorde"
-			  info={CHORD_EDITOR_INFO_TEXT}
-			  alwaysShow
-			/>
-		  ) : (
-			<span className="inline-flex flex-wrap items-center gap-x-1 text-lg font-bold text-slate-950">
-			  <InfoTitle
-				label={
-				  <span>
-					<span className="text-sky-700">
-					  {chordBaseDisplayName || chordControlsTitle}
-					</span>
-					{chordControlsRestTitle && chordBaseDisplayName ? (
-					  <span className="text-slate-950"> · {chordControlsRestTitle}</span>
-					) : null}
-				  </span>
-				}
-				info={CHORD_EDITOR_INFO_TEXT}
-				alwaysShow
-			  />
-			</span>
-		  )
-		}
-      className={
-        isMobileLayout
-          ? "w-full max-h-[calc(100vh-6rem)] shadow-2xl"
-          : chordDetectMode
-            ? "opacity-70"
-            : ""
-      }
-      bodyClassName={
-        isMobileLayout
-          ? "max-h-[calc(100vh-11rem)] overflow-y-auto overflow-x-visible"
-          : "overflow-x-auto"
-      }
-      headerAside={
-        isMobileLayout ? (
-          <button
-            type="button"
-            className="inline-flex h-7 w-7 items-center justify-center rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-700 shadow-sm hover:bg-sky-50"
-            onClick={() => setMobileChordEditorOpen(false)}
-            aria-label="Cerrar edición de acorde"
-          >
-            X
-          </button>
-        ) : (
-          <div className="flex items-end gap-2">
-            {renderMainChordVoicingPicker("shrink-0")}
-            {renderMainChordDistControl("w-[50px]")}
-            <button
-              type="button"
-              className={UI_BTN_SM + " w-auto px-3"}
-              title="Abre el análisis del acorde, del voicing y de sus tensiones."
-              onClick={openMainChordStudy}
-            >
-              Estudiar
-            </button>
-          </div>
-        )
-      }
-    >
-      {!isMobileLayout ? (
-        <div className="mb-3">
-          {renderChordBadgeStripBlock()}
-        </div>
-      ) : null}
+  // ── Copiar voicing al portapapeles ──────────────────────────────────────────
+  const activeVoicingFrets =
+    chordFamily === "quartal"
+      ? (activeQuartalVoicing?.frets ?? null)
+      : chordFamily === "guide_tones"
+        ? (activeGuideToneVoicing?.frets ?? null)
+        : (activeChordVoicing?.frets ?? null);
 
+  const [copiedVoicing, setCopiedVoicing] = useState(false);
+
+  const handleCopyVoicing = useCallback(() => {
+    if (!activeVoicingFrets) return;
+    navigator.clipboard.writeText(activeVoicingFrets).then(() => {
+      setCopiedVoicing(true);
+      setTimeout(() => setCopiedVoicing(false), 1500);
+    });
+  }, [activeVoicingFrets]);
+
+  // ── Controles del acorde (compartidos entre mobile y desktop) ────────────────
+  const chordControlsGrid = (
+    <>
       {/* ── Familia quartal ─────────────────────────────────────────────────── */}
       {chordFamily === "quartal" ? (
         <div className={isMobileLayout ? chordMobileEditorGridClass : nearSlotDesktopEditorClass}>
@@ -392,9 +371,11 @@ const modeToggle = (
             </select>
           </div>
 
-          <div className="min-w-0 self-end">
-            {renderChordAllowOpenStringsToggle()}
-          </div>
+          {!isMobileLayout && (
+            <div className="ml-auto self-start justify-self-end pt-[8px]">
+              {renderChordAllowOpenStringsToggle("h-9 rounded-xl border border-slate-200 bg-white px-3 shadow-sm")}
+            </div>
+          )}
 
         </div>
 
@@ -481,15 +462,17 @@ const modeToggle = (
             </select>
           </div>
 
-          <div className="min-w-0 self-end">
-            {renderChordAllowOpenStringsToggle()}
-          </div>
+          {!isMobileLayout && (
+            <div className="ml-auto self-start justify-self-end pt-[8px]">
+              {renderChordAllowOpenStringsToggle("h-9 rounded-xl border border-slate-200 bg-white px-3 shadow-sm")}
+            </div>
+          )}
 
         </div>
 
       /* ── Familia terciaria (default) ─────────────────────────────────────── */
       ) : (
-        <div className={isMobileLayout ? chordMobileEditorTertianGridClass : nearSlotDesktopEditorClass}>
+        <div className={isMobileLayout ? chordMobileEditorTertianGridClass : `${nearSlotDesktopEditorClass} items-start`}>
           <div className={isMobileLayout ? "min-w-0 col-span-2" : "min-w-0"}>
             <label className={UI_LABEL_SM}>Tono</label>
             <div className="mt-1 flex items-center gap-1.5">
@@ -629,7 +612,7 @@ const modeToggle = (
 
           <div className={isMobileLayout ? "min-w-0 order-6 col-span-2" : "min-w-0"}>
             <label className={UI_LABEL_SM}>Extensiones</label>
-            <div className={UI_EXT_GRID}>
+            <div className={extensionGridClass}>
               {chordEnginePlan.ui.ext.showSeven ? (
                 <label className="inline-flex items-center gap-2">
                   <input
@@ -690,7 +673,7 @@ const modeToggle = (
 
           <div className={isMobileLayout ? "min-w-0 order-7 col-span-2" : "min-w-0"}>
             <label className={UI_LABEL_SM}>Omitir</label>
-            <div className="mt-1 grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+            <div className={omitGridClass}>
               <label className="inline-flex items-center gap-2">
                 <input type="checkbox" data-testid="omit-1" checked={chordOmit === "1"} onChange={(e) => setChordOmit(e.target.checked ? "1" : "none")} disabled={chordOmit === "1" && !chordEnginePlan.ui.omit?.canToggleOff} /> 1
               </label>
@@ -703,26 +686,104 @@ const modeToggle = (
             </div>
           </div>
 
-          <div className={isMobileLayout ? "min-w-0 order-8 col-span-2" : "min-w-0"}>
-            <div className="rounded-xl border border-slate-200 px-3 py-2">
-              {renderChordAllowOpenStringsToggle()}
+          {!isMobileLayout && (
+            <div className="ml-auto self-start justify-self-end pt-[8px]">
+              {renderChordAllowOpenStringsToggle("h-9 rounded-xl border border-slate-200 bg-white px-3 shadow-sm")}
             </div>
-          </div>
+          )}
 
         </div>
       )}
+    </>
+  );
+
+  // ── Editor de acorde (mobile - modal PanelBlock) ─────────────────────────────
+  const chordEditorPanel = (
+    <PanelBlock
+      as="fieldset"
+      level="subsection"
+      title={<InfoTitle label="Editar acorde" info={CHORD_EDITOR_INFO_TEXT} alwaysShow />}
+      className="w-full max-h-[calc(100vh-6rem)] shadow-2xl"
+      bodyClassName="max-h-[calc(100vh-11rem)] overflow-y-auto overflow-x-visible"
+      headerAside={
+        <button
+          type="button"
+          className="inline-flex h-7 w-7 items-center justify-center rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-700 shadow-sm hover:bg-sky-50"
+          onClick={() => setMobileChordEditorOpen(false)}
+          aria-label="Cerrar edición de acorde"
+        >
+          X
+        </button>
+      }
+    >
+      {chordControlsGrid}
     </PanelBlock>
+  );
+
+  // ── Editor de acorde (desktop - tarjeta sin cabecera azul) ───────────────────
+  const desktopChordEditorPanel = (
+    <fieldset className="overflow-hidden rounded-2xl shadow-sm ring-1 ring-slate-200">
+      {/* Cabecera: título + chips (izq) | voicing + dist + Estudiar (der) */}
+      <div className="flex flex-wrap items-start justify-between gap-3 bg-white px-3 py-3">
+        <div className="min-w-0 flex-1">
+          <div className="inline-flex flex-wrap items-center gap-x-1 text-lg font-bold text-slate-950">
+            <InfoTitle
+              label={
+                <span>
+                  <span className="text-sky-700">{chordBaseDisplayName || chordControlsTitle}</span>
+                  {chordControlsRestTitle && chordBaseDisplayName ? (
+                    <span className="text-slate-950"> · {chordControlsRestTitle}</span>
+                  ) : null}
+                </span>
+              }
+              info={CHORD_EDITOR_INFO_TEXT}
+              alwaysShow
+            />
+          </div>
+          <div className="mt-1.5">
+            {renderChordBadgeStripBlock()}
+          </div>
+        </div>
+        <div className="flex shrink-0 items-end gap-2">
+          <button
+            type="button"
+            className={`inline-flex items-center justify-center ${UI_BTN_SM} transition-colors${
+              copiedVoicing
+                ? " !bg-emerald-100 !border-emerald-400 !text-emerald-700"
+                : ""
+            }`}
+            title={copiedVoicing ? "¡Copiado!" : activeVoicingFrets ? `Copiar voicing (${activeVoicingFrets})` : "Sin voicing para copiar"}
+            onClick={handleCopyVoicing}
+            disabled={!activeVoicingFrets}
+            aria-label="Copiar voicing al portapapeles"
+          >
+            {copiedVoicing ? <Check size={14} /> : <Copy size={14} />}
+          </button>
+          {renderMainChordVoicingPicker("shrink-0")}
+          {renderMainChordDistControl("w-[50px]")}
+          <button
+            type="button"
+            className={UI_BTN_SM + " w-auto px-3"}
+            title="Abre el análisis del acorde, del voicing y de sus tensiones."
+            onClick={openMainChordStudy}
+          >
+            Estudiar
+          </button>
+        </div>
+      </div>
+{/* Controles */}
+<div className="bg-white px-3 pb-3">
+  <div className="border-t border-slate-200 pt-3 overflow-x-auto">
+    {chordControlsGrid}
+  </div>
+</div>
+    </fieldset>
   );
 
   // ── Selector de fretboard (modo acorde) ─────────────────────────────────────
   const chordFretboardSection = chordFamily === "quartal" ? (
     <ChordFretboard
-      title="Mástil"
-      infoText={CHORD_FRETBOARD_INFO_TEXT}
-      subtitle={`${chordQuartalUiText}${chordQuartalStepText ? ` · ${chordQuartalStepText}` : ""}.`}
       voicing={activeQuartalVoicing}
-      voicingIdx={chordQuartalVoicingIdx}
-      voicingTotal={Math.max(1, chordQuartalVoicings.length)}
       emptyMessage={`No he encontrado apilados ${chordQuartalSpread === "open" ? "abiertos" : "cerrados"} con la distancia actual. Prueba a subir la distancia o cambiar el apilado.`}
       roleForPc={quartalRoleOfPc}
       labelForPc={labelForQuartalPc}
@@ -730,21 +791,13 @@ const modeToggle = (
     />
   ) : chordFamily === "guide_tones" ? (
     <GuideToneFretboard
-      title="Mástil"
-      infoText={CHORD_FRETBOARD_INFO_TEXT}
       voicing={activeGuideToneVoicing}
-      voicingIdx={guideToneVoicingIdx}
-      voicingTotal={Math.max(1, guideToneVoicings.length)}
       emptyMessage="No he encontrado shells de notas guía con los filtros actuales. Prueba a cambiar forma, inversión o distancia."
     />
   ) : (
     <div data-testid="fretboard-notes">
       <ChordFretboard
-        title="Mástil"
-        infoText={CHORD_FRETBOARD_INFO_TEXT}
         voicing={activeChordVoicing}
-        voicingIdx={chordVoicingIdx}
-        voicingTotal={Math.max(1, chordVoicingsDisplay.length)}
         emptyMessage={
           chordEnginePlan.insufficientNotes
             ? "No hay notas suficientes para formar un acorde. Añade una extensión o desactiva una omisión."
@@ -770,7 +823,7 @@ const modeToggle = (
         )
       : null;
   } else {
-    editorSlot = chordDetectMode ? null : chordEditorPanel;
+    editorSlot = chordDetectMode ? null : desktopChordEditorPanel;
   }
 
   return (
