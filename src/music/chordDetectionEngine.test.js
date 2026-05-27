@@ -280,6 +280,63 @@ describe("chordDetectionEngine", () => {
     }
   });
 
+  test("E A D F# incluye lectura cuartal secundaria con nota añadida add9", () => {
+    const result = analyzeSelectedNotes(["E", "A", "D", "F#"], "E");
+    const names = readingNames(result);
+    expect(names).toContain("Cuartal E(add9)");
+    const addReading = getReading(result, "Cuartal E(add9)");
+    expect(addReading.formula.quartalHasAddedNote).toBe(true);
+    expect(legendNotes(addReading)).toEqual(["E", "A", "D", "F#"]);
+    expect(legendDegrees(addReading)).toEqual(["1", "4", "b7", "2"]);
+    // No debe reemplazar la lectura funcional principal
+    expect(names).toContain("E9sus4(no5)");
+    // La lectura cuartal-add debe ir después de las lecturas funcionales
+    const addIdx = names.indexOf("Cuartal E(add9)");
+    const sus4Idx = names.indexOf("E9sus4(no5)");
+    expect(addIdx).toBeGreaterThan(sus4Idx);
+  });
+
+  test("las transposiciones del caso cuartal con nota añadida mantienen detección", () => {
+    const baseNotes = ["E", "A", "D", "F#"];
+    for (let semitones = 0; semitones < 12; semitones++) {
+      const notes = transposeNotes(baseNotes, semitones, true);
+      const bass = pcToName(mod12(noteNameToPc("E") + semitones), true);
+      const result = analyzeSelectedNotes(notes, bass);
+      // Debe haber alguna lectura cuartal con nota añadida
+      const hasAddReading = result.readings.some((r) => r.formula?.quartalHasAddedNote === true);
+      expect(hasAddReading, `fallo en transposición ${semitones}`).toBe(true);
+      const addReading = result.readings.find((r) => r.formula?.quartalHasAddedNote === true);
+      // La raíz cuartal debe ser la nota grave de la cadena (transpuesta de E)
+      expect(addReading.rootPc, `raíz cuartal fallo en transposición ${semitones}`).toBe(mod12(4 + semitones));
+      // Debe haber exactamente 1 nota añadida con intervalo 2 (9ª mayor)
+      expect(addReading.formula.quartalAddedNotes).toHaveLength(1);
+      expect(addReading.formula.quartalAddedNotes[0].interval).toBe(2);
+      expect(addReading.formula.quartalAddedNotes[0].label).toBe("9");
+    }
+  });
+
+  test("solo una cuarta aislada no genera lectura cuartal", () => {
+    // Solo dos notas: una cuarta no forma cadena de 3
+    const result = analyzeSelectedNotes(["E", "A"], "E");
+    const hasQuartal = result.readings.some((r) => r.formula?.quartal === true);
+    expect(hasQuartal).toBe(false);
+    // Tres notas donde solo hay una cuarta (E→A=4J, A→B=2 semitonos) tampoco genera quartalHasAddedNote
+    const result2 = analyzeSelectedNotes(["E", "A", "B"], "E");
+    const hasQuartalAdd = result2.readings.some((r) => r.formula?.quartalHasAddedNote === true);
+    expect(hasQuartalAdd).toBe(false);
+  });
+
+  test("cuartal puro de 4 voces no genera lectura quartalHasAddedNote", () => {
+    // E-A-D-G: cadena cuartal pura de 4 voces, sin nota extra fuera de la cadena
+    const result = analyzeSelectedNotes(["E", "A", "D", "G"], "E");
+    const names = readingNames(result);
+    // Debe haber un cuartal puro E con 4 voces
+    expect(names.some((n) => n === "Cuartal E")).toBe(true);
+    // No debe haber ninguna lectura quartalHasAddedNote
+    const hasAddReading = result.readings.some((r) => r.formula?.quartalHasAddedNote === true);
+    expect(hasAddReading).toBe(false);
+  });
+
   test("las reglas se validan también por transposición y varias raíces en familias básicas", () => {
     expectNamedReadingAcrossTranspositions({
       notes: ["D", "F", "A"],

@@ -526,6 +526,15 @@ export function buildQuartalStepText(step) {
   return step === 6 ? "A4" : "4J";
 }
 
+/** Devuelve etiqueta de extensión para "add" en un cuartal con nota añadida */
+export function quartalAddedNoteLabel(interval) {
+  const labels = {
+    0: "1", 1: "b9", 2: "9", 3: "b3", 4: "3", 5: "11",
+    6: "#11", 7: "5", 8: "b13", 9: "13", 10: "b7", 11: "7",
+  };
+  return labels[mod12(interval)] ?? String(mod12(interval));
+}
+
 export function buildQuartalChainsFromSelected({ rootPc, selectedPcs, allowMixed = true }) {
   const pcs = Array.from(new Set((selectedPcs || []).map(mod12)));
   const selectedSet = new Set(pcs);
@@ -574,7 +583,76 @@ function buildQuartalManualCandidates(selectedNotes) {
       const chainSet = new Set(chain.pcs.map(mod12));
       const extras = uniquePcs.filter((pc) => !chainSet.has(mod12(pc)));
       if (extras.length > 1) continue;
-      if (extras.length === 1 && mod12(extras[0]) !== mod12(bass.pc)) continue;
+      if (extras.length === 1 && mod12(extras[0]) !== mod12(bass.pc)) {
+        // Caso nuevo: cadena cuartal + nota extra que NO es el bajo → lectura secundaria "Cuartal X(addN)"
+        // Verificar que la nota extra no es simplemente una extensión cuartal de la cadena
+        // (si lo fuera, la cadena larga ya la cubre como cuartal puro/mixto)
+        const extraPc = mod12(extras[0]);
+        const lastChainPc = chain.pcs[chain.pcs.length - 1];
+        const firstChainPc = chain.pcs[0]; // = rootPc
+        const extraExtendsChain = [5, 6].some((step) => mod12(lastChainPc + step) === extraPc);
+        const extraPrependsChain = [5, 6].some((step) => mod12(extraPc + step) === firstChainPc);
+        if (extraExtendsChain || extraPrependsChain) continue;
+        const extraInterval = mod12(extraPc - rootPc);
+        const addLabel = quartalAddedNoteLabel(extraInterval);
+        const extraNoteName = spellNoteFromChordInterval(rootPc, extraInterval, preferSharps);
+        const chainIntervals = chain.pcs.map((pc) => mod12(pc - rootPc));
+        const chainNotes = spellChordNotes({ rootPc, chordIntervals: chainIntervals, preferSharps });
+        const chainDegrees = chainIntervals.map((intv) => intervalToSimpleChordDegreeToken(intv));
+        const allIntervals = [...chainIntervals, extraInterval];
+        const allNotes = [...chainNotes, extraNoteName];
+        const allDegrees = [...chainDegrees, intervalToSimpleChordDegreeToken(extraInterval)];
+        const quartalTypeAdd = chain.steps.every((step) => step === 5) ? "pure" : "mixed";
+        const typePrefix = quartalTypeAdd === "mixed" ? "Cuartal mixto" : "Cuartal";
+        const rootNameAdd = pcToName(rootPc, preferSharps);
+        const stepTextAdd = chain.steps.map(buildQuartalStepText).join(" · ");
+        const bassNameAdd = pcToName(bass.pc, preferSharps);
+        const intervalPairsTextAdd = `${chainNotes.join(" – ")} + ${extraNoteName} (add${addLabel}) · bajo en ${bassNameAdd}${stepTextAdd ? ` · ${stepTextAdd}` : ""}`;
+        const addCandidate = {
+          id: `quartal_add|${quartalTypeAdd}|${rootPc}|in|${chain.pcs.join(".")}.${extraPc}`,
+          name: `${typePrefix} ${rootNameAdd}(add${addLabel})`,
+          rootPc,
+          bassPc: bass.pc,
+          preferSharps,
+          formula: {
+            id: `quartal_add_${quartalTypeAdd}_${chain.pcs.length}`,
+            intervals: allIntervals,
+            degreeLabels: allDegrees,
+            suffix: `(add${addLabel})`,
+            ui: null,
+            manualOnly: true,
+            quartal: true,
+            quartalType: quartalTypeAdd,
+            quartalSteps: [...chain.steps],
+            quartalHasAddedNote: true,
+            quartalAddedNotes: [{ pc: extraPc, interval: extraInterval, label: addLabel }],
+          },
+          exact: false,
+          score: Number((quartalTypeAdd === "mixed" ? 16 : 14).toFixed(2)),
+          uiPatch: {
+            rootPc,
+            spellPreferSharps: preferSharps,
+            family: "quartal",
+            quartalType: quartalTypeAdd,
+            quartalVoices: String(chain.pcs.length),
+            quartalSpread: "closed",
+            quartalReference: "root",
+          },
+          intervalPairsText: intervalPairsTextAdd,
+          visibleNotes: allNotes,
+          visibleIntervals: allIntervals,
+          missingLabels: [],
+          externalBassInterval: null,
+        };
+        addCandidate.probabilityScore = candidateProbabilityScore(addCandidate);
+        const addDedupeKey = `${addCandidate.name}|${addCandidate.intervalPairsText}`;
+        const prevAdd = seen.get(addDedupeKey);
+        if (!prevAdd || addCandidate.probabilityScore < prevAdd.probabilityScore ||
+            (addCandidate.probabilityScore === prevAdd.probabilityScore && addCandidate.score < prevAdd.score)) {
+          seen.set(addDedupeKey, addCandidate);
+        }
+        continue;
+      }
 
       const visibleIntervals = chain.pcs.map((pc) => mod12(pc - rootPc));
       const degreeLabels = visibleIntervals.map((intv) => intervalToSimpleChordDegreeToken(intv));
@@ -991,6 +1069,7 @@ function collectFormulaCandidates(selectedNotes) {
 }
 
 function groupPriority(candidate) {
+  if (candidate?.formula?.quartalHasAddedNote) return 3; // Lectura secundaria: después de tercianos y cuartales normales
   if (candidate?.formula?.quartal) {
     const quartalSize = Array.isArray(candidate?.formula?.intervals) ? candidate.formula.intervals.length : 0;
     if (candidate.exact && quartalSize >= 4 && candidate.bassPc === candidate.rootPc) return -1;
