@@ -691,6 +691,157 @@ describe("chordDetectionEngine", () => {
     expect(withCtx?.name).toBe("Am6/F#");
   });
 
+  // --------------------------------------------------------------------------
+  // TRANSPOSICIONES (12 semitonos) de los dos descensos de bajo
+  // --------------------------------------------------------------------------
+
+  test("12 transposiciones: Am(maj7)/baixo → Am7/baixo-1 — Tier 2 conserva raíz min en todos los casos", () => {
+    // Notas base equivalentes a xx6555 (Am(maj7)/G#) y xx5555 (Am7/G)
+    const base6 = { notes: ["G#", "C", "E", "A"], bassPc: 8 };  // Am(maj7)/G#
+    const base5 = { notes: ["G", "C", "E", "A"], bassPc: 7 };   // Am7/G
+    const rootPc0 = 9; // A
+
+    for (let s = 0; s < 12; s++) {
+      const expectedRoot   = mod12(rootPc0 + s);
+      const expectedBass6  = mod12(base6.bassPc + s);
+      const expectedBass5  = mod12(base5.bassPc + s);
+
+      // Obtener candidato previo: Am(maj7)/G# transpuesto
+      const notes6 = transposeNotes(base6.notes, s, true);
+      const bassName6 = pcToName(expectedBass6, true);
+      const result6 = analyzeSelectedNotes(notes6, bassName6);
+      const prevAmMaj7 = result6.readings.find(
+        (c) => c.rootPc === expectedRoot && c.bassPc === expectedBass6 &&
+               !c.formula?.quartal &&
+               (c.visibleIntervals ?? []).map((i) => mod12(i)).includes(11), // maj7
+      );
+      expect(prevAmMaj7, `Am(maj7)/${bassName6} debe existir para s+${s}`).toBeTruthy();
+
+      // Nuevos candidatos: Am7/G transpuesto
+      const notes5 = transposeNotes(base5.notes, s, true);
+      const bassName5 = pcToName(expectedBass5, true);
+      const result5 = analyzeSelectedNotes(notes5, bassName5);
+      const am7Candidate = result5.readings.find(
+        (c) => c.rootPc === expectedRoot && c.bassPc === expectedBass5 && !c.formula?.quartal,
+      );
+      expect(am7Candidate, `Am7/${bassName5} debe existir para s+${s}`).toBeTruthy();
+
+      // Con contexto: gana lectura con raíz preservada y nuevo bajo
+      const withCtx = pickDefaultChordCandidate({
+        candidates: result5.readings,
+        previousCandidate: prevAmMaj7,
+        prioritizeContext: true,
+      });
+      expect(withCtx?.rootPc, `raíz preservada s+${s}`).toBe(expectedRoot);
+      expect(withCtx?.bassPc, `bajo correcto s+${s}`).toBe(expectedBass5);
+      expect(withCtx?.formula?.quartal, `no cuartal s+${s}`).toBeFalsy();
+    }
+  });
+
+  test("12 transposiciones: Am7/baixo → Am6/baixo-1 — Tier 2 conserva raíz min en todos los casos", () => {
+    // Notas base equivalentes a xx5555 (Am7/G) y xx4555 (Am6/F#)
+    const base5 = { notes: ["G", "C", "E", "A"], bassPc: 7 };   // Am7/G
+    const base4 = { notes: ["F#", "C", "E", "A"], bassPc: 6 };  // Am6/F#
+    const rootPc0 = 9; // A
+
+    for (let s = 0; s < 12; s++) {
+      const expectedRoot  = mod12(rootPc0 + s);
+      const expectedBass5 = mod12(base5.bassPc + s);
+      const expectedBass4 = mod12(base4.bassPc + s);
+
+      // Obtener candidato previo: Am7/G transpuesto
+      const notes5 = transposeNotes(base5.notes, s, true);
+      const bassName5 = pcToName(expectedBass5, true);
+      const result5 = analyzeSelectedNotes(notes5, bassName5);
+      const prevAm7 = result5.readings.find(
+        (c) => c.rootPc === expectedRoot && c.bassPc === expectedBass5 &&
+               !c.formula?.quartal &&
+               (c.visibleIntervals ?? []).map((i) => mod12(i)).includes(10), // b7
+      );
+      expect(prevAm7, `Am7/${bassName5} debe existir para s+${s}`).toBeTruthy();
+
+      // Nuevos candidatos: Am6/F# transpuesto
+      const notes4 = transposeNotes(base4.notes, s, true);
+      const bassName4 = pcToName(expectedBass4, true);
+      const result4 = analyzeSelectedNotes(notes4, bassName4);
+      const am6Candidate = result4.readings.find(
+        (c) => c.rootPc === expectedRoot && c.bassPc === expectedBass4 && !c.formula?.quartal,
+      );
+      expect(am6Candidate, `Am6/${bassName4} debe existir para s+${s}`).toBeTruthy();
+
+      // Con contexto: gana lectura con raíz preservada y nuevo bajo
+      const withCtx = pickDefaultChordCandidate({
+        candidates: result4.readings,
+        previousCandidate: prevAm7,
+        prioritizeContext: true,
+      });
+      expect(withCtx?.rootPc, `raíz preservada s+${s}`).toBe(expectedRoot);
+      expect(withCtx?.bassPc, `bajo correcto s+${s}`).toBe(expectedBass4);
+      expect(withCtx?.formula?.quartal, `no cuartal s+${s}`).toBeFalsy();
+    }
+  });
+
+  // --------------------------------------------------------------------------
+  // TESTS NEGATIVOS: el contexto no debe conservar raíz "por inercia"
+  // --------------------------------------------------------------------------
+
+  test("negativo: Am7/G → A7/G (familia min→dom) — contexto no da bonus, resultado igual que sin contexto", () => {
+    // Contexto previo: Am7/G (familia min, raíz A)
+    const result5555 = analyzeSelectedNotes(["G", "C", "E", "A"], "G");
+    const prevAm7G = result5555.readings.find((c) => c.name === "Am7/G");
+    expect(prevAm7G, "Am7/G debe existir en xx5555").toBeTruthy();
+
+    // Nuevo acorde: A7/G — familia dom, misma raíz A, mismo bajo G
+    // A-C#-E-G con bajo G → candidatos A7/G o G6 u otros dom/maj, NINGUNO min-A
+    const resultA7G = analyzeSelectedNotes(["G", "A", "C#", "E"], "G");
+    expect(resultA7G.readings.some((c) => c.name.includes("A7"))).toBe(true);
+
+    const withCtx = pickDefaultChordCandidate({
+      candidates: resultA7G.readings,
+      previousCandidate: prevAm7G,
+      prioritizeContext: true,
+    });
+    const withoutCtx = pickDefaultChordCandidate({
+      candidates: resultA7G.readings,
+      prioritizeContext: false,
+    });
+
+    // Con contexto = sin contexto = list[0]: la familia cambió (min→dom), ningún Tier activa bonus Am
+    expect(withCtx?.name).toBe(withoutCtx?.name);
+    expect(withCtx?.name).toBe(resultA7G.readings[0]?.name);
+    // El resultado no es de familia min con raíz A
+    expect(withCtx?.name).not.toMatch(/^Am/);
+  });
+
+  test("negativo: Am7/G → A-B-C/A (dSinBajo=3 > 2) — Tier 2 no activa, cae a list[0] igual que sin contexto", () => {
+    // Contexto previo: Am7/G — intervalSet = {0, 3, 7, 10}
+    const result5555 = analyzeSelectedNotes(["G", "C", "E", "A"], "G");
+    const prevAm7G = result5555.readings.find((c) => c.name === "Am7/G");
+    expect(prevAm7G, "Am7/G debe existir").toBeTruthy();
+
+    // Nuevo pitch set: A-B-C con bajo A
+    // Intervalos desde A: {0, 2, 3} (root, 9ª, b3). Faltan 5ª(7) y b7(10).
+    // dSinBajo = |{7,10} removidos| + |{2} añadido| = 3 > 2 → Tier 2 no activa
+    // Cambio de bajo (G→A) tampoco activa Tier 3 (d total=6 > 2)
+    const resultABC = analyzeSelectedNotes(["A", "B", "C"], "A");
+    // Verificar que existe alguna lectura con raíz A (el test es útil aunque la familia sea la misma)
+    expect(resultABC.readings.some((c) => c.rootPc === 9), "debe haber lectura raíz A para A-B-C").toBe(true);
+
+    const withCtx = pickDefaultChordCandidate({
+      candidates: resultABC.readings,
+      previousCandidate: prevAm7G,
+      prioritizeContext: true,
+    });
+    const withoutCtx = pickDefaultChordCandidate({
+      candidates: resultABC.readings,
+      prioritizeContext: false,
+    });
+
+    // Con contexto = sin contexto = list[0]: dSinBajo=3 supera el umbral, el bonus no aplica
+    expect(withCtx?.name).toBe(withoutCtx?.name);
+    expect(withCtx?.name).toBe(resultABC.readings[0]?.name);
+  });
+
   test("todas las transposiciones de B-C-E-A no generan lectura quartalHasAddedNote (nota intermedia rompe consecutividad)", () => {
     // Equivalente transpuesto de xx9555: la nota intermedia (C, transpuesta) sigue
     // quedando entre las dos primeras notas de la cadena cuartal (B–E–A, transpuestas).

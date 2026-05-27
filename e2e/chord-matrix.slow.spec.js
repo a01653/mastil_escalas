@@ -281,7 +281,7 @@ test("CM-07. Fdim7: selector usa 'Bajo b5', no 'Bajo #4' ni '2ª inversión'", a
   await selectStructure(page, "tetrad");
   await expect(page.getByTestId("ext-7")).toBeChecked();
 
-  const { invSelect, opts } = await getInvOptions(page);
+  const { opts } = await getInvOptions(page);
   const labels = opts.map((o) => o.label);
 
   // Fdim7 completo es estándar → ordinales (2ª inversión para Cb)

@@ -1356,6 +1356,8 @@ function candidateContextFamily(candidate) {
   if (id.startsWith("dim") || quality === "dim") return "dim";
   if (suspension === "sus2") return "sus2";
   if (suspension === "sus4") return "sus4";
+  // Fórmulas minor que tienen ui:null (uiPatch será null) → identificar por id
+  if (["mmaj7", "mmaj7add13", "mmaj9"].includes(id)) return "min";
   if (quality === "min") return "min";
   if (quality === "dom") return "dom";
   if (quality === "maj") return "maj";

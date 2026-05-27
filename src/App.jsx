@@ -319,7 +319,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "5.07";
+const APP_VERSION = "5.08";
 
 function buildChordCopyFingerprint({
   rootPc,
@@ -6881,10 +6881,10 @@ function ChordFretboard({
                 <input
                   type="text"
                   maxLength={6}
-                  placeholder="p.ej. x8989b"
+                  placeholder="x8989b"
                   value={voicingInputText}
                   onChange={(e) => setVoicingInputText(e.target.value.toLowerCase())}
-                  className="h-7 w-28 rounded border border-slate-300 bg-white px-2 font-mono text-xs text-slate-700 focus:border-blue-400 focus:outline-none"
+                  className="h-8 w-20 rounded-xl border border-slate-200 bg-white px-3 font-mono text-xs text-slate-700 shadow-sm focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100"
                   data-testid="chord-detect-pattern-input"
                 />
                 <button
@@ -6904,7 +6904,7 @@ function ChordFretboard({
                     setChordDetectSelectedKeys(newKeys);
                     if (!chordDetectMode) setChordDetectMode(true);
                   }}
-                  className="h-7 rounded bg-blue-500 px-2 text-xs font-semibold text-white shadow-sm disabled:opacity-40 enabled:hover:bg-blue-600"
+                  className="h-8 rounded-xl border border-sky-600 bg-sky-600 px-3 text-xs font-semibold text-white shadow-sm transition disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400 enabled:hover:bg-sky-700"
                 >
                   Aplicar
                 </button>
@@ -6951,7 +6951,7 @@ function ChordFretboard({
                   placeholder="x8989b"
                   value={voicingInputText}
                   onChange={(e) => setVoicingInputText(e.target.value.toLowerCase())}
-                  className="h-7 w-20 rounded border border-slate-300 bg-white px-2 font-mono text-xs text-slate-700 focus:border-blue-400 focus:outline-none"
+                  className="h-8 w-20 rounded-xl border border-slate-200 bg-white px-3 font-mono text-xs text-slate-700 shadow-sm focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100"
                   data-testid="chord-detect-pattern-input"
                 />
                 <button
@@ -6971,7 +6971,7 @@ function ChordFretboard({
                     setChordDetectSelectedKeys(newKeys);
                     if (!chordDetectMode) setChordDetectMode(true);
                   }}
-                  className="h-7 rounded bg-blue-500 px-2 text-xs font-semibold text-white shadow-sm disabled:opacity-40 enabled:hover:bg-blue-600"
+                  className="h-8 rounded-xl border border-sky-600 bg-sky-600 px-3 text-xs font-semibold text-white shadow-sm transition disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400 enabled:hover:bg-sky-700"
                 >
                   Aplicar
                 </button>
