@@ -337,6 +337,33 @@ describe("chordDetectionEngine", () => {
     expect(hasAddReading).toBe(false);
   });
 
+  test("xx2232 (E-A-D-F#) genera Cuartal E(add9): cadena E-A-D consecutiva en el voicing", () => {
+    // Patrón real en guitarra: sIdx=3 fret=2 (E), sIdx=2 fret=2 (A), sIdx=1 fret=3 (D), sIdx=0 fret=2 (F#)
+    const readings = detectedReadingsFromPositions([
+      { sIdx: 3, fret: 2 }, // E  MIDI 52
+      { sIdx: 2, fret: 2 }, // A  MIDI 57
+      { sIdx: 1, fret: 3 }, // D  MIDI 62
+      { sIdx: 0, fret: 2 }, // F# MIDI 66
+    ]);
+    const names = readings.map((r) => r.name);
+    expect(names).toContain("Cuartal E(add9)");
+  });
+
+  test("xx9555 (B-C-E-A) no genera Cuartal B(addb9): cadena B-E-A no es consecutiva (C está entre B y E)", () => {
+    // Patrón real: sIdx=3 fret=9 (B MIDI 59), sIdx=2 fret=5 (C MIDI 60), sIdx=1 fret=5 (E MIDI 64), sIdx=0 fret=5 (A MIDI 69)
+    const readings = detectedReadingsFromPositions([
+      { sIdx: 3, fret: 9 }, // B  MIDI 59
+      { sIdx: 2, fret: 5 }, // C  MIDI 60
+      { sIdx: 1, fret: 5 }, // E  MIDI 64
+      { sIdx: 0, fret: 5 }, // A  MIDI 69
+    ]);
+    const names = readings.map((r) => r.name);
+    expect(names).not.toContain("Cuartal B(addb9)");
+    // Tampoco debe generar ninguna lectura quartalHasAddedNote
+    const hasAddReading = readings.some((r) => r.formula?.quartalHasAddedNote === true);
+    expect(hasAddReading).toBe(false);
+  });
+
   test("las reglas se validan también por transposición y varias raíces en familias básicas", () => {
     expectNamedReadingAcrossTranspositions({
       notes: ["D", "F", "A"],

@@ -593,6 +593,17 @@ function buildQuartalManualCandidates(selectedNotes) {
         const extraExtendsChain = [5, 6].some((step) => mod12(lastChainPc + step) === extraPc);
         const extraPrependsChain = [5, 6].some((step) => mod12(extraPc + step) === firstChainPc);
         if (extraExtendsChain || extraPrependsChain) continue;
+        // Verificar que las notas de la cadena cuartal ocupan posiciones CONSECUTIVAS
+        // en el voicing ordenado por altura real. Ejemplo que debe rechazarse:
+        //   xx9555 → B–C–E–A: cadena B–E–A salta C que está entre B y E en el voicing.
+        const chainPcSetForConsec = new Set(chain.pcs.map(mod12));
+        const chainIndicesInVoicing = ordered.reduce((acc, note, idx) => {
+          if (chainPcSetForConsec.has(mod12(note.pc))) acc.push(idx);
+          return acc;
+        }, []);
+        const minChainVoiceIdx = chainIndicesInVoicing[0] ?? 0;
+        const maxChainVoiceIdx = chainIndicesInVoicing[chainIndicesInVoicing.length - 1] ?? 0;
+        if ((maxChainVoiceIdx - minChainVoiceIdx + 1) !== chain.pcs.length) continue;
         const extraInterval = mod12(extraPc - rootPc);
         const addLabel = quartalAddedNoteLabel(extraInterval);
         const extraNoteName = spellNoteFromChordInterval(rootPc, extraInterval, preferSharps);
