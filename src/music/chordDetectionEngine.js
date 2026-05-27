@@ -1412,6 +1412,29 @@ export function pickDefaultChordCandidate({ candidates, previousCandidate = null
   const exactMatch = list.find((candidate) => candidate?.id && previousCandidate?.id && candidate.id === previousCandidate.id) || null;
   if (exactMatch) return exactMatch;
 
+  // Tier 2: mismo root + misma familia + bajo diferente + ≤ 2 cambios de intervalos.
+  // Diseñado para descensos cromáticos del bajo con raíz funcional preservada:
+  //   Am(maj7)/G# → Am7/G → Am6/F#
+  // candidateContextDistance suma +3 por cambio de bajo; si lo restamos y el resultado
+  // sigue siendo ≤ 2, la continuidad armónica es clara y merece prioridad sobre la
+  // lectura top genérica (C6/G, F#m7(b5)...).
+  const contextualBassMove = list
+    .map((candidate) => {
+      if (candidate.bassPc === previousCandidate.bassPc) return null; // Mismo bajo: lo cubre Tier 3
+      const d = candidateContextDistance(previousCandidate, candidate);
+      if (d >= 999) return null; // Raíz o familia distintas
+      // d = diffCount + 3 (bass penalty). Restamos el penalty para comparar solo intervalos.
+      return { candidate, distance: d - 3 };
+    })
+    .filter((entry) => entry !== null && entry.distance <= 2)
+    .sort((a, b) => {
+      if (a.distance !== b.distance) return a.distance - b.distance;
+      if ((a.candidate.rankScore ?? 999) !== (b.candidate.rankScore ?? 999)) return (a.candidate.rankScore ?? 999) - (b.candidate.rankScore ?? 999);
+      return (a.candidate.score ?? 999) - (b.candidate.score ?? 999);
+    })[0]?.candidate || null;
+  if (contextualBassMove) return contextualBassMove;
+
+  // Tier 3: candidatos con distancia contextual ≤ 2 (lógica original)
   const contextual = list
     .map((candidate) => ({ candidate, distance: candidateContextDistance(previousCandidate, candidate) }))
     .filter((entry) => entry.distance <= 2)

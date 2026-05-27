@@ -621,6 +621,88 @@ describe("chordDetectionEngine", () => {
     })?.name).toBe("Abmaj7b5/Ebb");
   });
 
+  test("con contexto Am(maj7)/G# → xx5555 prioriza Am7/G sobre C6/G (bajo baja semitono, raíz A preservada)", () => {
+    // xx6555: G#(MIDI 56) – C(60) – E(64) – A(69)
+    const candidates6555 = detectedReadingsFromPositions([
+      { sIdx: 3, fret: 6 }, // G# pc=8
+      { sIdx: 2, fret: 5 }, // C  pc=0
+      { sIdx: 1, fret: 5 }, // E  pc=4
+      { sIdx: 0, fret: 5 }, // A  pc=9
+    ]);
+    const prevAmMaj7 = candidates6555.find((c) => c.name === "Am(maj7)/G#");
+    expect(prevAmMaj7, "Am(maj7)/G# debe existir en las lecturas de xx6555").toBeTruthy();
+
+    // xx5555: G(MIDI 55) – C(60) – E(64) – A(69)
+    const candidates5555 = detectedReadingsFromPositions([
+      { sIdx: 3, fret: 5 }, // G  pc=7
+      { sIdx: 2, fret: 5 }, // C  pc=0
+      { sIdx: 1, fret: 5 }, // E  pc=4
+      { sIdx: 0, fret: 5 }, // A  pc=9
+    ]);
+    const names5555 = candidates5555.map((c) => c.name);
+    expect(names5555).toContain("Am7/G");
+    expect(names5555).toContain("C6/G"); // La alternativa sigue disponible en la lista
+
+    // Sin contexto → C6/G (u otro) queda primero, no Am7/G
+    const withoutCtx = pickDefaultChordCandidate({ candidates: candidates5555, prioritizeContext: false });
+    expect(withoutCtx?.name).not.toBe("Am7/G");
+
+    // Con contexto → Am7/G debe quedar primero (mismo root A, misma familia min, bajo -1 semitono)
+    const withCtx = pickDefaultChordCandidate({
+      candidates: candidates5555,
+      previousCandidate: prevAmMaj7,
+      prioritizeContext: true,
+    });
+    expect(withCtx?.name).toBe("Am7/G");
+  });
+
+  test("con contexto Am7/G → xx4555 prioriza Am6/F# sobre F#m7(b5) (bajo baja semitono, raíz A preservada)", () => {
+    // xx5555: G – C – E – A
+    const candidates5555 = detectedReadingsFromPositions([
+      { sIdx: 3, fret: 5 }, // G  pc=7
+      { sIdx: 2, fret: 5 }, // C  pc=0
+      { sIdx: 1, fret: 5 }, // E  pc=4
+      { sIdx: 0, fret: 5 }, // A  pc=9
+    ]);
+    const prevAm7G = candidates5555.find((c) => c.name === "Am7/G");
+    expect(prevAm7G, "Am7/G debe existir en las lecturas de xx5555").toBeTruthy();
+
+    // xx4555: F#(MIDI 54) – C(60) – E(64) – A(69)
+    const candidates4555 = detectedReadingsFromPositions([
+      { sIdx: 3, fret: 4 }, // F# pc=6
+      { sIdx: 2, fret: 5 }, // C  pc=0
+      { sIdx: 1, fret: 5 }, // E  pc=4
+      { sIdx: 0, fret: 5 }, // A  pc=9
+    ]);
+    const names4555 = candidates4555.map((c) => c.name);
+    expect(names4555).toContain("Am6/F#");
+    expect(names4555).toContain("F#m7(b5)"); // La alternativa sigue disponible
+
+    // Sin contexto → F#m7(b5) (u otro) queda primero, no Am6/F#
+    const withoutCtx = pickDefaultChordCandidate({ candidates: candidates4555, prioritizeContext: false });
+    expect(withoutCtx?.name).not.toBe("Am6/F#");
+
+    // Con contexto → Am6/F# debe quedar primero (mismo root A, misma familia min, bajo -1 semitono)
+    const withCtx = pickDefaultChordCandidate({
+      candidates: candidates4555,
+      previousCandidate: prevAm7G,
+      prioritizeContext: true,
+    });
+    expect(withCtx?.name).toBe("Am6/F#");
+  });
+
+  test("todas las transposiciones de B-C-E-A no generan lectura quartalHasAddedNote (nota intermedia rompe consecutividad)", () => {
+    // Equivalente transpuesto de xx9555: la nota intermedia (C, transpuesta) sigue
+    // quedando entre las dos primeras notas de la cadena cuartal (B–E–A, transpuestas).
+    for (let semitones = 0; semitones < 12; semitones++) {
+      const notes = transposeNotes(["B", "C", "E", "A"], semitones, true);
+      const bass = notes[0]; // La primera nota (transpuesta de B) es siempre el bajo
+      const result = analyzeSelectedNotes(notes, bass);
+      const hasAddReading = result.readings.some((r) => r.formula?.quartalHasAddedNote === true);
+      expect(hasAddReading, `falso positivo cuartal-add en transposición +${semitones}`).toBe(false);
+    }
+  });
+
   test("invariantes básicas de nomenclatura y bajo en casos curados", () => {
     const curatedBases = [
       { notes: ["D", "F", "A"], bass: "D" },
