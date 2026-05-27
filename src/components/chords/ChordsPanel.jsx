@@ -615,57 +615,82 @@ const modeToggle = (
             <div className={extensionGridClass}>
               {chordEnginePlan.ui.ext.showSeven ? (
                 <label className="inline-flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    data-testid="ext-7"
-                    checked={effectiveHasSeventh}
-                    onChange={(e) => setChordExt7(e.target.checked)}
-                    disabled={!chordEnginePlan.ui.ext.canToggleSeven}
-                  /> 7
+                  <span className="relative flex h-4 w-4 flex-shrink-0 items-center justify-center">
+                    <input
+                      type="checkbox"
+                      data-testid="ext-7"
+                      checked={effectiveHasSeventh}
+                      onChange={(e) => setChordExt7(e.target.checked)}
+                      disabled={!chordEnginePlan.ui.ext.canToggleSeven}
+                      className="absolute inset-0 h-4 w-4 cursor-pointer opacity-0 disabled:cursor-not-allowed"
+                    />
+                    <span aria-hidden="true" className={`pointer-events-none flex h-4 w-4 items-center justify-center rounded-[6px] border text-[10px] font-bold shadow-sm ${effectiveHasSeventh ? "border-sky-600 bg-sky-600 text-white" : "border-slate-300 bg-white text-transparent"} ${!chordEnginePlan.ui.ext.canToggleSeven ? "opacity-40" : ""}`}>✓</span>
+                  </span>
+                  <span>7</span>
                 </label>
               ) : null}
               {chordEnginePlan.ui.ext.showSix ? (
                 <label className="inline-flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    data-testid="ext-6"
-                    checked={chordExt6}
-                    onChange={(e) => handleExt6Change(e.target.checked)}
-                    disabled={!chordEnginePlan.ui.ext.canToggleSix}
-                  /> 6
+                  <span className="relative flex h-4 w-4 flex-shrink-0 items-center justify-center">
+                    <input
+                      type="checkbox"
+                      data-testid="ext-6"
+                      checked={chordExt6}
+                      onChange={(e) => handleExt6Change(e.target.checked)}
+                      disabled={!chordEnginePlan.ui.ext.canToggleSix}
+                      className="absolute inset-0 h-4 w-4 cursor-pointer opacity-0 disabled:cursor-not-allowed"
+                    />
+                    <span aria-hidden="true" className={`pointer-events-none flex h-4 w-4 items-center justify-center rounded-[6px] border text-[10px] font-bold shadow-sm ${chordExt6 ? "border-sky-600 bg-sky-600 text-white" : "border-slate-300 bg-white text-transparent"} ${!chordEnginePlan.ui.ext.canToggleSix ? "opacity-40" : ""}`}>✓</span>
+                  </span>
+                  <span>6</span>
                 </label>
               ) : null}
               {chordEnginePlan.ui.ext.showNine ? (
                 <label className="inline-flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    data-testid="ext-9"
-                    checked={chordExt9}
-                    onChange={(e) => handleExt9Change(e.target.checked)}
-                    disabled={!chordEnginePlan.ui.ext.canToggleNine}
-                  /> 9
+                  <span className="relative flex h-4 w-4 flex-shrink-0 items-center justify-center">
+                    <input
+                      type="checkbox"
+                      data-testid="ext-9"
+                      checked={chordExt9}
+                      onChange={(e) => handleExt9Change(e.target.checked)}
+                      disabled={!chordEnginePlan.ui.ext.canToggleNine}
+                      className="absolute inset-0 h-4 w-4 cursor-pointer opacity-0 disabled:cursor-not-allowed"
+                    />
+                    <span aria-hidden="true" className={`pointer-events-none flex h-4 w-4 items-center justify-center rounded-[6px] border text-[10px] font-bold shadow-sm ${chordExt9 ? "border-sky-600 bg-sky-600 text-white" : "border-slate-300 bg-white text-transparent"} ${!chordEnginePlan.ui.ext.canToggleNine ? "opacity-40" : ""}`}>✓</span>
+                  </span>
+                  <span>9</span>
                 </label>
               ) : null}
               {chordEnginePlan.ui.ext.showEleven ? (
                 <label className="inline-flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    data-testid="ext-11"
-                    checked={chordExt11}
-                    onChange={(e) => handleExt11Change(e.target.checked)}
-                    disabled={!chordEnginePlan.ui.ext.canToggleEleven}
-                  /> 11
+                  <span className="relative flex h-4 w-4 flex-shrink-0 items-center justify-center">
+                    <input
+                      type="checkbox"
+                      data-testid="ext-11"
+                      checked={chordExt11}
+                      onChange={(e) => handleExt11Change(e.target.checked)}
+                      disabled={!chordEnginePlan.ui.ext.canToggleEleven}
+                      className="absolute inset-0 h-4 w-4 cursor-pointer opacity-0 disabled:cursor-not-allowed"
+                    />
+                    <span aria-hidden="true" className={`pointer-events-none flex h-4 w-4 items-center justify-center rounded-[6px] border text-[10px] font-bold shadow-sm ${chordExt11 ? "border-sky-600 bg-sky-600 text-white" : "border-slate-300 bg-white text-transparent"} ${!chordEnginePlan.ui.ext.canToggleEleven ? "opacity-40" : ""}`}>✓</span>
+                  </span>
+                  <span>11</span>
                 </label>
               ) : null}
               {chordEnginePlan.ui.ext.showThirteen ? (
                 <label className="inline-flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    data-testid="ext-13"
-                    checked={chordExt13}
-                    onChange={(e) => handleExt13Change(e.target.checked)}
-                    disabled={!chordEnginePlan.ui.ext.canToggleThirteen}
-                  /> 13
+                  <span className="relative flex h-4 w-4 flex-shrink-0 items-center justify-center">
+                    <input
+                      type="checkbox"
+                      data-testid="ext-13"
+                      checked={chordExt13}
+                      onChange={(e) => handleExt13Change(e.target.checked)}
+                      disabled={!chordEnginePlan.ui.ext.canToggleThirteen}
+                      className="absolute inset-0 h-4 w-4 cursor-pointer opacity-0 disabled:cursor-not-allowed"
+                    />
+                    <span aria-hidden="true" className={`pointer-events-none flex h-4 w-4 items-center justify-center rounded-[6px] border text-[10px] font-bold shadow-sm ${chordExt13 ? "border-sky-600 bg-sky-600 text-white" : "border-slate-300 bg-white text-transparent"} ${!chordEnginePlan.ui.ext.canToggleThirteen ? "opacity-40" : ""}`}>✓</span>
+                  </span>
+                  <span>13</span>
                 </label>
               ) : null}
             </div>
@@ -675,13 +700,25 @@ const modeToggle = (
             <label className={UI_LABEL_SM}>Omitir</label>
             <div className={omitGridClass}>
               <label className="inline-flex items-center gap-2">
-                <input type="checkbox" data-testid="omit-1" checked={chordOmit === "1"} onChange={(e) => setChordOmit(e.target.checked ? "1" : "none")} disabled={chordOmit === "1" && !chordEnginePlan.ui.omit?.canToggleOff} /> 1
+                <span className="relative flex h-4 w-4 flex-shrink-0 items-center justify-center">
+                  <input type="checkbox" data-testid="omit-1" checked={chordOmit === "1"} onChange={(e) => setChordOmit(e.target.checked ? "1" : "none")} disabled={chordOmit === "1" && !chordEnginePlan.ui.omit?.canToggleOff} className="absolute inset-0 h-4 w-4 cursor-pointer opacity-0 disabled:cursor-not-allowed" />
+                  <span aria-hidden="true" className={`pointer-events-none flex h-4 w-4 items-center justify-center rounded-[6px] border text-[10px] font-bold shadow-sm ${chordOmit === "1" ? "border-sky-600 bg-sky-600 text-white" : "border-slate-300 bg-white text-transparent"} ${chordOmit === "1" && !chordEnginePlan.ui.omit?.canToggleOff ? "opacity-40" : ""}`}>✓</span>
+                </span>
+                <span>1</span>
               </label>
               <label className="inline-flex items-center gap-2">
-                <input type="checkbox" data-testid="omit-3" checked={chordOmit === "3"} onChange={(e) => setChordOmit(e.target.checked ? "3" : "none")} disabled={chordSuspension !== "none" || (chordOmit === "3" && !chordEnginePlan.ui.omit?.canToggleOff)} /> 3
+                <span className="relative flex h-4 w-4 flex-shrink-0 items-center justify-center">
+                  <input type="checkbox" data-testid="omit-3" checked={chordOmit === "3"} onChange={(e) => setChordOmit(e.target.checked ? "3" : "none")} disabled={chordSuspension !== "none" || (chordOmit === "3" && !chordEnginePlan.ui.omit?.canToggleOff)} className="absolute inset-0 h-4 w-4 cursor-pointer opacity-0 disabled:cursor-not-allowed" />
+                  <span aria-hidden="true" className={`pointer-events-none flex h-4 w-4 items-center justify-center rounded-[6px] border text-[10px] font-bold shadow-sm ${chordOmit === "3" ? "border-sky-600 bg-sky-600 text-white" : "border-slate-300 bg-white text-transparent"} ${chordSuspension !== "none" || (chordOmit === "3" && !chordEnginePlan.ui.omit?.canToggleOff) ? "opacity-40" : ""}`}>✓</span>
+                </span>
+                <span>3</span>
               </label>
               <label className="inline-flex items-center gap-2">
-                <input type="checkbox" data-testid="omit-5" checked={chordOmit === "5"} onChange={(e) => setChordOmit(e.target.checked ? "5" : "none")} disabled={chordOmit === "5" && !chordEnginePlan.ui.omit?.canToggleOff} /> 5
+                <span className="relative flex h-4 w-4 flex-shrink-0 items-center justify-center">
+                  <input type="checkbox" data-testid="omit-5" checked={chordOmit === "5"} onChange={(e) => setChordOmit(e.target.checked ? "5" : "none")} disabled={chordOmit === "5" && !chordEnginePlan.ui.omit?.canToggleOff} className="absolute inset-0 h-4 w-4 cursor-pointer opacity-0 disabled:cursor-not-allowed" />
+                  <span aria-hidden="true" className={`pointer-events-none flex h-4 w-4 items-center justify-center rounded-[6px] border text-[10px] font-bold shadow-sm ${chordOmit === "5" ? "border-sky-600 bg-sky-600 text-white" : "border-slate-300 bg-white text-transparent"} ${chordOmit === "5" && !chordEnginePlan.ui.omit?.canToggleOff ? "opacity-40" : ""}`}>✓</span>
+                </span>
+                <span>5</span>
               </label>
             </div>
           </div>

@@ -319,7 +319,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "5.06";
+const APP_VERSION = "5.07";
 
 function buildChordCopyFingerprint({
   rootPc,
@@ -6270,25 +6270,33 @@ function ChordCircle({ role, isBass, displayLabel, titleText, fret = 1, compactO
         className={`inline-flex items-center gap-2 text-xs font-semibold text-slate-700 ${className}`.trim()}
         title={chordFamily === "quartal" ? "Incluye cuerdas al aire en la búsqueda de voicings cuartales." : chordFamily === "guide_tones" ? "Incluye cuerdas al aire en la búsqueda de shells de notas guía." : "Permite usar cuerdas al aire como opción de voicing. La distancia se calcula solo con las notas pisadas."}
       >
-        <input
-          type="checkbox"
-          data-testid="toggle-allow-open-strings"
-          checked={chordAllowOpenStrings}
-          onChange={(e) => {
-            setChordAllowOpenStrings(e.target.checked);
-            if (chordFamily === "quartal") {
-              setChordQuartalSelectedFrets(null);
-              setChordQuartalVoicingIdx(0);
-            } else if (chordFamily === "guide_tones") {
-              setGuideToneSelectedFrets(null);
-              setGuideToneVoicingIdx(0);
-            } else {
-              setChordSelectedFrets(null);
-              setChordVoicingIdx(0);
-            }
-          }}
-          className="h-4 w-4 rounded border-slate-300"
-        />
+        <span className="relative flex h-4 w-4 flex-shrink-0 items-center justify-center">
+          <input
+            type="checkbox"
+            data-testid="toggle-allow-open-strings"
+            checked={chordAllowOpenStrings}
+            onChange={(e) => {
+              setChordAllowOpenStrings(e.target.checked);
+              if (chordFamily === "quartal") {
+                setChordQuartalSelectedFrets(null);
+                setChordQuartalVoicingIdx(0);
+              } else if (chordFamily === "guide_tones") {
+                setGuideToneSelectedFrets(null);
+                setGuideToneVoicingIdx(0);
+              } else {
+                setChordSelectedFrets(null);
+                setChordVoicingIdx(0);
+              }
+            }}
+            className="absolute inset-0 h-4 w-4 cursor-pointer opacity-0"
+          />
+          <span
+            aria-hidden="true"
+            className={`pointer-events-none flex h-4 w-4 items-center justify-center rounded-[6px] border text-[10px] font-bold shadow-sm ${chordAllowOpenStrings ? "border-sky-600 bg-sky-600 text-white" : "border-slate-300 bg-white text-transparent"}`}
+          >
+            ✓
+          </span>
+        </span>
         <span>Permitir cuerdas al aire</span>
       </label>
     );
@@ -6815,22 +6823,28 @@ function ChordFretboard({
           {/* Mantener/Referencia + Input patrón (desktop/compacto) */}
           <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-slate-200 pt-3">
             <label className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-700" title="Intenta conservar la lectura funcional previa cuando el cambio de notas es pequeño.">
-              <input
-                type="checkbox"
-                checked={chordDetectPrioritizeContext}
-                onChange={(e) => updateChordDetectPrioritizeContext(e.target.checked)}
-                className="h-3.5 w-3.5 rounded border-slate-300"
-              />
+              <span className="relative flex h-4 w-4 flex-shrink-0 items-center justify-center">
+                <input
+                  type="checkbox"
+                  checked={chordDetectPrioritizeContext}
+                  onChange={(e) => updateChordDetectPrioritizeContext(e.target.checked)}
+                  className="absolute inset-0 h-4 w-4 cursor-pointer opacity-0"
+                />
+                <span aria-hidden="true" className={`pointer-events-none flex h-4 w-4 items-center justify-center rounded-[6px] border text-[10px] font-bold shadow-sm ${chordDetectPrioritizeContext ? "border-sky-600 bg-sky-600 text-white" : "border-slate-300 bg-white text-transparent"}`}>✓</span>
+              </span>
               Mantener lectura anterior
             </label>
             <div className="flex items-center gap-1.5">
               <label className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-700" title="Usa el acorde de referencia como pista para priorizar lecturas compatibles.">
-                <input
-                  type="checkbox"
-                  checked={chordRefEnabled}
-                  onChange={(e) => setChordRefEnabled(e.target.checked)}
-                  className="h-3.5 w-3.5 rounded border-slate-300"
-                />
+                <span className="relative flex h-4 w-4 flex-shrink-0 items-center justify-center">
+                  <input
+                    type="checkbox"
+                    checked={chordRefEnabled}
+                    onChange={(e) => setChordRefEnabled(e.target.checked)}
+                    className="absolute inset-0 h-4 w-4 cursor-pointer opacity-0"
+                  />
+                  <span aria-hidden="true" className={`pointer-events-none flex h-4 w-4 items-center justify-center rounded-[6px] border text-[10px] font-bold shadow-sm ${chordRefEnabled ? "border-sky-600 bg-sky-600 text-white" : "border-slate-300 bg-white text-transparent"}`}>✓</span>
+                </span>
                 Referencia:
               </label>
               <select
