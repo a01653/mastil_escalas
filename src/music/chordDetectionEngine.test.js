@@ -11,6 +11,7 @@ import {
   resolveDetectedCandidateFromContext,
   spellNoteFromChordInterval,
 } from "./chordDetectionEngine.js";
+import * as AppMusicBasics from "./appMusicBasics.js";
 
 function readingNames(result) {
   return result.readings.map((reading) => reading.name);
@@ -1224,5 +1225,34 @@ describe("deduplicación: condiciones de fusión", () => {
     const names = readingNames(result);
     expect(names).toContain("Bbadd9/C");
     expect(names).not.toContain("A#add9/B#");
+  });
+
+  // ── Spelling enarmonía en inversiones (bug v5.22) ───────────────────────────
+  test("Gm/Bb (xxx433): candidato detectado con nombre correcto", () => {
+    // Notas: Bb(10), D(2), G(7) con bajo Bb → Gm/Bb (1ª inversión)
+    const result = analyzeSelectedNotes(["Bb", "D", "G"], "Bb");
+    const gm = result.readings.find((r) => r.name === "Gm/Bb");
+    expect(gm).toBeDefined();
+  });
+
+  test("G/B (xxx433 original): preferSharps=true — la 3ª sigue siendo B, no Cb", () => {
+    // Notas: B(11), D(2), G(7) con bajo B → G/B (1ª inversión mayor)
+    const result = analyzeSelectedNotes(["B", "D", "G"], "B");
+    const gmaj = result.readings.find((r) => r.name === "G/B");
+    expect(gmaj).toBeDefined();
+    expect(gmaj.preferSharps).toBe(true);
+  });
+
+  test("buildDetectedCandidateNoteNameForPc: Gm/Bb → b3 se spelllea Bb", () => {
+    const result = analyzeSelectedNotes(["Bb", "D", "G"], "Bb");
+    const gm = result.readings.find((r) => r.name === "Gm/Bb");
+    expect(gm).toBeDefined();
+    const { buildDetectedCandidateNoteNameForPc } = AppMusicBasics;
+    const fallback = gm.preferSharps;
+    // pc=10 (b3 de G), candidato Gm/Bb → debe dar "Bb"
+    expect(buildDetectedCandidateNoteNameForPc(10, gm, fallback)).toBe("Bb");
+    // pc=11 (3ª de G mayor), candidato G/B → debe dar "B"
+    const gmaj = analyzeSelectedNotes(["B", "D", "G"], "B").readings.find((r) => r.name === "G/B");
+    expect(buildDetectedCandidateNoteNameForPc(11, gmaj, gmaj?.preferSharps)).toBe("B");
   });
 });

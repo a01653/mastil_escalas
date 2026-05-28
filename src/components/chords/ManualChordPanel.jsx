@@ -1,6 +1,6 @@
 import { BookOpen, ChevronLeft, ChevronRight, Eraser, Music, Play, Volume2, VolumeX } from "lucide-react";
 import { CopyVoicingButton } from "./ChordsPanel.jsx";
-import { CHORD_FORMS, FRET_INLAY_BG, buildDetectedCandidateBackgroundLabelForPc, mod12, pcToName } from "../../music/appMusicBasics.js";
+import { CHORD_FORMS, FRET_INLAY_BG, buildDetectedCandidateBackgroundLabelForPc, buildDetectedCandidateNoteNameForPc, mod12 } from "../../music/appMusicBasics.js";
 import { classifyManualVoicingShape, studyVoicingFormLabel } from "../../music/appVoicingStudyCore.js";
 import { STRINGS, fretGridCols, hasInlayCell } from "../../music/appStaticData.js";
 import { ChordNoteBadgeStrip, MusicStaff } from "../../music/appPatternRouteStaffCore.jsx";
@@ -110,11 +110,13 @@ export default function ManualChordPanel({ layout, reading, actions, reference, 
   }
   const physicalPatternSuffix = chordDetectPhysicalPatternText ? ` (${chordDetectPhysicalPatternText})` : "";
 
-  // Mapa sIdx → nombre de nota seleccionada (para mostrar en el mástil)
+  // Mapa sIdx → nombre de nota seleccionada (para mostrar en el mástil).
+  // Usa buildDetectedCandidateNoteNameForPc (sistema de letras musicales) para que
+  // el spelling coincida con la lectura activa: Gm/Bb → "Bb", no "A#".
   const prefer = chordDetectSelectedCandidate?.preferSharps ?? chordPreferSharps;
   const stringSelectedNoteName = {};
   for (const n of chordDetectSelectedNotes) {
-    stringSelectedNoteName[n.sIdx] = pcToName(n.pc, prefer);
+    stringSelectedNoteName[n.sIdx] = buildDetectedCandidateNoteNameForPc(n.pc, chordDetectSelectedCandidate, prefer);
   }
 
   return (
