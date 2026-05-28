@@ -318,7 +318,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "5.17";
+const APP_VERSION = "5.18";
 
 function buildChordCopyFingerprint({
   rootPc,
@@ -6656,69 +6656,78 @@ function ChordFretboard({
   function renderChordInvestigationFretboard() {
     return (
       <ManualChordPanel
-        chordDetectSelectedNotes={chordDetectSelectedNotes}
-        chordDetectPlayingKeys={chordDetectPlayingKeys}
-        chordDetectSelectedCandidate={chordDetectSelectedCandidate}
-        studyData={studyData}
-        chordDetectPhysicalPatternText={chordDetectPhysicalPatternText}
-        chordPreferSharps={chordPreferSharps}
-        chordDetectPanelRef={chordDetectPanelRef}
-        chordDetectClickAudio={chordDetectClickAudio}
-        setChordDetectClickAudio={setChordDetectClickAudio}
-        fnPlayChordDetectSelection={fnPlayChordDetectSelection}
-        chordDetectSelectedKeys={chordDetectSelectedKeys}
-        fnPlayChordDetectVoicingTogether={fnPlayChordDetectVoicingTogether}
-        clearChordDetectSelection={clearChordDetectSelection}
-        openMainChordStudy={openMainChordStudy}
-        isCompactLayout={isCompactLayout}
-        isMobileLayout={isMobileLayout}
-        chordDetectSelectedCandidateBadgeItems={chordDetectSelectedCandidateBadgeItems}
-        chordDetectSelectedCandidateBassNote={chordDetectSelectedCandidateBassNote}
-        colors={colors}
-        chordDetectPrioritizeContext={chordDetectPrioritizeContext}
-        updateChordDetectPrioritizeContext={updateChordDetectPrioritizeContext}
-        chordRefEnabled={chordRefEnabled}
-        setChordRefEnabled={setChordRefEnabled}
-        chordRefNatural={chordRefNatural}
-        setChordRefNatural={setChordRefNatural}
-        CHORD_REF_NATURAL_LETTERS={CHORD_REF_NATURAL_LETTERS}
-        chordRefAcc={chordRefAcc}
-        setChordRefAcc={setChordRefAcc}
-        chordRefQuality={chordRefQuality}
-        setChordRefQuality={setChordRefQuality}
-        CHORD_REF_QUALITIES={CHORD_REF_QUALITIES}
-        voicingInputText={voicingInputText}
-        setVoicingInputText={setVoicingInputText}
-        setChordDetectSelectedKeys={setChordDetectSelectedKeys}
-        chordDetectMode={chordDetectMode}
-        setChordDetectMode={setChordDetectMode}
-        UI_BTN_SM={UI_BTN_SM}
-        setChordDetectWindowStart={setChordDetectWindowStart}
-        chordDetectWindowStartMin={chordDetectWindowStartMin}
-        chordDetectWindowFrom={chordDetectWindowFrom}
-        chordDetectWindowTo={chordDetectWindowTo}
-        chordDetectWindowAllowedStartMax={chordDetectWindowAllowedStartMax}
-        isNarrowBoardLayout={isNarrowBoardLayout}
-        MobileMainFretboard={MobileMainFretboard}
-        chordDetectVisibleFrets={chordDetectVisibleFrets}
-        toggleChordDetectCell={toggleChordDetectCell}
-        mobileVerticalFretBorderClass={mobileVerticalFretBorderClass}
-        HoverCellNote={HoverCellNote}
-        ChordInvestigationCircle={ChordInvestigationCircle}
-        showNonScale={showNonScale}
-        showIntervalsLabel={showIntervalsLabel}
-        showNotesLabel={showNotesLabel}
-        labelForCellAt={labelForCellAt}
-        maxFret={maxFret}
-        InfoTitle={InfoTitle}
-        DETECTED_CHORDS_INFO_TEXT={DETECTED_CHORDS_INFO_TEXT}
-        chordDetectCandidatesRanked={chordDetectCandidatesRanked}
-        chordDetectCandidateId={chordDetectCandidateId}
-        selectDetectedCandidate={selectDetectedCandidate}
-        formatChordNamePure={formatChordNamePure}
-        applyDetectedCandidate={applyDetectedCandidate}
-        chordDetectStaffEvents={chordDetectStaffEvents}
-        chordDetectSelectionPositionsText={chordDetectSelectionPositionsText}
+        layout={{ isCompactLayout, isMobileLayout, isNarrowBoardLayout }}
+        reading={{
+          chordDetectSelectedNotes,
+          chordDetectSelectedCandidate,
+          studyData,
+          chordDetectPhysicalPatternText,
+          chordPreferSharps,
+          chordDetectSelectedCandidateBadgeItems,
+          chordDetectSelectedCandidateBassNote,
+          colors,
+        }}
+        actions={{
+          chordDetectClickAudio,
+          setChordDetectClickAudio,
+          fnPlayChordDetectSelection,
+          fnPlayChordDetectVoicingTogether,
+          clearChordDetectSelection,
+          openMainChordStudy,
+        }}
+        reference={{
+          chordDetectPrioritizeContext,
+          updateChordDetectPrioritizeContext,
+          chordRefEnabled,
+          setChordRefEnabled,
+          chordRefNatural,
+          setChordRefNatural,
+          CHORD_REF_NATURAL_LETTERS,
+          chordRefAcc,
+          setChordRefAcc,
+          chordRefQuality,
+          setChordRefQuality,
+          CHORD_REF_QUALITIES,
+        }}
+        patternInput={{
+          voicingInputText,
+          setVoicingInputText,
+          setChordDetectSelectedKeys,
+          chordDetectMode,
+          setChordDetectMode,
+        }}
+        fretboard={{
+          chordDetectPanelRef,
+          chordDetectPlayingKeys,
+          chordDetectSelectedKeys,
+          setChordDetectWindowStart,
+          chordDetectWindowStartMin,
+          chordDetectWindowFrom,
+          chordDetectWindowTo,
+          chordDetectWindowAllowedStartMax,
+          MobileMainFretboard,
+          chordDetectVisibleFrets,
+          toggleChordDetectCell,
+          mobileVerticalFretBorderClass,
+          HoverCellNote,
+          ChordInvestigationCircle,
+          showNonScale,
+          showIntervalsLabel,
+          showNotesLabel,
+          labelForCellAt,
+          maxFret,
+        }}
+        candidates={{
+          InfoTitle,
+          DETECTED_CHORDS_INFO_TEXT,
+          chordDetectCandidatesRanked,
+          chordDetectCandidateId,
+          selectDetectedCandidate,
+          formatChordNamePure,
+          applyDetectedCandidate,
+        }}
+        staff={{ chordDetectStaffEvents, chordDetectSelectionPositionsText }}
+        ui={{ UI_BTN_SM }}
       />
     );
   }

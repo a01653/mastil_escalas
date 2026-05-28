@@ -4,76 +4,76 @@ import { CHORD_FORMS, FRET_INLAY_BG, buildDetectedCandidateBackgroundLabelForPc,
 import { classifyManualVoicingShape, studyVoicingFormLabel } from "../../music/appVoicingStudyCore.js";
 import { STRINGS, fretGridCols, hasInlayCell } from "../../music/appStaticData.js";
 import { ChordNoteBadgeStrip, MusicStaff } from "../../music/appPatternRouteStaffCore.jsx";
-export default function ManualChordPanel({
-  chordDetectSelectedNotes,
-  chordDetectPlayingKeys,
-  chordDetectSelectedCandidate,
-  studyData,
-  chordDetectPhysicalPatternText,
-  chordPreferSharps,
-  chordDetectPanelRef,
-  chordDetectClickAudio,
-  setChordDetectClickAudio,
-  fnPlayChordDetectSelection,
-  chordDetectSelectedKeys,
-  fnPlayChordDetectVoicingTogether,
-  clearChordDetectSelection,
-  openMainChordStudy,
-  isCompactLayout,
-  isMobileLayout,
-  chordDetectSelectedCandidateBadgeItems,
-  chordDetectSelectedCandidateBassNote,
-  colors,
-  chordDetectPrioritizeContext,
-  updateChordDetectPrioritizeContext,
-  chordRefEnabled,
-  setChordRefEnabled,
-  chordRefNatural,
-  setChordRefNatural,
-  CHORD_REF_NATURAL_LETTERS,
-  chordRefAcc,
-  setChordRefAcc,
-  chordRefQuality,
-  setChordRefQuality,
-  CHORD_REF_QUALITIES,
-  voicingInputText,
-  setVoicingInputText,
-  setChordDetectSelectedKeys,
-  chordDetectMode,
-  setChordDetectMode,
-  UI_BTN_SM,
-  setChordDetectWindowStart,
-  chordDetectWindowStartMin,
-  chordDetectWindowFrom,
-  chordDetectWindowTo,
-  chordDetectWindowAllowedStartMax,
-  isNarrowBoardLayout,
-  MobileMainFretboard: MobileMainFretboardView,
-  chordDetectVisibleFrets,
-  toggleChordDetectCell,
-  mobileVerticalFretBorderClass,
-  HoverCellNote: HoverCellNoteView,
-  ChordInvestigationCircle: ChordInvestigationCircleView,
-  showNonScale,
-  showIntervalsLabel,
-  showNotesLabel,
-  labelForCellAt,
-  maxFret,
-  InfoTitle: InfoTitleView,
-  DETECTED_CHORDS_INFO_TEXT,
-  chordDetectCandidatesRanked,
-  chordDetectCandidateId,
-  selectDetectedCandidate,
-  formatChordNamePure,
-  applyDetectedCandidate,
-  chordDetectStaffEvents,
-  chordDetectSelectionPositionsText,
-}) {
+
+export default function ManualChordPanel({ layout, reading, actions, reference, patternInput, fretboard, candidates, staff, ui }) {
+  const { isCompactLayout, isMobileLayout, isNarrowBoardLayout } = layout;
+  const {
+    chordDetectSelectedNotes,
+    chordDetectSelectedCandidate,
+    studyData,
+    chordDetectPhysicalPatternText,
+    chordPreferSharps,
+    chordDetectSelectedCandidateBadgeItems,
+    chordDetectSelectedCandidateBassNote,
+    colors,
+  } = reading;
+  const {
+    chordDetectClickAudio,
+    setChordDetectClickAudio,
+    fnPlayChordDetectSelection,
+    fnPlayChordDetectVoicingTogether,
+    clearChordDetectSelection,
+    openMainChordStudy,
+  } = actions;
+  const {
+    chordDetectPrioritizeContext,
+    updateChordDetectPrioritizeContext,
+    chordRefEnabled,
+    setChordRefEnabled,
+    chordRefNatural,
+    setChordRefNatural,
+    CHORD_REF_NATURAL_LETTERS,
+    chordRefAcc,
+    setChordRefAcc,
+    chordRefQuality,
+    setChordRefQuality,
+    CHORD_REF_QUALITIES,
+  } = reference;
+  const { voicingInputText, setVoicingInputText, setChordDetectSelectedKeys, chordDetectMode, setChordDetectMode } = patternInput;
+  const {
+    chordDetectPanelRef,
+    chordDetectPlayingKeys,
+    chordDetectSelectedKeys,
+    setChordDetectWindowStart,
+    chordDetectWindowStartMin,
+    chordDetectWindowFrom,
+    chordDetectWindowTo,
+    chordDetectWindowAllowedStartMax,
+    MobileMainFretboard: MobileMainFretboardView,
+    chordDetectVisibleFrets,
+    toggleChordDetectCell,
+    mobileVerticalFretBorderClass,
+    HoverCellNote: HoverCellNoteView,
+    ChordInvestigationCircle: ChordInvestigationCircleView,
+    showNonScale,
+    showIntervalsLabel,
+    showNotesLabel,
+    labelForCellAt,
+    maxFret,
+  } = fretboard;
+  const {
+    InfoTitle: InfoTitleView,
+    DETECTED_CHORDS_INFO_TEXT,
+    chordDetectCandidatesRanked,
+    chordDetectCandidateId,
+    selectDetectedCandidate,
+    formatChordNamePure,
+    applyDetectedCandidate,
+  } = candidates;
+  const { chordDetectStaffEvents, chordDetectSelectionPositionsText } = staff;
+  const { UI_BTN_SM } = ui;
+
   const selectedMap = new Map();
-  void MobileMainFretboardView;
-  void HoverCellNoteView;
-  void ChordInvestigationCircleView;
-  void InfoTitleView;
 
   if (chordDetectSelectedNotes.length) {
     const bassKey = chordDetectSelectedNotes[0]?.key || null;
@@ -621,6 +621,4 @@ export default function ManualChordPanel({
       ) : null}
     </div>
   );
-  
 }
-
