@@ -1,6 +1,6 @@
 # Auditoría: Copiar lecturas a Acordes
 
-**Total**: 24 | **PASS**: 24 | **FAIL**: 0
+**Total**: 25 | **PASS**: 25 | **FAIL**: 0
 
 | ID | Tipo | Entrada | Notas | Primary real | Esperado / Candidato buscado | Candidato obtenido | Estr. | Ext | Omit | Motivo | Resultado |
 |----|------|---------|-------|--------------|------------------------------|--------------------|-------|-----|------|--------|-----------|
@@ -28,3 +28,4 @@
 | N-E1 | primary | Bb,Ab,D,G/Bb | Bb Ab D G | Bb7(add13,no5) | `Bb7(add13,no5)` | Bb7(add13,no5) | chord | 7,13 | 5 | Valida dom7(add13,no5) como primary copiable; omit=5 y ext13 deben pasarse al copiar | ✅ |
 | N-F1 | primary | F,A,Bb/Bb | F A Bb | Fadd11(no5)/Bb | `Fadd11(no5)/Bb` | Fadd11(no5)/Bb | chord | 11 | 5 | Bug fix: al copiar Fadd11(no5)/Bb, el omit=5 se perdía porque detectOmitFromCandidate no leía missingLabels en candidatos de catálogo | ✅ |
 | N-G1 | 2°regex | A,C,E,F,G/A | A C E F G | C6(add11)/A | /b13|b6/ (2°) | Am7(b13) | BLOQ. | — | — | Valida bloqueo de candidato: b13 (extensión alterada) no es representable → botón Copiar deshabilitado | ✅ |
+| N-H1 | 2°candidato | `43x24x` | Ab C A Eb | Abaddb2 | `Cm6(no5)/Ab` (2°) | Cm6(no5)/Ab | tetrad | 6 | 5 | Bug fix: bajo enarmónico en slash externo (Ab/G#) debe conservar el spelling del candidato (spellPreferSharps=false) para que Modo automático muestre 'Bajo b6' no 'Bajo #5'. La primary del patrón es Abaddb2 (uiPatch=null); Cm6(no5)/Ab es candidato secundario copiable. | ✅ |

@@ -303,7 +303,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "5.19";
+const APP_VERSION = "5.20";
 
 function buildChordCopyFingerprint({
   rootPc,
@@ -1956,7 +1956,7 @@ export default function FretboardScalesPage() {
     [chordRootPc, chordQuality, chordSuspension, chordStructure, chordInversion, chordForm, chordExt7, chordExt6, chordExt9, chordExt11, chordExt13, chordOmit]
   );
 
-  const chordInversionOptions = useMemo(() => computeInversionSelectorOptions(chordEnginePlan), [chordEnginePlan]);
+  const chordInversionOptions = useMemo(() => computeInversionSelectorOptions(chordEnginePlan, chordPreferSharps), [chordEnginePlan, chordPreferSharps]);
 
   // Sanitiza la inversión cuando la opción seleccionada deja de existir (ej. omit activa
   // reduce los grados efectivos y "3ª inversión" ya no es una posición válida).
@@ -4206,7 +4206,7 @@ export default function FretboardScalesPage() {
             if (!currentMainVoicing) {
               return CHORD_INVERSIONS.find((x) => x.value === chordInversion)?.label || "Fundamental";
             }
-            const invLabel = actualInversionLabelFromVoicing(detectedPlan, currentMainVoicing);
+            const invLabel = actualInversionLabelFromVoicing(detectedPlan, currentMainVoicing, chordPreferSharps);
             if (detectCandidate.contextual && invLabel === "Fundamental") return "Bajo fundamental";
             return invLabel;
           })(),
@@ -4329,7 +4329,7 @@ export default function FretboardScalesPage() {
         positionForm: chordPositionForm,
         bassName: activeChordVoicing ? mainPcToSpelledName(activeChordVoicing.bassPc) : pcToName(chordBassPc, mainPreferSharps),
         inversionLabel: activeChordVoicing
-          ? actualInversionLabelFromVoicing(chordEnginePlan, activeChordVoicing)
+          ? actualInversionLabelFromVoicing(chordEnginePlan, activeChordVoicing, chordPreferSharps)
           : CHORD_INVERSIONS.find((x) => x.value === chordInversion)?.label || "Fundamental",
       };
     }

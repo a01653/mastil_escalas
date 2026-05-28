@@ -674,6 +674,27 @@ describe("actualInversionLabelFromVoicing — fuente única tras unificación", 
     });
     expect(actualInversionLabelFromVoicing(plan, { bassPc: 4 })).toBe("Bajo 7");
   });
+
+  test("Cm6(no5)/Ab: bajo Ab (bassInt=8, preferSharps=false) → 'Bajo b6', no 'Bajo #5'", () => {
+    // C=0, Ab=pc8, bassInt=8. Cm6(no5): omit5 → isNonStandard=true, bassInt no en fórmula.
+    // Con preferSharps=false (contexto Ab), debe renombrarse b6 no #5.
+    const plan = buildChordEnginePlan({
+      rootPc: 0, quality: "min", suspension: "none", structure: "chord",
+      inversion: "all", form: "open",
+      ext7: false, ext6: true, ext9: false, ext11: false, ext13: false, omit: "5",
+    });
+    expect(actualInversionLabelFromVoicing(plan, { bassPc: 8 }, false)).toBe("Bajo b6");
+  });
+
+  test("Cm6(no5)/G#: bajo G# (bassInt=8, preferSharps=true) → 'Bajo #5', no 'Bajo b6'", () => {
+    // Mismo caso pero en contexto sostenidos (G#): debe mostrar #5.
+    const plan = buildChordEnginePlan({
+      rootPc: 0, quality: "min", suspension: "none", structure: "chord",
+      inversion: "all", form: "open",
+      ext7: false, ext6: true, ext9: false, ext11: false, ext13: false, omit: "5",
+    });
+    expect(actualInversionLabelFromVoicing(plan, { bassPc: 8 }, true)).toBe("Bajo #5");
+  });
 });
 
 // ── chordBassInterval — coherencia con computeInversionSelectorOptions ────────

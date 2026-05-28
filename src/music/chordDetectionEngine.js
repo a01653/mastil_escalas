@@ -1049,16 +1049,28 @@ function collectFormulaCandidates(selectedNotes) {
       for (const spelling of spellings) {
         const visibleItems = buildDetectedVisibleFormulaItems({ formula, noteNames: spelling.noteNames, coreSelected });
         const visiblePairs = visibleItems.map((item) => `${item.label}=${item.note}`);
+        // Si el bajo slash externo tiene grafía plana/sostenida que contradice preferSharpsChoice
+        // (el sistema de letras de spellNoteFromChordInterval puede producir "Ab" aunque
+        // preferSharpsChoice=true), derivamos el preferSharps efectivo del nombre real del bajo.
+        let effectivePreferSharps = spelling.preferSharpsChoice;
+        if (externalBassInterval != null) {
+          const slashIdx = spelling.name.lastIndexOf("/");
+          if (slashIdx >= 0) {
+            const bassAccidental = spelling.name[slashIdx + 2] ?? "";
+            if (bassAccidental === "b") effectivePreferSharps = false;
+            else if (bassAccidental === "#") effectivePreferSharps = true;
+          }
+        }
         const candidate = {
-          id: `${formula.id}|${rootPc}|${externalBassInterval == null ? "in" : externalBassInterval}|${missingLabels.join(",")}|${spelling.preferSharpsChoice ? "sharp" : "flat"}`,
+          id: `${formula.id}|${rootPc}|${externalBassInterval == null ? "in" : externalBassInterval}|${missingLabels.join(",")}|${effectivePreferSharps ? "sharp" : "flat"}`,
           name: spelling.name,
           rootPc,
           bassPc: bass.pc,
-          preferSharps: spelling.preferSharpsChoice,
+          preferSharps: effectivePreferSharps,
           formula,
           exact,
           score,
-          uiPatch: formula.allowDyad ? null : (formula.ui ? { rootPc, spellPreferSharps: spelling.preferSharpsChoice, ...formula.ui } : null),
+          uiPatch: formula.allowDyad ? null : (formula.ui ? { rootPc, spellPreferSharps: effectivePreferSharps, ...formula.ui } : null),
           intervalPairsText: visiblePairs.join(", "),
           visibleNotes: visibleItems.map((item) => item.note),
           visibleIntervals: matches,

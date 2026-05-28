@@ -1,7 +1,7 @@
 {
   "summary": {
-    "total": 24,
-    "passed": 24,
+    "total": 25,
+    "passed": 25,
     "failed": 0
   },
   "cases": [
@@ -898,6 +898,40 @@
         "C6(add11)/A",
         "Am7(b13)",
         "Fmaj9/A"
+      ],
+      "pass": true,
+      "failures": [],
+      "warnings": []
+    },
+    {
+      "id": "N-H1",
+      "description": "43x24x → candidato Cm6(no5)/Ab: spellPreferSharps=false (Ab, no G#)",
+      "motivo": "Bug fix: bajo enarmónico en slash externo (Ab/G#) debe conservar el spelling del candidato (spellPreferSharps=false) para que Modo automático muestre 'Bajo b6' no 'Bajo #5'. La primary del patrón es Abaddb2 (uiPatch=null); Cm6(no5)/Ab es candidato secundario copiable.",
+      "tipoSeleccion": "2°candidato",
+      "entrada": "43x24x",
+      "derivedNotes": [
+        "Ab",
+        "C",
+        "A",
+        "Eb"
+      ],
+      "primaryName": "Abaddb2",
+      "expectPrimaryName": null,
+      "expectCandidateName": "Cm6(no5)/Ab",
+      "expectCandidateIncludes": null,
+      "candidateName": "Cm6(no5)/Ab",
+      "copiedStructure": "tetrad",
+      "copiedExt7": false,
+      "copiedExt9": false,
+      "copiedExt11": false,
+      "copiedExt13": false,
+      "copiedExt6": true,
+      "copiedOmit": "5",
+      "uiPatchEnabled": true,
+      "candidates": [
+        "Abaddb2",
+        "Adim(add7)/G#",
+        "Cm6(no5)/Ab"
       ],
       "pass": true,
       "failures": [],

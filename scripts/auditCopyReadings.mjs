@@ -362,6 +362,20 @@ const CASES = [
     expectBlocked: true,
     expectUiPatch: false,
   },
+  {
+    id: "N-H1",
+    description: "43x24x → candidato Cm6(no5)/Ab: spellPreferSharps=false (Ab, no G#)",
+    motivo: "Bug fix: bajo enarmónico en slash externo (Ab/G#) debe conservar el spelling del candidato " +
+      "(spellPreferSharps=false) para que Modo automático muestre 'Bajo b6' no 'Bajo #5'. " +
+      "La primary del patrón es Abaddb2 (uiPatch=null); Cm6(no5)/Ab es candidato secundario copiable.",
+    fretsPattern: "43x24x",
+    expectCandidateName: "Cm6(no5)/Ab",
+    expectUiPatch: true,
+    expectSpellPreferSharps: false,
+    expectExt6: true,
+    expectOmit: "5",
+    expectCopiedVoicingPattern: "43x24x",
+  },
 ];
 
 // ─── Lógica de análisis ───────────────────────────────────────────────────────
@@ -504,6 +518,12 @@ function checkCase(tc) {
       failures.push(`ext13: esperado ${tc.expectExt13}, obtenido ${copy.ext13}`);
     if (tc.expectOmit !== undefined && copy.omit !== tc.expectOmit)
       failures.push(`omit: esperado "${tc.expectOmit}", obtenido "${copy.omit}"`);
+  }
+
+  if (candidate?.uiPatch && tc.expectSpellPreferSharps !== undefined) {
+    const actual = !!candidate.uiPatch.spellPreferSharps;
+    if (actual !== tc.expectSpellPreferSharps)
+      failures.push(`spellPreferSharps: esperado ${tc.expectSpellPreferSharps}, obtenido ${actual} — bajo enarmónico con spelling incorrecto`);
   }
 
   // Verificar que el voicing físico del mástil se conserva en la copia (solo para fretsPattern)

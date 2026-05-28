@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { buildChordIntervals, chordCanUseJsonCatalog } from "./appMusicBasics.js";
+import { buildChordIntervals, buildDetectedCandidateLabelForPc, buildDetectedCandidateBackgroundLabelForPc, chordCanUseJsonCatalog } from "./appMusicBasics.js";
 import { buildChordEnginePlan, buildChordUiRestrictions, generateExactIntervalChordVoicings } from "./appVoicingStudyCore.js";
 import { analyzeSelectedNotes, detectOmitFromCandidate } from "./chordDetectionEngine.js";
 import { analyzeFretsCore } from "./analyzeFretsCore.js";
@@ -697,5 +697,42 @@ describe("buildChordBadgeItems: orden canónico de grados", () => {
     });
     const degrees = items.map((i) => i.degree);
     expect(degrees).toEqual(["1", "b3", "5", "b7", "9", "11"]);
+  });
+});
+
+// ── buildDetectedCandidateLabelForPc / buildDetectedCandidateBackgroundLabelForPc ──
+// Verifica que el bajo externo enharmónico (interval 8) use b6 o #5 según
+// el preferSharps del candidato, no el fallback.
+describe("buildDetectedCandidateLabel — spelling enarmónico b6/#5 para bajo externo", () => {
+  // Candidato simulado: Cm6(no5)/Ab — rootPc=0, intervals=[0,3,9], bassPc=8 (Ab)
+  const candidateFlat = {
+    rootPc: 0,
+    bassPc: 8,
+    preferSharps: false,
+    formula: {
+      intervals: [0, 3, 9],
+      degreeLabels: ["1", "b3", "6"],
+    },
+  };
+  const candidateSharp = { ...candidateFlat, preferSharps: true };
+
+  test("bajo externo Ab (pc=8, preferSharps=false) → grado 'b6', no '#5'", () => {
+    const label = buildDetectedCandidateLabelForPc(8, candidateFlat, false, true, false);
+    expect(label).toBe("b6");
+  });
+
+  test("bajo externo G# (pc=8, preferSharps=true) → grado '#5', no 'b6'", () => {
+    const label = buildDetectedCandidateLabelForPc(8, candidateSharp, true, true, false);
+    expect(label).toBe("#5");
+  });
+
+  test("background label Ab (pc=8, preferSharps=false) → grado 'b6'", () => {
+    const label = buildDetectedCandidateBackgroundLabelForPc(8, candidateFlat, false, true, false);
+    expect(label).toBe("b6");
+  });
+
+  test("nota dentro de fórmula (pc=3, Eb) → grado 'b3' sin cambio", () => {
+    const label = buildDetectedCandidateLabelForPc(3, candidateFlat, false, true, false);
+    expect(label).toBe("b3");
   });
 });

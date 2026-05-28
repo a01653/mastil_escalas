@@ -10,7 +10,6 @@ const pcToName = (...args) => AppMusicBasics.pcToName(...args);
 const pitchAt = (...args) => AppMusicBasics.pitchAt(...args);
 const intervalToDegreeToken = (...args) => AppMusicBasics.intervalToDegreeToken(...args);
 const intervalToChordToken = (...args) => AppMusicBasics.intervalToChordToken(...args);
-const intervalToSimpleChordDegreeToken = (...args) => AppMusicBasics.intervalToSimpleChordDegreeToken(...args);
 const voicingHasOpenStrings = (...args) => AppMusicBasics.voicingHasOpenStrings(...args);
 const chordDisplayNameFromUI = (...args) => AppMusicBasics.chordDisplayNameFromUI(...args);
 const chordDisplaySuffixOnly = (...args) => AppMusicBasics.chordDisplaySuffixOnly(...args);
@@ -1702,7 +1701,7 @@ function buildEffectiveDegreesForPlan(plan) {
   return degrees;
 }
 
-function labelForInversionBass(bi, plan, isNonStandard) {
+function labelForInversionBass(bi, plan, isNonStandard, preferSharps = false) {
   const b = mod12(bi);
   // Acordes tercianos estándar: etiquetas ordinales
   if (!isNonStandard) {
@@ -1717,8 +1716,8 @@ function labelForInversionBass(bi, plan, isNonStandard) {
   if (plan.ext6  && b === 9) return "Bajo 6";
   // 7ª en el bajo: ordinal solo si es un acorde tertiano estándar; semántico si hay omit/add
   if (!isNonStandard && plan.seventhOffset != null && b === mod12(plan.seventhOffset)) return "3ª inversión";
-  // Grado semántico genérico: usar notación de grado de acorde (b5 no #4, #5 no b6)
-  return `Bajo ${intervalToSimpleChordDegreeToken(b)}`;
+  // Grado semántico genérico: respetar spelling del enarmónico #5/b6 según contexto
+  return `Bajo ${AppMusicBasics.intervalToChordDegreeTokenWithSpelling(b, preferSharps)}`;
 }
 
 /**
@@ -1728,7 +1727,7 @@ function labelForInversionBass(bi, plan, isNonStandard) {
  * - Las posiciones que omit elimina no aparecen como opción.
  * - Si omit1/no1 está activo, "Fundamental" no aparece.
  */
-export function computeInversionSelectorOptions(plan) {
+export function computeInversionSelectorOptions(plan, preferSharps = false) {
   if (!plan) return AppMusicBasics.CHORD_INVERSIONS;
   const isNonStandard = !!(plan.singleAdd || plan.multiAdd || (plan.omit !== "none"));
   const degrees = buildEffectiveDegreesForPlan(plan);
@@ -1741,7 +1740,7 @@ export function computeInversionSelectorOptions(plan) {
   let posIdx = 0;
   for (let i = 0; i < degrees.length && posIdx < posValues.length; i++) {
     if (mod12(degrees[i]) === 0) continue; // raíz ya incluida como "Fundamental"
-    const label = labelForInversionBass(degrees[i], plan, isNonStandard);
+    const label = labelForInversionBass(degrees[i], plan, isNonStandard, preferSharps);
     options.push({ value: posValues[posIdx], label });
     posIdx++;
   }
@@ -1749,12 +1748,12 @@ export function computeInversionSelectorOptions(plan) {
   return options;
 }
 
-export function actualInversionLabelFromVoicing(plan, voicing) {
+export function actualInversionLabelFromVoicing(plan, voicing, preferSharps = false) {
   if (!plan || !voicing) return "—";
   const bassInt = mod12(voicing.bassPc - plan.rootPc);
   if (bassInt === 0) return "Fundamental";
   const isNonStandard = !!(plan.singleAdd || plan.multiAdd || plan.omit !== "none");
-  return labelForInversionBass(bassInt, plan, isNonStandard);
+  return labelForInversionBass(bassInt, plan, isNonStandard, preferSharps);
 }
 
 export function deriveDetectedCandidateCopyInversion(candidate) {

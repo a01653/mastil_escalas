@@ -113,6 +113,14 @@ export function intervalToSimpleChordDegreeToken(semi) {
   return map[mod12(semi)];
 }
 
+// Como intervalToSimpleChordDegreeToken pero respeta el spelling preferido para el enarmónico
+// del semitono 8: "b6" si preferSharps=false, "#5" si preferSharps=true.
+export function intervalToChordDegreeTokenWithSpelling(semi, preferSharps = false) {
+  const b = mod12(semi);
+  if (b === 8) return preferSharps ? "#5" : "b6";
+  return intervalToSimpleChordDegreeToken(b);
+}
+
 // ============================================================================
 // MOTOR DE ACORDES Y NOMENCLATURA
 // ============================================================================
@@ -836,11 +844,12 @@ export function buildDetectedCandidateDegreeLabelForPc(pc, candidate) {
 }
 
 export function buildDetectedCandidateLabelForPc(pc, candidate, preferSharpsFallback, showIntervals = true, showNotes = true) {
+  const prefer = candidate?.preferSharps ?? preferSharpsFallback;
   const noteName = buildDetectedCandidateNoteNameForPc(pc, candidate, preferSharpsFallback);
   if (!candidate) return noteName;
 
   const interval = mod12(pc - candidate.rootPc);
-  const degree = buildDetectedCandidateDegreeLabelForPc(pc, candidate) || intervalToSimpleChordDegreeToken(interval);
+  const degree = buildDetectedCandidateDegreeLabelForPc(pc, candidate) || intervalToChordDegreeTokenWithSpelling(interval, prefer);
 
   if (!showIntervals && !showNotes) return degree;
   if (showIntervals && showNotes) return `${degree}-${noteName}`;
@@ -853,7 +862,7 @@ export function buildDetectedCandidateBackgroundLabelForPc(pc, candidate, prefer
 
   const prefer = candidate.preferSharps ?? preferSharpsFallback;
   const interval = mod12(pc - candidate.rootPc);
-  const degree = buildDetectedCandidateDegreeLabelForPc(pc, candidate) || intervalToSimpleChordDegreeToken(interval);
+  const degree = buildDetectedCandidateDegreeLabelForPc(pc, candidate) || intervalToChordDegreeTokenWithSpelling(interval, prefer);
   const noteName = spellNoteFromChordInterval(candidate.rootPc, interval, prefer);
 
   if (!showIntervals && !showNotes) return degree;
