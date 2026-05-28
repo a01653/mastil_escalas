@@ -1255,4 +1255,35 @@ describe("deduplicación: condiciones de fusión", () => {
     const gmaj = analyzeSelectedNotes(["B", "D", "G"], "B").readings.find((r) => r.name === "G/B");
     expect(buildDetectedCandidateNoteNameForPc(11, gmaj, gmaj?.preferSharps)).toBe("B");
   });
+
+  test("nearChords tertian bassName: pcToName produce A# (bug) — spellNoteFromChordInterval produce Bb (fix)", () => {
+    // Reproduce el escenario exacto de buildNearSlotStudyEntry rama tertian (App.jsx):
+    // slot.rootPc=7 (G), voicing.bassPc=10 (Bb en 1ª inversión de Gm),
+    // noteMeta.preferSharps = preferSharpsFromMajorTonicPc(7) = true (G mayor, 1 sostenido)
+    const rootPc = 7;
+    const bassPc = 10;
+    const preferSharps = preferSharpsFromMajorTonicPc(rootPc);
+    expect(preferSharps).toBe(true); // confirma el contexto: G usa preferSharps=true
+
+    // Fórmula ANTERIOR (pcToName directo) → producía "A#": BUG documentado
+    expect(pcToName(bassPc, preferSharps)).toBe("A#");
+
+    // Fórmula ACTUAL (spellNoteFromChordInterval) → produce "Bb": CORRECTO
+    const bassInterval = mod12(bassPc - rootPc); // = 3 (b3)
+    const bassName = spellNoteFromChordInterval(rootPc, bassInterval, preferSharps);
+    expect(bassName).toBe("Bb");
+    expect(bassName).not.toBe("A#");
+  });
+
+  test("nearChords tertian bassName: G/B primera inversión → B (no Cb)", () => {
+    const preferSharps = preferSharpsFromMajorTonicPc(7); // true
+    const bassInterval = mod12(11 - 7); // M3 = 4
+    expect(spellNoteFromChordInterval(7, bassInterval, preferSharps)).toBe("B");
+  });
+
+  test("nearChords tertian bassName: Dm/F primera inversión → F (no E#)", () => {
+    const preferSharps = preferSharpsFromMajorTonicPc(2); // D = 2 sostenidos → true
+    const bassInterval = mod12(5 - 2); // b3 = 3
+    expect(spellNoteFromChordInterval(2, bassInterval, preferSharps)).toBe("F");
+  });
 });

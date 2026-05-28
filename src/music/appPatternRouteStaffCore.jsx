@@ -2797,7 +2797,7 @@ export function ChordNoteBadgeStrip({ items, bassNote, bassLabel = "Bajo", color
 
       {bassNote ? (
         <div className="flex min-w-[46px] flex-col items-center gap-1">
-          <div className="text-[11px] font-semibold text-slate-700">{bassNote}</div>
+          <div data-testid="chord-badge-bass-note" className="text-[11px] font-semibold text-slate-700">{bassNote}</div>
           <div className="min-w-[46px] rounded-md bg-slate-700 px-2 py-1 text-center text-[10px] font-semibold leading-none text-white shadow-sm">
             {bassLabel}
           </div>

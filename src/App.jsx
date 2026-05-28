@@ -286,7 +286,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "5.23";
+const APP_VERSION = "5.24";
 
 function buildChordCopyFingerprint({
   rootPc,
@@ -3750,7 +3750,9 @@ export default function FretboardScalesPage() {
       plan,
       voicing,
       positionForm: slot?.positionForm || positionFormFromEffectiveForm(slot?.form, "closed"),
-      bassName: voicing ? pcToName(voicing.bassPc, noteMeta.preferSharps) : pcToName(mod12(noteMeta.rootPc + (plan?.bassInterval || 0)), noteMeta.preferSharps),
+      bassName: voicing
+        ? spellNoteFromChordInterval(noteMeta.rootPc, mod12(voicing.bassPc - noteMeta.rootPc), noteMeta.preferSharps)
+        : spellNoteFromChordInterval(noteMeta.rootPc, plan?.bassInterval || 0, noteMeta.preferSharps),
       inversionLabel: CHORD_INVERSIONS.find((item) => item.value === (slot?.inversion || "root"))?.label || "Fundamental",
         summary: buildChordHeaderSummary({
           name: chordName,
@@ -6770,6 +6772,7 @@ function ChordFretboard({
         <label className={UI_LABEL_SM}>Tono</label>
         <div className="mt-1 flex items-center gap-1.5">
           <select
+            data-testid={`near-slot-${idx}-tone`}
             className={UI_SELECT_SM_TONE}
             style={{ width: "50px" }}
             value={chordUiLetterFromPc(slot.rootPc, !!slot.spellPreferSharps)}
@@ -7075,7 +7078,7 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
         <div className={isMobileLayout ? "min-w-0 order-5 col-span-2" : "shrink-0"}>
           <label className={UI_LABEL_SM}>Calidad / Sus</label>
           <div className="mt-1 flex flex-nowrap gap-1.5">
-            <select className={UI_SELECT_SM_AUTO} style={nearSelectWidthStyle(CHORD_QUALITIES, 8)} value={slot.quality} onChange={(e) => updateNearSlot(idx, { quality: e.target.value, selFrets: null })} disabled={disableAll}>
+            <select data-testid={`near-slot-${idx}-quality`} className={UI_SELECT_SM_AUTO} style={nearSelectWidthStyle(CHORD_QUALITIES, 8)} value={slot.quality} onChange={(e) => updateNearSlot(idx, { quality: e.target.value, selFrets: null })} disabled={disableAll}>
               {CHORD_QUALITIES.map((q) => (
                 <option key={q.value} value={q.value} disabled={(q.value === "hdim" && slot.structure === "triad" && !slot.ext7) || (q.value === "dom" && slot.structure === "triad" && !slot.ext7)}>{q.label}</option>
               ))}
@@ -7103,6 +7106,7 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
         <div className={isMobileLayout ? "min-w-0 order-2" : "shrink-0"}>
           <label className={UI_LABEL_SM}>Estructura</label>
           <select
+            data-testid={`near-slot-${idx}-structure`}
             className={UI_SELECT_SM + " mt-1"}
             style={nearSelectWidthStyle(CHORD_STRUCTURES, 9)}
             value={slot.structure}
@@ -7155,7 +7159,7 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
         </div>
         <div className={isMobileLayout ? "min-w-0 order-3" : "shrink-0"}>
           <label className={UI_LABEL_SM}>Inversión</label>
-          <select className={UI_SELECT_SM_AUTO + " mt-1"} style={nearSelectWidthStyle(CHORD_INVERSIONS, 10)} value={slot.inversion} onChange={(e) => updateNearSlot(idx, { inversion: e.target.value, selFrets: null })} disabled={disableAll}>
+          <select data-testid={`near-slot-${idx}-inversion`} className={UI_SELECT_SM_AUTO + " mt-1"} style={nearSelectWidthStyle(CHORD_INVERSIONS, 10)} value={slot.inversion} onChange={(e) => updateNearSlot(idx, { inversion: e.target.value, selFrets: null })} disabled={disableAll}>
             {CHORD_INVERSIONS.map((inv) => (
               <option key={inv.value} value={inv.value} disabled={!slotUi.allowThirdInversion && inv.value === "3"}>{inv.label}</option>
             ))}
@@ -9217,6 +9221,7 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
                 return (
                   <PanelBlock
                     key={idx}
+                    data-testid={`near-slot-${idx}`}
                     as="div"
                     level="subsection"
                     title={nearTitle}
@@ -9252,6 +9257,7 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
                         />
                         <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-700">
                           <input
+                            data-testid={`near-slot-${idx}-enabled`}
                             type="checkbox"
                             checked={!!slot.enabled}
                             onChange={(e) => updateNearSlot(idx, { enabled: e.target.checked, selFrets: null })}
