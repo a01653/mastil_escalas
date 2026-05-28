@@ -9,7 +9,9 @@ import {
   buildChordEnginePlan,
   computeInversionSelectorOptions,
   buildChordHeaderSummary,
+  physicalVoicingDistance,
   resolveCopiedVoicingAcrossStructures,
+  selectClosestPhysicalVoicingIndex,
 } from "./appVoicingStudyCore.js";
 import { chordBassInterval, chordDisplayNameFromUI } from "./appMusicBasics.js";
 
@@ -1115,5 +1117,109 @@ describe("resolveCopiedVoicingAcrossStructures", () => {
     expect(resolvedX0220x.matchesRequestedStructure).toBe(false);
     expect(resolvedX0220x.requiresStructureChange).toBe(true);
     expect(resolvedX0220x.requiresOpenStrings).toBe(true);
+  });
+});
+
+describe("continuidad física de voicings", () => {
+  test("distance exacta: el mismo patrón tiene distancia 0", () => {
+    const ref = buildVoicingFromFretsLH({
+      fretsLH: [10, null, 10, 10, 10, null],
+      rootPc: 2,
+      maxFret: 15,
+    });
+    const same = buildVoicingFromFretsLH({
+      fretsLH: [10, null, 10, 10, 10, null],
+      rootPc: 2,
+      maxFret: 15,
+    });
+
+    expect(physicalVoicingDistance(ref, same)).toBe(0);
+  });
+
+  test("distance física: mover una sola nota un semitono puntúa mejor que saltar de posición", () => {
+    const ref = buildVoicingFromFretsLH({
+      fretsLH: [10, null, 10, 10, 10, null], // axaaax
+      rootPc: 2,
+      maxFret: 15,
+    });
+    const oneNoteMove = buildVoicingFromFretsLH({
+      fretsLH: [10, null, 11, 10, 10, null], // axbaax
+      rootPc: 2,
+      maxFret: 15,
+    });
+    const distant = buildVoicingFromFretsLH({
+      fretsLH: [1, 4, null, 2, 3, null], // 14x23x
+      rootPc: 2,
+      maxFret: 15,
+    });
+
+    expect(physicalVoicingDistance(ref, oneNoteMove)).toBeLessThan(physicalVoicingDistance(ref, distant));
+  });
+
+  test("selección automática: Dm7 axaaax -> Dm(maj7) prefiere axbaax frente al primer voicing del catálogo", () => {
+    const previousVoicing = buildVoicingFromFretsLH({
+      fretsLH: [10, null, 10, 10, 10, null], // axaaax
+      rootPc: 2,
+      maxFret: 15,
+    });
+    const candidates = [
+      buildVoicingFromFretsLH({ fretsLH: [1, 4, null, 2, 3, null], rootPc: 2, maxFret: 15 }), // 14x23x
+      buildVoicingFromFretsLH({ fretsLH: [10, null, 11, 10, 10, null], rootPc: 2, maxFret: 15 }), // axbaax
+      buildVoicingFromFretsLH({ fretsLH: [null, null, 11, 10, 10, 10], rootPc: 2, maxFret: 15 }), // xxbaaa
+    ];
+
+    expect(selectClosestPhysicalVoicingIndex(previousVoicing, candidates)).toBe(1);
+  });
+
+  test("fallback: si todos los candidatos quedan físicamente muy lejos, conserva el ranking base", () => {
+    const previousVoicing = buildVoicingFromFretsLH({
+      fretsLH: [10, null, 10, 10, 10, null],
+      rootPc: 2,
+      maxFret: 15,
+    });
+    const candidates = [
+      buildVoicingFromFretsLH({ fretsLH: [1, 4, null, 2, 3, null], rootPc: 2, maxFret: 15 }),
+      buildVoicingFromFretsLH({ fretsLH: [4, null, 7, 7, 6, null], rootPc: 2, maxFret: 15 }),
+    ];
+
+    expect(selectClosestPhysicalVoicingIndex(previousVoicing, candidates, { reasonableDistance: 5 })).toBe(0);
+  });
+});
+
+// ── buildChordEnginePlan — generator para transiciones m(maj7)→menor/dim ──────
+// Documenta el comportamiento que causaba el flicker visual en v5.16:
+// m(maj7) usa generator="exact" (deja chordDb=null, chordDbStatus="skipped");
+// menor y disminuido usan generator="json". Entre state-change y useEffect,
+// chordVoicingsResolving debía ser true aunque chordDbStatus fuera "skipped".
+describe("buildChordEnginePlan — generator en transiciones m(maj7) → menor/dim", () => {
+  const base = { suspension: "none", inversion: "all", form: "closed",
+    ext6: false, ext9: false, ext11: false, ext13: false, omit: "none" };
+
+  test("m(maj7) chord con ext7: generator=exact (no usa catálogo JSON)", () => {
+    const plan = buildChordEnginePlan({
+      ...base, rootPc: 2, quality: "minmaj7", structure: "chord", ext7: true,
+    });
+    expect(plan.generator).toBe("exact");
+  });
+
+  test("menor chord sin extensiones: generator=json", () => {
+    const plan = buildChordEnginePlan({
+      ...base, rootPc: 2, quality: "min", structure: "chord", ext7: false,
+    });
+    expect(plan.generator).toBe("json");
+  });
+
+  test("disminuido chord sin extensiones: generator=json", () => {
+    const plan = buildChordEnginePlan({
+      ...base, rootPc: 2, quality: "dim", structure: "chord", ext7: false,
+    });
+    expect(plan.generator).toBe("json");
+  });
+
+  test("m(maj7) chord sin ext7: generator=exact (minmaj7 nunca usa catálogo JSON)", () => {
+    const plan = buildChordEnginePlan({
+      ...base, rootPc: 5, quality: "minmaj7", structure: "chord", ext7: false,
+    });
+    expect(plan.generator).toBe("exact");
   });
 });

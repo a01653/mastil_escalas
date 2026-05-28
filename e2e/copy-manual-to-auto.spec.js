@@ -100,6 +100,32 @@ test("Cuatriada: x02020 copia A7, activa cuerdas al aire y conserva x02020", asy
   await expect(page.getByTestId("chord-title")).toContainText("A7");
 });
 
+test("m(maj7): 2232xx copia F#m(maj7,add11,no5), conserva 2232xx y no degrada a m7", async ({ page }) => {
+  await copyManualPatternAndExpectVoicing(page, {
+    pattern: "2232xx",
+    reading: /F#m\(maj7,add11,no5\)/,
+    expectedPattern: "2232xx",
+  });
+
+  await expect(page.getByTestId("chord-family-state")).toHaveText("tertian");
+  await expect(page.getByTestId("chord-title")).toContainText("F#m(maj7");
+  await expect(page.getByTestId("chord-title")).not.toContainText("F#m7");
+  await expect(page.locator("text=Unexpected token '<'")).toHaveCount(0);
+  await expect(page.locator("text=not valid JSON")).toHaveCount(0);
+
+  const badgeCount = await page.locator("[data-testid^='chord-badge-item-']").count();
+  let foundMajorSeventh = false;
+  for (let idx = 0; idx < badgeCount; idx += 1) {
+    const note = (await page.getByTestId(`chord-badge-note-${idx}`).textContent())?.trim();
+    const degree = (await page.getByTestId(`chord-badge-degree-${idx}`).textContent())?.trim();
+    if (note === "E#") {
+      expect(degree).toBe("7");
+      foundMajorSeventh = true;
+    }
+  }
+  expect(foundMajorSeventh, "Debe existir un chip E# con grado 7").toBe(true);
+});
+
 test("Notas guía: xx325x copia Fmaj7(no5) como Notas guía y conserva xx325x", async ({ page }) => {
   await copyManualPatternAndExpectVoicing(page, {
     pattern: "xx325x",

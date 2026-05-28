@@ -1,7 +1,7 @@
 {
   "summary": {
-    "total": 23,
-    "passed": 23,
+    "total": 24,
+    "passed": 24,
     "failed": 0
   },
   "cases": [
@@ -356,6 +356,41 @@
         "C#m7(b13,no5,nob7)",
         "Dbm(addb13,no5)",
         "C#m(addb13,no5)"
+      ],
+      "pass": true,
+      "failures": [],
+      "warnings": []
+    },
+    {
+      "id": "P11",
+      "description": "2232xx — primary F#m(maj7,add11,no5): conserva maj7 real y el voicing 2232xx",
+      "motivo": "Un m(maj7) no puede degradarse a m7 al copiar: debe mantener 7 mayor, add11 y la digitación física original.",
+      "tipoSeleccion": "primary",
+      "entrada": "2232xx",
+      "derivedNotes": [
+        "F#",
+        "B",
+        "F",
+        "A"
+      ],
+      "primaryName": "F#m(maj7,add11,no5)",
+      "expectPrimaryName": "F#m(maj7,add11,no5)",
+      "expectCandidateName": null,
+      "expectCandidateIncludes": null,
+      "candidateName": "F#m(maj7,add11,no5)",
+      "copiedStructure": "chord",
+      "copiedExt7": true,
+      "copiedExt9": false,
+      "copiedExt11": true,
+      "copiedExt13": false,
+      "copiedExt6": false,
+      "copiedOmit": "5",
+      "uiPatchEnabled": true,
+      "candidates": [
+        "F#m(maj7,add11,no5)",
+        "F(b5,addb2)/Gb",
+        "F7b5(nob7)/Gb",
+        "Cuartal mixto F#(addb3)"
       ],
       "pass": true,
       "failures": [],

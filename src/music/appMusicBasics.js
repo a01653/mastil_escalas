@@ -135,6 +135,8 @@ export function chordSuffixFromUI({ quality, suspension = "none", structure, ext
   const q = quality;
   const isMajLike = q === "maj" || q === "dom";
   const isMin = q === "min";
+  const isMinMaj7 = q === "minmaj7";
+  const isMinorFamily = isMin || isMinMaj7;
 
   // Normaliza combinaciones raras: sus + dim/ø no es habitual.
   const q2 = isSus && (q === "dim" || q === "hdim") ? "maj" : q;
@@ -151,9 +153,9 @@ export function chordSuffixFromUI({ quality, suspension = "none", structure, ext
       return sus === "sus4" ? "sus4" : "sus2";
     }
 
-    if (ext6 && !ext7) return isMin ? "m6" : "6";
+    if (ext6 && !ext7) return isMinorFamily ? "m6" : "6";
     if (isMajLike) return "major";
-    if (isMin) return "minor";
+    if (isMinorFamily) return "minor";
     return "dim";
   }
 
@@ -165,21 +167,21 @@ export function chordSuffixFromUI({ quality, suspension = "none", structure, ext
     if (!ext7 && addCount === 0) {
       if (isSus) return sus === "sus4" ? "sus4" : "sus2";
       if (isMajLike) return "major";
-      if (isMin) return "minor";
+      if (isMinorFamily) return "minor";
       return "dim";
     }
 
     // add6/add9/add11/add13 (sin 7ª)
     if (!ext7 && addCount === 1) {
-      if (ext6) return isMin ? "m6" : "6";
+      if (ext6) return isMinorFamily ? "m6" : "6";
       if (q2 === "dim") {
         if (ext13) return "dim(add13)";
         if (ext11) return "dim(add11)";
         if (ext9) return "dim(add9)";
       }
-      if (ext13) return isMin ? "m(add13)" : "add13";
-      if (ext11) return isMin ? "m(add11)" : "add11";
-      if (ext9) return isMin ? "m(add9)" : "add9";
+      if (ext13) return isMinorFamily ? "m(add13)" : "add13";
+      if (ext11) return isMinorFamily ? "m(add11)" : "add11";
+      if (ext9) return isMinorFamily ? "m(add9)" : "add9";
     }
 
     if (isSus) {
@@ -191,6 +193,13 @@ export function chordSuffixFromUI({ quality, suspension = "none", structure, ext
     if (q2 === "maj") return "maj7";
     if (q2 === "dom") return "7";
     if (q2 === "min") return "m7";
+    if (q2 === "minmaj7") {
+      if (!ext7) return "minor";
+      if (ext13) return "m(maj7,13)";
+      if (ext11) return "m(maj7,add11)";
+      if (ext9) return "m(maj9)";
+      return "m(maj7)";
+    }
     if (q2 === "hdim") return "m7b5";
     return "dim7";
   }
@@ -204,12 +213,12 @@ export function chordSuffixFromUI({ quality, suspension = "none", structure, ext
       if (q2 === "maj") return sus === "sus4" ? "maj7sus4" : "maj7sus2";
       if (q2 === "min") return sus === "sus4" ? "m7sus4" : "m7sus2";
     }
-    if (ext6 && !ext7 && !ext9 && !ext11 && !ext13) return isMin ? "m6" : "6";
+    if (ext6 && !ext7 && !ext9 && !ext11 && !ext13) return isMinorFamily ? "m6" : "6";
     return sus === "sus4" ? "sus4" : "sus2";
   }
 
   // add6 puro (sin 7/9/11/13)
-  if (ext6 && !ext7 && !ext9 && !ext11 && !ext13) return isMin ? "m6" : "6";
+  if (ext6 && !ext7 && !ext9 && !ext11 && !ext13) return isMinorFamily ? "m6" : "6";
 
   if (q2 === "dim") {
     if (ext7) return "dim7";
@@ -250,6 +259,15 @@ export function chordSuffixFromUI({ quality, suspension = "none", structure, ext
     if (ext11) return ext7 ? "m11" : "m(add11)";
     if (ext9) return ext7 ? "m9" : "m(add9)";
     if (ext7) return "m7";
+    if (ext6) return "m6";
+    return "minor";
+  }
+
+  if (q2 === "minmaj7") {
+    if (ext13) return ext7 ? "m(maj7,13)" : "m(add13)";
+    if (ext11) return ext7 ? "m(maj7,add11)" : "m(add11)";
+    if (ext9) return ext7 ? "m(maj9)" : "m(add9)";
+    if (ext7) return "m(maj7)";
     if (ext6) return "m6";
     return "minor";
   }
@@ -309,6 +327,14 @@ export const CHORD_SUFFIX_DISPLAY = {
   m13: "m13",
 };
 
+function appendOmitToDisplaySuffix(displaySuffix, omit) {
+  if (omit === "none") return String(displaySuffix || "");
+  const suffix = String(displaySuffix || "");
+  if (!suffix) return `(no${omit})`;
+  if (suffix.endsWith(")")) return `${suffix.slice(0, -1)},no${omit})`;
+  return `${suffix}(no${omit})`;
+}
+
 export function chordEffectiveStructureForName(structure, ext7, ext6, suspension) {
   // Si el usuario marca 7 en “Triada”, en la práctica es una cuatriada.
   // Si marca 6 en “Triada”, solo lo tratamos como "6" (cuatriada) cuando NO hay suspensión.
@@ -347,6 +373,10 @@ export function chordDisplayNameFromUI({ rootPc, preferSharps, quality, suspensi
   if (suf && CHORD_SUFFIX_DISPLAY[suf] != null) disp = CHORD_SUFFIX_DISPLAY[suf];
   else if (typeof suf === "string" && suf.startsWith("m(")) disp = suf;
   else if (typeof suf === "string") disp = suf;
+
+  if (quality === "minmaj7") {
+    return `${rootName}${appendOmitToDisplaySuffix(disp, omit)}`;
+  }
 
   const base = `${rootName}${disp}`;
 
@@ -409,6 +439,16 @@ export function chordDisplaySuffixOnly({ quality, suspension = "none", structure
   if (suf && CHORD_SUFFIX_DISPLAY[suf] != null) return CHORD_SUFFIX_DISPLAY[suf];
   if (typeof suf === "string") return suf;
   return "";
+}
+
+export function chordCanUseJsonCatalog({ quality, structure, ext7, ext6, ext9, ext11, ext13 }) {
+  if (structure !== "chord") return false;
+  if (quality === "minmaj7") return false;
+  const addCount = (ext6 ? 1 : 0) + (ext9 ? 1 : 0) + (ext11 ? 1 : 0) + (ext13 ? 1 : 0);
+  const singleAdd = !ext7 && addCount === 1;
+  const multiAdd = !ext7 && addCount >= 2;
+  if (singleAdd || multiAdd) return false;
+  return true;
 }
 
 export function detectSupportedTriadQuality(thirdOffset, fifthOffset) {
@@ -1028,6 +1068,7 @@ export const CHORD_QUALITIES = [
   { value: "maj", label: "Mayor" },
   { value: "dom", label: "Dominante (7)" },
   { value: "min", label: "Menor" },
+  { value: "minmaj7", label: "m(maj7)" },
   { value: "dim", label: "Disminuido" },
   { value: "hdim", label: "m7(b5)" },
 ];
@@ -1386,7 +1427,7 @@ export function buildChordIntervals({ quality, suspension, structure, ext7, ext6
     const maxExtSlots = 1 + (omit !== "none" ? 1 : 0);
     let extSlotsUsed = 0;
     if (ext7) {
-      const seventh = quality === "maj" ? 11 : quality === "dim" ? 9 : 10;
+      const seventh = quality === "maj" || quality === "minmaj7" ? 11 : quality === "dim" ? 9 : 10;
       out.push(seventh);
       extSlotsUsed++;
     }
@@ -1414,7 +1455,7 @@ export function buildChordIntervals({ quality, suspension, structure, ext7, ext6
   const wants7 = structure !== "triad";
   if (wants7) {
     let seventh = 10;
-    if (quality === "maj") seventh = 11; // maj7
+    if (quality === "maj" || quality === "minmaj7") seventh = 11; // maj7 / m(maj7)
     if (quality === "dim") seventh = 9; // dim7 (bb7)
     if (quality === "hdim") seventh = 10; // ø7
 
@@ -1426,7 +1467,7 @@ export function buildChordIntervals({ quality, suspension, structure, ext7, ext6
     // triada: si el usuario marca 7, lo añadimos
     if (ext7) {
       let seventh = 10;
-      if (quality === "maj") seventh = 11;
+      if (quality === "maj" || quality === "minmaj7") seventh = 11;
       if (quality === "dim") seventh = 9;
       if (quality === "hdim") seventh = 10;
       out.push(seventh);
@@ -1453,7 +1494,7 @@ export function buildChordIntervals({ quality, suspension, structure, ext7, ext6
 }
 
 export function seventhOffsetForQuality(quality) {
-  if (quality === "maj") return 11;
+  if (quality === "maj" || quality === "minmaj7") return 11;
   if (quality === "dim") return 9;
   // min/dom/hdim
   return 10;

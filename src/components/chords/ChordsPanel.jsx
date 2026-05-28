@@ -121,6 +121,7 @@ export default function ChordsPanel({
     quartalRoleOfPc, labelForQuartalPc, quartalNoteNameForPc,
     activeGuideToneVoicing,
     activeChordVoicing,
+    chordVoicingsResolving,
     chordDbError,
   } = voicingData;
 
@@ -840,6 +841,8 @@ const modeToggle = (
             ? "No hay notas suficientes para formar un acorde. Añade una extensión o desactiva una omisión."
             : (chordEnginePlan.structure === "tetrad" && !chordEnginePlan.ext7)
               ? "No hay 7ª activa: esto no es una cuatriada. Activa la 7ª o cambia la estructura a Acorde/Add."
+              : chordVoicingsResolving
+                ? ""
               : (chordDbError || "No he encontrado voicings para este acorde con los filtros actuales. Prueba a cambiar forma, inversión, distancia o permitir cuerdas al aire.")
         }
       />

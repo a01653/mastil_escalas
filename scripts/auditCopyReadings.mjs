@@ -26,6 +26,7 @@
  *   expectBlocked: bool     — el candidato esperado debe tener uiPatch=null
  *   expectUiPatch: bool     — el candidato debe tener uiPatch habilitado (= !null)
  *   expectStructure: string — "chord" | "tetrad" | "triad"
+ *   expectQuality: string   — "maj" | "dom" | "min" | "minmaj7" | ...
  *   expectExt7/9/11/13: bool
  *   expectOmit: string      — "none" | "5" | "3" | "1"
  *
@@ -191,6 +192,21 @@ const CASES = [
     expectOmit: "none",
     expectCopiedVoicingPattern: "x422xx",
     forbiddenCopiedPattern: "542xxx",
+  },
+  {
+    id: "P11",
+    description: "2232xx — primary F#m(maj7,add11,no5): conserva maj7 real y el voicing 2232xx",
+    motivo: "Un m(maj7) no puede degradarse a m7 al copiar: debe mantener 7 mayor, add11 y la digitación física original.",
+    fretsPattern: "2232xx",
+    expectPrimaryName: "F#m(maj7,add11,no5)",
+    expectUiPatch: true,
+    expectStructure: "chord",
+    expectExt7: true,
+    expectExt11: true,
+    expectOmit: "5",
+    expectQuality: "minmaj7",
+    expectCopiedVoicingPattern: "2232xx",
+    forbiddenCopiedPattern: "2x223x",
   },
 
   // ── Notas directas (analyzeSelectedNotes) ─────────────────────────────────
@@ -474,6 +490,8 @@ function checkCase(tc) {
   const copy = simulateCopy(candidate);
 
   if (copy) {
+    if (tc.expectQuality && copy.quality !== tc.expectQuality)
+      failures.push(`quality: esperada "${tc.expectQuality}", obtenida "${copy.quality}"`);
     if (tc.expectStructure && copy.structure !== tc.expectStructure)
       failures.push(`Estructura incorrecta: esperada "${tc.expectStructure}", obtenida "${copy.structure}"`);
     if (tc.expectExt7 !== undefined && copy.ext7 !== tc.expectExt7)

@@ -23,6 +23,7 @@ const chordBassInterval = (...args) => AppMusicBasics.chordBassInterval(...args)
 const spellChordNotes = (...args) => AppMusicBasics.spellChordNotes(...args);
 const spellFullyDiminishedSeventhNotes = (...args) => AppMusicBasics.spellFullyDiminishedSeventhNotes(...args);
 const computeAutoPreferSharps = (...args) => AppMusicBasics.computeAutoPreferSharps(...args);
+const chordCanUseJsonCatalog = (...args) => AppMusicBasics.chordCanUseJsonCatalog(...args);
 
 export function decodeChordDbFretChar(ch) {
   const c = String(ch || "").toLowerCase();
@@ -975,10 +976,10 @@ export function buildChordEnginePlan({
     generator = "exact";
   } else if (extended) {
     layer = "extended";
-    generator = "json";
+    generator = chordCanUseJsonCatalog({ quality, structure, ext7, ext6, ext9, ext11, ext13 }) ? "json" : "exact";
   } else if (chordFamily) {
     layer = "chord";
-    generator = "json";
+    generator = chordCanUseJsonCatalog({ quality, structure, ext7, ext6, ext9, ext11, ext13 }) ? "json" : "exact";
   }
 
   const insufficientNotes = omit !== "none" && intervals.length < 3;
@@ -1027,6 +1028,118 @@ export function buildChordEnginePlan({
     insufficientNotes,
     ui,
   };
+}
+
+function voicingFretsLowToHigh(voicing) {
+  if (!voicing) return null;
+  const parsed = parseChordDbFretsString(voicing?.frets);
+  if (parsed) return parsed;
+  if (!Array.isArray(voicing?.notes)) return null;
+  const frets = Array(6).fill(null);
+  for (const note of voicing.notes) {
+    if (!note || !Number.isFinite(note.sIdx) || !Number.isFinite(note.fret)) continue;
+    const lowToHighIdx = 5 - note.sIdx;
+    if (lowToHighIdx < 0 || lowToHighIdx >= 6) continue;
+    frets[lowToHighIdx] = note.fret;
+  }
+  return frets;
+}
+
+function voicingContinuityMetrics(voicing) {
+  const frets = voicingFretsLowToHigh(voicing);
+  if (!frets) return null;
+  const sounding = frets.map((fret) => fret != null);
+  const soundingCount = sounding.filter(Boolean).length;
+  const soundingFrets = frets.filter((fret) => fret != null);
+  const nonOpenFrets = soundingFrets.filter((fret) => fret > 0);
+  const rangeFrets = nonOpenFrets.length ? nonOpenFrets : soundingFrets;
+  const minFret = rangeFrets.length ? Math.min(...rangeFrets) : 0;
+  const maxFret = rangeFrets.length ? Math.max(...rangeFrets) : 0;
+  const center = rangeFrets.length ? (minFret + maxFret) / 2 : 0;
+  const bassNote = Array.isArray(voicing?.notes) && voicing.notes.length
+    ? [...voicing.notes].reduce((best, note) => {
+        if (!best) return note;
+        return pitchAt(note.sIdx, note.fret) < pitchAt(best.sIdx, best.fret) ? note : best;
+      }, null)
+    : null;
+  const bassString = bassNote?.sIdx ?? null;
+  const bassPitch = bassNote ? pitchAt(bassNote.sIdx, bassNote.fret) : null;
+  return {
+    frets,
+    sounding,
+    soundingCount,
+    minFret,
+    maxFret,
+    center,
+    bassString,
+    bassPitch,
+  };
+}
+
+export function physicalVoicingDistance(reference, candidate) {
+  const ref = voicingContinuityMetrics(reference);
+  const cand = voicingContinuityMetrics(candidate);
+  if (!ref || !cand) return Number.POSITIVE_INFINITY;
+
+  const refKey = ref.frets.map((f) => (f == null ? "x" : String(f))).join("");
+  const candKey = cand.frets.map((f) => (f == null ? "x" : String(f))).join("");
+  if (refKey === candKey) return 0;
+
+  let score = 0;
+  let sharedSoundingStrings = 0;
+
+  for (let i = 0; i < 6; i++) {
+    const rf = ref.frets[i];
+    const cf = cand.frets[i];
+    const refSounding = rf != null;
+    const candSounding = cf != null;
+
+    if (!refSounding && !candSounding) continue;
+    if (refSounding !== candSounding) {
+      score += 8;
+      continue;
+    }
+
+    sharedSoundingStrings += 1;
+    score += Math.abs(cf - rf) * 2.2;
+    if ((rf === 0) !== (cf === 0)) score += 1.5;
+  }
+
+  score += Math.abs(cand.center - ref.center) * 2.8;
+  score += Math.abs(cand.minFret - ref.minFret) * 1.4;
+  score += Math.abs(cand.maxFret - ref.maxFret) * 1.2;
+  score += Math.abs(cand.soundingCount - ref.soundingCount) * 2.4;
+
+  if (ref.bassString != null && cand.bassString != null) {
+    score += Math.abs(cand.bassString - ref.bassString) * 5.5;
+  }
+  if (ref.bassPitch != null && cand.bassPitch != null) {
+    score += Math.abs(cand.bassPitch - ref.bassPitch) * 0.45;
+  }
+
+  if (sharedSoundingStrings >= 3) score -= 2.5;
+  if (sharedSoundingStrings >= 4) score -= 2.5;
+
+  return score;
+}
+
+export function selectClosestPhysicalVoicingIndex(reference, options, { fallbackIndex = 0, reasonableDistance = 34 } = {}) {
+  const list = Array.isArray(options) ? options : [];
+  if (!list.length) return 0;
+  if (!reference) return Math.max(0, Math.min(fallbackIndex, list.length - 1));
+
+  let bestIdx = Math.max(0, Math.min(fallbackIndex, list.length - 1));
+  let bestScore = Number.POSITIVE_INFINITY;
+
+  list.forEach((candidate, idx) => {
+    const score = physicalVoicingDistance(reference, candidate);
+    if (score < bestScore) {
+      bestScore = score;
+      bestIdx = idx;
+    }
+  });
+
+  return bestScore <= reasonableDistance ? bestIdx : Math.max(0, Math.min(fallbackIndex, list.length - 1));
 }
 
 function finalizeSearchVoicingsForPlan({ plan, voicings, maxFret, maxSpan, allowOpenStrings = false }) {

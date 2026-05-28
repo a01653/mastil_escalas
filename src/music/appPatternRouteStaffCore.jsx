@@ -2776,9 +2776,14 @@ export function ChordNoteBadgeStrip({ items, bassNote, bassLabel = "Bajo", color
             const bg = (colorMap && colorMap[item.role]) || (colorMap && colorMap.other) || "#0ea5e9";
             const fg = isDark(bg) ? "#ffffff" : "#0f172a";
             return (
-              <div key={item.note + "-" + item.degree + "-" + idx} className="flex min-w-[34px] flex-col items-center gap-1">
-                <div className="text-[11px] font-semibold text-slate-700">{item.note}</div>
+              <div
+                key={item.note + "-" + item.degree + "-" + idx}
+                data-testid={`chord-badge-item-${idx}`}
+                className="flex min-w-[34px] flex-col items-center gap-1"
+              >
+                <div data-testid={`chord-badge-note-${idx}`} className="text-[11px] font-semibold text-slate-700">{item.note}</div>
                 <div
+                  data-testid={`chord-badge-degree-${idx}`}
                   className="min-w-[34px] rounded-md px-2 py-1 text-center text-[10px] font-semibold leading-none shadow-sm"
                   style={{ backgroundColor: bg, color: fg }}
                 >

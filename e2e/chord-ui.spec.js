@@ -1298,3 +1298,46 @@ test("59. Fdim7(add13,no1): para cualquier inversión seleccionada, summary nunc
   }
 });
 
+test("71. Dm7 -> Dm(maj7): al cambiar calidad mantiene continuidad física y no salta al primer voicing", async ({ page }) => {
+  await goToChords(page);
+  await selectTone(page, "D");
+  await selectQuality(page, "min");
+  await selectStructure(page, "chord");
+
+  if (!(await page.getByTestId("ext-7").isChecked())) {
+    await page.getByTestId("ext-7").check();
+  }
+  await expect(page.getByTestId("ext-7")).toBeChecked();
+  await page.getByTestId("voicing-select").selectOption("axaaax");
+  await expect(page.getByTestId("active-voicing-pattern")).toHaveText("axaaax");
+
+  await selectQuality(page, "minmaj7");
+
+  await expect(page.getByTestId("chord-title")).toContainText("Dm(maj7)");
+  await expect(page.getByTestId("active-voicing-pattern")).toHaveText("axbaax");
+  await expect(page.getByTestId("voicing-select")).toHaveValue("axbaax");
+  await expect(page.getByTestId("voicing-select")).not.toHaveValue("14x23x");
+});
+
+test("72. Desde m(maj7) no muestra 'No he encontrado voicings...' al resolver cambios a disminuido y menor", async ({ page }) => {
+  await goToChords(page);
+  await page.getByTestId("chord-detect-toggle").check();
+  await page.getByTestId("chord-detect-pattern-input").fill("1x422x");
+  await page.getByTestId("chord-detect-apply-btn").click();
+  await page.getByRole("button", { name: "Copiar en Acorde" }).first().click();
+  await expect(page.getByTestId("active-voicing-pattern")).toHaveText("1x422x");
+
+  await selectQuality(page, "dim");
+  await expect(page.getByTestId("chord-title")).toContainText("Gbdim");
+  await expect(page.getByTestId("active-voicing-pattern")).toHaveText("2x121x");
+  await expect(page.getByText("No he encontrado voicings para este acorde", { exact: false })).toHaveCount(0);
+
+  await selectQuality(page, "minmaj7");
+  await expect(page.getByTestId("active-voicing-pattern")).toHaveText("2x322x");
+
+  await selectQuality(page, "min");
+  await expect(page.getByTestId("chord-title")).toContainText("Gbm");
+  await expect(page.getByTestId("active-voicing-pattern")).toHaveText("2x222x");
+  await expect(page.getByText("No he encontrado voicings para este acorde", { exact: false })).toHaveCount(0);
+});
+

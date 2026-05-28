@@ -1,7 +1,8 @@
-﻿import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import PanelBlock from "./components/PanelBlock.jsx";
 import ChordsPanel, { CopyVoicingButton } from "./components/chords/ChordsPanel.jsx";
+import ManualChordPanel from "./components/chords/ManualChordPanel.jsx";
 import { Blocks, BookOpen, ChevronLeft, ChevronRight, Eraser, HelpCircle, Info, Menu, Music, Play, Route, Search, Settings, Volume2, VolumeX, Waypoints, X } from "lucide-react";
 import {
   buildDetectedCandidateBadgeItems as buildDetectedCandidateBadgeItemsPure,
@@ -110,7 +111,6 @@ const {
   spellNoteFromChordInterval,
   buildDetectedCandidateNoteNameForPc,
   buildDetectedCandidateLabelForPc,
-  buildDetectedCandidateBackgroundLabelForPc,
   buildDetectedCandidateRoleForPc,
   buildManualSelectionVoicing,
   clampChordMaxDistForReach,
@@ -135,6 +135,7 @@ const {
   CHORD_INVERSIONS,
   CHORD_FORMS,
   buildChordIntervals,
+  chordCanUseJsonCatalog,
   seventhOffsetForQuality,
   chordBassInterval,
   intervalToChordToken,
@@ -182,8 +183,6 @@ const {
   symmetricRootCandidatesForPlan,
   normalizeGeneratedVoicingForDisplay,
   isStrictFourNoteDropEligible,
-  isSingleAddChordSelection,
-  isMultiAddChordSelection,
   hasEffectiveSeventh,
   chordThirdOffsetFromUI,
   chordFifthOffsetFromUI,
@@ -195,6 +194,7 @@ const {
   buildChordNamingExplanation,
   actualInversionLabelFromVoicing,
   computeInversionSelectorOptions,
+  selectClosestPhysicalVoicingIndex,
   deriveDetectedCandidateCopyInversion,
   analyzeVoicingVsPlan,
   analyzeScaleTensionsForChord,
@@ -204,7 +204,6 @@ const {
   analyzeChordScaleCompatibility,
   buildStudyAnchorId,
   buildStudySubstitutionGuide,
-  classifyManualVoicingShape,
   resolveCopiedVoicingAcrossStructures,
 } = AppVoicingStudyCore;
 
@@ -319,7 +318,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "5.11";
+const APP_VERSION = "5.17";
 
 function buildChordCopyFingerprint({
   rootPc,
@@ -359,6 +358,15 @@ function publicRelToLocal(rel) {
   const b = base.endsWith("/") ? base : base + "/";
   const r = String(rel || "").replace(/^\/+/, "");
   return `${b}${r}`;
+}
+
+async function parseJsonResponseStrict(res, urlForError) {
+  const contentType = String(res.headers?.get?.("content-type") || "").toLowerCase();
+  if (!contentType.includes("json")) {
+    const sample = (await res.text()).slice(0, 80).replace(/\s+/g, " ").trim();
+    throw new Error(`Respuesta no JSON en ${urlForError}: ${contentType || "sin content-type"}${sample ? ` · ${sample}` : ""}`);
+  }
+  return res.json();
 }
 
 
@@ -748,6 +756,7 @@ export default function FretboardScalesPage() {
 
   // Voicings de acordes (digitaciones tocables) desde dataset externo
   const [chordDb, setChordDb] = useState(null);
+  const [chordDbStatus, setChordDbStatus] = useState("idle");
   const [chordDbError, setChordDbError] = useState(null);
   const [, setChordDbLastUrl] = useState(null);
   const [chordVoicingIdx, setChordVoicingIdx] = useState(0);
@@ -1850,7 +1859,7 @@ export default function FretboardScalesPage() {
     }
 
     const ref = lastGuideToneVoicingRef.current;
-    const idx = nearestVoicingIndex(ref, guideToneVoicings);
+    const idx = selectClosestPhysicalVoicingIndex(ref, guideToneVoicings);
     const nextFrets = guideToneVoicings[idx]?.frets ?? guideToneVoicings[0]?.frets ?? null;
     if (idx !== guideToneVoicingIdx) {
       skipGuideToneVoicingRefSyncRef.current = true;
@@ -1999,28 +2008,23 @@ export default function FretboardScalesPage() {
 
     if (chordStructure !== "chord") {
       setChordDb(null);
+      setChordDbStatus("skipped");
       setChordDbError(null);
       setChordDbLastUrl(null);
       return;
     }
 
-    // Para acordes tipo add6/add9/add11/add13 (sin 7ª) usamos el generador (4 notas) y evitamos ruido de JSON.
-    const addOnly = isSingleAddChordSelection({
+    if (!chordCanUseJsonCatalog({
+      quality: chordQuality,
+      structure: chordStructure,
       ext7: chordExt7,
       ext6: chordExt6,
       ext9: chordExt9,
       ext11: chordExt11,
       ext13: chordExt13,
-    });
-    const multiAdd = isMultiAddChordSelection({
-      ext7: chordExt7,
-      ext6: chordExt6,
-      ext9: chordExt9,
-      ext11: chordExt11,
-      ext13: chordExt13,
-    });
-    if (addOnly || multiAdd) {
+    })) {
       setChordDb(null);
+      setChordDbStatus("skipped");
       setChordDbError(null);
       setChordDbLastUrl(null);
       return;
@@ -2029,6 +2033,7 @@ export default function FretboardScalesPage() {
     const suffix = chordSuffix;
     if (!suffix) {
       setChordDb(null);
+      setChordDbStatus("error");
       setChordDbError("No hay digitaciones para esta combinación (p.ej. menor add9 sin 7).");
       return;
     }
@@ -2044,14 +2049,16 @@ export default function FretboardScalesPage() {
 
     (async () => {
       try {
+        setChordDbStatus("loading");
         setChordDbError(null);
 
         let res = await fetch(urlLocal, { cache: "no-store" });
         if (res.ok) {
-          const json = await res.json();
+          const json = await parseJsonResponseStrict(res, urlLocalAbs);
           if (!alive) return;
           setChordDbLastUrl(urlLocalAbs);
           setChordDb(json);
+          setChordDbStatus("ready");
           return;
         }
 
@@ -2060,13 +2067,15 @@ export default function FretboardScalesPage() {
         const fbStatus = res.status;
         if (!res.ok) throw new Error(`No pude cargar digitaciones: local ${urlLocalAbs} (${localStatus}) | fallback ${urlFallbackAbs} (${fbStatus})`);
 
-        const json = await res.json();
+        const json = await parseJsonResponseStrict(res, urlFallbackAbs);
         if (!alive) return;
         setChordDbLastUrl(urlFallbackAbs);
         setChordDb(json);
+        setChordDbStatus("ready");
       } catch (e) {
         if (!alive) return;
         setChordDb(null);
+        setChordDbStatus("error");
         setChordDbError(String(e?.message || e));
       }
     })();
@@ -2074,7 +2083,12 @@ export default function FretboardScalesPage() {
     return () => {
       alive = false;
     };
-  }, [showBoards.chords, chordRootPc, chordSuffix, chordStructure, chordExt7, chordExt6, chordExt9, chordExt11, chordExt13]);
+  }, [showBoards.chords, chordRootPc, chordQuality, chordSuffix, chordStructure, chordExt7, chordExt6, chordExt9, chordExt11, chordExt13]);
+
+  // "skipped" ocurre cuando el acorde anterior no usaba catálogo JSON (ej. m(maj7) -> menor/dim).
+  // En ese render chordDb=null pero el nuevo plan ya exige json, por lo que hay que inhibir el
+  // mensaje vacío hasta que la carga termine. Solo "ready" y "error" son estados resueltos.
+  const chordVoicingsResolving = chordEnginePlan.generator === "json" && chordDbStatus !== "ready" && chordDbStatus !== "error";
 
   const ensureChordDbCatalogVoicings = useCallback(async ({
     rootPc,
@@ -2089,6 +2103,16 @@ export default function FretboardScalesPage() {
     bassPc = null,
     preferredFrets = null,
   }) => {
+    if (!chordCanUseJsonCatalog({
+      quality,
+      structure: "chord",
+      ext7: !!ext7,
+      ext6: !!ext6,
+      ext9: !!ext9,
+      ext11: !!ext11,
+      ext13: !!ext13,
+    })) return [];
+
     const suffixBase = chordSuffixFromUI({
       quality,
       suspension: suspension || "none",
@@ -2125,7 +2149,7 @@ export default function FretboardScalesPage() {
         }
         if (!res.ok) continue;
 
-        const json = await res.json();
+        const json = await parseJsonResponseStrict(res, res.url || urlFallbackAbs);
         setChordDbCache((prev) => ({ ...prev, [cacheKey]: json }));
         const positions = json?.positions?.length ? json.positions : [];
         if (!preferredFrets) return positions;
@@ -2156,22 +2180,15 @@ export default function FretboardScalesPage() {
       if (!s?.enabled) continue;
       if (String(s.family || "tertian") !== "tertian") continue;
       if (s.structure !== "chord") continue;
-
-      const addOnly = isSingleAddChordSelection({
-        ext7: s.ext7,
-        ext6: s.ext6,
-        ext9: s.ext9,
-        ext11: s.ext11,
-        ext13: s.ext13,
-      });
-      const multiAdd = isMultiAddChordSelection({
-        ext7: s.ext7,
-        ext6: s.ext6,
-        ext9: s.ext9,
-        ext11: s.ext11,
-        ext13: s.ext13,
-      });
-      if (addOnly || multiAdd) continue;
+      if (!chordCanUseJsonCatalog({
+        quality: s.quality,
+        structure: s.structure,
+        ext7: !!s.ext7,
+        ext6: !!s.ext6,
+        ext9: !!s.ext9,
+        ext11: !!s.ext11,
+        ext13: !!s.ext13,
+      })) continue;
 
       const suffix = chordSuffixFromUI({
         quality: s.quality,
@@ -2209,7 +2226,7 @@ export default function FretboardScalesPage() {
             if (!res.ok) throw new Error(`${urlLocalAbs} (${stLocal}) | ${urlFallbackAbs} (${res.status})`);
           }
 
-          const json = await res.json();
+          const json = await parseJsonResponseStrict(res, res.url || urlFallbackAbs);
           if (!alive) return;
           setChordDbCache((prev) => ({ ...prev, [it.cacheKey]: json }));
         } catch (e) {
@@ -2476,7 +2493,42 @@ export default function FretboardScalesPage() {
     return [{ ...chordCopiedEntry.voicing, isCopied: true }, ...chordVoicings];
   }, [chordVoicings, chordCopiedEntry, currentChordCopyFingerprint]);
 
-  const chordVoicingsSig = useMemo(() => chordVoicingsDisplay.map((v) => v.frets).join("|"), [chordVoicingsDisplay]);
+  const chordResolvedSelection = useMemo(() => {
+    const list = chordVoicingsDisplay;
+    if (!list.length) return { idx: 0, voicing: null, frets: null, waitingPending: false };
+
+    const normalizedCurrentIdx = Math.max(0, Math.min(chordVoicingIdx, list.length - 1));
+    const currentVoicing = list[normalizedCurrentIdx] || list[0] || null;
+    const currentFrets = currentVoicing?.frets ?? null;
+
+    if (pendingChordRestoreRef.current.active) {
+      const wanted = pendingChordRestoreRef.current.frets;
+      if (wanted == null) {
+        return { idx: normalizedCurrentIdx, voicing: currentVoicing, frets: currentFrets, waitingPending: false };
+      }
+      const restoredIdx = list.findIndex((v) => v.frets === wanted);
+      if (restoredIdx >= 0) {
+        return { idx: restoredIdx, voicing: list[restoredIdx] || null, frets: wanted, waitingPending: false };
+      }
+      return { idx: normalizedCurrentIdx, voicing: currentVoicing, frets: currentFrets, waitingPending: true };
+    }
+
+    const keepIdx = chordSelectedFrets ? list.findIndex((v) => v.frets === chordSelectedFrets) : -1;
+    if (keepIdx >= 0) {
+      return { idx: keepIdx, voicing: list[keepIdx] || null, frets: chordSelectedFrets, waitingPending: false };
+    }
+
+    const ref = chordSelectedFrets
+      ? buildVoicingFromFretsLH({
+          fretsLH: parseChordDbFretsString(chordSelectedFrets),
+          rootPc: chordRootPc,
+          maxFret,
+        })
+      : lastChordVoicingRef.current;
+    const idx = selectClosestPhysicalVoicingIndex(ref, list, { fallbackIndex: normalizedCurrentIdx });
+    const voicing = list[idx] || list[0] || null;
+    return { idx, voicing, frets: voicing?.frets ?? null, waitingPending: false };
+  }, [chordVoicingsDisplay, chordVoicingIdx, chordSelectedFrets, chordRootPc, maxFret]);
 
   useEffect(() => {
     if (!storageHydrated) return;
@@ -2485,43 +2537,20 @@ export default function FretboardScalesPage() {
       return;
     }
 
+    if (chordResolvedSelection.waitingPending) return;
+
     if (pendingChordRestoreRef.current.active) {
-      const wanted = pendingChordRestoreRef.current.frets;
-      if (wanted == null) {
-        pendingChordRestoreRef.current = { active: false, frets: null };
-      } else {
-        const restoredIdx = chordVoicingsDisplay.findIndex((v) => v.frets === wanted);
-        if (restoredIdx >= 0) {
-          if (restoredIdx !== chordVoicingIdx) {
-            skipChordVoicingRefSyncRef.current = true;
-            setChordVoicingIdx(restoredIdx);
-          }
-          if (chordSelectedFrets !== wanted) setChordSelectedFrets(wanted);
-          pendingChordRestoreRef.current = { active: false, frets: null };
-          return;
-        }
-        return;
-      }
+      pendingChordRestoreRef.current = { active: false, frets: null };
     }
 
-    const keepIdx = chordSelectedFrets ? chordVoicingsDisplay.findIndex((v) => v.frets === chordSelectedFrets) : -1;
-    if (keepIdx >= 0) {
-      if (keepIdx !== chordVoicingIdx) {
-        skipChordVoicingRefSyncRef.current = true;
-        setChordVoicingIdx(keepIdx);
-      }
-      return;
-    }
-
-    const ref = lastChordVoicingRef.current;
-    const idx = nearestVoicingIndex(ref, chordVoicingsDisplay);
-    const nextFrets = chordVoicingsDisplay[idx]?.frets ?? null;
-    if (idx !== chordVoicingIdx) {
+    if (chordResolvedSelection.idx !== chordVoicingIdx) {
       skipChordVoicingRefSyncRef.current = true;
-      setChordVoicingIdx(idx);
+      setChordVoicingIdx(chordResolvedSelection.idx);
     }
-    if (nextFrets !== chordSelectedFrets) setChordSelectedFrets(nextFrets);
-  }, [storageHydrated, chordVoicingsDisplay, chordVoicingsSig, chordVoicingIdx, chordSelectedFrets]);
+    if ((chordResolvedSelection.frets ?? null) !== (chordSelectedFrets ?? null)) {
+      setChordSelectedFrets(chordResolvedSelection.frets ?? null);
+    }
+  }, [storageHydrated, chordVoicingsDisplay.length, chordVoicingIdx, chordSelectedFrets, chordResolvedSelection]);
 
   useEffect(() => {
     if (!storageHydrated) return;
@@ -2602,22 +2631,16 @@ export default function FretboardScalesPage() {
 
   useEffect(() => {
     if (!storageHydrated) return;
-    const current = chordVoicingsDisplay[chordVoicingIdx] || chordVoicingsDisplay[0] || null;
-    const selectedStillExists = !!chordSelectedFrets && chordVoicingsDisplay.some((v) => v.frets === chordSelectedFrets);
-
-    if (!pendingChordRestoreRef.current.active && !selectedStillExists) {
-      const nextFrets = current?.frets ?? null;
-      if (nextFrets !== (chordSelectedFrets ?? null)) setChordSelectedFrets(nextFrets);
-    }
+    const current = chordResolvedSelection.voicing;
 
     if (skipChordVoicingRefSyncRef.current) {
       skipChordVoicingRefSyncRef.current = false;
       return;
     }
     if (current) lastChordVoicingRef.current = current;
-  }, [storageHydrated, chordVoicingIdx, chordVoicingsDisplay, chordVoicingsSig, chordSelectedFrets]);
+  }, [storageHydrated, chordResolvedSelection]);
 
-  const activeChordVoicing = chordVoicingsDisplay[chordVoicingIdx] || chordVoicingsDisplay[0] || null;
+  const activeChordVoicing = chordResolvedSelection.voicing;
 
   // --------------------------------------------------------------------------
   // CÁLCULOS DERIVADOS: DETECCIÓN DE ACORDES EN MÁSTIL
@@ -3765,49 +3788,6 @@ export default function FretboardScalesPage() {
 
   function spellChordNotesForSlot(slot) {
     return buildNearSlotNoteMeta(slot).notes;
-  }
-
-  function nearestVoicingIndex(reference, options) {
-    const list = Array.isArray(options) ? options : [];
-    if (!list.length) return 0;
-    if (!reference) return 0;
-
-    const refFrets = parseChordDbFretsString(reference?.frets);
-    const refCenter = ((reference?.minFret ?? 0) + (reference?.maxFret ?? 0)) / 2;
-    const refBassPitch = reference?.notes?.length
-      ? Math.min(...reference.notes.map((n) => pitchAt(n.sIdx, n.fret)))
-      : 0;
-
-    let bestIdx = 0;
-    let bestScore = Number.POSITIVE_INFINITY;
-
-    list.forEach((v, idx) => {
-      const vFrets = parseChordDbFretsString(v?.frets);
-      const vCenter = ((v?.minFret ?? 0) + (v?.maxFret ?? 0)) / 2;
-      const vBassPitch = v?.notes?.length
-        ? Math.min(...v.notes.map((n) => pitchAt(n.sIdx, n.fret)))
-        : 0;
-
-      let overlap = 0;
-      if (refFrets && vFrets) {
-        for (let i = 0; i < 6; i++) {
-          if (refFrets[i] === vFrets[i]) overlap += 1;
-        }
-      }
-
-      const score =
-        Math.abs(vCenter - refCenter) * 3 +
-        Math.abs(vBassPitch - refBassPitch) * 0.2 +
-        Math.abs((v?.reach ?? ((v?.span ?? 0) + 1)) - (reference?.reach ?? ((reference?.span ?? 0) + 1))) * 1.2 -
-        overlap * 4;
-
-      if (score < bestScore) {
-        bestScore = score;
-        bestIdx = idx;
-      }
-    });
-
-    return bestIdx;
   }
 
   const nearComputed = useMemo(() => {
@@ -5311,7 +5291,7 @@ export default function FretboardScalesPage() {
         const keepCurrent = !!nextFrets && options.some((v) => v.frets === nextFrets);
         if (!keepCurrent) {
           const ref = lastNearVoicingsRef.current[idx] || null;
-          nextFrets = options[nearestVoicingIndex(ref, options)]?.frets ?? options[0]?.frets ?? null;
+          nextFrets = options[selectClosestPhysicalVoicingIndex(ref, options)]?.frets ?? options[0]?.frets ?? null;
         }
 
         if ((slot.selFrets ?? null) !== (nextFrets ?? null)) {
@@ -6674,552 +6654,72 @@ function ChordFretboard({
   }
 
   function renderChordInvestigationFretboard() {
-    const selectedMap = new Map();
-    if (chordDetectSelectedNotes.length) {
-      const bassKey = chordDetectSelectedNotes[0]?.key || null;
-      for (const n of chordDetectSelectedNotes) {
-        selectedMap.set(`${n.sIdx}:${n.fret}`, {
-          pc: n.pc,
-          isBass: n.key === bassKey,
-          isPlaying: chordDetectPlayingKeys.includes(n.key),
-        });
-      }
-    }
-
-    const selectedStrings = new Set(chordDetectSelectedNotes.map((n) => n.sIdx));
-    const chordDetectIconButtonBaseClass = "inline-flex h-7 w-7 items-center justify-center rounded-xl border shadow-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-200 enabled:cursor-pointer disabled:cursor-not-allowed disabled:opacity-50";
-
-    // ── Lectura detectada (computed at top level) ────────────────────────────
-    const cand = chordDetectSelectedCandidate;
-    let chordPart = null;
-    if (cand) {
-      const plan = studyData?.plan;
-      const voicing = studyData?.voicing;
-      // Try to classify the manual voicing drop form; fall back to Abierto/Cerrado
-      const detectedFormValue = classifyManualVoicingShape(voicing, cand);
-      const dropLabel = detectedFormValue
-        ? CHORD_FORMS.find((x) => x.value === detectedFormValue)?.label
-        : null;
-      const posLabel = studyVoicingFormLabel(voicing, plan?.form);
-      const invLabel = studyData?.inversionLabel;
-      const parts = [cand.name];
-      if (dropLabel) parts.push(dropLabel);
-      parts.push(posLabel);
-      if (invLabel && invLabel !== "Fundamental") parts.push(invLabel);
-      chordPart = parts.join(" · ");
-    }
-    const physicalPatternSuffix = chordDetectPhysicalPatternText ? ` (${chordDetectPhysicalPatternText})` : "";
-
-    // Mapa sIdx → nombre de nota seleccionada (para mostrar en el mástil)
-    const prefer = chordDetectSelectedCandidate?.preferSharps ?? chordPreferSharps;
-    const stringSelectedNoteName = {};
-    for (const n of chordDetectSelectedNotes) {
-      stringSelectedNoteName[n.sIdx] = pcToName(n.pc, prefer);
-    }
-
     return (
-      <div
-        ref={chordDetectPanelRef}
-        tabIndex={-1}
-        aria-label="Selección manual"
-        className="focus:outline-none"
-      >
-
-        {/* ══════════════════════════════════════════════════════════════════
-            Cuadro 1 — Lectura detectada
-        ══════════════════════════════════════════════════════════════════ */}
-        <div className="mb-3 rounded-xl border border-slate-200 bg-white p-3">
-          {/* Bloque voicing + botones — extraído para reusar en desktop (derecha) y compacto (abajo) */}
-          {(() => {
-            const voicingAndButtons = (
-              <>
-                <div>
-                  <div className="mb-1 text-[11px] font-semibold text-slate-600">Voicing</div>
-                  <div className="flex items-center gap-1.5">
-                    <CopyVoicingButton frets={chordDetectPhysicalPatternText || null} />
-                    <div className="flex h-7 w-[88px] items-center rounded-xl border border-slate-200 bg-white px-3 font-mono text-xs text-slate-900 shadow-sm select-none">
-                      {chordDetectPhysicalPatternText || "—"}
-                    </div>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  className={`${chordDetectIconButtonBaseClass} ${chordDetectClickAudio ? "border-emerald-300 bg-emerald-50 text-emerald-700 enabled:hover:border-emerald-400 enabled:hover:bg-emerald-100 enabled:hover:text-emerald-800" : "border-slate-200 bg-white text-slate-500 enabled:hover:border-emerald-300 enabled:hover:bg-emerald-50 enabled:hover:text-emerald-700"}`}
-                  title={chordDetectClickAudio ? "Desactivar sonido al pulsar" : "Activar sonido al pulsar"}
-                  aria-label={chordDetectClickAudio ? "Desactivar sonido al pulsar" : "Activar sonido al pulsar"}
-                  aria-pressed={chordDetectClickAudio}
-                  onClick={() => setChordDetectClickAudio((value) => !value)}
-                >
-                  {chordDetectClickAudio ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
-                </button>
-                <button
-                  type="button"
-                  className={`${chordDetectIconButtonBaseClass} border-slate-200 bg-white text-slate-600 enabled:hover:border-sky-300 enabled:hover:bg-sky-50 enabled:hover:text-sky-700`}
-                  title="Reproducir la selección actual cuerda a cuerda, de 6ª a 1ª"
-                  aria-label="Reproducir la selección actual cuerda a cuerda, de 6ª a 1ª"
-                  onClick={() => fnPlayChordDetectSelection()}
-                  disabled={!chordDetectSelectedKeys.length}
-                >
-                  <Play className="h-4 w-4 fill-current" />
-                </button>
-                <button
-                  type="button"
-                  className={`${chordDetectIconButtonBaseClass} border-slate-200 bg-white text-slate-600 enabled:hover:border-indigo-300 enabled:hover:bg-indigo-50 enabled:hover:text-indigo-700`}
-                  title="Reproducir todo el voicing a la vez"
-                  aria-label="Reproducir todo el voicing a la vez"
-                  onClick={() => fnPlayChordDetectVoicingTogether()}
-                  disabled={!chordDetectSelectedKeys.length}
-                >
-                  <Music className="h-4 w-4" />
-                </button>
-                <button
-                  type="button"
-                  className={`${chordDetectIconButtonBaseClass} ${chordDetectSelectedKeys.length ? "border-slate-200 bg-white text-slate-600 enabled:hover:border-rose-300 enabled:hover:bg-rose-50 enabled:hover:text-rose-700" : "cursor-not-allowed border-slate-200 bg-white text-slate-300 opacity-50"}`}
-                  title="Limpiar selección manual"
-                  aria-label="Limpiar selección manual"
-                  aria-disabled={!chordDetectSelectedKeys.length}
-                  onMouseDown={(e) => {
-                    if (chordDetectSelectedKeys.length) e.preventDefault();
-                  }}
-                  onClick={clearChordDetectSelection}
-                >
-                  <Eraser className="h-4 w-4" />
-                </button>
-                <button
-                  type="button"
-                  className={`${chordDetectIconButtonBaseClass} border-slate-200 bg-white text-slate-600 enabled:hover:border-amber-300 enabled:hover:bg-amber-50 enabled:hover:text-amber-700`}
-                  title="Abre el análisis del acorde activo en el constructor"
-                  aria-label="Estudiar acorde"
-                  onClick={openMainChordStudy}
-                >
-                  <BookOpen className="h-4 w-4" />
-                </button>
-              </>
-            );
-
-            if (!isCompactLayout) {
-              // ── Desktop full (>1280px): nombre+badges a la izquierda, voicing+botones a la derecha ──
-              return (
-                <div className="flex items-start gap-4">
-                  <div className="min-w-0 flex-1">
-                    {/* Lectura detectada */}
-                    <div className="mb-2 flex min-h-[34px] flex-wrap items-center gap-x-1 text-lg font-bold">
-                      {chordPart ? (() => {
-                        const dotIdx = chordPart.indexOf(" · ");
-                        const baseName = dotIdx >= 0 ? chordPart.slice(0, dotIdx) : chordPart;
-                        const restPart = dotIdx >= 0 ? chordPart.slice(dotIdx) : "";
-                        return (
-                          <>
-                            <span className="font-semibold text-sky-700">{baseName}</span>
-                            {restPart ? <span className="font-semibold text-slate-950">{restPart}</span> : null}
-                          </>
-                        );
-                      })() : (
-                        <span className="text-slate-400">
-                          Sin lectura detectada todavía{physicalPatternSuffix}
-                        </span>
-                      )}
-                    </div>
-                    {/* ChordNoteBadgeStrip */}
-                    <div className="min-h-[42px]">
-                      {cand ? (
-                        <div className="overflow-x-auto pb-1">
-                          <ChordNoteBadgeStrip
-                            items={chordDetectSelectedCandidateBadgeItems}
-                            bassNote={chordDetectSelectedCandidateBassNote}
-                            colorMap={colors}
-                            wrap={false}
-                          />
-                        </div>
-                      ) : (
-                        <div aria-hidden="true" className="h-[42px]" />
-                      )}
-                    </div>
-                  </div>
-                  {/* Voicing + botones a la derecha */}
-                  <div className="flex shrink-0 flex-wrap items-end gap-2 pt-1">
-                    {voicingAndButtons}
-                  </div>
-                </div>
-              );
-            } else {
-              // ── Compacto/móvil (≤1279px): nombre, badges y botones en columna ──
-              return (
-                <>
-                  {/* Lectura detectada */}
-                  <div className={`mb-2 flex min-h-[34px] flex-wrap items-center gap-x-1 ${isMobileLayout ? "text-sm font-semibold leading-snug" : "text-lg font-bold"}`}>
-                    {chordPart ? (() => {
-                      const dotIdx = chordPart.indexOf(" · ");
-                      const baseName = dotIdx >= 0 ? chordPart.slice(0, dotIdx) : chordPart;
-                      const restPart = dotIdx >= 0 ? chordPart.slice(dotIdx) : "";
-                      return (
-                        <>
-                          <span className="font-semibold text-sky-700">{baseName}</span>
-                          {restPart ? <span className="font-semibold text-slate-950">{restPart}</span> : null}
-                        </>
-                      );
-                    })() : (
-                      <span className="text-slate-400">
-                        Sin lectura detectada todavía{physicalPatternSuffix}
-                      </span>
-                    )}
-                  </div>
-                  {/* ChordNoteBadgeStrip */}
-                  <div className="min-h-[42px]">
-                    {cand ? (
-                      <div className="overflow-x-auto pb-1">
-                        <ChordNoteBadgeStrip
-                          items={chordDetectSelectedCandidateBadgeItems}
-                          bassNote={chordDetectSelectedCandidateBassNote}
-                          colorMap={colors}
-                          wrap={false}
-                        />
-                      </div>
-                    ) : (
-                      <div aria-hidden="true" className="h-[42px]" />
-                    )}
-                  </div>
-                  {/* Voicing + botones — debajo */}
-                  <div className="mt-2 flex flex-wrap items-end gap-2">
-                    {voicingAndButtons}
-                  </div>
-                </>
-              );
-            }
-          })()}
-
-          {/* Mantener/Referencia + Input patrón (desktop/compacto) */}
-          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-slate-200 pt-3">
-            <label className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-700" title="Intenta conservar la lectura funcional previa cuando el cambio de notas es pequeño.">
-              <span className="relative flex h-4 w-4 flex-shrink-0 items-center justify-center">
-                <input
-                  type="checkbox"
-                  checked={chordDetectPrioritizeContext}
-                  onChange={(e) => updateChordDetectPrioritizeContext(e.target.checked)}
-                  className="absolute inset-0 h-4 w-4 cursor-pointer opacity-0"
-                />
-                <span aria-hidden="true" className={`pointer-events-none flex h-4 w-4 items-center justify-center rounded-[6px] border text-[10px] font-bold shadow-sm ${chordDetectPrioritizeContext ? "border-sky-600 bg-sky-600 text-white" : "border-slate-300 bg-white text-transparent"}`}>✓</span>
-              </span>
-              Mantener lectura anterior
-            </label>
-            <div className="flex items-center gap-1.5">
-              <label className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-700" title="Usa el acorde de referencia como pista para priorizar lecturas compatibles.">
-                <span className="relative flex h-4 w-4 flex-shrink-0 items-center justify-center">
-                  <input
-                    type="checkbox"
-                    checked={chordRefEnabled}
-                    onChange={(e) => setChordRefEnabled(e.target.checked)}
-                    className="absolute inset-0 h-4 w-4 cursor-pointer opacity-0"
-                  />
-                  <span aria-hidden="true" className={`pointer-events-none flex h-4 w-4 items-center justify-center rounded-[6px] border text-[10px] font-bold shadow-sm ${chordRefEnabled ? "border-sky-600 bg-sky-600 text-white" : "border-slate-300 bg-white text-transparent"}`}>✓</span>
-                </span>
-                Referencia:
-              </label>
-              <select
-                value={chordRefNatural}
-                onChange={(e) => setChordRefNatural(e.target.value)}
-                disabled={!chordRefEnabled}
-                className="rounded border border-slate-200 bg-white px-1 py-0.5 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-sky-300 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                {CHORD_REF_NATURAL_LETTERS.map((l) => <option key={l} value={l}>{l}</option>)}
-              </select>
-              <button
-                type="button"
-                disabled={!chordRefEnabled}
-                className={`h-6 w-6 rounded-lg border text-xs font-semibold shadow-sm disabled:cursor-not-allowed disabled:opacity-40 ${chordRefAcc === -1 ? "border-sky-400 bg-sky-100 text-sky-800" : "border-slate-200 bg-white text-slate-600 enabled:hover:bg-sky-50"}`}
-                onClick={() => setChordRefAcc(chordRefAcc === -1 ? 0 : -1)}
-              >b</button>
-              <button
-                type="button"
-                disabled={!chordRefEnabled}
-                className={`h-6 w-6 rounded-lg border text-xs font-semibold shadow-sm disabled:cursor-not-allowed disabled:opacity-40 ${chordRefAcc === 1 ? "border-sky-400 bg-sky-100 text-sky-800" : "border-slate-200 bg-white text-slate-600 enabled:hover:bg-sky-50"}`}
-                onClick={() => setChordRefAcc(chordRefAcc === 1 ? 0 : 1)}
-              >#</button>
-              <select
-                value={chordRefQuality}
-                onChange={(e) => setChordRefQuality(e.target.value)}
-                disabled={!chordRefEnabled}
-                className="rounded border border-slate-200 bg-white px-1 py-0.5 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-sky-300 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                {CHORD_REF_QUALITIES.map((q) => <option key={q} value={q}>{q}</option>)}
-              </select>
-            </div>
-            {!isMobileLayout && (
-              <div className="ml-auto flex items-center gap-1.5">
-                <input
-                  type="text"
-                  maxLength={6}
-                  placeholder="x8989b"
-                  value={voicingInputText}
-                  onChange={(e) => setVoicingInputText(e.target.value.toLowerCase())}
-                  className="h-8 w-20 rounded-xl border border-slate-200 bg-white px-3 font-mono text-xs text-slate-700 shadow-sm focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100"
-                  data-testid="chord-detect-pattern-input"
-                />
-                <button
-                  disabled={voicingInputText.length !== 6}
-                  data-testid="chord-detect-apply-btn"
-                  onClick={() => {
-                    const FRET_CHARS = "0123456789ab";
-                    const newKeys = [];
-                    for (let i = 0; i < 6; i++) {
-                      const ch = voicingInputText[i];
-                      if (ch === "x") continue;
-                      const fret = FRET_CHARS.indexOf(ch);
-                      if (fret === -1) continue;
-                      const sIdx = 5 - i;
-                      newKeys.push(`${sIdx}:${fret}`);
-                    }
-                    setChordDetectSelectedKeys(newKeys);
-                    if (!chordDetectMode) setChordDetectMode(true);
-                  }}
-                  className="h-8 rounded-xl border border-sky-600 bg-sky-600 px-3 text-xs font-semibold text-white shadow-sm transition disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400 enabled:hover:bg-sky-700"
-                >
-                  Aplicar
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* ══════════════════════════════════════════════════════════════════
-            Cuadro 2 — Mástil
-        ══════════════════════════════════════════════════════════════════ */}
-        <div className="mb-3 rounded-xl border border-slate-200 bg-white p-3">
-
-          {/* Controles de rango de trastes — móvil: incluye input patrón a la derecha */}
-          {isMobileLayout ? (
-            <div className="mb-2 flex items-center gap-1.5">
-              <div className="text-xs font-semibold text-slate-700">Trastes</div>
-              <button
-                type="button"
-                className={UI_BTN_SM}
-                title="Mover rango 1 traste a la izquierda"
-                onClick={() => setChordDetectWindowStart((start) => Math.max(chordDetectWindowStartMin, start - 1))}
-                disabled={chordDetectWindowFrom <= chordDetectWindowStartMin}
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </button>
-              <div className="text-xs text-slate-600 tabular-nums">
-                {chordDetectWindowFrom}–{chordDetectWindowTo}
-              </div>
-              <button
-                type="button"
-                className={UI_BTN_SM}
-                title="Mover rango 1 traste a la derecha"
-                onClick={() => setChordDetectWindowStart((start) => Math.min(chordDetectWindowAllowedStartMax, start + 1))}
-                disabled={chordDetectWindowFrom >= chordDetectWindowAllowedStartMax}
-              >
-                <ChevronRight className="h-4 w-4" />
-              </button>
-              {/* Input patrón — alineado a la derecha */}
-              <div className="ml-auto flex items-center gap-1.5">
-                <input
-                  type="text"
-                  maxLength={6}
-                  placeholder="x8989b"
-                  value={voicingInputText}
-                  onChange={(e) => setVoicingInputText(e.target.value.toLowerCase())}
-                  className="h-8 w-20 rounded-xl border border-slate-200 bg-white px-3 font-mono text-xs text-slate-700 shadow-sm focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100"
-                  data-testid="chord-detect-pattern-input"
-                />
-                <button
-                  disabled={voicingInputText.length !== 6}
-                  data-testid="chord-detect-apply-btn"
-                  onClick={() => {
-                    const FRET_CHARS = "0123456789ab";
-                    const newKeys = [];
-                    for (let i = 0; i < 6; i++) {
-                      const ch = voicingInputText[i];
-                      if (ch === "x") continue;
-                      const fret = FRET_CHARS.indexOf(ch);
-                      if (fret === -1) continue;
-                      const sIdx = 5 - i;
-                      newKeys.push(`${sIdx}:${fret}`);
-                    }
-                    setChordDetectSelectedKeys(newKeys);
-                    if (!chordDetectMode) setChordDetectMode(true);
-                  }}
-                  className="h-8 rounded-xl border border-sky-600 bg-sky-600 px-3 text-xs font-semibold text-white shadow-sm transition disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400 enabled:hover:bg-sky-700"
-                >
-                  Aplicar
-                </button>
-              </div>
-            </div>
-          ) : null}
-
-          {/* Mástil de investigación */}
-          {isNarrowBoardLayout ? (
-            <MobileMainFretboard
-              frets={chordDetectVisibleFrets}
-              renderStringFooter={(sIdx) =>
-                stringSelectedNoteName[sIdx]
-                  ? <span className="text-[10px] font-bold text-sky-600">{stringSelectedNoteName[sIdx]}</span>
-                  : null
-              }
-              renderCell={({ sIdx, fret, cellClassName }) => {
-                const key = `${sIdx}:${fret}`;
-                const item = selectedMap.get(key);
-
-                return (
-                  <button
-                    key={`${sIdx}-${fret}`}
-                    type="button"
-                    onClick={() => toggleChordDetectCell(sIdx, fret)}
-                    className={`group relative flex w-full overflow-visible items-center justify-center rounded-lg border ${cellClassName} ${
-                      mobileVerticalFretBorderClass(fret)
-                    } ${item?.isPlaying ? "ring-2 ring-sky-300 ring-offset-1 ring-offset-white" : ""} ${fret === 0 ? "bg-transparent" : "bg-slate-50 hover:ring-2 hover:ring-slate-300"}`}
-                  >
-                    <HoverCellNote sIdx={sIdx} fret={fret} visible={!item} />
-                    {item ? (
-                      <ChordInvestigationCircle
-                        pc={item.pc}
-                        fret={fret}
-                        sIdx={sIdx}
-                        candidate={chordDetectSelectedCandidate}
-                        isBass={item.isBass}
-                        isPlaying={item.isPlaying}
-                        compactOpen={fret === 0}
-                      />
-                    ) : (fret === 0 && !selectedStrings.has(sIdx) ? (
-                      <span className="text-base font-semibold leading-none text-slate-400">X</span>
-                    ) : (showNonScale ? (
-                      <div className="text-[10px] text-slate-400">{chordDetectSelectedCandidate ? buildDetectedCandidateBackgroundLabelForPc(mod12(STRINGS[sIdx].pc + fret), chordDetectSelectedCandidate, chordPreferSharps, showIntervalsLabel, showNotesLabel) : labelForCellAt(sIdx, fret)}</div>
-                    ) : null))}
-                  </button>
-                );
-              }}
-            />
-          ) : (
-            <>
-              <div className="grid items-center gap-1" style={{ gridTemplateColumns: fretGridCols(maxFret) }}>
-                <div className="text-xs font-semibold text-slate-600">Cuerda</div>
-                {Array.from({ length: maxFret + 1 }, (_, fret) => (
-                  <div key={fret} className="relative flex flex-col items-center">
-                    <div className="text-[10px] text-slate-600">{fret}</div>
-                  </div>
-                ))}
-              </div>
-
-              <div className="mt-2 space-y-1">
-                {STRINGS.map((st, sIdx) => (
-                  <div key={st.label} className="grid items-center gap-1" style={{ gridTemplateColumns: fretGridCols(maxFret) }}>
-                    <div className="flex items-center justify-between gap-1">
-                      <span className="text-xs font-medium text-slate-700">{st.label}</span>
-                      {selectedStrings.has(sIdx) && stringSelectedNoteName[sIdx] ? (
-                        <span className="text-[10px] font-bold text-sky-600">{stringSelectedNoteName[sIdx]}</span>
-                      ) : null}
-                    </div>
-                    {Array.from({ length: maxFret + 1 }, (_, fret) => {
-                      const key = `${sIdx}:${fret}`;
-                      const item = selectedMap.get(key);
-                      return (
-                        <button
-                          key={`${sIdx}-${fret}`}
-                          type="button"
-                          data-testid={`chord-detect-cell-${sIdx}-${fret}`}
-                          onClick={() => toggleChordDetectCell(sIdx, fret)}
-                          className={`group relative isolate flex h-8 overflow-visible items-center justify-center rounded-lg border ${fret === 0 ? "border-slate-300" : "border-slate-200"} ${item ? "z-[4]" : "z-0"} ${item?.isPlaying ? "ring-2 ring-sky-300 ring-offset-1 ring-offset-white" : ""} bg-slate-50 hover:ring-2 hover:ring-slate-300`}
-                        >
-                          <HoverCellNote sIdx={sIdx} fret={fret} visible={!item} />
-                          {hasInlayCell(fret, sIdx) ? (
-                            <div className="pointer-events-none absolute left-1/2 z-0 -translate-x-1/2 -translate-y-1/2" style={{ top: "78%" }}>
-                              <div className="h-4 w-4 rounded-full opacity-80" style={{ backgroundColor: FRET_INLAY_BG }} />
-                            </div>
-                          ) : null}
-                          {item ? <ChordInvestigationCircle pc={item.pc} fret={fret} sIdx={sIdx} candidate={chordDetectSelectedCandidate} isBass={item.isBass} isPlaying={item.isPlaying} /> : (fret === 0 && !selectedStrings.has(sIdx) ? <span className="text-base font-semibold leading-none text-slate-400">X</span> : (showNonScale ? <div className="text-[10px] text-slate-400">{chordDetectSelectedCandidate ? buildDetectedCandidateBackgroundLabelForPc(mod12(STRINGS[sIdx].pc + fret), chordDetectSelectedCandidate, chordPreferSharps, showIntervalsLabel, showNotesLabel) : labelForCellAt(sIdx, fret)}</div> : null))}
-                        </button>
-                      );
-                    })}
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
-
-          <div className="mt-3 text-xs text-slate-600">
-            {chordDetectSelectedNotes.length
-              ? "Pulsa de nuevo sobre una nota para quitarla."
-              : "Pulsa en el mástil para seleccionar notas."}
-          </div>
-        </div>
-
-        {/* ══════════════════════════════════════════════════════════════════
-            Cuadro 3 — Posibles acordes
-        ══════════════════════════════════════════════════════════════════ */}
-			<div className="mb-3 rounded-xl border border-slate-200 bg-white">
-			  <div className="px-3 pt-3">
-				<div className="text-base font-bold text-slate-900">
-				  <InfoTitle label="Posibles acordes" info={DETECTED_CHORDS_INFO_TEXT} alwaysShow />
-				</div>
-				<div className="mt-0.5 text-xs text-slate-600">
-				  {chordDetectSelectedNotes.length
-					? "Selecciona una lectura para copiarla a la sección Acorde."
-					: "Añade notas en el mástil para ver lecturas posibles."}
-				</div>
-			  </div>
-
-			  <div className="px-3 pb-3 pt-2">
-            <div className="space-y-2" data-testid="detected-chord-list">
-              {chordDetectCandidatesRanked.length ? chordDetectCandidatesRanked.map((cand) => (
-                <div key={cand.id} data-testid={`detected-chord-${cand.id}`} className={`flex items-start gap-3 rounded-xl border px-3 py-2 text-xs text-slate-700 ${cand.contextual || cand.referencePromoted ? "border-amber-200 bg-amber-50" : "border-slate-200 bg-sky-50"}`}>
-                  <label className="flex min-w-0 flex-1 items-start gap-3">
-                    <input
-                      type="radio"
-                      name="detected-chord"
-                      checked={chordDetectCandidateId === cand.id}
-                      onChange={() => selectDetectedCandidate(cand)}
-                      className="mt-0.5 h-4 w-4"
-                    />
-                    <div className="min-w-0">
-                      {(cand.contextual || cand.referencePromoted) && (
-                        <div className="mb-0.5">
-                          <span className="rounded bg-amber-200 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800">por referencia</span>
-                        </div>
-                      )}
-                      <div data-testid={`detected-chord-name-${cand.id}`} className="font-bold text-slate-800">{formatChordNamePure(cand)}</div>
-                      <div>{cand.intervalPairsText}</div>
-                    </div>
-                  </label>
-                  <button
-                    type="button"
-                    data-testid={`detected-copy-${cand.id}`}
-                    className={UI_BTN_SM + " w-auto shrink-0 px-3"}
-                    onClick={() => applyDetectedCandidate(cand)}
-                    disabled={!cand.uiPatch}
-                    title={cand.uiPatch ? "Copiar esta lectura a la sección Acorde" : "Esta lectura no es compatible con el constructor superior"}
-                  >
-                    Copiar en Acorde
-                  </button>
-                </div>
-              )) : (
-                <div className="rounded-xl border border-dashed border-slate-300 bg-sky-50 px-3 py-3 text-xs text-slate-500">
-                  No hay lecturas claras todavía. Empieza con 3 o 4 notas.
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Pentagrama — sin cambios */}
-        {chordDetectStaffEvents.length ? (
-          <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
-            <div className="text-base font-bold text-slate-900">Pentagrama de la selección actual</div>
-            <div className="mt-1 text-xs text-slate-600">
-              Se dibuja al pulsar notas, sin esperar a elegir un acorde posible: {chordDetectSelectionPositionsText}
-            </div>
-            <div className="mt-2">
-              <MusicStaff
-                events={chordDetectStaffEvents}
-                preferSharps={chordDetectSelectedCandidate?.preferSharps ?? chordPreferSharps}
-                clefMode="guitar"
-                keySignature={{ type: null, count: 0 }}
-                showFooter
-                footerLabels={[chordDetectSelectedCandidate?.name || "Selección"]}
-              />
-            </div>
-          </div>
-        ) : null}
-      </div>
+      <ManualChordPanel
+        chordDetectSelectedNotes={chordDetectSelectedNotes}
+        chordDetectPlayingKeys={chordDetectPlayingKeys}
+        chordDetectSelectedCandidate={chordDetectSelectedCandidate}
+        studyData={studyData}
+        chordDetectPhysicalPatternText={chordDetectPhysicalPatternText}
+        chordPreferSharps={chordPreferSharps}
+        chordDetectPanelRef={chordDetectPanelRef}
+        chordDetectClickAudio={chordDetectClickAudio}
+        setChordDetectClickAudio={setChordDetectClickAudio}
+        fnPlayChordDetectSelection={fnPlayChordDetectSelection}
+        chordDetectSelectedKeys={chordDetectSelectedKeys}
+        fnPlayChordDetectVoicingTogether={fnPlayChordDetectVoicingTogether}
+        clearChordDetectSelection={clearChordDetectSelection}
+        openMainChordStudy={openMainChordStudy}
+        isCompactLayout={isCompactLayout}
+        isMobileLayout={isMobileLayout}
+        chordDetectSelectedCandidateBadgeItems={chordDetectSelectedCandidateBadgeItems}
+        chordDetectSelectedCandidateBassNote={chordDetectSelectedCandidateBassNote}
+        colors={colors}
+        chordDetectPrioritizeContext={chordDetectPrioritizeContext}
+        updateChordDetectPrioritizeContext={updateChordDetectPrioritizeContext}
+        chordRefEnabled={chordRefEnabled}
+        setChordRefEnabled={setChordRefEnabled}
+        chordRefNatural={chordRefNatural}
+        setChordRefNatural={setChordRefNatural}
+        CHORD_REF_NATURAL_LETTERS={CHORD_REF_NATURAL_LETTERS}
+        chordRefAcc={chordRefAcc}
+        setChordRefAcc={setChordRefAcc}
+        chordRefQuality={chordRefQuality}
+        setChordRefQuality={setChordRefQuality}
+        CHORD_REF_QUALITIES={CHORD_REF_QUALITIES}
+        voicingInputText={voicingInputText}
+        setVoicingInputText={setVoicingInputText}
+        setChordDetectSelectedKeys={setChordDetectSelectedKeys}
+        chordDetectMode={chordDetectMode}
+        setChordDetectMode={setChordDetectMode}
+        UI_BTN_SM={UI_BTN_SM}
+        setChordDetectWindowStart={setChordDetectWindowStart}
+        chordDetectWindowStartMin={chordDetectWindowStartMin}
+        chordDetectWindowFrom={chordDetectWindowFrom}
+        chordDetectWindowTo={chordDetectWindowTo}
+        chordDetectWindowAllowedStartMax={chordDetectWindowAllowedStartMax}
+        isNarrowBoardLayout={isNarrowBoardLayout}
+        MobileMainFretboard={MobileMainFretboard}
+        chordDetectVisibleFrets={chordDetectVisibleFrets}
+        toggleChordDetectCell={toggleChordDetectCell}
+        mobileVerticalFretBorderClass={mobileVerticalFretBorderClass}
+        HoverCellNote={HoverCellNote}
+        ChordInvestigationCircle={ChordInvestigationCircle}
+        showNonScale={showNonScale}
+        showIntervalsLabel={showIntervalsLabel}
+        showNotesLabel={showNotesLabel}
+        labelForCellAt={labelForCellAt}
+        maxFret={maxFret}
+        InfoTitle={InfoTitle}
+        DETECTED_CHORDS_INFO_TEXT={DETECTED_CHORDS_INFO_TEXT}
+        chordDetectCandidatesRanked={chordDetectCandidatesRanked}
+        chordDetectCandidateId={chordDetectCandidateId}
+        selectDetectedCandidate={selectDetectedCandidate}
+        formatChordNamePure={formatChordNamePure}
+        applyDetectedCandidate={applyDetectedCandidate}
+        chordDetectStaffEvents={chordDetectStaffEvents}
+        chordDetectSelectionPositionsText={chordDetectSelectionPositionsText}
+      />
     );
   }
 
@@ -9144,8 +8644,8 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
     const isQuartal = chordFamily === "quartal";
     const isGuideTones = chordFamily === "guide_tones";
     const voicings = isQuartal ? chordQuartalVoicings : isGuideTones ? guideToneVoicings : chordVoicingsDisplay;
-    const currentIdx = isQuartal ? chordQuartalVoicingIdx : isGuideTones ? guideToneVoicingIdx : chordVoicingIdx;
-    const selectedFrets = isQuartal ? chordQuartalSelectedFrets : isGuideTones ? guideToneSelectedFrets : chordSelectedFrets;
+    const currentIdx = isQuartal ? chordQuartalVoicingIdx : isGuideTones ? guideToneVoicingIdx : chordResolvedSelection.idx;
+    const selectedFrets = isQuartal ? chordQuartalSelectedFrets : isGuideTones ? guideToneSelectedFrets : chordResolvedSelection.frets;
     const setIdx = isQuartal ? setChordQuartalVoicingIdx : isGuideTones ? setGuideToneVoicingIdx : setChordVoicingIdx;
     const setSelectedFrets = isQuartal ? setChordQuartalSelectedFrets : isGuideTones ? setGuideToneSelectedFrets : setChordSelectedFrets;
     const voicingOptionLabels = voicings.map((v, i) => `${i + 1}. ${v.frets}${isQuartal && v.quartalDegree != null ? ` · ${fnBuildQuartalDegreeLabel(v.quartalDegree)}` : ""} (${v.isCopied ? "C " : ""}dist ${v.reach ?? (v.span + 1)})`);
@@ -9158,8 +8658,14 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
     const selectIdx = (nextIdx) => {
       if (!voicings.length) return;
       const normalized = (nextIdx + voicings.length) % voicings.length;
+      const nextVoicing = voicings[normalized] || null;
+      if (isGuideTones) {
+        lastGuideToneVoicingRef.current = nextVoicing;
+      } else if (!isQuartal) {
+        lastChordVoicingRef.current = nextVoicing;
+      }
       setIdx(normalized);
-      setSelectedFrets(voicings[normalized]?.frets ?? null);
+      setSelectedFrets(nextVoicing?.frets ?? null);
     };
 
     return (
@@ -10765,7 +10271,7 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
               quartalRoleOfPc, labelForQuartalPc, quartalNoteNameForPc,
               activeGuideToneVoicing, guideToneVoicingIdx, guideToneVoicings,
               activeChordVoicing, chordVoicingIdx, chordVoicingsDisplay,
-              chordDbError,
+              chordDbError, chordVoicingsResolving,
             }}
             detectArea={{ chordDetectInvestigationAreaRef, chordDetectClearMinHeight }}
             renderFns={{
@@ -11254,3 +10760,4 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
     </div>
   );
 }
+

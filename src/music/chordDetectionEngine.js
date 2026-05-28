@@ -161,8 +161,8 @@ export const CHORD_DETECT_FORMULAS = [
   { id: "maj7", intervals: [0, 4, 7, 11], degreeLabels: ["1", "3", "5", "7"], suffix: "maj7", ui: { quality: "maj", suspension: "none", structure: "tetrad", inversion: "all", form: "open", positionForm: "open", ext7: true, ext6: false, ext9: false, ext11: false, ext13: false } },
   { id: "7", intervals: [0, 4, 7, 10], degreeLabels: ["1", "3", "5", "b7"], suffix: "7", ui: { quality: "dom", suspension: "none", structure: "tetrad", inversion: "all", form: "open", positionForm: "open", ext7: true, ext6: false, ext9: false, ext11: false, ext13: false } },
   { id: "m7", intervals: [0, 3, 7, 10], degreeLabels: ["1", "b3", "5", "b7"], suffix: "m7", ui: { quality: "min", suspension: "none", structure: "tetrad", inversion: "all", form: "open", positionForm: "open", ext7: true, ext6: false, ext9: false, ext11: false, ext13: false } },
-  { id: "mmaj7", intervals: [0, 3, 7, 11], degreeLabels: ["1", "b3", "5", "7"], suffix: "m(maj7)", ui: null },
-  { id: "mmaj7add13", intervals: [0, 3, 7, 9, 11], degreeLabels: ["1", "b3", "5", "13", "7"], suffix: "m(maj7,13)", ui: null },
+  { id: "mmaj7", intervals: [0, 3, 7, 11], degreeLabels: ["1", "b3", "5", "7"], suffix: "m(maj7)", ui: { quality: "minmaj7", suspension: "none", structure: "tetrad", inversion: "all", form: "open", positionForm: "open", ext7: true, ext6: false, ext9: false, ext11: false, ext13: false } },
+  { id: "mmaj7add13", intervals: [0, 3, 7, 9, 11], degreeLabels: ["1", "b3", "5", "13", "7"], suffix: "m(maj7,13)", ui: { quality: "minmaj7", suspension: "none", structure: "chord", inversion: "all", form: "open", positionForm: "open", ext7: true, ext6: false, ext9: false, ext11: false, ext13: true } },
   { id: "m7b5", intervals: [0, 3, 6, 10], degreeLabels: ["1", "b3", "b5", "b7"], suffix: "m7(b5)", ui: { quality: "hdim", suspension: "none", structure: "tetrad", inversion: "all", form: "open", positionForm: "open", ext7: true, ext6: false, ext9: false, ext11: false, ext13: false } },
   { id: "dim7", intervals: [0, 3, 6, 9], degreeLabels: ["1", "b3", "b5", "bb7"], suffix: "dim7", ui: { quality: "dim", suspension: "none", structure: "tetrad", inversion: "all", form: "open", positionForm: "open", ext7: true, ext6: false, ext9: false, ext11: false, ext13: false } },
   { id: "maj7sharp5", intervals: [0, 4, 8, 11], degreeLabels: ["1", "3", "#5", "7"], suffix: "maj7#5", ui: null },
@@ -170,7 +170,7 @@ export const CHORD_DETECT_FORMULAS = [
   { id: "7flat5", intervals: [0, 4, 6, 10], degreeLabels: ["1", "3", "b5", "b7"], suffix: "7b5", ui: null },
   { id: "7sharp9no5", intervals: [0, 3, 4, 10], degreeLabels: ["1", "#9", "3", "b7"], suffix: "7(#9)", ui: null },
   { id: "dom13sharp11", intervals: [0, 2, 4, 6, 9, 10], degreeLabels: ["1", "9", "3", "#11", "13", "b7"], suffix: "13(#11,9)", ui: null },
-  { id: "mmaj9", intervals: [0, 2, 3, 7, 11], degreeLabels: ["1", "9", "b3", "5", "7"], suffix: "m(maj9)", ui: null },
+  { id: "mmaj9", intervals: [0, 2, 3, 7, 11], degreeLabels: ["1", "9", "b3", "5", "7"], suffix: "m(maj9)", ui: { quality: "minmaj7", suspension: "none", structure: "chord", inversion: "all", form: "open", positionForm: "open", ext7: true, ext6: false, ext9: true, ext11: false, ext13: false } },
 ];
 
 function appendMissingDegreesToSuffix(baseSuffix, missingDegrees) {
@@ -810,7 +810,7 @@ function buildHeuristicTertianCandidates(selectedNotes) {
       if (hasPerfectFifth) coreIntervals.push(7);
       baseSuffix = "7";
     } else if (hasMinThird) {
-      quality = "min";
+      quality = hasMajSeventh ? "minmaj7" : "min";
       coreIntervals.push(3);
       if (hasPerfectFifth) coreIntervals.push(7);
       if (hasPerfectFifth && useSixthLabel) {
@@ -1358,7 +1358,7 @@ function candidateContextFamily(candidate) {
   if (suspension === "sus4") return "sus4";
   // Fórmulas minor que tienen ui:null (uiPatch será null) → identificar por id
   if (["mmaj7", "mmaj7add13", "mmaj9"].includes(id)) return "min";
-  if (quality === "min") return "min";
+  if (quality === "min" || quality === "minmaj7") return "min";
   if (quality === "dom") return "dom";
   if (quality === "maj") return "maj";
   return "";

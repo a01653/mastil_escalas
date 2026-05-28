@@ -1,7 +1,8 @@
 import { describe, expect, test } from "vitest";
-import { buildChordIntervals } from "./appMusicBasics.js";
+import { buildChordIntervals, chordCanUseJsonCatalog } from "./appMusicBasics.js";
 import { buildChordEnginePlan, buildChordUiRestrictions, generateExactIntervalChordVoicings } from "./appVoicingStudyCore.js";
 import { analyzeSelectedNotes, detectOmitFromCandidate } from "./chordDetectionEngine.js";
+import { analyzeFretsCore } from "./analyzeFretsCore.js";
 import { buildChordBadgeItems } from "./appPatternRouteStaffCore.jsx";
 
 // Bb = pc 10
@@ -526,6 +527,92 @@ describe("Auditoría: uiPatch al copiar lecturas a Acordes", () => {
         expect(candidate.formula.suffix).toContain("no5");
         expect(detectOmitFromCandidate(candidate)).toBe("5");
       }
+    });
+  });
+
+  describe("Caso E — m(maj7): no debe degradarse a m7 al copiar", () => {
+
+    test("E1. 2232xx detecta F#m(maj7,add11,no5) con uiPatch quality='minmaj7'", () => {
+      const result = analyzeFretsCore("2232xx");
+      const candidate = result.readings.find((r) => r.name === "F#m(maj7,add11,no5)");
+      expect(candidate).toBeTruthy();
+      expect(candidate?.uiPatch).not.toBeNull();
+      expect(candidate?.uiPatch?.quality).toBe("minmaj7");
+      expect(candidate?.uiPatch?.ext7).toBe(true);
+      expect(candidate?.uiPatch?.ext11).toBe(true);
+      expect(detectOmitFromCandidate(candidate)).toBe("5");
+    });
+
+    test("E2. buildChordIntervals con quality='minmaj7' usa 7 mayor (11), no b7 (10)", () => {
+      const intervals = buildChordIntervals({
+        quality: "minmaj7",
+        suspension: "none",
+        structure: "chord",
+        ext7: true,
+        ext6: false,
+        ext9: false,
+        ext11: true,
+        ext13: false,
+        omit: "5",
+      });
+      expect(intervals).toContain(11);
+      expect(intervals).not.toContain(10);
+    });
+
+    test("E3. m(maj7) en estructura Acorde usa fallback seguro y no catálogo JSON", () => {
+      expect(chordCanUseJsonCatalog({
+        quality: "minmaj7",
+        structure: "chord",
+        ext7: true,
+        ext6: false,
+        ext9: false,
+        ext11: true,
+        ext13: false,
+      })).toBe(false);
+
+      const plan = buildChordEnginePlan({
+        rootPc: 6,
+        quality: "minmaj7",
+        suspension: "none",
+        structure: "chord",
+        inversion: "all",
+        form: "open",
+        ext7: true,
+        ext6: false,
+        ext9: false,
+        ext11: true,
+        ext13: false,
+        omit: "5",
+      });
+      expect(plan.generator).toBe("exact");
+    });
+
+    test("E4. un 13 estándar mantiene catálogo JSON; solo m(maj7) cae a fallback exact", () => {
+      expect(chordCanUseJsonCatalog({
+        quality: "maj",
+        structure: "chord",
+        ext7: true,
+        ext6: false,
+        ext9: true,
+        ext11: true,
+        ext13: true,
+      })).toBe(true);
+
+      const plan = buildChordEnginePlan({
+        rootPc: 5,
+        quality: "maj",
+        suspension: "none",
+        structure: "chord",
+        inversion: "all",
+        form: "closed",
+        ext7: true,
+        ext6: false,
+        ext9: true,
+        ext11: true,
+        ext13: true,
+        omit: "none",
+      });
+      expect(plan.generator).toBe("json");
     });
   });
 
