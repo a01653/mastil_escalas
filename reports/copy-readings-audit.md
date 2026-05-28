@@ -1,6 +1,6 @@
 # Auditoría: Copiar lecturas a Acordes
 
-**Total**: 22 | **PASS**: 22 | **FAIL**: 0
+**Total**: 23 | **PASS**: 23 | **FAIL**: 0
 
 | ID | Tipo | Entrada | Notas | Primary real | Esperado / Candidato buscado | Candidato obtenido | Estr. | Ext | Omit | Motivo | Resultado |
 |----|------|---------|-------|--------------|------------------------------|--------------------|-------|-----|------|--------|-----------|
@@ -13,6 +13,7 @@
 | P7 | primary | `1x223x` | F E A D | Fmaj7(add13,no5) | `Fmaj7(add13,no5)` | Fmaj7(add13,no5) | chord | 7,13 | 5 | Valida primary desde patrón físico; notas F E A D → la primary es Fmaj7(add13,no5), no Dm(add9)/F | ✅ |
 | P8 | 2°candidato | `1x223x` | F E A D | Fmaj7(add13,no5) | `Dm(add9)/F` (2°) | Dm(add9)/F | chord | 9 | none | Valida que candidato secundario Dm(add9)/F es copiable desde el mismo patrón que P7 | ✅ |
 | P9 | primary | `x132xx` | Bb F A | Fadd11(no5)/Bb | `Fadd11(no5)/Bb` | Fadd11(no5)/Bb | chord | 11 | 5 | El patrón físico del mástil debe viajar con la copia; si el generador no lo produce, se inyecta como opción (copiado) en el selector. | ✅ |
+| P10 | primary | `x422xx` | Db E A | A/C# | `A/C#` | A/C# | triad | — | none | x422xx y 542xxx comparten pitch set, pero Copiar en Acorde debe preservar la digitación física origen. | ✅ |
 | N-A1 | 2°candidato | D,F,A,E/F | D F A E | Fmaj7(add13,no5) | `Dm(add9)/F` (2°) | Dm(add9)/F | chord | 9 | none | Caso A: add9 menor no debe degradar a structure=tetrad aunque la primary sea otra lectura | ✅ |
 | N-A2 | primary | C,E,G,D/C | C E G D | Cadd9 | `Cadd9` | Cadd9 | chord | 9 | none | Valida add9 mayor como primary: structure=chord con ext9 activo y ext7 inactivo | ✅ |
 | N-A3 | primary | C,E,F,G/C | C E F G | Cadd11 | `Cadd11` | Cadd11 | chord | 11 | none | Valida add11 mayor como primary: structure=chord con ext11 activo y ext7 inactivo | ✅ |

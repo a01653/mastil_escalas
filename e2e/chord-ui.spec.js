@@ -799,23 +799,21 @@ test("37. Dm(add9,11): chips en orden canónico 1,b3,5,9,11 — no 1,9,b3,11,5",
   await page.getByTestId("ext-9").check();
   await page.getByTestId("ext-11").check();
 
-  // chord-chips incluye un span sr-only con el nombre del acorde (p.ej. "Dm(add9,11)")
-  // que contiene "9" antes de los chips reales. Se elimina el prefijo para buscar
-  // solo en el texto de los chips visuales.
-  const chordTitle = await page.getByTestId("chord-title").textContent();
-  const allChipsText = await page.getByTestId("chord-chips").textContent();
-  const chips = allChipsText.slice(chordTitle.length);
+  const chips = await page.getByTestId("chord-chips").innerText();
+  const degreeTokens = chips
+    .split(/\s+/)
+    .filter((token) => ["1", "b3", "5", "9", "11"].includes(token));
 
   // Presencia de todos los grados
-  expect(chips).toContain("b3");
-  expect(chips).toContain("9");
-  expect(chips).toContain("11");
+  expect(degreeTokens).toContain("b3");
+  expect(degreeTokens).toContain("9");
+  expect(degreeTokens).toContain("11");
 
   // Orden canónico: b3 debe aparecer ANTES que 9; 5 antes que 9; 9 antes que 11
-  const idxB3 = chips.indexOf("b3");
-  const idx5  = chips.indexOf("5");
-  const idx9  = chips.indexOf("9");
-  const idx11 = chips.indexOf("11");
+  const idxB3 = degreeTokens.indexOf("b3");
+  const idx5  = degreeTokens.indexOf("5");
+  const idx9  = degreeTokens.indexOf("9");
+  const idx11 = degreeTokens.indexOf("11");
 
   expect(idxB3).toBeLessThan(idx9);  // b3 < 9 (no al revés)
   expect(idx5).toBeLessThan(idx9);   // 5 < 9

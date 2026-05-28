@@ -1,7 +1,7 @@
 {
   "summary": {
-    "total": 22,
-    "passed": 22,
+    "total": 23,
+    "passed": 23,
     "failed": 0
   },
   "cases": [
@@ -321,6 +321,41 @@
         "Fadd11(no5)/Bb",
         "Bbm(maj7,nob3)",
         "A#m(maj7,nob3)"
+      ],
+      "pass": true,
+      "failures": [],
+      "warnings": []
+    },
+    {
+      "id": "P10",
+      "description": "x422xx — primary A/C#: voicing copiado conserva x422xx, no normaliza a 542xxx",
+      "motivo": "x422xx y 542xxx comparten pitch set, pero Copiar en Acorde debe preservar la digitación física origen.",
+      "tipoSeleccion": "primary",
+      "entrada": "x422xx",
+      "derivedNotes": [
+        "Db",
+        "E",
+        "A"
+      ],
+      "primaryName": "A/C#",
+      "expectPrimaryName": "A/C#",
+      "expectCandidateName": null,
+      "expectCandidateIncludes": null,
+      "candidateName": "A/C#",
+      "copiedStructure": "triad",
+      "copiedExt7": false,
+      "copiedExt9": false,
+      "copiedExt11": false,
+      "copiedExt13": false,
+      "copiedExt6": false,
+      "copiedOmit": "none",
+      "uiPatchEnabled": true,
+      "candidates": [
+        "A/C#",
+        "Dbm7(b13,no5,nob7)",
+        "C#m7(b13,no5,nob7)",
+        "Dbm(addb13,no5)",
+        "C#m(addb13,no5)"
       ],
       "pass": true,
       "failures": [],

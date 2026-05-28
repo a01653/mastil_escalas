@@ -180,6 +180,18 @@ const CASES = [
     expectCopiedVoicingPattern: "x132xx",
     forbiddenCopiedPattern: "11x2xx",
   },
+  {
+    id: "P10",
+    description: "x422xx — primary A/C#: voicing copiado conserva x422xx, no normaliza a 542xxx",
+    motivo: "x422xx y 542xxx comparten pitch set, pero Copiar en Acorde debe preservar la digitación física origen.",
+    fretsPattern: "x422xx",
+    expectPrimaryName: "A/C#",
+    expectUiPatch: true,
+    expectStructure: "triad",
+    expectOmit: "none",
+    expectCopiedVoicingPattern: "x422xx",
+    forbiddenCopiedPattern: "542xxx",
+  },
 
   // ── Notas directas (analyzeSelectedNotes) ─────────────────────────────────
 

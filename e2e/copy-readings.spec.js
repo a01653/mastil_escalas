@@ -312,7 +312,7 @@ test("44. Fadd11(no5)/Bb: estado completo tras copiar — omit5, ext11, chips si
   expect(noticeText).toMatch(/Fadd11\(no5\)/);
 
   // Desactivar modo investigación para inspeccionar el constructor de acordes
-  await page.getByTestId("chord-detect-toggle").uncheck();
+  await expect(page.getByTestId("chord-detect-toggle")).not.toBeChecked({ timeout: 3000 });
 
   // 3. Título refleja (no5) — confirma que omit=5 se aplicó
   await expect(page.getByTestId("chord-title")).toContainText("no5", { timeout: 3000 });
@@ -379,7 +379,7 @@ test("45. x132xx→Fadd11(no5)/Bb: voicing-select contiene x132xx y queda selecc
   expect(noticeText).toMatch(/Fadd11\(no5\)/);
 
   // Desactivar modo investigación para ver el selector de voicings
-  await page.getByTestId("chord-detect-toggle").uncheck();
+  await expect(page.getByTestId("chord-detect-toggle")).not.toBeChecked({ timeout: 3000 });
 
   // Verificar estado del constructor de acordes
   await expect(page.getByTestId("chord-title")).toContainText("no5", { timeout: 3000 });
@@ -414,6 +414,46 @@ test("45. x132xx→Fadd11(no5)/Bb: voicing-select contiene x132xx y queda selecc
   expect(selectedValue).not.toBe("11x2xx");
 });
 
+// ── Test 45b: A/C# x422xx — preservar voicing físico frente a 542xxx ─────────
+test("45b. x422xx→A/C#: Copiar en Acorde conserva x422xx y no normaliza a 542xxx", async ({ page }) => {
+  await goToChords(page);
+  await enableDetectMode(page);
+
+  const patternInput = page.getByTestId("chord-detect-pattern-input");
+  await expect(patternInput).toBeVisible();
+  await patternInput.fill("x422xx");
+  await page.getByTestId("chord-detect-apply-btn").click();
+
+  await expect(page.locator('[aria-label="Selección manual"]').getByText(/A\/C#/).first()).toBeVisible({ timeout: 5000 });
+
+  const list = page.getByTestId("detected-chord-list");
+  await expect(list).toBeVisible();
+  const aOverCSharp = list.locator("div").filter({ hasText: /A\/C#/ }).first();
+  const copyBtn = aOverCSharp.locator("[data-testid^='detected-copy-']").first();
+  await expect(copyBtn).toBeVisible({ timeout: 3000 });
+  await expect(copyBtn).toBeEnabled();
+  await copyBtn.click();
+
+  await expect(page.getByTestId("chord-copy-notice")).toBeVisible({ timeout: 3000 });
+  await expect(page.getByTestId("chord-detect-toggle")).not.toBeChecked({ timeout: 3000 });
+
+  const voicingSelect = page.getByTestId("voicing-select");
+  await expect(voicingSelect).toBeVisible({ timeout: 3000 });
+
+  const options = await voicingSelect.locator("option").allTextContents();
+  expect(
+    options.some((text) => text.includes("x422xx")),
+    `Ninguna opción contiene x422xx. Opciones: ${options.join(" | ")}`
+  ).toBe(true);
+
+  const selectedValue = await voicingSelect.evaluate((el) => el.value);
+  expect(selectedValue, `Valor seleccionado: "${selectedValue}", esperado "x422xx"`).toBe("x422xx");
+  expect(selectedValue).not.toBe("542xxx");
+
+  const summaryText = await page.getByTestId("chord-controls-summary").getAttribute("data-content");
+  expect(summaryText, `El resumen debe conservar el patrón físico. Valor: ${summaryText}`).toContain("(x422xx)");
+});
+
 // ── Test 46: Invariante — cambiar inversión después de copiar limpia la inyección ──
 test("46. x132xx copiado: al cambiar inversión, voicing no persiste como '(copiado)'", async ({ page }) => {
   await goToChords(page);
@@ -431,7 +471,7 @@ test("46. x132xx copiado: al cambiar inversión, voicing no persiste como '(copi
   const firstEnabledCopyBtn = list.locator("[data-testid^='detected-copy-']")
     .filter({ hasNot: page.locator("[disabled]") }).first();
   await firstEnabledCopyBtn.click();
-  await page.getByTestId("chord-detect-toggle").uncheck();
+  await expect(page.getByTestId("chord-detect-toggle")).not.toBeChecked({ timeout: 3000 });
 
   // Estado inicial: x132xx en la lista SIN etiqueta "(copiado)"
   const voicingSelect = page.getByTestId("voicing-select");
@@ -509,7 +549,7 @@ test("47. Fadd11(no5): el selector de inversión no contiene '3ª inversión'", 
     .first();
   await firstEnabledCopyBtn.click();
 
-  await page.getByTestId("chord-detect-toggle").uncheck();
+  await expect(page.getByTestId("chord-detect-toggle")).not.toBeChecked({ timeout: 3000 });
 
   const invSelect = page.getByTestId("select-inversion");
   await expect(invSelect).toBeVisible({ timeout: 3000 });
@@ -537,7 +577,7 @@ test("48. Fadd11(no5): el selector de inversión contiene 'Bajo 11'", async ({ p
     .first();
   await firstEnabledCopyBtn.click();
 
-  await page.getByTestId("chord-detect-toggle").uncheck();
+  await expect(page.getByTestId("chord-detect-toggle")).not.toBeChecked({ timeout: 3000 });
 
   const invSelect = page.getByTestId("select-inversion");
   await expect(invSelect).toBeVisible({ timeout: 3000 });
@@ -568,7 +608,7 @@ test("49. Asus2 x0220x: copia directa a Acorde con cuerdas al aire y voicing rea
   await expect(copyBtn).toBeEnabled();
   await copyBtn.click();
 
-  await page.getByTestId("chord-detect-toggle").uncheck();
+  await expect(page.getByTestId("chord-detect-toggle")).not.toBeChecked({ timeout: 3000 });
 
   const structureSelect = page.getByTestId("select-structure");
   await expect(structureSelect).toHaveValue("chord");
@@ -640,7 +680,7 @@ test("52. Asus2 002200: copia directa a Acorde real con cuerdas al aire", async 
   await expect(copyBtn).toBeEnabled();
   await copyBtn.click();
 
-  await page.getByTestId("chord-detect-toggle").uncheck();
+  await expect(page.getByTestId("chord-detect-toggle")).not.toBeChecked({ timeout: 3000 });
 
   const structureSelect = page.getByTestId("select-structure");
   await expect(structureSelect).toHaveValue("chord");

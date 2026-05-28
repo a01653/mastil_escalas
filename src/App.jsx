@@ -319,7 +319,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "5.08";
+const APP_VERSION = "5.11";
 
 function buildChordCopyFingerprint({
   rootPc,
@@ -499,7 +499,7 @@ export default function FretboardScalesPage() {
   const [chordExt13, setChordExt13] = useState(false);
   const [chordOmit, setChordOmit] = useState("none");
   const [chordCopyNotice, setChordCopyNotice] = useState(null);
-  const [chordCopiedEntry, setChordCopiedEntry] = useState(null); // { voicing, fingerprint } — fallback físico copiado cuando no existe en ningún generador compatible
+  const [chordCopiedEntry, setChordCopiedEntry] = useState(null); // { voicing, fingerprint } — patrón físico copiado para preservarlo si no está en la lista visible
   // --------------------------------------------------------------------------
   // ESTADO: DETECCIÓN DE ACORDES EN MÁSTIL
   // --------------------------------------------------------------------------
@@ -2467,8 +2467,8 @@ export default function FretboardScalesPage() {
     allowOpenStrings: chordAllowOpenStrings,
   }), [chordRootPc, chordQuality, chordSuspension, chordStructure, chordExt7, chordExt6, chordExt9, chordExt11, chordExt13, chordOmit, chordInversion, chordForm, chordMaxDist, chordAllowOpenStrings]);
 
-  // Amplía chordVoicings solo con un fallback "(copiado)" cuando el patrón físico no existe
-  // en ningún generador compatible y el fingerprint coincide con el estado actual.
+  // Amplía chordVoicings con el patrón físico copiado cuando el cálculo visible
+  // no lo incluye, manteniéndolo ligado al fingerprint del estado que lo generó.
   const chordVoicingsDisplay = useMemo(() => {
     if (!chordCopiedEntry?.voicing?.frets) return chordVoicings;
     if (chordCopiedEntry.fingerprint !== currentChordCopyFingerprint) return chordVoicings;
@@ -2991,6 +2991,44 @@ export default function FretboardScalesPage() {
     }
   }
 
+  function resolveGuideToneCopiedVoicing({ voicing, rootPc, allowOpenStrings, maxSpan }) {
+    const normalizedFrets = String(voicing?.frets || "").trim().toLowerCase();
+    if (!normalizedFrets || !Array.isArray(voicing?.notes) || voicing.notes.length !== 3) return null;
+
+    const relSig = Array.from(new Set(voicing.notes.map((note) => mod12(note.pc - rootPc)))).sort((a, b) => a - b).join(",");
+    const guideToneQuality = [
+      ["maj7", "0,4,11"],
+      ["min7", "0,3,10"],
+      ["dom7", "0,4,10"],
+      ["maj6", "0,4,9"],
+    ].find(([, sig]) => sig === relSig)?.[0] || null;
+    if (!guideToneQuality) return null;
+
+    const def = guideToneDefinitionFromQuality(guideToneQuality);
+    const findMatch = (candidateAllowOpenStrings) => {
+      const baseList = guideToneBassIntervalsForSelection(def, "all").flatMap((bassInterval) =>
+        generateExactIntervalChordVoicings({
+          rootPc,
+          intervals: def.intervals,
+          bassInterval,
+          maxFret,
+          maxSpan,
+        }).map((item) => normalizeGeneratedVoicingForDisplay(item, rootPc, rootPc))
+      );
+      let list = dedupeAndSortVoicings(baseList);
+      if (!candidateAllowOpenStrings) {
+        list = list.filter((item) => !voicingHasOpenStrings(item));
+      }
+      for (const form of ["closed", "open"]) {
+        const match = filterVoicingsByForm(list, form).find((item) => String(item?.frets || "").trim().toLowerCase() === normalizedFrets);
+        if (match) return { guideToneQuality, guideToneForm: form, guideToneInversion: "all", voicing: match, requiresOpenStrings: candidateAllowOpenStrings && !allowOpenStrings };
+      }
+      return null;
+    };
+
+    return findMatch(allowOpenStrings) || (voicingHasOpenStrings(voicing) ? findMatch(true) : null);
+  }
+
   async function applyDetectedCandidate(candidate) {
     if (!candidate) return;
     setChordDetectCandidateId(candidate.id);
@@ -3016,6 +3054,37 @@ export default function FretboardScalesPage() {
       setChordQuartalSelectedFrets(null);
       setChordQuartalVoicingIdx(0);
       setChordOmit("none");
+      setChordDetectMode(false);
+      return;
+    }
+
+    const guideToneCopy = manualCopiedVoicing?.frets
+      ? resolveGuideToneCopiedVoicing({
+          voicing: manualCopiedVoicing,
+          rootPc: p.rootPc,
+          allowOpenStrings: nextAllowOpenStrings,
+          maxSpan: requiredMaxDist != null ? requiredMaxDist : chordMaxDist,
+        })
+      : null;
+    if (guideToneCopy) {
+      setChordFamily("guide_tones");
+      setChordRootPc(p.rootPc);
+      setChordSpellPreferSharps(!!p.spellPreferSharps);
+      setGuideToneQuality(guideToneCopy.guideToneQuality);
+      setGuideToneForm(guideToneCopy.guideToneForm);
+      setGuideToneInversion(guideToneCopy.guideToneInversion);
+      setChordAllowOpenStrings(nextAllowOpenStrings || guideToneCopy.requiresOpenStrings);
+      if (requiredMaxDist != null && requiredMaxDist !== chordMaxDist) {
+        setChordMaxDist(requiredMaxDist);
+      }
+      setGuideToneSelectedFrets(guideToneCopy.voicing.frets);
+      setGuideToneVoicingIdx(0);
+      setChordCopiedEntry(null);
+      pendingChordRestoreRef.current = { active: false, frets: null };
+      pendingChordCopyResolutionRef.current = null;
+      const chordName = formatChordNamePure(candidate);
+      setChordCopyNotice(`Copiado en Acorde: ${chordName}`);
+      setChordDetectMode(false);
       return;
     }
 
@@ -3130,10 +3199,8 @@ export default function FretboardScalesPage() {
         maxDist: fpMaxDist,
         allowOpenStrings: nextAllowOpenStrings,
       });
-      const fallbackCopiedEntry = !effectiveResolvedCopy?.structure
-        ? { voicing: manualCopiedVoicing, fingerprint: fp }
-        : null;
-      setChordCopiedEntry(fallbackCopiedEntry);
+      const preservedVoicing = effectiveResolvedCopy?.voicing || manualCopiedVoicing;
+      setChordCopiedEntry({ voicing: preservedVoicing, fingerprint: fp });
     } else {
       setChordCopiedEntry(null);
       restoreFrets = null;
@@ -3152,6 +3219,7 @@ export default function FretboardScalesPage() {
     const chordName = formatChordNamePure(candidate);
     const omitLabel = detectedOmit !== "none" ? ` · Omitir ${detectedOmit}` : "";
     setChordCopyNotice(`Copiado en Acorde: ${chordName}${omitLabel}`);
+    setChordDetectMode(false);
   }
 
   function toggleChordDetectCell(sIdx, fret) {
@@ -9043,20 +9111,27 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
     const commonClass = className.trim();
     if (chordFamily === "quartal") {
       return (
-        <div className={commonClass}>
+        <div className={commonClass} data-testid="chord-chips">
+          <span data-testid="chord-family-state" className="sr-only">{chordFamily}</span>
+          <span data-testid="chord-title" className="sr-only">{chordQuartalDisplayName}</span>
+          <span data-testid="chord-controls-summary" aria-hidden="true" className="sr-only" data-content={chordSectionDisplayName} />
           <ChordNoteBadgeStrip items={chordQuartalBadgeItems} bassNote={chordQuartalBassNote} colorMap={colors} />
         </div>
       );
     }
     if (chordFamily === "guide_tones") {
       return (
-        <div className={commonClass}>
+        <div className={commonClass} data-testid="chord-chips">
+          <span data-testid="chord-family-state" className="sr-only">{chordFamily}</span>
+          <span data-testid="chord-title" className="sr-only">{guideToneDisplayName}</span>
+          <span data-testid="chord-controls-summary" aria-hidden="true" className="sr-only" data-content={chordSectionDisplayName} />
           <ChordNoteBadgeStrip items={guideToneBadgeItems} bassNote={guideToneBassNote} colorMap={colors} />
         </div>
       );
     }
     return (
       <div className={commonClass} data-testid="chord-chips">
+        <span data-testid="chord-family-state" className="sr-only">{chordFamily}</span>
         <span data-testid="chord-title" className="sr-only">{chordBaseDisplayName}</span>
         <span data-testid="chord-controls-summary" aria-hidden="true" className="sr-only" data-content={chordSectionDisplayName} />
         <ChordNoteBadgeStrip items={chordHeaderBadgeItems} bassNote={chordHeaderBassNote} colorMap={colors} />
@@ -9073,7 +9148,7 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
     const selectedFrets = isQuartal ? chordQuartalSelectedFrets : isGuideTones ? guideToneSelectedFrets : chordSelectedFrets;
     const setIdx = isQuartal ? setChordQuartalVoicingIdx : isGuideTones ? setGuideToneVoicingIdx : setChordVoicingIdx;
     const setSelectedFrets = isQuartal ? setChordQuartalSelectedFrets : isGuideTones ? setGuideToneSelectedFrets : setChordSelectedFrets;
-    const voicingOptionLabels = voicings.map((v, i) => `${i + 1}. ${v.frets}${v.isCopied ? " (copiado)" : ""}${isQuartal && v.quartalDegree != null ? ` · ${fnBuildQuartalDegreeLabel(v.quartalDegree)}` : ""} (dist ${v.reach ?? (v.span + 1)})`);
+    const voicingOptionLabels = voicings.map((v, i) => `${i + 1}. ${v.frets}${isQuartal && v.quartalDegree != null ? ` · ${fnBuildQuartalDegreeLabel(v.quartalDegree)}` : ""} (${v.isCopied ? "C " : ""}dist ${v.reach ?? (v.span + 1)})`);
     const voicingOptionLabelsMobile = voicings.map((v, i) => `${i + 1}. ${v.frets}`);
     const effectiveLabels = isMobileLayout ? voicingOptionLabelsMobile : voicingOptionLabels;
     const selectedOptionIdx = Math.max(0, voicings.findIndex((v) => v.frets === (selectedFrets || voicings[currentIdx]?.frets || "")));
@@ -9089,6 +9164,7 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
 
     return (
       <div className={className.trim()}>
+        <span data-testid="active-voicing-pattern" aria-hidden="true" className="sr-only">{selectedFrets || voicings[currentIdx]?.frets || ""}</span>
         <label className={UI_LABEL_SM}>Voicing ({voicings.length} opciones)</label>
         <div className="mt-1 flex items-center gap-1.5">
           <button
