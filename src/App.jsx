@@ -7,6 +7,22 @@ import AppHeader, { ChordDiagramIcon } from "./components/layout/AppHeader.jsx";
 import AppFooter from "./components/layout/AppFooter.jsx";
 import TonalContextPanel, { TonalContextFields } from "./components/tonal/TonalContextPanel.jsx";
 import StudyPanel from "./components/study/StudyPanel.jsx";
+import {
+  ChordFretboard as ChordFretboardImpl,
+  GuideToneFretboard as GuideToneFretboardImpl,
+} from "./components/fretboard/ChordVoicingFretboards.jsx";
+import {
+  HoverCellNote as HoverCellNoteImpl,
+  FretInlayRow as FretInlayRowImpl,
+  WebFretNumberHeader,
+} from "./components/fretboard/FretboardShared.jsx";
+import { MobileMainFretboard as MobileMainFretboardImpl } from "./components/fretboard/MobileMainFretboard.jsx";
+import AppConfigPanel from "./components/config/AppConfigPanel.jsx";
+import { ToggleButton, InfoTitle as InfoTitleImpl } from "./components/ui/AppUiPrimitives.jsx";
+import ManualOverlay from "./components/help/ManualOverlay.jsx";
+import MobileInfoPopover from "./components/help/MobileInfoPopover.jsx";
+import StandardsCatalogPanel from "./components/standards/StandardsCatalogPanel.jsx";
+import MobileStandardsCatalogOverlay from "./components/standards/MobileStandardsCatalogOverlay.jsx";
 import { Blocks, BookOpen, ChevronLeft, ChevronRight, Eraser, Info, Music, Play, Route, Search, Volume2, VolumeX, Waypoints, X } from "lucide-react";
 import {
   buildDetectedCandidateBadgeItems as buildDetectedCandidateBadgeItemsPure,
@@ -286,7 +302,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "5.24";
+const APP_VERSION = "5.41";
 
 function buildChordCopyFingerprint({
   rootPc,
@@ -3331,6 +3347,7 @@ export default function FretboardScalesPage() {
     plan: chordEnginePlan,
     voicing: activeChordVoicing,
     positionForm: chordPositionForm,
+    preferSharps: chordPreferSharps,
   });
 
   const guideToneSectionDisplayName = useMemo(() => {
@@ -5061,28 +5078,8 @@ export default function FretboardScalesPage() {
   // COMPONENTES UI INTERNOS: ELEMENTOS BASE
   // --------------------------------------------------------------------------
 
-  function HoverCellNote({ sIdx, fret, visible }) {
-    if (!visible) return null;
-    return (
-      <div className="pointer-events-none absolute inset-0 z-[6] hidden items-center justify-center text-[10px] font-semibold text-slate-500 group-hover:flex">
-        {hoverCellNoteText(sIdx, fret)}
-      </div>
-    );
-  }
-
-  function ToggleButton({ active, onClick, children, title, testId }) {
-    const fallbackTitle = typeof children === "string" ? children : "";
-    return (
-      <button
-        type="button"
-        onClick={onClick}
-        title={title || fallbackTitle}
-        data-testid={testId}
-        className={`rounded-xl px-2 py-1.5 text-sm ring-1 ring-slate-200 shadow-sm ${active  ? "bg-sky-600 text-white ring-sky-600"  : "bg-white text-slate-700 hover:bg-sky-50 hover:text-slate-900"}`}
-      >
-        {children}
-      </button>
-    );
+  function HoverCellNote(props) {
+    return <HoverCellNoteImpl {...props} hoverCellNoteText={hoverCellNoteText} />;
   }
 
   function openMobileInfoPopover(event, title, text) {
@@ -5105,153 +5102,16 @@ export default function FretboardScalesPage() {
     });
   }
 
-  function InlineInfoButton({ label, info, className = "" }) {
-    if (!info) return null;
-
-    return (
-      <button
-        type="button"
-        className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-slate-600 hover:text-slate-900 ${className}`.trim()}
-        onClick={(e) => openMobileInfoPopover(e, label, info)}
-        aria-label={`Información sobre ${label}`}
-        title={`Abrir información sobre ${label}`}
-      >
-        <Info className="h-3.5 w-3.5" aria-hidden="true" />
-      </button>
-    );
+  function InfoTitle(props) {
+    return <InfoTitleImpl {...props} isMobileLayout={isMobileLayout} onInfo={openMobileInfoPopover} />;
   }
 
-  function InfoTitle({ label, info, alwaysShow = false }) {
-    if (!info) return label;
-    if (!alwaysShow && !isMobileLayout) return label;
-
-    return (
-      <span className="inline-flex min-w-0 items-center gap-1.5">
-        <span>{label}</span>
-        <InlineInfoButton label={label} info={info} />
-      </span>
-    );
+  function FretInlayRow(props) {
+    return <FretInlayRowImpl {...props} maxFret={maxFret} />;
   }
 
-  function FretInlayRow({ kind }) {
-    const isDouble = kind === "double";
-    return (
-      <div className="grid items-center gap-1" style={{ gridTemplateColumns: fretGridCols(maxFret) }}>
-        <div className="text-xs font-medium text-slate-700" />
-        {Array.from({ length: maxFret + 1 }, (_, fret) => {
-          const has = isDouble ? INLAY_DOUBLE.has(fret) : INLAY_SINGLE.has(fret);
-          return (
-            <div key={fret} className="relative flex h-4 items-center justify-center">
-              {has ? <div className="h-4 w-4 rounded-full opacity-95" style={{ backgroundColor: FRET_INLAY_BG }} /> : null}
-            </div>
-          );
-        })}
-      </div>
-    );
-  }
-
-  function WebFretNumberHeader({ fret }) {
-    return (
-      <div className="relative flex flex-col items-center">
-        <div className="text-[10px] text-slate-600">{fret}</div>
-        <div className="mt-0.5 flex h-2.5 items-center justify-center gap-0.5">
-          {mobileFretHasInlay(fret)
-            ? Array.from({ length: INLAY_DOUBLE.has(fret) ? 2 : 1 }, (_, idx) => (
-                <div key={idx} className="h-2.5 w-2.5 rounded-full opacity-90" style={{ backgroundColor: FRET_INLAY_BG }} />
-              ))
-            : null}
-        </div>
-      </div>
-    );
-  }
-
-  function MobileMainFretboard({ renderCell, frets = null, renderStringFooter = null }) {
-    const visibleFrets = normalizeVisibleFrets(
-      Array.isArray(frets) && frets.length
-        ? frets
-        : Array.from({ length: maxFret + 1 }, (_, fret) => fret),
-      maxFret
-    );
-    const showOpenNutLine = visibleFrets.includes(0) && visibleFrets.includes(1);
-
-    return (
-      <div className="mx-auto w-fit max-w-full">
-        <div className="relative grid items-center gap-1" style={{ gridTemplateColumns: MOBILE_VERTICAL_FRETBOARD_COLS }}>
-          <div className="absolute right-full mr-1 text-xs font-semibold text-slate-600" style={{ width: MOBILE_VERTICAL_FRET_LABEL_COL }}>
-            Traste
-          </div>
-          {MOBILE_VERTICAL_STRING_ORDER.map((sIdx) => {
-            const parts = mobileStringHeaderParts(STRINGS[sIdx].label);
-            return (
-              <div key={sIdx} className="flex flex-col items-center justify-center text-center" title={STRINGS[sIdx].label}>
-                <div className="text-xs font-medium leading-none text-slate-700">{parts.number}</div>
-                <div className="mt-1 text-[10px] font-medium leading-none text-slate-500">{parts.openNote}</div>
-              </div>
-            );
-          })}
-        </div>
-
-        <div className="mt-2">
-          {visibleFrets.map((fret, fretIdx) => (
-            <div
-              key={fret}
-              className="relative grid items-center gap-1"
-              style={{
-                gridTemplateColumns: mobileVerticalFretGridCols(),
-                marginTop: mobileVerticalFretRowMarginTop(fret, visibleFrets[fretIdx - 1]),
-              }}
-            >
-              <div
-                className="absolute right-full mr-1 flex items-center justify-center"
-                style={{ width: MOBILE_VERTICAL_FRET_LABEL_COL, height: "100%" }}
-              >
-                {fret === 0 ? null : <div className="text-[10px] text-slate-600">{fret}</div>}
-                {mobileFretHasInlay(fret) ? (
-                  <div className="absolute right-0 top-1/2 flex -translate-y-1/2 flex-col items-center justify-center">
-                    {Array.from({ length: INLAY_DOUBLE.has(fret) ? 2 : 1 }, (_, idx) => (
-                      <div key={idx} className={`${idx ? "mt-0.5" : ""} h-2.5 w-2.5 rounded-full opacity-90`} style={{ backgroundColor: FRET_INLAY_BG }} />
-                    ))}
-                  </div>
-                ) : null}
-              </div>
-              {visibleFrets[fretIdx - 1] === 0 ? (
-                <div
-                  className="pointer-events-none absolute inset-x-0 -top-0.5 -translate-y-1/2 rounded-full"
-                  style={{
-                    zIndex: showOpenNutLine && fret === 1 ? 2 : -1,
-                    height: MOBILE_CHORD_NUT_WIDTH,
-                    backgroundColor: showOpenNutLine && fret === 1 ? MOBILE_CHORD_NUT_BG : "var(--panel-bg, #ffffff)",
-                  }}
-                  aria-hidden="true"
-                />
-              ) : null}
-              {MOBILE_VERTICAL_STRING_ORDER.map((sIdx) => renderCell({ sIdx, fret, cellClassName: mobileVerticalFretCellClass(fret) }))}
-              {mobileFretHasInlay(fret) ? (
-                <div className="pointer-events-none absolute inset-x-0 top-1/2 z-[3] -translate-y-1/2">
-                  <div className="grid items-center gap-1" style={{ gridTemplateColumns: mobileVerticalFretGridCols() }}>
-                    {mobileInlayGridColumns(fret).map((gridColumn) => (
-                      <div key={`inlay-${fret}-${gridColumn}`} className="flex items-center justify-center" style={{ gridColumn }}>
-                        <div className="h-3.5 w-3.5 rounded-full opacity-90" style={{ backgroundColor: FRET_INLAY_BG }} />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-            </div>
-          ))}
-          {/* Fila de pie: nota seleccionada por cuerda (opcional) */}
-          {renderStringFooter && (
-            <div className="relative mt-1 grid items-center gap-1" style={{ gridTemplateColumns: mobileVerticalFretGridCols() }}>
-              {MOBILE_VERTICAL_STRING_ORDER.map((sIdx) => (
-                <div key={sIdx} className="flex h-4 items-center justify-center">
-                  {renderStringFooter(sIdx)}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-    );
+  function MobileMainFretboard(props) {
+    return <MobileMainFretboardImpl {...props} maxFret={maxFret} />;
   }
 
   // --------------------------------------------------------------------------
@@ -5312,29 +5172,6 @@ export default function FretboardScalesPage() {
     return spellNoteFromChordInterval(chordQuartalCurrentRootPc, interval, chordPreferSharps);
   }
 
-function ChordCircle({ role, isBass, displayLabel, titleText, fret = 1, compactOpen = false }) {
-  const bg = colors[role] || colors.other;
-  const dark = isDark(bg);
-
-  return (
-    <div
-      className={`relative z-20 inline-flex ${fretNoteSizeClass(fret, isNarrowBoardLayout, compactOpen)} items-center justify-center rounded-full text-[10px] font-semibold`}
-      style={{
-        backgroundColor: bg,
-        color: role === "other" ? "#0f172a" : dark ? "#ffffff" : "#0f172a",
-        boxShadow: isBass
-          ? `inset 0 0 0 2px ${rgba("#000000", 0.95)}`
-          : `0 0 0 2px ${rgba(bg, 0.25)}`,
-      }}
-      title={titleText}
-    >
-      {displayLabel}
-    </div>
-  );
-}
-
-
-
   function guideToneRoleOfPc(pc) {
     const interval = mod12(pc - chordRootPc);
     if (interval === mod12(guideToneDef.intervals[0])) return "root";
@@ -5355,25 +5192,6 @@ function ChordCircle({ role, isBass, displayLabel, titleText, fret = 1, compactO
     if (showI && showN) return `${degree}-${note}`;
     if (showI) return degree;
     return note;
-  }
-
-  function GuideToneCircle({ pc, isBass, fret = 1, compactOpen = false }) {
-    const role = guideToneRoleOfPc(pc);
-    const bg = colors[role] || colors.other;
-    const dark = isDark(bg);
-    return (
-      <div
-        className={`relative z-20 inline-flex ${fretNoteSizeClass(fret, isNarrowBoardLayout, compactOpen)} items-center justify-center rounded-full text-[10px] font-semibold`}
-        style={{
-          backgroundColor: bg,
-          color: role === "other" ? "#0f172a" : dark ? "#ffffff" : "#0f172a",
-          boxShadow: isBass ? `inset 0 0 0 2px ${rgba("#000000", 0.95)}` : `0 0 0 2px ${rgba(bg, 0.25)}`,
-        }}
-        title={`${spellNoteFromChordInterval(chordRootPc, mod12(pc - chordRootPc), chordPreferSharps)} · ${labelForGuideTonePc(pc)}${isBass ? " · bajo" : ""}`}
-      >
-        {labelForGuideTonePc(pc)}
-      </div>
-    );
   }
 
   // --------------------------------------------------------------------------
@@ -5418,164 +5236,16 @@ function ChordCircle({ role, isBass, displayLabel, titleText, fret = 1, compactO
     );
   }
 
-function ChordFretboard({
-  voicing,
-  emptyMessage = "",
-  roleForPc = chordRoleOfPc,
-  labelForPc = labelForChordPc,
-  noteNameForPc = chordPcToSpelledName,
-}) {
-  const notesMap = useMemo(() => {
-    const m = new Map();
-    if (!voicing?.notes?.length) return m;
-    for (const n of voicing.notes) {
-      m.set(`${n.sIdx}:${n.fret}`, {
-        pc: n.pc,
-        isBass: `${n.sIdx}:${n.fret}` === voicing.bassKey,
-      });
-    }
-    return m;
-  }, [voicing]);
-
-  const stringNoteMap = useMemo(() => {
-    const m = new Map();
-    if (!voicing?.notes?.length) return m;
-    for (const n of voicing.notes) m.set(n.sIdx, { pc: n.pc });
-    return m;
-  }, [voicing]);
-
-  const mutedStrings = useMemo(
-    () => new Set(Array.isArray(voicing?.mutedSIdx) ? voicing.mutedSIdx : []),
-    [voicing]
-  );
-
-  const displayFrets = isNarrowBoardLayout
-    ? fretsForCompactVoicing(voicing, maxFret)
-    : Array.from({ length: maxFret + 1 }, (_, fret) => fret);
-  const mobileVisibleFrets = isNarrowBoardLayout ? normalizeVisibleFrets([0, ...displayFrets], maxFret) : null;
-  const gridCols = fretGridCols(maxFret);
-
-  return (
-    <div className="rounded-xl border border-slate-200 bg-white p-3">
-
-      {!voicing && emptyMessage ? (
-        <div className="mb-3 rounded-xl border border-dashed border-slate-300 bg-slate-50 px-3 py-3 text-xs text-slate-500">
-          {emptyMessage}
-        </div>
-      ) : null}
-
-      {isNarrowBoardLayout ? (
-        <MobileMainFretboard
-          frets={mobileVisibleFrets}
-          renderStringFooter={(sIdx) => {
-            const note = stringNoteMap.get(sIdx);
-            return note && !mutedStrings.has(sIdx)
-              ? <span className="text-[10px] font-bold text-sky-600">{noteNameForPc(note.pc)}</span>
-              : null;
-          }}
-          renderCell={({ sIdx, fret, cellClassName }) => {
-            const item = notesMap.get(`${sIdx}:${fret}`);
-            const isMutedOpen = fret === 0 && mutedStrings.has(sIdx);
-
-            return (
-              <div
-                key={`${sIdx}-${fret}`}
-                className={`group relative flex w-full overflow-visible items-center justify-center rounded-lg border ${
-                  mobileVerticalFretBorderClass(fret)
-                } ${cellClassName}`}
-                style={{ backgroundColor: fret === 0 ? "transparent" : FRET_CELL_BG }}
-              >
-                <HoverCellNote sIdx={sIdx} fret={fret} visible={!item && !isMutedOpen} />
-                {item ? (
-                  <ChordCircle
-                    role={roleForPc(item.pc)}
-                    isBass={item.isBass}
-                    displayLabel={labelForPc(item.pc)}
-                    titleText={`${noteNameForPc(item.pc)}${item.isBass ? " · bajo" : ""}`}
-                    fret={fret}
-                    compactOpen={fret === 0}
-                  />
-                ) : isMutedOpen ? (
-                  <span className="text-base font-semibold leading-none text-slate-400">X</span>
-                ) : showNonScale ? (
-                  <div className="text-[10px] text-slate-400">{labelForPc(mod12(STRINGS[sIdx].pc + fret))}</div>
-                ) : null}
-              </div>
-            );
-          }}
-        />
-      ) : (
-        <>
-          <div className="grid items-center gap-1" style={{ gridTemplateColumns: gridCols }}>
-            <div className="text-xs font-semibold text-slate-600">Cuerda</div>
-            {displayFrets.map((fret) => (
-              <div key={fret} className="relative flex flex-col items-center">
-                <div className="text-[10px] text-slate-600">{fret}</div>
-              </div>
-            ))}
-          </div>
-
-          <div className="relative mt-2 space-y-1">
-            {STRINGS.map((st, sIdx) => (
-              <div
-                key={st.label}
-                className="grid items-center gap-1"
-                style={{ gridTemplateColumns: gridCols }}
-              >
-                <div className="flex items-center justify-between gap-1">
-                  <span className="text-xs font-medium text-slate-700">{st.label}</span>
-                  {stringNoteMap.has(sIdx) && !mutedStrings.has(sIdx) ? (
-                    <span className="text-[10px] font-bold text-sky-600">{noteNameForPc(stringNoteMap.get(sIdx).pc)}</span>
-                  ) : null}
-                </div>
-
-                {displayFrets.map((fret) => {
-                  const cellKey = `${sIdx}:${fret}`;
-                  const item = notesMap.get(cellKey);
-
-                  return (
-                    <div
-                      key={`${sIdx}-${fret}`}
-                      className={`group relative isolate flex overflow-visible items-center justify-center rounded-lg border ${
-                        fret === 0 ? "border-slate-300" : "border-slate-200"
-                      } ${item ? "z-[4]" : "z-0"}`}
-                      style={fretCellStyleForLayout(fret, false, { backgroundColor: FRET_CELL_BG })}
-                    >
-                      <HoverCellNote sIdx={sIdx} fret={fret} visible={!item} />
-
-                      {hasInlayCell(fret, sIdx) ? (
-                        <div
-                          className="pointer-events-none absolute left-1/2 z-0 -translate-x-1/2 -translate-y-1/2"
-                          style={{ top: "78%" }}
-                        >
-                          <div className="h-4 w-4 rounded-full opacity-80" style={{ backgroundColor: FRET_INLAY_BG }} />
-                        </div>
-                      ) : null}
-
-                      {item ? (
-                        <ChordCircle
-                          role={roleForPc(item.pc)}
-                          isBass={item.isBass}
-                          displayLabel={labelForPc(item.pc)}
-                          titleText={`${noteNameForPc(item.pc)}${item.isBass ? " · bajo" : ""}`}
-                          fret={fret}
-                        />
-                      ) : fret === 0 && mutedStrings.has(sIdx) ? (
-                        <span className="text-base font-semibold leading-none text-slate-400">X</span>
-                      ) : showNonScale ? (
-                        <div className="text-[10px] text-slate-400">{labelForPc(mod12(STRINGS[sIdx].pc + fret))}</div>
-                      ) : null}
-                    </div>
-                  );
-                })}
-              </div>
-            ))}
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
+  function ChordFretboard({ voicing, emptyMessage = "", roleForPc = chordRoleOfPc, labelForPc = labelForChordPc, noteNameForPc = chordPcToSpelledName }) {
+    return (
+      <ChordFretboardImpl
+        voicing={voicing} emptyMessage={emptyMessage}
+        roleForPc={roleForPc} labelForPc={labelForPc} noteNameForPc={noteNameForPc}
+        maxFret={maxFret} isNarrowBoardLayout={isNarrowBoardLayout} showNonScale={showNonScale}
+        colors={colors} HoverCellNote={HoverCellNote} MobileMainFretboard={MobileMainFretboard}
+      />
+    );
+  }
 
 
   function ChordInvestigationCircle({ pc, fret, candidate, isBass, isPlaying = false, compactOpen = false }) {
@@ -5601,123 +5271,15 @@ function ChordFretboard({
   }
 
   function GuideToneFretboard({ voicing, emptyMessage = "" }) {
-    const notesMap = useMemo(() => {
-      const m = new Map();
-      if (!voicing?.notes?.length) return m;
-      for (const n of voicing.notes) {
-        m.set(`${n.sIdx}:${n.fret}`, {
-          pc: n.pc,
-          isBass: `${n.sIdx}:${n.fret}` === voicing.bassKey,
-        });
-      }
-      return m;
-    }, [voicing]);
-
-    const mutedStrings = useMemo(
-      () => new Set(Array.isArray(voicing?.mutedSIdx) ? voicing.mutedSIdx : []),
-      [voicing]
-    );
-
-    const stringNoteMapGT = useMemo(() => {
-      const m = new Map();
-      if (!voicing?.notes?.length) return m;
-      for (const n of voicing.notes) m.set(n.sIdx, { pc: n.pc });
-      return m;
-    }, [voicing]);
-
-    const displayFrets = isNarrowBoardLayout
-      ? fretsForCompactVoicing(voicing, maxFret)
-      : Array.from({ length: maxFret + 1 }, (_, fret) => fret);
-    const mobileVisibleFrets = isNarrowBoardLayout ? normalizeVisibleFrets([0, ...displayFrets], maxFret) : null;
-    const gridCols = fretGridCols(maxFret);
-
     return (
-      <div className="rounded-xl border border-slate-200 bg-white p-3">
-
-        {!voicing && emptyMessage ? (
-          <div className="mb-3 rounded-xl border border-dashed border-slate-300 bg-slate-50 px-3 py-3 text-xs text-slate-500">
-            {emptyMessage}
-          </div>
-        ) : null}
-
-        {isNarrowBoardLayout ? (
-          <MobileMainFretboard
-            frets={mobileVisibleFrets}
-            renderStringFooter={(sIdx) => {
-              const note = stringNoteMapGT.get(sIdx);
-              return note && !mutedStrings.has(sIdx)
-                ? <span className="text-[10px] font-bold text-sky-600">{pcToName(note.pc, chordPreferSharps)}</span>
-                : null;
-            }}
-            renderCell={({ sIdx, fret, cellClassName }) => {
-              const item = notesMap.get(`${sIdx}:${fret}`);
-              const isMutedOpen = fret === 0 && mutedStrings.has(sIdx);
-
-              return (
-                <div
-                  key={`${sIdx}-${fret}`}
-                  className={`group relative flex w-full overflow-visible items-center justify-center rounded-lg border ${
-                    mobileVerticalFretBorderClass(fret)
-                  } ${cellClassName}`}
-                  style={{ backgroundColor: fret === 0 ? "transparent" : FRET_CELL_BG }}
-                >
-                  <HoverCellNote sIdx={sIdx} fret={fret} visible={!item && !isMutedOpen} />
-                  {item ? (
-                    <GuideToneCircle pc={item.pc} isBass={item.isBass} fret={fret} compactOpen={fret === 0} />
-                  ) : isMutedOpen ? (
-                    <span className="text-base font-semibold leading-none text-slate-400">X</span>
-                  ) : showNonScale ? (
-                    <div className="text-[10px] text-slate-400">{labelForCellAt(sIdx, fret)}</div>
-                  ) : null}
-                </div>
-              );
-            }}
-          />
-        ) : (
-          <>
-            <div className="grid items-center gap-1" style={{ gridTemplateColumns: gridCols }}>
-              <div className="text-xs font-semibold text-slate-600">Cuerda</div>
-              {displayFrets.map((fret) => (
-                <div key={fret} className="relative flex flex-col items-center">
-                  <div className="text-[10px] text-slate-600">{fret}</div>
-                </div>
-              ))}
-            </div>
-
-            <div className="relative mt-2 space-y-1">
-              {STRINGS.map((st, sIdx) => (
-                <div key={st.label} className="grid items-center gap-1" style={{ gridTemplateColumns: gridCols }}>
-                  <div className="flex items-center justify-between gap-1">
-                    <span className="text-xs font-medium text-slate-700">{st.label}</span>
-                    {stringNoteMapGT.has(sIdx) && !mutedStrings.has(sIdx) ? (
-                      <span className="text-[10px] font-bold text-sky-600">{pcToName(stringNoteMapGT.get(sIdx).pc, chordPreferSharps)}</span>
-                    ) : null}
-                  </div>
-                  {displayFrets.map((fret) => {
-                    const cellKey = `${sIdx}:${fret}`;
-                    const item = notesMap.get(cellKey);
-                    return (
-                      <div
-                        key={`${sIdx}-${fret}`}
-                        className={`group relative isolate flex overflow-visible items-center justify-center rounded-lg border ${fret === 0 ? "border-slate-300" : "border-slate-200"} ${item ? "z-[4]" : "z-0"}`}
-                        style={fretCellStyleForLayout(fret, false, { backgroundColor: FRET_CELL_BG })}
-                      >
-                        <HoverCellNote sIdx={sIdx} fret={fret} visible={!item} />
-                        {hasInlayCell(fret, sIdx) ? (
-                          <div className="pointer-events-none absolute left-1/2 z-0 -translate-x-1/2 -translate-y-1/2" style={{ top: "78%" }}>
-                            <div className="h-4 w-4 rounded-full opacity-80" style={{ backgroundColor: FRET_INLAY_BG }} />
-                          </div>
-                        ) : null}
-                        {item ? <GuideToneCircle pc={item.pc} isBass={item.isBass} fret={fret} /> : (fret === 0 && mutedStrings.has(sIdx) ? <span className="text-base font-semibold leading-none text-slate-400">X</span> : (showNonScale ? <div className="text-[10px] text-slate-400">{labelForCellAt(sIdx, fret)}</div> : null))}
-                      </div>
-                    );
-                  })}
-                </div>
-              ))}
-            </div>
-          </>
-        )}
-      </div>
+      <GuideToneFretboardImpl
+        voicing={voicing} emptyMessage={emptyMessage}
+        maxFret={maxFret} isNarrowBoardLayout={isNarrowBoardLayout} showNonScale={showNonScale}
+        chordPreferSharps={chordPreferSharps} colors={colors}
+        HoverCellNote={HoverCellNote} MobileMainFretboard={MobileMainFretboard}
+        guideToneRoleOfPc={guideToneRoleOfPc} labelForGuideTonePc={labelForGuideTonePc}
+        chordRootPc={chordRootPc} labelForCellAt={labelForCellAt}
+      />
     );
   }
 
@@ -6585,126 +6147,6 @@ function ChordFretboard({
   // COMPONENTES UI INTERNOS: AYUDA / MANUAL
   // --------------------------------------------------------------------------
 
-  function ManualOverlay() {
-    if (!manualOpen) return null;
-
-    return (
-      <div className="fixed inset-0 z-[120] flex items-start justify-center bg-slate-900/45 p-4">
-        <div className="mt-8 max-h-[85vh] w-full max-w-5xl overflow-y-auto rounded-2xl bg-white p-4 shadow-2xl ring-1 ring-slate-200">
-          <div className="mb-3 flex items-start justify-between gap-3">
-            <div>
-              <div className="text-lg font-semibold text-slate-900">Manual de uso</div>
-              <div className="text-sm text-slate-600">Qué hace la página y cómo empezar sin conocerla.</div>
-            </div>
-            <button type="button" className={UI_BTN_SM + " w-auto px-3"} onClick={() => setManualOpen(false)}>
-              Cerrar
-            </button>
-          </div>
-
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            <section className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-              <div className="text-sm font-semibold text-slate-800">Qué hace</div>
-              <div className="mt-2 text-xs leading-5 text-slate-600">
-                Esta página muestra escalas, patrones, rutas sobre el mástil y acordes con digitaciones reales.
-                Sirve para estudiar dónde están las notas, qué intervalos forman una escala, qué patrones encajan y qué acordes puedes tocar o investigar.
-              </div>
-            </section>
-
-            <section className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-              <div className="text-sm font-semibold text-slate-800">Flujo rápido</div>
-              <div className="mt-2 space-y-1 text-xs text-slate-600">
-                <div>1. Elige <b>Nota raíz</b> y <b>Escala</b>.</div>
-                <div>2. Decide si quieres ver <b>Notas</b>, <b>Intervalos</b> o ambos.</div>
-                <div>3. Activa los mástiles que necesites: <b>Escala</b>, <b>Patrones</b>, <b>Ruta</b> y <b>Acordes</b>.</div>
-                <div>4. Ajusta <b>Trastes</b> para ampliar o reducir el rango visible.</div>
-              </div>
-            </section>
-
-            <section className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-              <div className="text-sm font-semibold text-slate-800">Mástil de escala</div>
-              <div className="mt-2 space-y-1 text-xs text-slate-600">
-                <div>Resalta raíz, 3ª, 5ª y resto de notas de la escala.</div>
-                <div>Puedes activar <b>Notas extra</b> para añadir tensiones o notas ajenas.</div>
-                <div><b>Ver todo</b> muestra también notas fuera de la escala.</div>
-                <div>Al pasar el ratón por una celda vacía aparece la nota del traste.</div>
-              </div>
-            </section>
-
-            <section className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-              <div className="text-sm font-semibold text-slate-800">Patrones</div>
-              <div className="mt-2 space-y-1 text-xs text-slate-600">
-                <div>Permite ver patrones posicionales sobre la escala activa.</div>
-                <div><b>Auto</b> decide el sistema adecuado según la escala.</div>
-                <div>En pentatónicas usa <b>5 boxes</b>.</div>
-                <div>En escalas de 7 notas usa <b>7 patrones 3NPS</b>.</div>
-                <div>También puedes forzar <b>CAGED</b>.</div>
-              </div>
-            </section>
-
-            <section className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-              <div className="text-sm font-semibold text-slate-800">Ruta musical</div>
-              <div className="mt-2 space-y-1 text-xs text-slate-600">
-                <div>Calcula un recorrido entre una nota inicial y una final siguiendo la escala.</div>
-                <div>Puedes escribir posiciones como <b>61</b> o elegirlas con clic en el mástil.</div>
-                <div>La ruta musical actual usa el motor nuevo y busca llegar del inicio al fin de la forma más tocable posible.</div>
-                <div>El límite de notas por cuerda es orientativo: intenta respetarlo, pero puede hacer slides o pequeños desplazamientos si eso mejora la digitación.</div>
-                <div>Prioriza avanzar con lógica de guitarrista, evitando retrocesos absurdos de cuerda y favoreciendo trayectorias diagonales naturales.</div>
-              </div>
-            </section>
-
-            <section className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-              <div className="text-sm font-semibold text-slate-800">Acorde principal</div>
-              <div className="mt-2 space-y-1 text-xs text-slate-600">
-                <div>Construye acordes a partir de tono, calidad, estructura, forma, inversión y extensiones.</div>
-                <div>La app busca voicings reales y los puedes recorrer con las flechas o el desplegable.</div>
-                <div><b>Estudiar</b> abre un análisis del acorde, el voicing y sus tensiones.</div>
-              </div>
-            </section>
-
-            <section className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-              <div className="text-sm font-semibold text-slate-800">Investigar en mástil</div>
-              <div className="mt-2 space-y-1 text-xs text-slate-600">
-                <div>Al activar <b>Investigar en mástil</b>, el cuadro de acorde queda bloqueado y seleccionas notas directamente en el mástil.</div>
-                <div>Solo puede haber una nota por cuerda. Si pulsas otra en la misma cuerda, sustituye a la anterior.</div>
-                <div>La app propone lecturas posibles del acorde y puedes copiar una a la sección de arriba.</div>
-                <div>Arriba a la derecha tienes los iconos de altavoz, <b>Play</b> y limpiar; el altavoz tachado indica que el sonido al pulsar está apagado y <b>Play</b> recorre la selección cuerda a cuerda, de 6ª a 1ª, mientras va resaltando cada nota.</div>
-                <div><b>Mantener lectura anterior</b> intenta conservar la lectura funcional previa cuando el cambio de notas es pequeño; si está apagado, siempre se elige el primer candidato del motor.</div>
-                <div><b>Priorizar acorde de referencia</b> reordena los candidatos favoreciendo la raíz y calidad indicadas, sin eliminar ninguna lectura.</div>
-              </div>
-            </section>
-
-            <section className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-              <div className="text-sm font-semibold text-slate-800">Acordes cercanos</div>
-              <div className="mt-2 space-y-1 text-xs text-slate-600">
-                <div>Permite comparar hasta 4 acordes en una misma zona del mástil.</div>
-                <div>Busca digitaciones dentro de un rango de trastes y ordena por cercanía al acorde de referencia.</div>
-                <div>Sirve para estudiar progresiones, voice leading y tonalidades posibles.</div>
-              </div>
-            </section>
-
-            <section className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-              <div className="text-sm font-semibold text-slate-800">Presets y configuración</div>
-              <div className="mt-2 space-y-1 text-xs text-slate-600">
-                <div><b>Presets rápidos</b> guardan y recuperan configuraciones habituales.</div>
-                <div><b>Exportar config</b> guarda toda la configuración en un JSON.</div>
-                <div><b>Importar config</b> recupera una configuración anterior.</div>
-                <div><b>Restablecer</b> vuelve a los valores por defecto.</div>
-              </div>
-            </section>
-
-            <section className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-              <div className="text-sm font-semibold text-slate-800">Consejos</div>
-              <div className="mt-2 space-y-1 text-xs text-slate-600">
-                <div>Empieza con una escala simple, por ejemplo mayor o pentatónica menor.</div>
-                <div>Usa primero <b>Notas</b>; cuando ubiques bien el mástil, añade <b>Intervalos</b>.</div>
-                <div>Para estudiar armonía, combina <b>Acorde principal</b>, <b>Estudiar</b> y <b>Acordes cercanos</b>.</div>
-              </div>
-            </section>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   // --------------------------------------------------------------------------
   // CONSTANTES DE UI Y LAYOUT
@@ -8106,85 +7548,6 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
     setMobileSectionTransition(null);
   }
 
-  function renderColorPanels(boardVisibility, extraClassName = "") {
-    return (
-      <div className={extraClassName.trim()}>
-        <PanelBlock level="subsection" title="Colores (círculos)">
-          <div className="flex flex-wrap gap-1.5 xl:flex-nowrap">
-            {[
-              { k: "root", label: legend.root },
-              { k: "third", label: legend.third },
-              { k: "fifth", label: legend.fifth },
-              { k: "other", label: legend.other },
-              { k: "extra", label: legend.extra },
-              { k: "route", label: "Ruta" },
-            ].map((it) => (
-              <div key={it.k} className="inline-flex min-w-0 shrink-0 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-2 py-1" style={{ backgroundColor: "#ffffff" }}>
-                <div className="text-[11px] font-semibold text-slate-700" title={it.k === "route" ? "Ruta (fondo)" : it.label}>{it.label}</div>
-                <input
-                  type="color"
-                  value={colors[it.k]}
-                  onChange={(e) => setColor(it.k, e.target.value)}
-                  className="h-6 w-7 cursor-pointer rounded-md border border-slate-200 bg-white"
-                />
-              </div>
-            ))}
-          </div>
-        </PanelBlock>
-
-        {boardVisibility.chords ? (
-          <PanelBlock level="subsection" title="Colores (acordes: 7/6/9/11/13)">
-            <div className="flex flex-wrap gap-1.5 xl:flex-nowrap">
-              {[
-                { k: "seventh", label: "7" },
-                { k: "sixth", label: "6" },
-                { k: "ninth", label: "9" },
-                { k: "eleventh", label: "11" },
-                { k: "thirteenth", label: "13" },
-              ].map((it) => (
-                <div key={it.k} className="inline-flex min-w-0 shrink-0 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-2 py-1" style={{ backgroundColor: "#ffffff" }}>
-                  <div className="text-[11px] font-semibold text-slate-700">{it.label}</div>
-                  <input
-                    type="color"
-                    value={colors[it.k]}
-                    onChange={(e) => setColor(it.k, e.target.value)}
-                    className="h-6 w-7 cursor-pointer rounded-md border border-slate-200 bg-white"
-                  />
-                </div>
-                ))}
-              </div>
-          </PanelBlock>
-        ) : null}
-
-        {boardVisibility.patterns ? (
-          <PanelBlock
-            level="subsection"
-            title="Colores (patrones)"
-            description={`Patrones disponibles: ${patternsMode === "caged" ? "5 CAGED" : scaleIntervals.length === 5 ? "5 boxes" : scaleIntervals.length === 7 ? "7 3NPS" : "(sin patrones)"}.`}
-          >
-            <div className="flex flex-wrap gap-2">
-              {Array.from({ length: 7 }, (_, i) => i).map((i) => (
-                <div key={i} className="flex min-w-[120px] flex-1 items-center justify-between gap-2 rounded-xl border border-slate-200 bg-sky-50 px-2 py-1.5">
-                  <div>
-                    <div className="text-xs font-semibold text-slate-700">Patrón {i + 1}</div>
-                    <div className="mt-0.5 text-[10px] text-slate-500">{patternColors[i]}</div>
-                  </div>
-                  <input
-                    type="color"
-                    value={patternColors[i]}
-                    onChange={(e) => setPatternColor(i, e.target.value)}
-                    className="h-8 w-10 cursor-pointer rounded-md border border-slate-200 bg-white"
-                  />
-                </div>
-                ))}
-              </div>
-          </PanelBlock>
-        ) : null}
-      </div>
-    );
-  }
-
-
   function buildTonalContextProps() {
     return {
       panel: { tonalContextRef, tonalContextSummary },
@@ -8199,201 +7562,16 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
     };
   }
 
-  function renderConfigPanel() {
-    return (
-      <PanelBlock
-        title="Configuración"
-        description="Ajustes globales, colores y acciones de configuración general de la app."
-        bodyClassName="space-y-3"
-      >
-        <PanelBlock
-          as="div"
-          level="subsection"
-          title="Parámetros globales"
-          description="Controles globales: afectan a varios paneles o a toda la vista."
-        >
-          <div className="mt-3 flex flex-wrap items-start gap-3">
-            <div className="min-w-0 sm:min-w-[420px]">
-              <label className={UI_LABEL_SM}>Preset rápido</label>
-              <div className="mt-1 flex items-center gap-2">
-                <select
-                  className={UI_SELECT_SM + " w-44"}
-                  value={selectedQuickPresetSlot}
-                  onChange={(e) => setSelectedQuickPresetSlot(e.target.value)}
-                  title="Elige el preset rápido que quieres restaurar o guardar"
-                >
-                  {Array.from({ length: QUICK_PRESET_COUNT }, (_, i) => (
-                    <option key={i} value={String(i)}>
-                      {quickPresets[i]?.name || `Preset ${i + 1}`}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  type="button"
-                  className={UI_BTN_SM + " w-auto shrink-0 px-3"}
-                  onClick={() => loadQuickPreset(selectedQuickPresetIndex)}
-                  disabled={!selectedQuickPreset}
-                  title={selectedQuickPreset?.savedAt ? `${selectedQuickPreset?.name} · ${selectedQuickPreset?.savedAt}` : "El preset seleccionado está vacío"}
-                >
-                  Restaurar
-                </button>
-                <button
-                  type="button"
-                  className={UI_BTN_SM + " w-auto shrink-0 px-3"}
-                  onClick={() => saveQuickPreset(selectedQuickPresetIndex)}
-                  title={`Guardar configuración actual en Preset ${selectedQuickPresetIndex + 1}`}
-                >
-                  Guardar
-                </button>
-              </div>
-            </div>
-
-            <div>
-              <div className={UI_LABEL_SM}>Vista</div>
-              <div className="mt-1 flex gap-1.5">
-                <ToggleButton active={showNotesLabel} onClick={() => setShowNotesLabel((v) => !v)} title="Muestra nombre de la nota">
-                  Notas
-                </ToggleButton>
-                <ToggleButton active={showIntervalsLabel} onClick={() => setShowIntervalsLabel((v) => !v)} title="Muestra grado/intervalo">
-                  Intervalos
-                </ToggleButton>
-              </div>
-            </div>
-
-            <div className="min-w-0 sm:min-w-[130px]">
-              <label className={UI_LABEL_SM}>Trastes</label>
-              <select
-                className={UI_SELECT_SM + " mt-1"}
-                value={maxFret}
-                onChange={(e) => setMaxFret(parseInt(e.target.value, 10))}
-                title="Rango de trastes"
-              >
-                {[12, 15, 18, 21, 24].map((n) => (
-                  <option key={n} value={n}>
-                    0–{n}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <div className={UI_LABEL_SM}>Fondo</div>
-              <div className="mt-1 flex gap-1.5">
-                <ToggleButton active={showNonScale} onClick={() => setShowNonScale((v) => !v)} title="Muestra todas las notas posibles en los mástiles compatibles">
-                  Ver todo
-                </ToggleButton>
-              </div>
-            </div>
-
-            <div>
-              <div className={UI_LABEL_SM}>Debug</div>
-              <div className="mt-1 flex gap-1.5">
-                <ToggleButton active={debugMode} onClick={() => setDebugMode((v) => !v)} title="Muestra detalles técnicos de cálculo de rutas">
-                  Debug
-                </ToggleButton>
-              </div>
-            </div>
-          </div>
-        </PanelBlock>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <button type="button" className={UI_BTN_SM + " w-auto px-3"} onClick={exportUiConfig}>
-            Exportar config
-          </button>
-          <button
-            type="button"
-            className={UI_BTN_SM + " w-auto px-3"}
-            onClick={() => importConfigInputRef.current && importConfigInputRef.current.click()}
-          >
-            Importar config
-          </button>
-          <button type="button" className={UI_BTN_SM + " w-auto px-3"} onClick={resetUiConfig}>
-            Restablecer
-          </button>
-        </div>
-
-        <PanelBlock
-          as="div"
-          level="subsection"
-          title="Tema"
-          description="Ajusta el color del fondo general y de los paneles de la página."
-        >
-          <div className="mt-3 flex flex-wrap items-center gap-4">
-            <div className="min-w-0">
-              <label className={UI_LABEL_SM}>Fondo página</label>
-              <div className="mt-1 flex items-center gap-2">
-                <input
-                  type="color"
-                  value={themePageBg}
-                  onChange={(e) => setThemePageBg(e.target.value)}
-                  title={themePageBg}
-                  className="h-8 w-10 cursor-pointer rounded-md border border-slate-200 bg-white"
-                />
-                <span className="text-xs font-semibold text-slate-600">{themePageBg}</span>
-              </div>
-            </div>
-
-            <div className="min-w-0">
-              <label className={UI_LABEL_SM}>Fondo objetos</label>
-              <div className="mt-1 flex items-center gap-2">
-                <input
-                  type="color"
-                  value={themeObjectBg}
-                  onChange={(e) => setThemeObjectBg(e.target.value)}
-                  title={themeObjectBg}
-                  className="h-8 w-10 cursor-pointer rounded-md border border-slate-200 bg-white"
-                />
-                <span className="text-xs font-semibold text-slate-600">{themeObjectBg}</span>
-              </div>
-            </div>
-
-            <div className="min-w-0">
-              <label className={UI_LABEL_SM}>Cabecera secciones</label>
-              <div className="mt-1 flex items-center gap-2">
-                <input
-                  type="color"
-                  value={themeSectionHeaderBg}
-                  onChange={(e) => setThemeSectionHeaderBg(e.target.value)}
-                  title={themeSectionHeaderBg}
-                  className="h-8 w-10 cursor-pointer rounded-md border border-slate-200 bg-white"
-                />
-                <span className="text-xs font-semibold text-slate-600">{themeSectionHeaderBg}</span>
-              </div>
-            </div>
-
-            <div className="min-w-0">
-              <label className={UI_LABEL_SM}>Elementos</label>
-              <div className="mt-1 flex items-center gap-2">
-                <input
-                  type="color"
-                  value={themeElementBg}
-                  onChange={(e) => setThemeElementBg(e.target.value)}
-                  title={themeElementBg}
-                  className="h-8 w-10 cursor-pointer rounded-md border border-slate-200 bg-white"
-                />
-                <span className="text-xs font-semibold text-slate-600">{themeElementBg}</span>
-              </div>
-            </div>
-
-            <div className="min-w-0">
-              <label className={UI_LABEL_SM}>Controles deshabilitados</label>
-              <div className="mt-1 flex items-center gap-2">
-                <input
-                  type="color"
-                  value={themeDisabledControlBg}
-                  onChange={(e) => setThemeDisabledControlBg(e.target.value)}
-                  title={themeDisabledControlBg}
-                  className="h-8 w-10 cursor-pointer rounded-md border border-slate-200 bg-white"
-                />
-                <span className="text-xs font-semibold text-slate-600">{themeDisabledControlBg}</span>
-              </div>
-            </div>
-          </div>
-        </PanelBlock>
-
-        {renderColorPanels(effectiveBoards, "grid gap-3")}
-      </PanelBlock>
-    );
+  function configPanelProps() {
+    return {
+      view: { showNotesLabel, setShowNotesLabel, showIntervalsLabel, setShowIntervalsLabel, maxFret, setMaxFret, showNonScale, setShowNonScale, debugMode, setDebugMode },
+      theme: { themePageBg, setThemePageBg, themeObjectBg, setThemeObjectBg, themeSectionHeaderBg, setThemeSectionHeaderBg, themeElementBg, setThemeElementBg, themeDisabledControlBg, setThemeDisabledControlBg },
+      colorState: { colors, setColor, patternColors, setPatternColor, legend },
+      presets: { selectedQuickPresetSlot, setSelectedQuickPresetSlot, quickPresets, loadQuickPreset, selectedQuickPresetIndex, selectedQuickPreset, saveQuickPreset, QUICK_PRESET_COUNT },
+      actions: { exportUiConfig, resetUiConfig, importConfigInputRef },
+      layout: { effectiveBoards, patternsMode, scaleIntervals },
+      ui: { ToggleButton, UI_LABEL_SM, UI_SELECT_SM, UI_BTN_SM },
+    };
   }
 
   function renderStandardRealSelectionBar(isOverlay = false) {
@@ -8569,140 +7747,6 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
     );
   }
 
-  function MobileStandardsCatalogOverlay() {
-    if (!isMobileLayout || !mobileStandardsCatalogOpen) return null;
-
-    const mobileCatalogResultsLabel = standardsCatalogError
-      ? "No he podido cargar el catálogo"
-      : standardsCatalogLoading
-        ? "Cargando catálogo..."
-        : `${filteredStandards.length} resultados visibles`;
-
-    return createPortal(
-      <div
-        className="fixed inset-0 z-[125] bg-slate-900/45 p-3 xl:hidden"
-        onClick={() => setMobileStandardsCatalogOpen(false)}
-      >
-        <div className="mx-auto flex h-full max-w-[720px] items-start justify-center">
-          <div
-            className="mt-2 flex max-h-[92vh] w-full flex-col overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-slate-200"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-start justify-between gap-3 border-b border-slate-200 bg-[#c7d8e5] px-4 py-3">
-              <div className="min-w-0">
-                <div className="text-base font-semibold text-slate-800">Buscar standard</div>
-                <div className="mt-1 text-xs font-semibold text-slate-600">
-                  {mobileCatalogResultsLabel}
-                </div>
-              </div>
-              <button
-                type="button"
-                className={UI_BTN_SM + " w-auto px-3"}
-                onClick={() => setMobileStandardsCatalogOpen(false)}
-              >
-                Cerrar
-              </button>
-            </div>
-
-            <div className="overflow-y-auto p-4">
-              <div className="space-y-3">
-                <div className="flex items-center justify-between gap-2">
-                  <label className={UI_LABEL_SM}>Filtros</label>
-                  {standardsFiltersActive ? (
-                    <button
-                      type="button"
-                      className="text-xs font-semibold text-sky-700 transition-colors hover:text-sky-900"
-                      onClick={resetStandardsFilters}
-                    >
-                      Limpiar
-                    </button>
-                  ) : null}
-                </div>
-                <div className="grid gap-2 sm:grid-cols-2">
-                  <label className="space-y-1">
-                    <span className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">Título</span>
-                    <input
-                      className={UI_INPUT_SM + " w-full"}
-                      value={standardsFilters.title}
-                      onChange={(e) => setStandardsFilters((prev) => ({ ...prev, title: e.target.value }))}
-                      placeholder="All of Me"
-                    />
-                  </label>
-                  <label className="space-y-1">
-                    <span className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">Compositor</span>
-                    <input
-                      className={UI_INPUT_SM + " w-full"}
-                      value={standardsFilters.composer}
-                      onChange={(e) => setStandardsFilters((prev) => ({ ...prev, composer: e.target.value }))}
-                      placeholder="Cole Porter"
-                    />
-                  </label>
-                  <label className="space-y-1">
-                    <span className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">Año</span>
-                    <input
-                      className={UI_INPUT_SM + " w-full"}
-                      value={standardsFilters.year}
-                      onChange={(e) => setStandardsFilters((prev) => ({ ...prev, year: e.target.value }))}
-                      placeholder="1934"
-                      inputMode="numeric"
-                    />
-                  </label>
-                  <label className="space-y-1">
-                    <span className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">Tono</span>
-                    <input
-                      className={UI_INPUT_SM + " w-full"}
-                      value={standardsFilters.key}
-                      onChange={(e) => setStandardsFilters((prev) => ({ ...prev, key: e.target.value }))}
-                      placeholder="Bb, Gm, C..."
-                    />
-                  </label>
-                </div>
-
-                {standardsCatalogError ? (
-                  <div className="rounded-2xl border border-rose-200 bg-rose-50 px-3 py-3 text-sm text-rose-700">
-                    <div>{standardsCatalogError}</div>
-                    <button
-                      type="button"
-                      className={UI_BTN_SM + " mt-3 w-auto px-3"}
-                      onClick={retryStandardsCatalogLoad}
-                    >
-                      Reintentar catálogo
-                    </button>
-                  </div>
-                ) : standardsCatalogLoading ? (
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-600">
-                    Cargando catálogo de standards...
-                  </div>
-                ) : !filteredStandards.length ? (
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-600">
-                    No encuentro standards con ese filtro.
-                  </div>
-                ) : (
-                  <div className="max-h-[58vh] overflow-y-auto rounded-2xl border border-slate-200 bg-[#fbfdff]">
-                    {filteredStandards.map((item) => {
-                      const selected = item.id === selectedStandard?.id;
-                      return (
-                        <button
-                          key={item.id}
-                          type="button"
-                          className={`block w-full border-t border-slate-200 px-3 py-2 text-left text-sm font-semibold transition-colors first:border-t-0 ${selected ? "bg-sky-50 text-slate-900" : "bg-white text-slate-700 hover:bg-sky-50"}`}
-                          onClick={() => selectStandardItem(item.id, { closeMobileCatalog: true })}
-                        >
-                          <span className="block leading-5">{item.title}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>,
-      document.body
-    );
-  }
-
   function renderStandardsPanel() {
     const collectionLabel = standardsCatalogSummary;
     const noticeClass = standardsNotice?.type === "error"
@@ -8807,116 +7851,12 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
           </div>
         ) : (
           <div className="grid gap-3 xl:grid-cols-[290px_minmax(0,1fr)]">
-            <PanelBlock
-              data-testid="standards-catalog-panel"
-              level="subsection"
-              title="Catálogo"
-              description={collectionLabel}
-              bodyClassName="space-y-3"
-            >
-              <div className="space-y-2">
-                <div className="flex items-center justify-between gap-2">
-                  <label className={UI_LABEL_SM}>Filtros</label>
-                  {standardsFiltersActive ? (
-                    <button
-                      type="button"
-                      className="text-xs font-semibold text-sky-700 transition-colors hover:text-sky-900"
-                      onClick={resetStandardsFilters}
-                    >
-                      Limpiar
-                    </button>
-                  ) : null}
-                </div>
-                <div className="grid gap-2 sm:grid-cols-2">
-                  <label className="space-y-1">
-                    <span className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">Título</span>
-                    <input
-                      className={UI_INPUT_SM + " w-full"}
-                      value={standardsFilters.title}
-                      onChange={(e) => setStandardsFilters((prev) => ({ ...prev, title: e.target.value }))}
-                      placeholder="All of Me"
-                    />
-                  </label>
-                  <label className="space-y-1">
-                    <span className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">Compositor</span>
-                    <input
-                      className={UI_INPUT_SM + " w-full"}
-                      value={standardsFilters.composer}
-                      onChange={(e) => setStandardsFilters((prev) => ({ ...prev, composer: e.target.value }))}
-                      placeholder="Cole Porter"
-                    />
-                  </label>
-                  <label className="space-y-1">
-                    <span className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">Año</span>
-                    <input
-                      className={UI_INPUT_SM + " w-full"}
-                      value={standardsFilters.year}
-                      onChange={(e) => setStandardsFilters((prev) => ({ ...prev, year: e.target.value }))}
-                      placeholder="1934"
-                      inputMode="numeric"
-                    />
-                  </label>
-                  <label className="space-y-1">
-                    <span className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">Tono</span>
-                    <input
-                      className={UI_INPUT_SM + " w-full"}
-                      value={standardsFilters.key}
-                      onChange={(e) => setStandardsFilters((prev) => ({ ...prev, key: e.target.value }))}
-                      placeholder="Bb, Gm, C..."
-                    />
-                  </label>
-                </div>
-              </div>
-
-              {standardsCatalogError ? (
-                <div className="rounded-2xl border border-rose-200 bg-rose-50 px-3 py-3 text-sm text-rose-700">
-                  <div>{standardsCatalogError}</div>
-                  <button
-                    type="button"
-                    className={UI_BTN_SM + " mt-3 w-auto px-3"}
-                    onClick={retryStandardsCatalogLoad}
-                  >
-                    Reintentar catálogo
-                  </button>
-                </div>
-              ) : standardsCatalogLoading ? (
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-600">
-                  Cargando catálogo de standards...
-                </div>
-              ) : !filteredStandards.length ? (
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-600">
-                  No encuentro standards con ese filtro.
-                </div>
-              ) : null}
-
-              {!standardsCatalogLoading && !standardsCatalogError && filteredStandards.length ? (
-                <div data-testid="standards-list" className="max-h-[28rem] space-y-2 overflow-y-auto pr-1 xl:max-h-[70vh]">
-                  {filteredStandards.map((item) => {
-                    const selected = item.id === selectedStandard?.id;
-                    return (
-                      <button
-                        key={item.id}
-                        data-testid={`standard-item-${item.id}`}
-                        type="button"
-                        className={`w-full rounded-2xl border px-3 py-3 text-left shadow-sm transition-colors ${selected ? "border-sky-300 bg-sky-50" : "border-slate-200 bg-white hover:bg-sky-50"}`}
-                        onClick={() => selectStandardItem(item.id)}
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0">
-                            <div className="text-sm font-semibold text-slate-800">{item.title}</div>
-                          </div>
-                          {item.year ? (
-                            <div className="shrink-0 rounded-xl border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-600">
-                              {item.year}
-                            </div>
-                          ) : null}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              ) : null}
-            </PanelBlock>
+            <StandardsCatalogPanel
+              filters={{ standardsFilters, setStandardsFilters, standardsFiltersActive, resetStandardsFilters }}
+              catalog={{ standardsCatalogError, retryStandardsCatalogLoad, standardsCatalogLoading, collectionLabel }}
+              selection={{ filteredStandards, selectedStandard, selectStandardItem }}
+              ui={{ UI_LABEL_SM, UI_INPUT_SM, UI_BTN_SM }}
+            />
 
             {selectedStandard ? (
               <div className="space-y-3">
@@ -9306,7 +8246,7 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
 
         {boardVisibility.configuration ? (
           <div className="hidden xl:block">
-            {renderConfigPanel()}
+            <AppConfigPanel {...configPanelProps()} />
           </div>
         ) : null}
       </div>
@@ -9502,7 +8442,7 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
                 </div>
               </div>
               <div className="p-3">
-                {renderConfigPanel()}
+                <AppConfigPanel {...configPanelProps()} />
               </div>
             </div>
           </div>
@@ -9523,44 +8463,18 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
             onWheel={(e) => e.preventDefault()}
           />
         ) : null}
-        {mobileInfoPopover ? (
-          <>
-            <div
-              className="fixed inset-0 z-40 touch-none overscroll-contain bg-slate-900/35"
-              onClick={() => setMobileInfoPopover(null)}
-              onTouchMove={(e) => e.preventDefault()}
-              onWheel={(e) => e.preventDefault()}
-            />
-            <div
-              className="fixed z-50 rounded-2xl border border-slate-300 bg-white shadow-2xl"
-              style={{ left: `${mobileInfoPopover.left}px`, top: `${mobileInfoPopover.top}px`, width: `${mobileInfoPopover.width}px` }}
-            >
-              <div
-                className="absolute -top-2 h-4 w-4 rotate-45 border-l border-t border-slate-300 bg-white"
-                style={{ left: `${Math.max(18, Math.min(mobileInfoPopover.arrowLeft - 8, mobileInfoPopover.width - 34))}px` }}
-              />
-              <div className="relative rounded-2xl bg-white">
-                <button
-                  type="button"
-                  className="absolute right-2 top-2 inline-flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200 bg-white shadow-sm"
-                  onClick={() => setMobileInfoPopover(null)}
-                  title="Cerrar información"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-                <div className="p-4 pr-12">
-                  {mobileInfoPopover.title ? (
-                    <div className="text-sm font-semibold text-slate-800">{mobileInfoPopover.title}</div>
-                  ) : null}
-                  <div className={`text-sm leading-6 text-slate-600 ${mobileInfoPopover.title ? "mt-2" : ""} whitespace-pre-line`.trim()}>
-                    {mobileInfoPopover.text}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </>
-        ) : null}
-        {MobileStandardsCatalogOverlay()}
+        <MobileInfoPopover
+          mobileInfoPopover={mobileInfoPopover}
+          onClose={() => setMobileInfoPopover(null)}
+        />
+        <MobileStandardsCatalogOverlay
+          open={mobileStandardsCatalogOpen}
+          onClose={() => setMobileStandardsCatalogOpen(false)}
+          filters={{ standardsFilters, setStandardsFilters, standardsFiltersActive, resetStandardsFilters }}
+          catalog={{ standardsCatalogError, retryStandardsCatalogLoad, standardsCatalogLoading }}
+          selection={{ filteredStandards, selectedStandard, selectStandardItem }}
+          ui={{ UI_LABEL_SM, UI_INPUT_SM, UI_BTN_SM }}
+        />
         {renderMobileNearSlotEditorPortal()}
         {isCompactLayout ? (
           <div className="pointer-events-none fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] z-30 flex justify-center px-3 xl:hidden">
@@ -9588,7 +8502,7 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
             </div>
           </div>
         ) : null}
-              {ManualOverlay()}
+              <ManualOverlay open={manualOpen} onClose={() => setManualOpen(false)} UI_BTN_SM={UI_BTN_SM} />
         <AppFooter />
       </div>
     </div>

@@ -351,6 +351,7 @@ const exportStudyPdf = () => {
     plan: d?.plan,
     voicing: d?.voicing,
     positionForm: d?.positionForm || positionFormFromEffectiveForm(d?.plan?.form, "closed"),
+    preferSharps: d?.preferSharps ?? chordPreferSharps,
   });
   const studyVoicingNoteText = d?.voicing?.notes?.length
     ? [...d.voicing.notes]

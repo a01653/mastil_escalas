@@ -1,5 +1,6 @@
 import React from "react";
 import { Blocks, BookOpen, HelpCircle, Menu, Music, Route, Settings, Waypoints, X } from "lucide-react";
+import { ToggleButton } from "../ui/AppUiPrimitives.jsx";
 
 export function ChordDiagramIcon({ className = "", ...props }) {
   return (
@@ -18,20 +19,6 @@ export function ChordDiagramIcon({ className = "", ...props }) {
   );
 }
 
-function ToggleButton({ active, onClick, children, title, testId }) {
-  const fallbackTitle = typeof children === "string" ? children : "";
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      title={title || fallbackTitle}
-      data-testid={testId}
-      className={`rounded-xl px-2 py-1.5 text-sm ring-1 ring-slate-200 shadow-sm ${active ? "bg-sky-600 text-white ring-sky-600" : "bg-white text-slate-700 hover:bg-sky-50 hover:text-slate-900"}`}
-    >
-      {children}
-    </button>
-  );
-}
 
 function NavIconLabel({ icon, label }) {
   return (

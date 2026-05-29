@@ -651,19 +651,32 @@ export function actualVoicingShapeSummary(voicing, requestedForm, positionForm) 
   };
 }
 
-export function buildChordHeaderSummary({ name, plan, voicing, positionForm }) {
-  if (!plan) return name || "";
-  const parts = [name || ""];
-  const layer = chordEngineLayerLabel(plan);
-  if (layer && layer !== "—") parts.push(layer);
+// "Bajo X" → "Bajo en Xª" solo para el título del acorde (el selector conserva el formato original).
+export function formatBassLabelForTitle(label) {
+  if (label && label.startsWith("Bajo ") && !label.startsWith("Bajo en ")) {
+    return `Bajo en ${label.slice(5)}ª`;
+  }
+  return label;
+}
 
+export function buildChordHeaderSummary({ name, plan, voicing, positionForm, preferSharps = false }) {
+  if (!plan) return name || "";
+
+  let chordName = name || "";
+  const layer = chordEngineLayerLabel(plan);
   const shape = actualVoicingShapeSummary(voicing, plan.form, positionForm);
-  if (shape.position) parts.push(shape.position);
-  if (shape.drop) parts.push(shape.drop);
 
   let invLabel;
   if (voicing) {
-    invLabel = actualInversionLabelFromVoicing(plan, voicing);
+    invLabel = actualInversionLabelFromVoicing(plan, voicing, preferSharps);
+    // Añadir notación slash cuando el bajo no es la raíz
+    if (plan.rootPc != null && voicing.bassPc != null) {
+      const bassInt = AppMusicBasics.mod12(voicing.bassPc - plan.rootPc);
+      if (bassInt !== 0) {
+        const bassNote = AppMusicBasics.spellNoteFromChordInterval(plan.rootPc, bassInt, preferSharps);
+        chordName = `${chordName}/${bassNote}`;
+      }
+    }
   } else {
     const isNonStd = !!(plan.singleAdd || plan.multiAdd || plan.omit !== "none");
     if (isNonStd && plan.rootPc != null && plan.inversion && plan.inversion !== "all") {
@@ -673,12 +686,21 @@ export function buildChordHeaderSummary({ name, plan, voicing, positionForm }) {
         ext7: plan.ext7, ext6: plan.ext6, ext9: plan.ext9, ext11: plan.ext11, ext13: plan.ext13,
       });
       const syntheticVoicing = { bassPc: AppMusicBasics.mod12(plan.rootPc + bassInt) };
-      invLabel = actualInversionLabelFromVoicing(plan, syntheticVoicing);
+      invLabel = actualInversionLabelFromVoicing(plan, syntheticVoicing, preferSharps);
+      if (bassInt !== 0) {
+        const bassNote = AppMusicBasics.spellNoteFromChordInterval(plan.rootPc, bassInt, preferSharps);
+        chordName = `${chordName}/${bassNote}`;
+      }
     } else {
       invLabel = selectedInversionLabel(plan.inversion, plan.ui?.allowThirdInversion);
     }
   }
-  parts.push(invLabel);
+
+  const parts = [chordName];
+  if (layer && layer !== "—") parts.push(layer);
+  if (shape.position) parts.push(shape.position);
+  if (shape.drop) parts.push(shape.drop);
+  parts.push(formatBassLabelForTitle(invLabel));
   const summary = parts.filter(Boolean).join(" - ");
   if (voicing?.frets) return `${summary} (${voicing.frets})`;
   return summary;

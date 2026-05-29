@@ -224,15 +224,28 @@ const modeToggle = (
     // Quitar prefijo "Acorde NAME" o solo "NAME"
     const withAcorde = chordBaseDisplayName ? `Acorde ${chordBaseDisplayName}` : null;
     if (withAcorde && raw.startsWith(withAcorde)) {
-      raw = raw.slice(withAcorde.length).replace(/^\s*[-·]\s*/, "");
+      raw = raw.slice(withAcorde.length).replace(/^\/[^\s\-·]+/, "").replace(/^\s*[-·]\s*/, "");
     } else if (chordBaseDisplayName && raw.startsWith(chordBaseDisplayName)) {
-      raw = raw.slice(chordBaseDisplayName.length).replace(/^\s*[-·]\s*/, "");
+      raw = raw.slice(chordBaseDisplayName.length).replace(/^\/[^\s\-·]+/, "").replace(/^\s*[-·]\s*/, "");
     }
     // Quitar sufijo (frets) al final
     raw = raw.replace(/\s*\([^)]+\)\s*$/, "");
     // Usar " · " como separador en lugar de " - "
     raw = raw.replace(/\s+-\s+/g, " · ");
     return raw.trim();
+  })();
+
+  // Nota de bajo slash ("/A", "/E#"…) extraída del título para pegarse al nombre base
+  const chordSlashBassDisplay = (() => {
+    if (!chordBaseDisplayName || !chordControlsTitle) return "";
+    const prefix = `Acorde ${chordBaseDisplayName}`;
+    const after = chordControlsTitle.startsWith(prefix)
+      ? chordControlsTitle.slice(prefix.length)
+      : chordControlsTitle.startsWith(chordBaseDisplayName)
+        ? chordControlsTitle.slice(chordBaseDisplayName.length)
+        : "";
+    const m = after.match(/^\/([\w#b]+)/);
+    return m ? `/${m[1]}` : "";
   })();
 
   // ── Copiar voicing al portapapeles ──────────────────────────────────────────
@@ -768,7 +781,7 @@ const modeToggle = (
             <InfoTitle
               label={
                 <span>
-                  <span className="text-sky-700">{chordBaseDisplayName || chordControlsTitle}</span>
+                  <span className="text-sky-700">{chordBaseDisplayName || chordControlsTitle}{chordSlashBassDisplay}</span>
                   {chordControlsRestTitle && chordBaseDisplayName ? (
                     <span className="text-slate-950"> · {chordControlsRestTitle}</span>
                   ) : null}

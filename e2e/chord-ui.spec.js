@@ -988,7 +988,7 @@ test("54. Fmaj7(no5): seleccionar 'Bajo 7' → chord-controls-summary coincide, 
   await page.waitForTimeout(300);
 
   const summaryText = await page.getByTestId("chord-controls-summary").getAttribute("data-content");
-  expect(summaryText).toContain("Bajo 7");
+  expect(summaryText).toContain("Bajo en 7ª");
   expect(summaryText).not.toContain("3ª inversión");
 });
 

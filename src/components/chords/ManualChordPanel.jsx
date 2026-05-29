@@ -1,7 +1,7 @@
 import { BookOpen, ChevronLeft, ChevronRight, Eraser, Music, Play, Volume2, VolumeX } from "lucide-react";
 import { CopyVoicingButton } from "./ChordsPanel.jsx";
 import { CHORD_FORMS, FRET_INLAY_BG, buildDetectedCandidateBackgroundLabelForPc, buildDetectedCandidateNoteNameForPc, mod12 } from "../../music/appMusicBasics.js";
-import { classifyManualVoicingShape, studyVoicingFormLabel } from "../../music/appVoicingStudyCore.js";
+import { classifyManualVoicingShape, studyVoicingFormLabel, formatBassLabelForTitle } from "../../music/appVoicingStudyCore.js";
 import { STRINGS, fretGridCols, hasInlayCell } from "../../music/appStaticData.js";
 import { ChordNoteBadgeStrip, MusicStaff } from "../../music/appPatternRouteStaffCore.jsx";
 
@@ -101,12 +101,12 @@ export default function ManualChordPanel({ layout, reading, actions, reference, 
       ? CHORD_FORMS.find((x) => x.value === detectedFormValue)?.label
       : null;
     const posLabel = studyVoicingFormLabel(voicing, plan?.form);
-    const invLabel = studyData?.inversionLabel;
+    const invLabel = formatBassLabelForTitle(studyData?.inversionLabel);
     const parts = [cand.name];
     if (dropLabel) parts.push(dropLabel);
     parts.push(posLabel);
     if (invLabel && invLabel !== "Fundamental") parts.push(invLabel);
-    chordPart = parts.join(" · ");
+    chordPart = parts.filter(Boolean).join(" · ");
   }
   const physicalPatternSuffix = chordDetectPhysicalPatternText ? ` (${chordDetectPhysicalPatternText})` : "";
 
@@ -139,9 +139,15 @@ export default function ManualChordPanel({ layout, reading, actions, reference, 
                 <div className="mb-1 text-[11px] font-semibold text-slate-600">Voicing</div>
                 <div className="flex items-center gap-1.5">
                   <CopyVoicingButton frets={chordDetectPhysicalPatternText || null} />
-                  <div className="flex h-7 w-[88px] items-center rounded-xl border border-slate-200 bg-white px-3 font-mono text-xs text-slate-900 shadow-sm select-none">
-                    {chordDetectPhysicalPatternText || "—"}
-                  </div>
+                  <input
+                    type="text"
+                    readOnly
+                    tabIndex={-1}
+                    aria-label="Voicing"
+                    value={chordDetectPhysicalPatternText || "—"}
+                    className="h-7 w-[88px] cursor-default rounded-xl border border-slate-200 bg-white px-2 text-xs shadow-sm hover:bg-sky-50 focus:outline-none"
+                    data-testid="manual-voicing-display"
+                  />
                 </div>
               </div>
               <button
@@ -212,8 +218,8 @@ export default function ManualChordPanel({ layout, reading, actions, reference, 
                       const restPart = dotIdx >= 0 ? chordPart.slice(dotIdx) : "";
                       return (
                         <>
-                          <span className="font-semibold text-sky-700">{baseName}</span>
-                          {restPart ? <span className="font-semibold text-slate-950">{restPart}</span> : null}
+                          <span className="font-bold text-sky-700">{baseName}</span>
+                          {restPart ? <span className="font-bold text-slate-950">{restPart}</span> : null}
                         </>
                       );
                     })() : (

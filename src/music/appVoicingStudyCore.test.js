@@ -825,7 +825,7 @@ describe("buildChordHeaderSummary — etiqueta funcional para acorde no-estánda
       ext7: false, ext6: false, ext9: true, ext11: false, ext13: false, omit: "none",
     });
     const summary = buildChordHeaderSummary({ name: "Fdim(add9)", plan, voicing: null, positionForm: "closed" });
-    expect(summary).toContain("Bajo b5");
+    expect(summary).toContain("Bajo en b5ª");
     expect(summary).not.toContain("2ª inversión");
   });
 
@@ -835,7 +835,7 @@ describe("buildChordHeaderSummary — etiqueta funcional para acorde no-estánda
       ext7: true, ext6: false, ext9: false, ext11: false, ext13: false, omit: "5",
     });
     const summary = buildChordHeaderSummary({ name: "Fmaj7(no5)", plan, voicing: null, positionForm: "closed" });
-    expect(summary).toContain("Bajo 3");
+    expect(summary).toContain("Bajo en 3ª");
     expect(summary).not.toContain("1ª inversión");
   });
 

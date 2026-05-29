@@ -142,14 +142,14 @@ test("CM-02. Fmaj7(no5): Fundamental, Bajo 3, Bajo 7 — sin ordinales", async (
   // Bajo 3 → summary "Bajo 3"
   await selectInv(page, invSelect, "1");
   summary = await getSummary(page);
-  expect(summary, "Bajo 3: summary debe coincidir").toContain("Bajo 3");
+  expect(summary, "Bajo 3: summary debe coincidir").toContain("Bajo en 3ª");
 
   // Bajo 7 → summary "Bajo 7"
   const bajO7opt = opts.find((o) => o.label === "Bajo 7");
   expect(bajO7opt, "Debe existir opción Bajo 7").toBeTruthy();
   await selectInv(page, invSelect, bajO7opt.value);
   summary = await getSummary(page);
-  expect(summary, "Bajo 7: summary debe coincidir").toContain("Bajo 7");
+  expect(summary, "Bajo 7: summary debe coincidir").toContain("Bajo en 7ª");
   expect(summary, "Bajo 7: summary NO debe decir '3ª inversión'").not.toContain("3ª inversión");
 });
 
@@ -185,7 +185,7 @@ test("CM-03. Fadd11: Fundamental tiene voicings, Bajo 3 y Bajo 11 también", asy
     await selectInv(page, invSelect, bajo11opt.value);
     await expectVoicings(page, "Bajo 11");
     summary = await getSummary(page);
-    expect(summary, "Bajo 11: summary debe coincidir").toContain("Bajo 11");
+    expect(summary, "Bajo 11: summary debe coincidir").toContain("Bajo en 11ª");
   }
 });
 
@@ -239,7 +239,7 @@ test("CM-05. Fadd13 (sin 7ª): selector usa 'Bajo 13', NO 'Bajo 6'", async ({ pa
   expect(bajo13opt, "Debe existir opción Bajo 13").toBeTruthy();
   await selectInv(page, invSelect, bajo13opt.value);
   const summary = await getSummary(page);
-  expect(summary, "Bajo 13: summary debe coincidir").toContain("Bajo 13");
+  expect(summary, "Bajo 13: summary debe coincidir").toContain("Bajo en 13ª");
   expect(summary, "Bajo 13: summary NO debe decir 'Bajo 6'").not.toContain("Bajo 6");
 });
 
@@ -260,15 +260,19 @@ test("CM-06. Fadd11,13(no5): opciones coherentes — selector = summary para cad
 
   const { invSelect, opts } = await getInvOptions(page);
 
-  // Para cada opción concreta (no "all"), selector y summary deben coincidir
+  // Para cada opción concreta (no "all"), el summary debe reflejar la inversión elegida.
+  // El title usa "Bajo en Xª" mientras el selector sigue con "Bajo X": se compara la forma del title.
   for (const opt of opts) {
     if (opt.value === "all") continue;
     await selectInv(page, invSelect, opt.value);
     const summary = await getSummary(page);
+    const expectedInSummary = opt.label.startsWith("Bajo ") && !opt.label.startsWith("Bajo en ")
+      ? `Bajo en ${opt.label.slice(5)}ª`
+      : opt.label;
     expect(
       summary,
-      `Opción "${opt.label}" (val=${opt.value}): summary debe contener la misma etiqueta`
-    ).toContain(opt.label);
+      `Opción "${opt.label}" (val=${opt.value}): summary debe reflejar la inversión`
+    ).toContain(expectedInSummary);
   }
 });
 
@@ -305,7 +309,7 @@ test("CM-07. Fdim7: selector usa 'Bajo b5', no 'Bajo #4' ni '2ª inversión'", a
   if (bajob5opt) {
     await selectInv(page, invSelect2, bajob5opt.value);
     const summary = await getSummary(page);
-    expect(summary, "Bajo b5: summary debe coincidir").toContain("Bajo b5");
+    expect(summary, "Bajo b5: summary debe coincidir").toContain("Bajo en b5ª");
     expect(summary, "Bajo b5: summary NO debe decir '2ª inversión'").not.toContain("2ª inversión");
   }
 });
