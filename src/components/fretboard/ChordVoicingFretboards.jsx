@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { createElement, useMemo } from "react";
 import * as AppStaticData from "../../music/appStaticData.js";
 import * as AppMusicBasics from "../../music/appMusicBasics.js";
 
@@ -79,8 +79,8 @@ export function ChordFretboard({
   isNarrowBoardLayout,
   showNonScale,
   colors,
-  HoverCellNote,
-  MobileMainFretboard,
+  HoverCellNote: HoverCellNoteComponent,
+  MobileMainFretboard: MobileMainFretboardComponent,
 }) {
   const notesMap = useMemo(() => {
     const m = new Map();
@@ -122,15 +122,15 @@ export function ChordFretboard({
       ) : null}
 
       {isNarrowBoardLayout ? (
-        <MobileMainFretboard
-          frets={mobileVisibleFrets}
-          renderStringFooter={(sIdx) => {
+        createElement(MobileMainFretboardComponent, {
+          frets: mobileVisibleFrets,
+          renderStringFooter: (sIdx) => {
             const note = stringNoteMap.get(sIdx);
             return note && !mutedStrings.has(sIdx)
               ? <span className="text-[10px] font-bold text-sky-600">{noteNameForPc(note.pc)}</span>
               : null;
-          }}
-          renderCell={({ sIdx, fret, cellClassName }) => {
+          },
+          renderCell: ({ sIdx, fret, cellClassName }) => {
             const item = notesMap.get(`${sIdx}:${fret}`);
             const isMutedOpen = fret === 0 && mutedStrings.has(sIdx);
 
@@ -142,7 +142,7 @@ export function ChordFretboard({
                 } ${cellClassName}`}
                 style={{ backgroundColor: fret === 0 ? "transparent" : FRET_CELL_BG }}
               >
-                <HoverCellNote sIdx={sIdx} fret={fret} visible={!item && !isMutedOpen} />
+                {createElement(HoverCellNoteComponent, { sIdx, fret, visible: !item && !isMutedOpen })}
                 {item ? (
                   <ChordCircle
                     role={roleForPc(item.pc)}
@@ -161,8 +161,8 @@ export function ChordFretboard({
                 ) : null}
               </div>
             );
-          }}
-        />
+          },
+        })
       ) : (
         <>
           <div className="grid items-center gap-1" style={{ gridTemplateColumns: gridCols }}>
@@ -200,7 +200,7 @@ export function ChordFretboard({
                       } ${item ? "z-[4]" : "z-0"}`}
                       style={fretCellStyleForLayout(fret, false, { backgroundColor: FRET_CELL_BG })}
                     >
-                      <HoverCellNote sIdx={sIdx} fret={fret} visible={!item} />
+                      {createElement(HoverCellNoteComponent, { sIdx, fret, visible: !item })}
 
                       {hasInlayCell(fret, sIdx) ? (
                         <div
@@ -248,8 +248,8 @@ export function GuideToneFretboard({
   showNonScale,
   chordPreferSharps,
   colors,
-  HoverCellNote,
-  MobileMainFretboard,
+  HoverCellNote: HoverCellNoteComponent,
+  MobileMainFretboard: MobileMainFretboardComponent,
   guideToneRoleOfPc,
   labelForGuideTonePc,
   chordRootPc,
@@ -295,15 +295,15 @@ export function GuideToneFretboard({
       ) : null}
 
       {isNarrowBoardLayout ? (
-        <MobileMainFretboard
-          frets={mobileVisibleFrets}
-          renderStringFooter={(sIdx) => {
+        createElement(MobileMainFretboardComponent, {
+          frets: mobileVisibleFrets,
+          renderStringFooter: (sIdx) => {
             const note = stringNoteMapGT.get(sIdx);
             return note && !mutedStrings.has(sIdx)
               ? <span className="text-[10px] font-bold text-sky-600">{pcToName(note.pc, chordPreferSharps)}</span>
               : null;
-          }}
-          renderCell={({ sIdx, fret, cellClassName }) => {
+          },
+          renderCell: ({ sIdx, fret, cellClassName }) => {
             const item = notesMap.get(`${sIdx}:${fret}`);
             const isMutedOpen = fret === 0 && mutedStrings.has(sIdx);
 
@@ -315,7 +315,7 @@ export function GuideToneFretboard({
                 } ${cellClassName}`}
                 style={{ backgroundColor: fret === 0 ? "transparent" : FRET_CELL_BG }}
               >
-                <HoverCellNote sIdx={sIdx} fret={fret} visible={!item && !isMutedOpen} />
+                {createElement(HoverCellNoteComponent, { sIdx, fret, visible: !item && !isMutedOpen })}
                 {item ? (
                   <GuideToneCircle
                     pc={item.pc}
@@ -336,8 +336,8 @@ export function GuideToneFretboard({
                 ) : null}
               </div>
             );
-          }}
-        />
+          },
+        })
       ) : (
         <>
           <div className="grid items-center gap-1" style={{ gridTemplateColumns: gridCols }}>
@@ -367,7 +367,7 @@ export function GuideToneFretboard({
                       className={`group relative isolate flex overflow-visible items-center justify-center rounded-lg border ${fret === 0 ? "border-slate-300" : "border-slate-200"} ${item ? "z-[4]" : "z-0"}`}
                       style={fretCellStyleForLayout(fret, false, { backgroundColor: FRET_CELL_BG })}
                     >
-                      <HoverCellNote sIdx={sIdx} fret={fret} visible={!item} />
+                      {createElement(HoverCellNoteComponent, { sIdx, fret, visible: !item })}
                       {hasInlayCell(fret, sIdx) ? (
                         <div className="pointer-events-none absolute left-1/2 z-0 -translate-x-1/2 -translate-y-1/2" style={{ top: "78%" }}>
                           <div className="h-4 w-4 rounded-full opacity-80" style={{ backgroundColor: FRET_INLAY_BG }} />

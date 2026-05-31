@@ -21,8 +21,7 @@ import AppConfigPanel from "./components/config/AppConfigPanel.jsx";
 import { ToggleButton, InfoTitle as InfoTitleImpl } from "./components/ui/AppUiPrimitives.jsx";
 import ManualOverlay from "./components/help/ManualOverlay.jsx";
 import MobileInfoPopover from "./components/help/MobileInfoPopover.jsx";
-import StandardsCatalogPanel from "./components/standards/StandardsCatalogPanel.jsx";
-import MobileStandardsCatalogOverlay from "./components/standards/MobileStandardsCatalogOverlay.jsx";
+import StandardsPanel from "./components/standards/StandardsPanel.jsx";
 import { Blocks, BookOpen, ChevronLeft, ChevronRight, Eraser, Info, Music, Play, Route, Search, Volume2, VolumeX, Waypoints, X } from "lucide-react";
 import {
   buildDetectedCandidateBadgeItems as buildDetectedCandidateBadgeItemsPure,
@@ -34,8 +33,12 @@ import {
 import { rankReadingsWithHarmonyContext as rankReadingsWithHarmonyContextPure } from "./music/harmonyContextRanking.js";
 import { chordDbKeyNameFromPc } from "./music/chordDbCatalog.js";
 
-import { buildNearSlotsFromChordSymbols, getStandardRealChartSections } from "./music/standardsCatalog.js";
-import { loadJJazzLabCatalogIndex, loadJJazzLabStandardFromPath } from "./music/jjazzlabCatalog.js";
+import { buildNearSlotsFromChordSymbols } from "./music/standardsCatalog.js";
+import { useStandardsFeature } from "./features/standards/useStandardsFeature.js";
+import { buildStudyData } from "./features/study/buildStudyData.js";
+import { useRouteFeature } from "./features/route/useRouteFeature.js";
+import RouteLabFretboardComponent from "./components/route/RouteLabFretboard.jsx";
+import { buildConfigExportFilename, parseImportedConfigText } from "./utils/configIo.js";
 
 import * as AppStaticData from "./music/appStaticData.js";
 const {
@@ -90,20 +93,11 @@ const {
   INLAY_SINGLE,
   INLAY_DOUBLE,
   fretGridCols,
-  fretsForCompactVoicing,
-  getCompactStandardChordDisplay,
   normalizeVisibleFrets,
-  fretCellStyleForLayout,
   fretNoteSizeClass,
   webAppWidthPx,
-  mobileVerticalFretGridCols,
-  mobileVerticalFretCellClass,
-  mobileVerticalFretRowMarginTop,
   mobileVerticalFretBorderClass,
   mobileVerticalOpenNoteClass,
-  mobileStringHeaderParts,
-  mobileFretHasInlay,
-  mobileInlayGridColumns,
   hasInlayCell,
   KING_BOX_DEFAULTS,
   buildKingBoxOverlayMap,
@@ -172,12 +166,10 @@ const {
   FRET_CELL_BG,
   FRET_INLAY_BG,
   isDark,
-  parsePosCode,
   sanitizePosCodeInput,
   buildMembershipMap,
   preferSharpsFromMajorTonicPc,
   computeAutoPreferSharps,
-  resolveKeySignatureForScale,
 } = AppMusicBasics;
 
 import * as AppVoicingStudyCore from "./music/appVoicingStudyCore.js";
@@ -217,8 +209,6 @@ const {
 import * as AppPatternRouteStaffCore from "./music/appPatternRouteStaffCore.jsx";
 const {
   build3NpsPatternsMerged,
-  build3NpsPatternInstances,
-  buildInstanceMembershipMap,
   buildCagedPatternInstances,
   pickCagedViewPatterns,
   buildPentatonicBoxInstances,
@@ -234,8 +224,6 @@ const {
   sanitizeNearSlotValue,
   sanitizePresetCollection,
   ROUTE_LAB_DEFAULT_TUNING,
-  computeRouteLab,
-  computeMusicalRoute,
   formatChordBadgeDegree,
   chordBadgeRoleFromDegreeLabel,
   chordFormulaBadgeRoleFromDegreeLabel,
@@ -302,7 +290,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "5.42";
+const APP_VERSION = "5.58";
 
 function buildChordCopyFingerprint({
   rootPc,
@@ -425,25 +413,6 @@ export default function FretboardScalesPage() {
   const [mobileTonalContextOpen, setMobileTonalContextOpen] = useState(false);
   const [mobileChordEditorOpen, setMobileChordEditorOpen] = useState(false);
   const [mobileNearChordEditorIdx, setMobileNearChordEditorIdx] = useState(null);
-  const [mobileStandardsCatalogOpen, setMobileStandardsCatalogOpen] = useState(false);
-  const [standardsFilters, setStandardsFilters] = useState(() => ({
-    title: "",
-    composer: "",
-    year: "",
-    key: "",
-  }));
-  const [selectedStandardId, setSelectedStandardId] = useState(null);
-  const [standardsRealSelectionIds, setStandardsRealSelectionIds] = useState([]);
-  const [standardsLoadedMap, setStandardsLoadedMap] = useState({});
-  const [standardsLoadingId, setStandardsLoadingId] = useState(null);
-  const [standardsError, setStandardsError] = useState(null);
-  const [standardsNotice, setStandardsNotice] = useState(null);
-  const [standardsCatalogState, setStandardsCatalogState] = useState(() => ({
-    status: "idle",
-    items: [],
-    collectionLabel: "",
-    error: null,
-  }));
   const [showKingBoxes, setShowKingBoxes] = useState(false);
   const [kingBoxMode, setKingBoxMode] = useState("bb");
   const [kingBoxColors, setKingBoxColors] = useState({
@@ -967,29 +936,20 @@ export default function FretboardScalesPage() {
   // ESTADO: RUTA MUSICAL
   // --------------------------------------------------------------------------
 
-  // Ruta
-  const [routeLabStartCode, setRouteLabStartCode] = useState("61");
-  const [routeLabEndCode, setRouteLabEndCode] = useState("113");
-  const [routeLabMaxPerString, setRouteLabMaxPerString] = useState(4);
-  const [routeLabPickNext, setRouteLabPickNext] = useState("start");
-  const [routeLabSwitchWhenSameStringForwardPenalty, setRouteLabSwitchWhenSameStringForwardPenalty] = useState(ROUTE_LAB_DEFAULT_TUNING.switchWhenSameStringForwardPenalty);
-  const [routeLabWorseThanSameStringGoalBase, setRouteLabWorseThanSameStringGoalBase] = useState(ROUTE_LAB_DEFAULT_TUNING.worseThanSameStringGoalBase);
-  const [routeLabWorseThanSameStringGoalScale, setRouteLabWorseThanSameStringGoalScale] = useState(ROUTE_LAB_DEFAULT_TUNING.worseThanSameStringGoalScale);
-  const [routeLabCorridorPenalty, setRouteLabCorridorPenalty] = useState(ROUTE_LAB_DEFAULT_TUNING.corridorPenalty);
-  const [routeLabOvershootNearEndAlt, setRouteLabOvershootNearEndAlt] = useState(ROUTE_LAB_DEFAULT_TUNING.overshootNearEndAlt);
+  // Inputs de tonalidad necesarios por useRouteFeature — se calculan aquí
+  // para estar disponibles antes de persistedUiConfig (línea ~1029).
+  const scaleIntervals = useMemo(() => buildScaleIntervals(scaleName, customInput, rootPc), [scaleName, customInput, rootPc]);
+  const usesFiveNoteBoxPatterns = scaleIntervals.length === 5;
+  const autoPreferSharps = useMemo(() => computeAutoPreferSharps({ rootPc, scaleName }), [rootPc, scaleName]);
+  const preferSharps = accMode === "auto" ? autoPreferSharps : accMode === "sharps";
 
-  const [routeStartCode, setRouteStartCode] = useState("61");
-  const [routeEndCode, setRouteEndCode] = useState("113");
-  const [routeMaxPerString, setRouteMaxPerString] = useState(4);
-  const [routeMode, setRouteMode] = useState("auto"); // auto | free | penta | nps | pos
-  const [routePreferNps, setRoutePreferNps] = useState(true);
-  const [routePreferVertical, setRoutePreferVertical] = useState(false);
-  const [routeStrictFretDirection, setRouteStrictFretDirection] = useState(false);
-  const [routeKeepPattern, setRouteKeepPattern] = useState(false);
-  const [allowPatternSwitch, setAllowPatternSwitch] = useState(true);
-  const [patternSwitchPenalty, setPatternSwitchPenalty] = useState(2.0);
-  const [routeFixedPattern, setRouteFixedPattern] = useState("auto");
-  const [routePickNext, setRoutePickNext] = useState("start"); // start | end
+  const route = useRouteFeature({ rootPc, scaleName, scaleIntervals, maxFret, preferSharps });
+  const { lab: routeLab, labTuning: routeLabTuning, main: routeMain, mainTuning: routeMainTuning, derived: routeDerived } = route;
+  const { routeLabStartCode, setRouteLabStartCode, routeLabEndCode, setRouteLabEndCode, routeLabMaxPerString, setRouteLabMaxPerString, routeLabPickNext, setRouteLabPickNext } = routeLab;
+  const { routeLabSwitchWhenSameStringForwardPenalty, setRouteLabSwitchWhenSameStringForwardPenalty, routeLabWorseThanSameStringGoalBase, setRouteLabWorseThanSameStringGoalBase, routeLabWorseThanSameStringGoalScale, setRouteLabWorseThanSameStringGoalScale, routeLabCorridorPenalty, setRouteLabCorridorPenalty, routeLabOvershootNearEndAlt, setRouteLabOvershootNearEndAlt } = routeLabTuning;
+  const { routeStartCode, setRouteStartCode, routeEndCode, setRouteEndCode, routeMaxPerString, setRouteMaxPerString, routeMode, setRouteMode, routePickNext, setRoutePickNext } = routeMain;
+  const { routePreferNps, setRoutePreferNps, routePreferVertical, setRoutePreferVertical, routeStrictFretDirection, setRouteStrictFretDirection, routeKeepPattern, setRouteKeepPattern, allowPatternSwitch, setAllowPatternSwitch, patternSwitchPenalty, setPatternSwitchPenalty, routeFixedPattern, setRouteFixedPattern } = routeMainTuning;
+  const { routeLabResult, routeLabIndexByCell, routeLabText, routeLabDebugLines, routeKeySignature, routeStaffEvents, routeResult, routeIndexByCell, routeLabPickHelpText } = routeDerived;
 
   // --------------------------------------------------------------------------
   // ESTADO: COLORES Y APARIENCIA
@@ -1246,6 +1206,7 @@ export default function FretboardScalesPage() {
     config: persistedUiConfig,
   }), [persistedUiConfig]);
 
+  /* eslint-disable react-hooks/exhaustive-deps */
   useEffect(() => {
     try {
       if (typeof window === "undefined") {
@@ -1448,6 +1409,7 @@ export default function FretboardScalesPage() {
       setStorageHydrated(true);
     }
   }, []);
+  /* eslint-enable react-hooks/exhaustive-deps */
 
   useEffect(() => {
     if (!storageHydrated) return;
@@ -1495,10 +1457,8 @@ export default function FretboardScalesPage() {
       const blob = new Blob([raw], { type: "application/json" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
-      const d = new Date();
-      const stamp = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}_${String(d.getHours()).padStart(2, "0")}${String(d.getMinutes()).padStart(2, "0")}${String(d.getSeconds()).padStart(2, "0")}`;
       a.href = url;
-      a.download = `mastil_interactivo_config_${stamp}.json`;
+      a.download = buildConfigExportFilename();
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -1509,23 +1469,16 @@ export default function FretboardScalesPage() {
     }
   }
 
-  function buildImportedPayload(parsed) {
-    const payload = unwrapPersistedPayload(parsed);
-    return {
-      version: UI_CONFIG_VERSION,
-      appVersion: APP_VERSION,
-      config: payload.config || {},
-    };
-  }
-
   function importUiConfigFromFile(file) {
     if (!file) return;
     const reader = new FileReader();
     reader.onload = () => {
       try {
         const raw = String(reader.result || "");
-        const parsed = JSON.parse(raw);
-        const payload = buildImportedPayload(parsed);
+        const payload = parseImportedConfigText(raw, {
+          uiConfigVersion: UI_CONFIG_VERSION,
+          appVersion: APP_VERSION,
+        });
         if (typeof window === "undefined") return;
         window.localStorage.setItem(UI_STORAGE_KEY, JSON.stringify(payload));
         queueReloadNotice("success", "Configuración importada.");
@@ -1550,14 +1503,6 @@ export default function FretboardScalesPage() {
     } catch {
       // El usuario puede cancelar o el navegador puede bloquear la recarga.
     }
-  }
-
-  function _resetRouteLabTuning() {
-    setRouteLabSwitchWhenSameStringForwardPenalty(ROUTE_LAB_DEFAULT_TUNING.switchWhenSameStringForwardPenalty);
-    setRouteLabWorseThanSameStringGoalBase(ROUTE_LAB_DEFAULT_TUNING.worseThanSameStringGoalBase);
-    setRouteLabWorseThanSameStringGoalScale(ROUTE_LAB_DEFAULT_TUNING.worseThanSameStringGoalScale);
-    setRouteLabCorridorPenalty(ROUTE_LAB_DEFAULT_TUNING.corridorPenalty);
-    setRouteLabOvershootNearEndAlt(ROUTE_LAB_DEFAULT_TUNING.overshootNearEndAlt);
   }
 
   function saveQuickPreset(slotIdx) {
@@ -1602,12 +1547,6 @@ export default function FretboardScalesPage() {
   // CÁLCULOS DERIVADOS: ESCALA ACTIVA, PCS Y DELETREO
   // --------------------------------------------------------------------------
 
-  // --------------------------------------------------------------------------
-  // CÁLCULOS DERIVADOS: ESCALA ACTIVA, PCS Y DELETREO
-  // --------------------------------------------------------------------------
-
-  const scaleIntervals = useMemo(() => buildScaleIntervals(scaleName, customInput, rootPc), [scaleName, customInput, rootPc]);
-  const usesFiveNoteBoxPatterns = scaleIntervals.length === 5;
   const scaleIntervalLabels = useMemo(() => buildScaleIntervalLabels(scaleName, scaleIntervals), [scaleName, scaleIntervals]);
 
   useEffect(() => {
@@ -1623,12 +1562,6 @@ export default function FretboardScalesPage() {
     });
   });
 
-  // Ajuste lógico de modos según la escala elegida
-  useEffect(() => {
-    if (usesFiveNoteBoxPatterns && routeMode === "nps") setRouteMode("auto");
-    if (!usesFiveNoteBoxPatterns && routeMode === "penta") setRouteMode("auto");
-    if (!usesFiveNoteBoxPatterns && scaleIntervals.length !== 7 && routeMode === "nps") setRouteMode("auto");
-  }, [usesFiveNoteBoxPatterns, scaleIntervals.length, routeMode]);
   const scalePcs = useMemo(() => new Set(scaleIntervals.map((i) => mod12(rootPc + i))), [scaleIntervals, rootPc]);
 
   const thirdOffsets = useMemo(() => pickThirdOffsets(scaleIntervals), [scaleIntervals]);
@@ -1636,9 +1569,6 @@ export default function FretboardScalesPage() {
 
   const extraIntervals = useMemo(() => parseTokensToIntervals({ input: extraInput, rootPc }), [extraInput, rootPc]);
   const extraPcs = useMemo(() => new Set(extraIntervals.map((i) => mod12(rootPc + i))), [extraIntervals, rootPc]);
-
-  const autoPreferSharps = useMemo(() => computeAutoPreferSharps({ rootPc, scaleName }), [rootPc, scaleName]);
-  const preferSharps = accMode === "auto" ? autoPreferSharps : accMode === "sharps";
 
   const _noteOptions = useMemo(() => {
     const list = preferSharps ? NOTES_SHARP : NOTES_FLAT;
@@ -3505,8 +3435,7 @@ export default function FretboardScalesPage() {
     const truncated = cleanSymbols.length > loadedSymbols.length;
 
     if (!cleanSymbols.length) {
-      setStandardsNotice({ type: "error", text: `No encuentro acordes para cargar desde ${title}.` });
-      return;
+      return { type: "error", text: `No encuentro acordes para cargar desde ${title}.` };
     }
 
     try {
@@ -3527,66 +3456,13 @@ export default function FretboardScalesPage() {
         }
         return sanitizeNearSlotValue(buildEmptyNearSlot(rootPc, preferSharps), slot);
       }));
-      setStandardsNotice({
+      return {
         type: "success",
         text: `${title} · ${label}: cargado en Acordes cercanos. Auto escala se ha desactivado para respetar la armonía del standard.${truncated ? " Solo se han cargado los 4 primeros cambios porque Acordes cercanos admite 4." : ""}`,
-      });
+      };
     } catch (e) {
-      setStandardsNotice({ type: "error", text: `No pude cargar ${label}: ${String(e?.message || e)}` });
+      return { type: "error", text: `No pude cargar ${label}: ${String(e?.message || e)}` };
     }
-  }
-
-  function toggleStandardRealEventSelection(eventId) {
-    if (!eventId) return;
-    if (standardsRealSelectionIds.includes(eventId)) {
-      setStandardsRealSelectionIds((prev) => prev.filter((id) => id !== eventId));
-      return;
-    }
-    if (standardsRealSelectionIds.length >= 4) {
-      setStandardsNotice({
-        type: "error",
-        text: "El chart real permite seleccionar hasta 4 cambios a la vez para enviarlos a Acordes cercanos.",
-      });
-      return;
-    }
-    setStandardsRealSelectionIds((prev) => [...prev, eventId]);
-  }
-
-  function applySelectedStandardRealEventsToNearChords() {
-    if (!selectedStandard || !selectedStandardRealSelection.length) {
-      setStandardsNotice({ type: "error", text: "Selecciona al menos un cambio del chart real antes de cargarlo." });
-      return;
-    }
-    applyStandardChordSetToNearChords(
-      selectedStandard,
-      "selección del chart real",
-      selectedStandardRealSelection.map((event) => event.loadSymbol || event.symbol)
-    );
-  }
-
-  function resetStandardsFilters() {
-    setStandardsFilters({
-      title: "",
-      composer: "",
-      year: "",
-      key: "",
-    });
-  }
-
-  function retryStandardsCatalogLoad() {
-    setStandardsCatalogState((prev) => ({
-      ...prev,
-      status: "idle",
-      error: null,
-    }));
-  }
-
-  function selectStandardItem(standardId, { closeMobileCatalog = false } = {}) {
-    if (!standardId) return;
-    setSelectedStandardId(standardId);
-    setStandardsRealSelectionIds([]);
-    setStandardsNotice(null);
-    if (closeMobileCatalog) setMobileStandardsCatalogOpen(false);
   }
 
   const nearSlotFamilyOf = useCallback((slot) => {
@@ -4173,182 +4049,22 @@ export default function FretboardScalesPage() {
     [nearComputed.selected]
   );
 
-  const studyData = useMemo(() => {
-    if (studyTarget === "main") {
-      const detectCandidate = chordDetectMode ? chordDetectSelectedCandidate : null;
-      if (detectCandidate) {
-        const mainRootPc = detectCandidate.rootPc;
-        const mainPreferSharps = detectCandidate.preferSharps ?? chordPreferSharps;
-        const mainIntervals = detectCandidate.formula?.intervals?.length
-          ? detectCandidate.formula.intervals.map(mod12)
-          : chordIntervals;
-        const mainDegreeLabels = detectCandidate.formula?.degreeLabels?.length === mainIntervals.length
-          ? detectCandidate.formula.degreeLabels
-          : null;
-        const mainSpelledNotes = spellChordNotes({ rootPc: mainRootPc, chordIntervals: mainIntervals, preferSharps: mainPreferSharps });
-        const detectedPlan = detectCandidate.uiPatch
-          ? buildChordEnginePlan({
-              ...detectCandidate.uiPatch,
-              form: detectCandidate.uiPatch.form || "open",
-            })
-          : { ...chordEnginePlan, rootPc: mainRootPc };
-        const mainPcToSpelledName = (pc) => {
-          const interval = mod12(pc - mainRootPc);
-          const idx = mainIntervals.findIndex((x) => mod12(x) === interval);
-          return idx >= 0 ? mainSpelledNotes[idx] : pcToName(pc, mainPreferSharps);
-        };
-        const manualStudyVoicing = buildManualSelectionVoicing(chordDetectSelectedNotes, mainRootPc, maxFret);
-        const currentMainVoicing = manualStudyVoicing || activeChordVoicing;
-
-        return {
-          rootPc: mainRootPc,
-          preferSharps: mainPreferSharps,
-          title: "Lectura estudiada",
-          chordName: detectCandidate.name,
-          notes: mainSpelledNotes,
-          intervals: mainDegreeLabels || mainIntervals.map((i) => intervalToChordToken(i, { ext6: chordExt6, ext9: chordExt9 && chordStructure !== "triad", ext11: chordExt11 && chordStructure !== "triad", ext13: chordExt13 && chordStructure !== "triad" })),
-          plan: detectedPlan,
-          voicing: currentMainVoicing,
-          positionForm: detectCandidate.uiPatch?.positionForm || chordPositionForm,
-          bassName: currentMainVoicing ? mainPcToSpelledName(currentMainVoicing.bassPc) : pcToName(chordBassPc, mainPreferSharps),
-          inversionLabel: (() => {
-            if (!currentMainVoicing) {
-              return CHORD_INVERSIONS.find((x) => x.value === chordInversion)?.label || "Fundamental";
-            }
-            const invLabel = actualInversionLabelFromVoicing(detectedPlan, currentMainVoicing, chordPreferSharps);
-            if (detectCandidate.contextual && invLabel === "Fundamental") return "Bajo fundamental";
-            return invLabel;
-          })(),
-        };
-      }
-
-      if (chordFamily === "quartal") {
-        const quartalOrderedPcs = Array.isArray(activeQuartalVoicing?.quartalOrderedPcs) && activeQuartalVoicing.quartalOrderedPcs.length
-          ? activeQuartalVoicing.quartalOrderedPcs
-          : (Array.isArray(chordQuartalPitchSets?.[0]?.pcs) ? chordQuartalPitchSets[0].pcs : []);
-        const quartalRootPc = chordQuartalCurrentRootPc;
-        const quartalIntervals = quartalOrderedPcs.map((pc) => mod12(pc - quartalRootPc));
-        const quartalNotes = quartalIntervals.map((interval) => spellNoteFromChordInterval(quartalRootPc, interval, chordPreferSharps));
-        const quartalVoicing = activeQuartalVoicing
-          ? {
-              ...activeQuartalVoicing,
-              relIntervals: new Set((activeQuartalVoicing.notes || []).map((n) => mod12(n.pc - quartalRootPc))),
-            }
-          : null;
-        const quartalPlan = {
-          rootPc: quartalRootPc,
-          intervals: quartalIntervals,
-          bassInterval: quartalVoicing?.bassPc != null ? mod12(quartalVoicing.bassPc - quartalRootPc) : (quartalIntervals[0] ?? 0),
-          thirdOffset: quartalIntervals[1] ?? 0,
-          fifthOffset: quartalIntervals[2] ?? quartalIntervals[1] ?? 0,
-          topVoiceOffset: quartalIntervals.length > 3 ? quartalIntervals[3] : null,
-          form: chordQuartalSpread,
-          layer: "quartal",
-          generator: "quartal",
-          quartalType: chordQuartalType,
-          quartalReference: chordQuartalReference,
-          quartalScaleName: chordQuartalScaleName,
-          quartalTonicPc: chordRootPc,
-          quartalSteps: Array.isArray(activeQuartalVoicing?.quartalSteps) ? [...activeQuartalVoicing.quartalSteps] : [],
-          quartalDegree: typeof activeQuartalVoicing?.quartalDegree === "number" ? activeQuartalVoicing.quartalDegree : null,
-          ui: { usesManualForm: true, allowThirdInversion: quartalIntervals.length > 3, dropEligible: false },
-        };
-
-        return {
-          rootPc: quartalRootPc,
-          preferSharps: chordPreferSharps,
-          title: "Lectura estudiada",
-          chordName: chordQuartalDisplayName,
-          notes: quartalNotes,
-          intervals: quartalIntervals.map((interval) => intervalToSimpleChordDegreeToken(interval)),
-          plan: quartalPlan,
-          voicing: quartalVoicing,
-          positionForm: chordQuartalSpread,
-          bassName: quartalVoicing?.bassPc != null ? spellNoteFromChordInterval(quartalRootPc, mod12(quartalVoicing.bassPc - quartalRootPc), chordPreferSharps) : "—",
-          inversionLabel: quartalVoicing ? actualInversionLabelFromVoicing(quartalPlan, quartalVoicing) : "Según voicing",
-        };
-      }
-
-      if (chordFamily === "guide_tones") {
-        const guideIntervals = guideToneDef.intervals.map(mod12);
-        const guidePlan = {
-          rootPc: chordRootPc,
-          intervals: guideIntervals,
-          bassInterval: activeGuideToneVoicing?.bassPc != null
-            ? mod12(activeGuideToneVoicing.bassPc - chordRootPc)
-            : (guideToneBassIntervalsForSelection(guideToneDef, guideToneInversion === "all" ? "root" : guideToneInversion)[0] ?? 0),
-          thirdOffset: guideIntervals[1] ?? 0,
-          fifthOffset: guideIntervals[2] ?? guideIntervals[1] ?? 0,
-          topVoiceOffset: null,
-          form: guideToneForm,
-          layer: "guide_tones",
-          generator: "exact",
-          guideToneQuality,
-          ui: { usesManualForm: true, allowThirdInversion: false, dropEligible: false },
-        };
-
-        return {
-          rootPc: chordRootPc,
-          preferSharps: chordPreferSharps,
-          title: "Lectura estudiada",
-          chordName: `${guideToneDisplayName} · Notas guía`,
-          notes: guideToneDef.intervals.map((interval) => spellNoteFromChordInterval(chordRootPc, interval, chordPreferSharps)),
-          intervals: [...guideToneDef.degreeLabels],
-          plan: guidePlan,
-          voicing: activeGuideToneVoicing,
-          positionForm: guideToneForm,
-          bassName: activeGuideToneVoicing?.bassPc != null ? spellNoteFromChordInterval(chordRootPc, mod12(activeGuideToneVoicing.bassPc - chordRootPc), chordPreferSharps) : guideToneBassNote,
-          inversionLabel: activeGuideToneVoicing
-            ? actualInversionLabelFromVoicing(guidePlan, activeGuideToneVoicing)
-            : CHORD_GUIDE_TONE_INVERSIONS.find((x) => x.value === guideToneInversion)?.label || "Fundamental",
-        };
-      }
-
-      const mainRootPc = chordRootPc;
-      const mainPreferSharps = chordPreferSharps;
-      const mainIntervals = chordIntervals;
-      const mainSpelledNotes = spellChordNotes({ rootPc: mainRootPc, chordIntervals: mainIntervals, preferSharps: mainPreferSharps });
-      const mainPcToSpelledName = (pc) => {
-        const interval = mod12(pc - mainRootPc);
-        const idx = mainIntervals.findIndex((x) => mod12(x) === interval);
-        return idx >= 0 ? mainSpelledNotes[idx] : pcToName(pc, mainPreferSharps);
-      };
-
-      return {
-        rootPc: mainRootPc,
-        preferSharps: mainPreferSharps,
-        title: "Acorde principal",
-        chordName: chordDisplayNameFromUI({
-          rootPc: mainRootPc,
-          preferSharps: mainPreferSharps,
-          quality: chordQuality,
-          suspension: chordSuspension,
-          structure: chordStructure,
-          ext7: chordExt7,
-          ext6: chordExt6,
-          ext9: chordExt9,
-          ext11: chordExt11,
-          ext13: chordExt13,
-          omit: chordOmit,
-        }),
-        notes: mainSpelledNotes,
-        intervals: chordDegreeLabels || mainIntervals.map((i) => intervalToChordToken(i, { ext6: chordExt6, ext9: chordExt9 && chordStructure !== "triad", ext11: chordExt11 && chordStructure !== "triad", ext13: chordExt13 && chordStructure !== "triad" })),
-        plan: chordEnginePlan,
-        voicing: activeChordVoicing,
-        positionForm: chordPositionForm,
-        bassName: activeChordVoicing ? mainPcToSpelledName(activeChordVoicing.bassPc) : pcToName(chordBassPc, mainPreferSharps),
-        inversionLabel: activeChordVoicing
-          ? actualInversionLabelFromVoicing(chordEnginePlan, activeChordVoicing, chordPreferSharps)
-          : CHORD_INVERSIONS.find((x) => x.value === chordInversion)?.label || "Fundamental",
-      };
-    }
-
-    const idx = Number(studyTarget);
-    const slot = nearSlots[idx];
-    const plan = nearComputed.ranked[idx]?.plan || null;
-    const voicing = nearComputed.selected[idx] || null;
-    return buildNearSlotStudyEntry(slot, plan, voicing, idx);
-  }, [studyTarget, chordDetectMode, chordDetectSelectedCandidate, chordDetectSelectedNotes, chordFamily, chordRootPc, chordPreferSharps, chordQuality, chordSuspension, chordStructure, chordExt7, chordExt6, chordExt9, chordExt11, chordExt13, chordOmit, chordIntervals, chordDegreeLabels, chordEnginePlan, activeChordVoicing, chordBassPc, chordInversion, chordPositionForm, maxFret, chordQuartalPitchSets, activeQuartalVoicing, chordQuartalCurrentRootPc, chordQuartalDisplayName, chordQuartalSpread, chordQuartalType, chordQuartalReference, chordQuartalScaleName, guideToneDef, activeGuideToneVoicing, guideToneDisplayName, guideToneForm, guideToneInversion, guideToneQuality, guideToneBassNote, nearSlots, nearComputed, buildNearSlotStudyEntry]);
+  const studyData = useMemo(() => buildStudyData({
+    studyTarget,
+    chordDetectMode, chordDetectSelectedCandidate, chordDetectSelectedNotes,
+    chordFamily,
+    chordRootPc, chordPreferSharps,
+    chordQuality, chordSuspension, chordStructure,
+    chordExt7, chordExt6, chordExt9, chordExt11, chordExt13, chordOmit,
+    chordIntervals, chordDegreeLabels, chordEnginePlan, activeChordVoicing,
+    chordBassPc, chordInversion, chordPositionForm, maxFret,
+    chordQuartalPitchSets, activeQuartalVoicing, chordQuartalCurrentRootPc,
+    chordQuartalDisplayName, chordQuartalSpread, chordQuartalType,
+    chordQuartalReference, chordQuartalScaleName,
+    guideToneDef, activeGuideToneVoicing, guideToneDisplayName,
+    guideToneForm, guideToneInversion, guideToneQuality, guideToneBassNote,
+    nearSlots, nearComputed, buildNearSlotStudyEntry,
+  }), [studyTarget, chordDetectMode, chordDetectSelectedCandidate, chordDetectSelectedNotes, chordFamily, chordRootPc, chordPreferSharps, chordQuality, chordSuspension, chordStructure, chordExt7, chordExt6, chordExt9, chordExt11, chordExt13, chordOmit, chordIntervals, chordDegreeLabels, chordEnginePlan, activeChordVoicing, chordBassPc, chordInversion, chordPositionForm, maxFret, chordQuartalPitchSets, activeQuartalVoicing, chordQuartalCurrentRootPc, chordQuartalDisplayName, chordQuartalSpread, chordQuartalType, chordQuartalReference, chordQuartalScaleName, guideToneDef, activeGuideToneVoicing, guideToneDisplayName, guideToneForm, guideToneInversion, guideToneQuality, guideToneBassNote, nearSlots, nearComputed, buildNearSlotStudyEntry]);
 
   // --------------------------------------------------------------------------
   // COMPONENTES UI INTERNOS: PANEL DE ESTUDIO
@@ -4834,245 +4550,9 @@ export default function FretboardScalesPage() {
     return { backgroundImage: `linear-gradient(135deg, ${c1} 0%, ${c1} 50%, ${c2} 50%, ${c2} 100%)` };
   }
 
-  // Ruta
-  const routeLabStartPos = useMemo(() => parsePosCode(routeLabStartCode), [routeLabStartCode]);
-  const routeLabEndPos = useMemo(() => parsePosCode(routeLabEndCode), [routeLabEndCode]);
+  // Ruta: los derivados vienen de routeDerived (useRouteFeature)
 
-  const routeLabCurrentTuning = useMemo(() => ({
-    ...ROUTE_LAB_DEFAULT_TUNING,
-    switchWhenSameStringForwardPenalty: routeLabSwitchWhenSameStringForwardPenalty,
-    worseThanSameStringGoalBase: routeLabWorseThanSameStringGoalBase,
-    worseThanSameStringGoalScale: routeLabWorseThanSameStringGoalScale,
-    corridorPenalty: routeLabCorridorPenalty,
-    overshootNearEndAlt: routeLabOvershootNearEndAlt,
-  }), [
-    routeLabSwitchWhenSameStringForwardPenalty,
-    routeLabWorseThanSameStringGoalBase,
-    routeLabWorseThanSameStringGoalScale,
-    routeLabCorridorPenalty,
-    routeLabOvershootNearEndAlt,
-  ]);
 
-  const routeLabResult = useMemo(() => computeRouteLab({
-    rootPc,
-    scaleName,
-    scaleIntervals,
-    maxFret,
-    startPos: routeLabStartPos,
-    endPos: routeLabEndPos,
-    maxNotesPerString: routeLabMaxPerString,
-    tuning: routeLabCurrentTuning,
-  }), [
-    rootPc,
-    scaleName,
-    scaleIntervals,
-    maxFret,
-    routeLabStartPos,
-    routeLabEndPos,
-    routeLabMaxPerString,
-    routeLabCurrentTuning,
-  ]);
-
-  const routeLabIndexByCell = useMemo(() => {
-    const m = new Map();
-    routeLabResult.path.forEach((n, i) => m.set(`${n.sIdx}:${n.fret}`, i + 1));
-    return m;
-  }, [routeLabResult.path]);
-
-  const routeLabText = useMemo(
-    () => routeLabResult.path.map((n) => `${n.sIdx + 1}${n.fret}`).join(" \u2192 "),
-    [routeLabResult.path]
-  );
-
-  const routeKeySignature = useMemo(
-    () => resolveKeySignatureForScale({ rootPc, scaleName }),
-    [rootPc, scaleName]
-  );
-
-  const routeStaffEvents = useMemo(
-    () => routeLabResult.path.map((n) => ({
-      notes: [pitchAt(n.sIdx, n.fret) + 12],
-      spelledNotes: [pcToName(mod12(STRINGS[n.sIdx].pc + n.fret), preferSharps)],
-    })),
-    [routeLabResult.path, preferSharps]
-  );
-
-  const routeLabDebugLines = useMemo(() => {
-    return (routeLabResult.debugSteps || []).map((step, idx) => {
-      const chunks = [];
-      chunks.push(`${idx + 1}. ${step.from} \u2192 ${step.to}`);
-      chunks.push(step.sameString ? `misma cuerda · ${step.df} trastes` : `cambio cuerda ${step.ds} · ${step.df} trastes`);
-      chunks.push(`bloque=${step.runCount}`);
-      chunks.push(`corredor=${step.corridorDev}`);
-      if (step.targetSideOvershoot > 0) chunks.push(`overshoot objetivo=${step.targetSideOvershoot}`);
-      if (step.hadSameStringForward && step.bestSameStringForwardFret != null && !step.sameString) {
-        chunks.push(`había opción misma cuerda hacia traste ${step.bestSameStringForwardFret}`);
-      }
-      if (step.hadNonOvershootingAlternative && step.targetSideOvershoot > 0) {
-        chunks.push(`había alternativa sin pasarse del objetivo`);
-      }
-      if (step.templateText) {
-        chunks.push(step.templateText);
-      }
-      chunks.push(`coste paso=${step.stepCost}`);
-      chunks.push(`coste acumulado=${step.totalCost}`);
-      return chunks.join(" · ");
-    });
-  }, [routeLabResult.debugSteps]);
-
-  const startPos = useMemo(() => parsePosCode(routeStartCode), [routeStartCode]);
-  const endPos = useMemo(() => parsePosCode(routeEndCode), [routeEndCode]);
-
-  const fixedPatternIdx = useMemo(() => {
-    if (routeFixedPattern === "auto") return null;
-    const n = parseInt(routeFixedPattern, 10);
-    return Number.isFinite(n) ? n : null;
-  }, [routeFixedPattern]);
-
-  // Instancias para ruta (separamos pentatónicas de 7 notas)
-  const pentaBoxInstances = useMemo(() => {
-    if (!usesFiveNoteBoxPatterns) return [];
-    return buildPentatonicBoxInstances({ rootPc, scaleIntervals, maxFret });
-  }, [usesFiveNoteBoxPatterns, rootPc, scaleIntervals, maxFret]);
-
-  const pentaBoxMembership = useMemo(() => buildInstanceMembershipMap(pentaBoxInstances), [pentaBoxInstances]);
-
-  const npsInstances = useMemo(() => {
-    if (scaleIntervals.length !== 7) return [];
-    return build3NpsPatternInstances({ rootPc, scaleIntervals, maxFret });
-  }, [rootPc, scaleIntervals, maxFret]);
-
-  const npsMembership = useMemo(() => buildInstanceMembershipMap(npsInstances), [npsInstances]);
-
-  const cagedInstances = useMemo(() => {
-    return buildCagedPatternInstances({ rootPc, scaleIntervals, maxFret });
-  }, [rootPc, scaleIntervals, maxFret]);
-
-  const cagedMembership = useMemo(() => buildInstanceMembershipMap(cagedInstances), [cagedInstances]);
-
-  const routeResult = useMemo(() => {
-    const modePenalty = (m) => (m === "penta" || m === "nps" ? 0 : m === "pos" ? 2.0 : 4.0);
-
-    const runMode = (m, keepOverride = null) => {
-      const keep = keepOverride == null ? routeKeepPattern : keepOverride;
-
-      let internalMode = "free";
-      let instances = [];
-      let membership = new Map();
-      let typeFilter = null;
-
-      if (m === "penta" && usesFiveNoteBoxPatterns) {
-        internalMode = "pattern";
-        instances = pentaBoxInstances;
-        membership = pentaBoxMembership;
-        typeFilter = fixedPatternIdx;
-      } else if (m === "nps" && scaleIntervals.length === 7) {
-        internalMode = "pattern";
-        instances = npsInstances;
-        membership = npsMembership;
-        typeFilter = fixedPatternIdx;
-      } else if (m === "caged") {
-        internalMode = "pattern";
-        instances = cagedInstances;
-        membership = cagedMembership;
-        typeFilter = fixedPatternIdx;
-      } else if (m === "pos") {
-        internalMode = "pos";
-      } else {
-        internalMode = "free";
-      }
-
-      const baseArgs = {
-        rootPc,
-        scaleIntervals,
-        maxFret,
-        startPos,
-        endPos,
-        routeMode: internalMode,
-        fixedPatternIdx: typeFilter,
-        allowPatternSwitch,
-        patternSwitchPenalty,
-        maxNotesPerString: Math.max(1, Math.min(5, routeMaxPerString)),
-        preferNps: routePreferNps,
-        preferVertical: routePreferVertical,
-        strictFretDirection: routeStrictFretDirection,
-        patternInstances: instances,
-        instanceMembership: membership,
-        preferKeepPattern: keep,
-        positionWindowSize: 6,
-        maxPositionShiftPerStep: 2,
-        positionShiftPenalty: 0.7,
-        maxFretJumpPerStep: internalMode === "pattern" ? 5 : internalMode === "pos" ? 6 : 7,
-        maxStringJumpPerStep: internalMode === "pattern" ? 1 : 2,
-        maxInstanceShift: internalMode === "pattern" ? 3 : 99,
-        initAnchorPenalty: internalMode === "pattern" ? 0.8 : 0,
-      };
-
-      const tries = routeStrictFretDirection ? [1, -1] : [0];
-      let bestTry = { res: { path: [], cost: null, reason: "No encontré ruta" }, score: Infinity };
-
-      for (const forcedTrend of tries) {
-        const res = computeMusicalRoute({ ...baseArgs, forcedFretTrend: forcedTrend });
-        if (res.reason) continue;
-        const score = (res.cost ?? 0) + modePenalty(m);
-        if (score < bestTry.score) bestTry = { res, score };
-      }
-
-      return bestTry;
-    };
-
-    const pickBest = (modes) => {
-      let best = { res: { path: [], cost: null, reason: "No encontré ruta" }, score: Infinity };
-      for (const m of modes) {
-        let a = runMode(m, null);
-        if (!Number.isFinite(a.score) && routeKeepPattern) a = runMode(m, false);
-        if (a.score < best.score) best = a;
-      }
-      return best.res;
-    };
-
-    if (routeMode === "auto") {
-      // Mantiene comportamiento previo (no añade CAGED a auto para no romper resultados existentes)
-      if (usesFiveNoteBoxPatterns) return pickBest(["penta", "pos", "free"]);
-      if (scaleIntervals.length === 7) return pickBest(["nps", "pos", "free"]);
-      return pickBest(["pos", "free"]);
-    }
-
-    // Manual
-    if (routeMode === "penta" && usesFiveNoteBoxPatterns) return pickBest(["penta"]);
-    if (routeMode === "nps" && scaleIntervals.length === 7) return pickBest(["nps"]);
-    if (routeMode === "caged") return pickBest(["caged"]);
-    if (routeMode === "pos") return pickBest(["pos"]);
-    return pickBest(["free"]);
-  }, [
-    rootPc,
-    scaleIntervals,
-    maxFret,
-    startPos,
-    endPos,
-    routeMode,
-    usesFiveNoteBoxPatterns,
-    routeKeepPattern,
-    fixedPatternIdx,
-    allowPatternSwitch,
-    patternSwitchPenalty,
-    routeMaxPerString,
-    routePreferNps,
-    routePreferVertical,
-    routeStrictFretDirection,
-    pentaBoxInstances,
-    pentaBoxMembership,
-    npsInstances,
-    npsMembership,
-    cagedInstances,
-    cagedMembership,
-  ]);
-
-  const routeIndexByCell = useMemo(() => {
-    const m = new Map();
-    routeResult.path.forEach((n, i) => m.set(`${n.sIdx}:${n.fret}`, i + 1));
-    return m;
-  }, [routeResult.path]);
 
   // --------------------------------------------------------------------------
   // COMPONENTES UI INTERNOS: ELEMENTOS BASE
@@ -5766,181 +5246,18 @@ export default function FretboardScalesPage() {
 
   function RouteLabFretboard() {
     return (
-      <>
-        {isNarrowBoardLayout ? (
-          <MobileMainFretboard
-            renderCell={({ sIdx, fret, cellClassName }) => {
-              const pc = mod12(STRINGS[sIdx].pc + fret);
-              const inScale = scalePcs.has(pc);
-              const inExtra = showExtra && extraPcs.has(pc);
-              const displayRole = getDisplayRole({ pc, inScale, inExtra });
-              const cellKey = `${sIdx}:${fret}`;
-              const routeIdx = routeLabIndexByCell.get(cellKey);
-              const inRoute = routeIdx != null;
-              const bgRoute = inRoute
-                ? {
-                    backgroundImage: `linear-gradient(0deg, ${rgba(colors.route, 0.28)} 0%, ${rgba(colors.route, 0.28)} 100%)`,
-                    boxShadow: `inset 0 0 0 2px ${rgba("#000000", 0.9)}`,
-                  }
-                : {};
-              const shouldRender = inRoute || displayRole !== null || showNonScale;
-              const effectiveRole = displayRole ?? roleOfPc(pc);
-
-              return (
-                <div
-                  key={`${sIdx}-${fret}`}
-                  onClick={() => {
-                    if (!inScale) return;
-                    const code = `${sIdx + 1}${fret}`;
-                    if (routeLabPickNext === "start") {
-                      setRouteLabStartCode(code);
-                      setRouteLabPickNext("end");
-                    } else {
-                      setRouteLabEndCode(code);
-                      setRouteLabPickNext("start");
-                    }
-                  }}
-                  className={`group relative flex w-full overflow-visible items-center justify-center rounded-lg border ${cellClassName} ${
-                    mobileVerticalFretBorderClass(fret)
-                  } ${inScale ? "cursor-pointer hover:ring-2 hover:ring-slate-300" : ""}`}
-                  style={{ backgroundColor: fret === 0 ? "transparent" : FRET_CELL_BG, ...bgRoute }}
-                >
-                  <HoverCellNote sIdx={sIdx} fret={fret} visible={!shouldRender} />
-                  {shouldRender && (inRoute || displayRole !== null) ? (
-                    <Circle pc={pc} role={effectiveRole} fret={fret} sIdx={sIdx} badge={inRoute ? routeIdx : null} kingTags={[]} />
-                  ) : showNonScale ? (
-                    <div className="text-[10px] text-slate-400">{labelForPc(pc)}</div>
-                  ) : null}
-                </div>
-              );
-            }}
-          />
-        ) : (
-          <>
-            <div className="grid items-center gap-1" style={{ gridTemplateColumns: fretGridCols(maxFret) }}>
-              <div className="text-xs font-semibold text-slate-600">Cuerda</div>
-              {Array.from({ length: maxFret + 1 }, (_, fret) => (
-                <WebFretNumberHeader key={fret} fret={fret} />
-              ))}
-            </div>
-
-            <div className="mt-2 space-y-1">
-              {STRINGS.map((st, sIdx) => (
-                <React.Fragment key={st.label}>
-                  <div className="grid items-center gap-1" style={{ gridTemplateColumns: fretGridCols(maxFret) }}>
-                    <div className="text-xs font-medium text-slate-700">{st.label}</div>
-
-                    {Array.from({ length: maxFret + 1 }, (_, fret) => {
-                      const pc = mod12(st.pc + fret);
-                      const inScale = scalePcs.has(pc);
-                      const inExtra = showExtra && extraPcs.has(pc);
-                      const displayRole = getDisplayRole({ pc, inScale, inExtra });
-                      const cellKey = `${sIdx}:${fret}`;
-                      const routeIdx = routeLabIndexByCell.get(cellKey);
-                      const inRoute = routeIdx != null;
-                      const bgRoute = inRoute
-                        ? {
-                            backgroundImage: `linear-gradient(0deg, ${rgba(colors.route, 0.28)} 0%, ${rgba(colors.route, 0.28)} 100%)`,
-                            boxShadow: `inset 0 0 0 2px ${rgba("#000000", 0.9)}`,
-                          }
-                        : {};
-                      const shouldRender = inRoute || displayRole !== null || showNonScale;
-                      const effectiveRole = displayRole ?? roleOfPc(pc);
-
-                      return (
-                        <div
-                          key={`${sIdx}-${fret}`}
-                          onClick={() => {
-                            if (!inScale) return;
-                            const code = `${sIdx + 1}${fret}`;
-                            if (routeLabPickNext === "start") {
-                              setRouteLabStartCode(code);
-                              setRouteLabPickNext("end");
-                            } else {
-                              setRouteLabEndCode(code);
-                              setRouteLabPickNext("start");
-                            }
-                          }}
-                          className={`group relative isolate flex h-8 overflow-visible items-center justify-center rounded-lg border ${
-                            fret === 0 ? "border-slate-300" : "border-slate-200"
-                          } ${shouldRender && displayRole ? "z-[4]" : "z-0"} ${inScale ? "cursor-pointer hover:ring-2 hover:ring-slate-300" : ""}`}
-                          style={{ backgroundColor: FRET_CELL_BG, ...bgRoute }}
-                        >
-                          {hasInlayCell(fret, sIdx) ? (
-                            <div
-                              className="pointer-events-none absolute left-1/2 z-0 -translate-x-1/2"
-                              style={{ bottom: "-10px" }}
-                            >
-                              <div className="h-4 w-4 rounded-full opacity-95" style={{ backgroundColor: FRET_INLAY_BG }} />
-                            </div>
-                          ) : null}
-                          <HoverCellNote sIdx={sIdx} fret={fret} visible={!shouldRender} />
-                          {shouldRender && (inRoute || displayRole !== null) ? (
-                            <Circle pc={pc} role={effectiveRole} fret={fret} sIdx={sIdx} badge={inRoute ? routeIdx : null} kingTags={[]} />
-                          ) : showNonScale ? (
-                            <div className="text-[10px] text-slate-400">{labelForPc(pc)}</div>
-                          ) : null}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </React.Fragment>
-              ))}
-            </div>
-          </>
-        )}
-
-        <div className="mt-3 space-y-1 text-xs text-slate-600">
-          <div>
-            Escala activa ({pcToName(rootPc, preferSharps)}): {scaleIntervalLabels.join(" – ")}
-          </div>
-          <div>
-            Escala activa ({pcToName(rootPc, preferSharps)}): {spelledScaleNotes.join(" – ")}
-          </div>
-          {debugMode && routeLabText ? (
-            <>
-              <div>
-                <b>Ruta texto:</b> {routeLabText}
-              </div>
-              <div>
-                <b>Coste total:</b> {routeLabResult.cost != null ? Number(routeLabResult.cost).toFixed(2) : "—"}
-              </div>
-              <details className="rounded-xl border border-slate-200 bg-slate-50 px-2 py-2">
-                <summary className="cursor-pointer font-semibold text-slate-700">Por qué eligió esta ruta</summary>
-                <div className="mt-2 space-y-1 text-slate-600">
-                  {routeLabDebugLines.length ? routeLabDebugLines.map((line, idx) => (
-                    <div key={idx}>{line}</div>
-                  )) : <div>Sin detalle disponible.</div>}
-                </div>
-              </details>
-            </>
-          ) : null}
-
-          {routeStaffEvents.length ? (
-            <div className="mt-3">
-              <div className="mb-1 text-xs font-semibold text-slate-700">Pentagrama 4/4</div>
-              <MusicStaff
-                events={routeStaffEvents}
-                preferSharps={preferSharps}
-                clefMode="treble"
-                keySignature={routeKeySignature}
-                inlineEventLabels={routeStaffEvents.map((evt) => evt?.spelledNotes?.[0] || "")}
-              />
-            </div>
-          ) : null}
-
-          {showExtra ? (
-            <>
-              <div>
-                Extra ({pcToName(rootPc, preferSharps)}): {extraIntervals.map((i) => intervalToDegreeToken(i)).join(" – ")}
-              </div>
-              <div>
-                Extra ({pcToName(rootPc, preferSharps)}): {spelledExtraNotes.join(" – ")}
-              </div>
-            </>
-          ) : null}
-        </div>
-      </>
+      <RouteLabFretboardComponent
+        route={{ routeLabPickNext, setRouteLabStartCode, setRouteLabPickNext, setRouteLabEndCode }}
+        derived={{ routeLabIndexByCell, routeLabText, routeLabResult, routeLabDebugLines, routeStaffEvents, routeKeySignature }}
+        fretboard={{
+          isNarrowBoardLayout, maxFret,
+          scalePcs, showExtra, extraPcs, showNonScale,
+          rootPc, preferSharps,
+          scaleIntervalLabels, spelledScaleNotes, spelledExtraNotes, extraIntervals,
+          thirdOffsets, scaleName, debugMode, colors,
+        }}
+        ui={{ Circle, HoverCellNote, MobileMainFretboard, labelForPc }}
+      />
     );
   }
 
@@ -6886,173 +6203,17 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
   const selectedQuickPresetIndex = Math.max(0, Math.min(QUICK_PRESET_COUNT - 1, parseInt(selectedQuickPresetSlot, 10) || 0));
   const selectedQuickPreset = quickPresets[selectedQuickPresetIndex] || null;
   const tonalContextSummary = `${pcToName(rootPc, preferSharps)} ${scaleName} · armonización ${harmonyMode === "functional_minor" ? "funcional menor" : "diatónica"}`;
-  const shouldLoadStandardsCatalog = effectiveBoards.standards || mobileStandardsCatalogOpen;
-  const standardsCatalogStatus = standardsCatalogState.status;
-  const standardsCatalogLoading = standardsCatalogStatus === "idle" || standardsCatalogStatus === "loading";
-  const standardsCatalogError = standardsCatalogState.error;
-  const standardsItems = standardsCatalogState.items;
-  const standardsCollectionLabel = standardsCatalogState.collectionLabel;
-  const standardsCatalogSummary = standardsCollectionLabel
-    || (standardsItems.length
-      ? `${standardsItems.length} standards en la base de datos`
-      : standardsCatalogError
-        ? "No he podido cargar el catálogo."
-        : "Cargando catálogo...");
-  const standardsTitleQuery = standardsFilters.title.trim().toLowerCase();
-  const standardsComposerQuery = standardsFilters.composer.trim().toLowerCase();
-  const standardsYearQuery = standardsFilters.year.trim().toLowerCase();
-  const standardsKeyQuery = standardsFilters.key.trim().toLowerCase();
-  const standardsFiltersActive = !!(
-    standardsTitleQuery
-    || standardsComposerQuery
-    || standardsYearQuery
-    || standardsKeyQuery
-  );
-  useEffect(() => {
-    if (!shouldLoadStandardsCatalog || standardsCatalogStatus !== "idle") return undefined;
-    setStandardsCatalogState((prev) => ({ ...prev, status: "loading", error: null }));
-
-    loadJJazzLabCatalogIndex()
-      .then(({ collectionLabel, items }) => {
-        setStandardsCatalogState({
-          status: "ready",
-          items,
-          collectionLabel,
-          error: null,
-        });
-      })
-      .catch((error) => {
-        setStandardsCatalogState({
-          status: "error",
-          items: [],
-          collectionLabel: "",
-          error: error instanceof Error ? error.message : "No he podido cargar el catálogo de standards.",
-        });
-      });
-  }, [shouldLoadStandardsCatalog, standardsCatalogStatus]);
-  const filteredStandards = useMemo(() => {
-    if (!standardsFiltersActive) return standardsItems;
-    return standardsItems.filter((item) => {
-      const title = String(item?.title || "").toLowerCase();
-      const defaultKey = String(item?.defaultKey || "").toLowerCase();
-      const year = item?.year != null ? String(item.year).toLowerCase() : "";
-      const composers = Array.isArray(item?.composers)
-        ? item.composers.join(" ").toLowerCase()
-        : "";
-
-      if (standardsTitleQuery && !title.includes(standardsTitleQuery)) return false;
-      if (standardsComposerQuery && !composers.includes(standardsComposerQuery)) return false;
-      if (standardsYearQuery && !year.includes(standardsYearQuery)) return false;
-      if (standardsKeyQuery && !defaultKey.includes(standardsKeyQuery)) return false;
-      return true;
-    });
-  }, [
-    standardsComposerQuery,
-    standardsFiltersActive,
-    standardsItems,
-    standardsKeyQuery,
-    standardsTitleQuery,
-    standardsYearQuery,
-  ]);
-  useEffect(() => {
-    if (!standardsItems.length) return;
-    if (standardsItems.some((item) => item?.id === selectedStandardId)) return;
-    const preferred = standardsItems.find((item) => item.id === "all-of-me") || standardsItems[0];
-    if (preferred) setSelectedStandardId(preferred.id);
-  }, [selectedStandardId, standardsItems]);
-  const selectedCatalogStandard = useMemo(() => {
-    if (standardsFiltersActive && !filteredStandards.length) return null;
-    const activeItems = filteredStandards.length ? filteredStandards : standardsItems;
-    return activeItems.find((item) => item?.id === selectedStandardId) || activeItems[0] || null;
-  }, [filteredStandards, standardsFiltersActive, standardsItems, selectedStandardId]);
-  const selectedLoadedStandard = selectedCatalogStandard ? standardsLoadedMap[selectedCatalogStandard.id] || null : null;
-  const selectedStandard = selectedLoadedStandard || selectedCatalogStandard || null;
-  useEffect(() => {
-    const item = selectedCatalogStandard;
-    if (!item?.hasJJazzLabSource || !item?.sourcePath) {
-      setStandardsLoadingId(null);
-      setStandardsError(null);
-      return undefined;
-    }
-    if (standardsLoadedMap[item.id]) {
-      setStandardsLoadingId(null);
-      setStandardsError(null);
-      return undefined;
-    }
-
-    let cancelled = false;
-    setStandardsLoadingId(item.id);
-    setStandardsError(null);
-
-    loadJJazzLabStandardFromPath(item.sourcePath)
-      .then((detail) => {
-        if (cancelled) return;
-        setStandardsLoadedMap((prev) => ({ ...prev, [item.id]: detail }));
-        setStandardsLoadingId((current) => (current === item.id ? null : current));
-      })
-      .catch((error) => {
-        if (cancelled) return;
-        setStandardsError(`No pude leer ${item.title} desde JJazzLab: ${String(error?.message || error)}`);
-        setStandardsLoadingId((current) => (current === item.id ? null : current));
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedCatalogStandard, standardsLoadedMap]);
-  const selectedStandardRealSections = useMemo(() => getStandardRealChartSections(selectedStandard), [selectedStandard]);
-  const selectedStandardHasRealChart = selectedStandardRealSections.length > 0;
-  const selectedStandardRealEvents = useMemo(
-    () => selectedStandardRealSections.flatMap((section, sectionIdx) => (
-      section.measures.flatMap((measure, measureIdx) => {
-        const chordEvents = Array.isArray(measure.chordEvents)
-          ? measure.chordEvents
-          : measure.chords.map((symbol) => ({ display: symbol, load: symbol }));
-        return chordEvents.map((event, symbolIdx) => ({
-          id: `${selectedStandard?.id || "standard"}-${section.id}-${sectionIdx}-${measureIdx}-${symbolIdx}`,
-          section,
-          sectionIdx,
-          measure,
-          measureIdx,
-          symbol: getCompactStandardChordDisplay(event, chordEvents[symbolIdx - 1] || null),
-          fullSymbol: event.display,
-          loadSymbol: event.load,
-          symbolIdx,
-        }));
-      })
-    )),
-    [selectedStandard, selectedStandardRealSections]
-  );
-  const selectedStandardRealEventMap = useMemo(
-    () => new Map(selectedStandardRealEvents.map((event) => [event.id, event])),
-    [selectedStandardRealEvents]
-  );
-  const selectedStandardRealSelection = useMemo(
-    () => standardsRealSelectionIds.map((id) => selectedStandardRealEventMap.get(id)).filter(Boolean),
-    [standardsRealSelectionIds, selectedStandardRealEventMap]
-  );
-  useEffect(() => {
-    setStandardsRealSelectionIds((prev) => prev.filter((id) => selectedStandardRealEventMap.has(id)));
-  }, [selectedStandardRealEventMap]);
-  useEffect(() => {
-    if (standardsNotice?.type !== "success") return undefined;
-    const timeoutId = window.setTimeout(() => {
-      setStandardsNotice((current) => (
-        current?.type === "success" ? null : current
-      ));
-    }, 5000);
-    return () => window.clearTimeout(timeoutId);
-  }, [standardsNotice]);
-  useEffect(() => {
-    if (isMobileLayout) return;
-    setMobileStandardsCatalogOpen(false);
-  }, [isMobileLayout]);
+  const standards = useStandardsFeature({
+    standardsPanelActive: effectiveBoards.standards,
+    isMobileLayout,
+    onApplyToNearChords: applyStandardChordSetToNearChords,
+  });
+  const { notice: standardsNotice, catalog, mobileCatalog, selection, chart, actions } = standards;
   const themeSoftBg = themeObjectBg;
   const themeHoverBg = themeObjectBg;
   const themeDisabledControlText = isDark(themeDisabledControlBg) ? "#f8fafc" : "#64748b";
   const themeDisabledControlBorder = isDark(themeDisabledControlBg) ? "#475569" : "#cbd5e1";
   const themeFretInlayBg = mixHexColors(themeSectionHeaderBg, "#71a3c1", 0.46);
-  const routeLabPickHelpText = `Click en el mástil de ruta para elegir: ${routeLabPickNext === "start" ? "Inicio" : "Fin"}.`;
   const mobileRenderedCenterSection = mobileSectionTransition?.fromSection || mobileActiveSection;
   const mobileRenderedSectionIdx = MOBILE_BOTTOM_NAV_OPTIONS.findIndex((option) => option.value === mobileRenderedCenterSection);
   const mobilePrevSection = mobileRenderedSectionIdx > 0 ? MOBILE_BOTTOM_NAV_OPTIONS[mobileRenderedSectionIdx - 1].value : null;
@@ -7463,7 +6624,7 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
   }
 
   function handleMobileSectionPointerDown(e) {
-    if (!isMobileLayout || mobileSectionTransition || mobileMenuOpen || mobileTonalContextOpen || mobileChordEditorOpen || mobileNearChordEditorIdx != null || mobileStandardsCatalogOpen || mobileInfoPopover || manualOpen || studyOpen) return;
+    if (!isMobileLayout || mobileSectionTransition || mobileMenuOpen || mobileTonalContextOpen || mobileChordEditorOpen || mobileNearChordEditorIdx != null || mobileCatalog.mobileStandardsCatalogOpen || mobileInfoPopover || manualOpen || studyOpen) return;
     if ((e.pointerType && e.pointerType !== "touch" && e.pointerType !== "pen") || isMobileSectionSwipeIgnored(e.target)) {
       mobileSectionPointerRef.current = null;
       return;
@@ -7572,355 +6733,6 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
       layout: { effectiveBoards, patternsMode, scaleIntervals },
       ui: { ToggleButton, UI_LABEL_SM, UI_SELECT_SM, UI_BTN_SM },
     };
-  }
-
-  function renderStandardRealSelectionBar(isOverlay = false) {
-    const wrapperClass = isOverlay
-      ? "rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm"
-      : "rounded-2xl border border-slate-200 bg-white px-3 py-3 shadow-sm";
-
-    return (
-      <div className={wrapperClass}>
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0 flex-1">
-            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Selección del chart real</div>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              className={UI_BTN_SM + " w-auto px-3"}
-              onClick={applySelectedStandardRealEventsToNearChords}
-              disabled={!selectedStandardRealSelection.length}
-            >
-              Cargar selección
-            </button>
-            <button
-              type="button"
-              className={UI_BTN_SM + " w-auto px-3"}
-              onClick={() => setStandardsRealSelectionIds([])}
-              disabled={!standardsRealSelectionIds.length}
-            >
-              Limpiar
-            </button>
-          </div>
-        </div>
-
-        <div className="mt-3 flex flex-wrap gap-2">
-          {selectedStandardRealSelection.length ? selectedStandardRealSelection.map((event, idx) => (
-            <button
-              key={event.id}
-              type="button"
-              className="inline-flex items-center gap-2 rounded-2xl border border-sky-200 bg-sky-50 px-3 py-2 text-left shadow-sm transition-colors hover:bg-sky-100"
-              onClick={() => toggleStandardRealEventSelection(event.id)}
-              title="Quitar este cambio de la selección"
-            >
-              <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-sky-600 px-1.5 text-[11px] font-semibold text-white">
-                {idx + 1}
-              </span>
-              <span className="text-sm font-semibold text-slate-800">{event.symbol}</span>
-              <span className="text-xs text-slate-500">{event.section.label} · {event.measure.barLabel}</span>
-            </button>
-          )) : (
-            <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-500">
-              Aún no has seleccionado cambios del chart.
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  function renderStandardRealChartSections(isOverlay = false) {
-    if (!selectedStandardHasRealChart) return null;
-
-    const compactMobileChart = isMobileLayout;
-    const rowMinWidthClass = compactMobileChart
-      ? "min-w-0"
-      : (isOverlay ? "min-w-[600px]" : "min-w-[560px]");
-    const measureCellClass = compactMobileChart
-      ? "min-h-[72px] min-w-0 px-1.5 py-1.5"
-      : (isOverlay ? "min-h-[68px] px-3 py-2" : "min-h-[60px] px-2.5 py-1.5");
-    const emptyMeasureClass = compactMobileChart
-      ? "min-h-[72px]"
-      : (isOverlay ? "min-h-[68px]" : "min-h-[60px]");
-    const measureEventsClass = compactMobileChart
-      ? "mt-1 min-h-[46px] gap-1"
-      : (isOverlay ? "mt-2 min-h-[36px] gap-1" : "mt-1.5 min-h-[32px] gap-1");
-    const measureButtonClass = compactMobileChart
-      ? "px-1.5 py-1 text-[11px]"
-      : (isOverlay ? "px-2.5 py-1.5 text-sm" : "px-2 py-1 text-[13px]");
-    const repeatButtonClass = compactMobileChart
-      ? "h-7 min-w-[30px] px-1.5 text-xl"
-      : (isOverlay ? "h-9 min-w-[44px] text-[26px]" : "h-8 min-w-[40px] text-2xl");
-
-    const buildMeasureRows = (measures) => {
-      const rows = [];
-      for (let idx = 0; idx < measures.length; idx += 4) {
-        rows.push(measures.slice(idx, idx + 4));
-      }
-      return rows;
-    };
-
-    return (
-      <div className={`space-y-3 ${isOverlay ? "sm:space-y-4" : ""}`}>
-        {selectedStandardRealSections.map((section, sectionIdx) => (
-          <div key={`${selectedStandard?.id || "standard"}-${section.id}-${sectionIdx}`} className={`rounded-2xl border border-slate-300 bg-white shadow-sm ${isOverlay ? "p-4" : "p-3"}`}>
-            <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 pb-2">
-              <span className="rounded-lg border border-slate-300 bg-slate-50 px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-700">
-                {section.label}
-              </span>
-              <span className="text-xs font-semibold text-slate-500">
-                {section.bars ? `Compases ${section.bars}` : `${section.measures.length} compases`}
-              </span>
-            </div>
-
-            <div className={`mt-3 space-y-2 ${compactMobileChart ? "" : "overflow-x-auto"}`}>
-              {buildMeasureRows(section.measures).map((row, rowIdx) => (
-                <div key={`${section.id}-row-${rowIdx}`} className={`grid ${rowMinWidthClass} grid-cols-4 overflow-hidden rounded-2xl border border-slate-200 bg-[#fbfdff]`}>
-                  {Array.from({ length: 4 }, (_, colIdx) => {
-                    const measure = row[colIdx] || null;
-                    const measureIdx = rowIdx * 4 + colIdx;
-                    if (!measure) {
-                      return <div key={`${section.id}-row-${rowIdx}-empty-${colIdx}`} className={`${emptyMeasureClass} border-l border-slate-200 bg-slate-50/60 first:border-l-0`} />;
-                    }
-                    const chordEvents = Array.isArray(measure.chordEvents)
-                      ? measure.chordEvents
-                      : measure.chords.map((symbol) => ({ display: symbol, load: symbol }));
-                    const displayChordEvents = chordEvents.map((event, eventIdx) => ({
-                      ...event,
-                      compactDisplay: getCompactStandardChordDisplay(event, chordEvents[eventIdx - 1] || null),
-                    }));
-                    return (
-                      <div
-                        key={`${selectedStandard?.id || "standard"}-${section.id}-${sectionIdx}-${measure.barLabel}-${measureIdx}`}
-                        className={`${measureCellClass} border-l border-slate-200 first:border-l-0`}
-                      >
-                        <div className={`${compactMobileChart ? "text-[9px]" : "text-[10px]"} font-semibold uppercase tracking-wide text-slate-400`}>
-                          {measure.barLabel.replace("Compás ", "")}
-                        </div>
-                        <div className={`${measureEventsClass} flex flex-wrap items-start`}>
-                          {measure.repeat && chordEvents.length === 1 ? (() => {
-                            const eventId = `${selectedStandard?.id || "standard"}-${section.id}-${sectionIdx}-${measureIdx}-0`;
-                            const selectedOrder = standardsRealSelectionIds.indexOf(eventId);
-                            const selected = selectedOrder >= 0;
-                            return (
-                              <button
-                                type="button"
-                                className={`inline-flex ${repeatButtonClass} items-center justify-center rounded-xl border font-semibold leading-none transition-colors ${selected ? "border-sky-300 bg-sky-100 text-slate-900" : "border-slate-200 bg-white text-slate-400 hover:bg-sky-50"}`}
-                                onClick={() => toggleStandardRealEventSelection(eventId)}
-                                title={`${selected ? "Quitar" : "Añadir"} ${chordEvents[0].display}`}
-                              >
-                                %
-                              </button>
-                            );
-                          })() : displayChordEvents.map((event, eventIdx) => {
-                            const eventId = `${selectedStandard?.id || "standard"}-${section.id}-${sectionIdx}-${measureIdx}-${eventIdx}`;
-                            const selectedOrder = standardsRealSelectionIds.indexOf(eventId);
-                            const selected = selectedOrder >= 0;
-                            return (
-                              <button
-                                key={`${eventId}-${event.display}`}
-                                type="button"
-                                className={`inline-flex max-w-full items-center gap-1 rounded-xl border ${measureButtonClass} font-semibold shadow-sm transition-colors ${selected ? "border-sky-300 bg-sky-100 text-slate-900" : "border-slate-200 bg-white text-slate-800 hover:bg-sky-50"}`}
-                                onClick={() => toggleStandardRealEventSelection(eventId)}
-                                title={`${selected ? "Quitar de la selección" : "Añadir a la selección"}: ${event.display}`}
-                              >
-                                <span className="break-all leading-tight">{event.compactDisplay}</span>
-                                {selected ? (
-                                  <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-sky-600 px-1 text-[10px] font-semibold text-white">
-                                    {selectedOrder + 1}
-                                  </span>
-                                ) : null}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
-    );
-  }
-
-  function renderStandardsPanel() {
-    const collectionLabel = standardsCatalogSummary;
-    const noticeClass = standardsNotice?.type === "error"
-      ? "border-rose-200 bg-rose-50 text-rose-700"
-      : "border-emerald-200 bg-emerald-50 text-emerald-700";
-    const mobileCatalogSummary = selectedStandard
-      ? [selectedStandard.title, selectedStandard.year].filter(Boolean).join(" · ")
-      : collectionLabel;
-
-    return (
-      <PanelBlock
-        title={<InfoTitle label="Standards de jazz" info={STANDARDS_INFO_TEXT} alwaysShow />}
-        titleTooltip={!isMobileLayout ? STANDARDS_INFO_TEXT : ""}
-        bodyClassName="space-y-3"
-      >
-        {standardsNotice ? (
-          <div className={`rounded-2xl border px-3 py-2 text-sm ${noticeClass}`}>
-            {standardsNotice.text}
-          </div>
-        ) : null}
-
-        {isMobileLayout ? (
-          <div className="space-y-3">
-            <PanelBlock
-              level="subsection"
-              title="Catálogo"
-              description={mobileCatalogSummary}
-              headerAside={(
-                <button
-                  type="button"
-                  className={UI_BTN_SM + " inline-flex w-auto items-center gap-1.5 px-3"}
-                  onClick={() => setMobileStandardsCatalogOpen(true)}
-                >
-                  <Search className="h-4 w-4" />
-                  Buscar
-                </button>
-              )}
-            >
-              <div className="text-sm text-slate-600">
-                Usa el buscador para filtrar por título, compositor, año o tono y cargar un standard en esta vista.
-              </div>
-            </PanelBlock>
-
-            {selectedStandard ? (
-              <div className="space-y-3">
-                <PanelBlock
-                  level="subsection"
-                  title={selectedStandard.title}
-                  description={selectedStandard.overview || undefined}
-                  bodyClassName="space-y-3"
-                >
-                  {(Array.isArray(selectedStandard.composers) && selectedStandard.composers.length) || selectedStandard.year || selectedStandard.defaultKey ? (
-                    <div className="flex flex-wrap gap-2 text-xs text-slate-600">
-                      {Array.isArray(selectedStandard.composers) && selectedStandard.composers.length ? (
-                        <span className="rounded-xl border border-slate-200 bg-slate-50 px-2 py-1">
-                          {selectedStandard.composers.join(" · ")}
-                        </span>
-                      ) : null}
-                      {selectedStandard.year ? (
-                        <span className="rounded-xl border border-slate-200 bg-slate-50 px-2 py-1">
-                          {selectedStandard.year}
-                        </span>
-                      ) : null}
-                      {selectedStandard.defaultKey ? (
-                        <span className="rounded-xl border border-slate-200 bg-slate-50 px-2 py-1">
-                          Tono: {selectedStandard.defaultKey}
-                        </span>
-                      ) : null}
-                    </div>
-                  ) : null}
-                </PanelBlock>
-
-                <PanelBlock
-                  level="subsection"
-                  title="Forma"
-                >
-                  {standardsLoadingId === selectedStandard.id && !selectedStandardHasRealChart ? (
-                    <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-600">
-                      Cargando standard...
-                    </div>
-                  ) : standardsError && !selectedStandardHasRealChart ? (
-                    <div className="rounded-2xl border border-rose-200 bg-rose-50 px-3 py-3 text-sm leading-6 text-rose-700">
-                      {standardsError}
-                    </div>
-                  ) : selectedStandardHasRealChart ? (
-                    <div className="space-y-3">
-                      {renderStandardRealSelectionBar(false)}
-                      {renderStandardRealChartSections(false)}
-                    </div>
-                  ) : null}
-                </PanelBlock>
-              </div>
-            ) : (
-              <PanelBlock
-                level="subsection"
-                title="Ficha"
-                description="Selecciona un tema para abrir su forma completa."
-              >
-                <div className="text-sm text-slate-600">Aquí aparecerá la forma completa del standard seleccionado.</div>
-              </PanelBlock>
-            )}
-          </div>
-        ) : (
-          <div className="grid gap-3 xl:grid-cols-[290px_minmax(0,1fr)]">
-            <StandardsCatalogPanel
-              filters={{ standardsFilters, setStandardsFilters, standardsFiltersActive, resetStandardsFilters }}
-              catalog={{ standardsCatalogError, retryStandardsCatalogLoad, standardsCatalogLoading, collectionLabel }}
-              selection={{ filteredStandards, selectedStandard, selectStandardItem }}
-              ui={{ UI_LABEL_SM, UI_INPUT_SM, UI_BTN_SM }}
-            />
-
-            {selectedStandard ? (
-              <div className="space-y-3">
-                <PanelBlock
-                  level="subsection"
-                  title={selectedStandard.title}
-                  description={selectedStandard.overview || undefined}
-                  bodyClassName="space-y-3"
-                >
-                  {(Array.isArray(selectedStandard.composers) && selectedStandard.composers.length) || selectedStandard.year || selectedStandard.defaultKey ? (
-                    <div className="flex flex-wrap gap-2 text-xs text-slate-600">
-                      {Array.isArray(selectedStandard.composers) && selectedStandard.composers.length ? (
-                        <span className="rounded-xl border border-slate-200 bg-slate-50 px-2 py-1">
-                          {selectedStandard.composers.join(" · ")}
-                        </span>
-                      ) : null}
-                      {selectedStandard.year ? (
-                        <span className="rounded-xl border border-slate-200 bg-slate-50 px-2 py-1">
-                          {selectedStandard.year}
-                        </span>
-                      ) : null}
-                      {selectedStandard.defaultKey ? (
-                        <span className="rounded-xl border border-slate-200 bg-slate-50 px-2 py-1">
-                          Tono: {selectedStandard.defaultKey}
-                        </span>
-                      ) : null}
-                    </div>
-                  ) : null}
-                </PanelBlock>
-
-                <PanelBlock
-                  data-testid="standards-chart-panel"
-                  level="subsection"
-                  title="Forma"
-                >
-                  {standardsLoadingId === selectedStandard.id && !selectedStandardHasRealChart ? (
-                    <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-600">
-                      Cargando standard...
-                    </div>
-                  ) : standardsError && !selectedStandardHasRealChart ? (
-                    <div className="rounded-2xl border border-rose-200 bg-rose-50 px-3 py-3 text-sm leading-6 text-rose-700">
-                      {standardsError}
-                    </div>
-                  ) : selectedStandardHasRealChart ? (
-                    <div className="space-y-3">
-                      {renderStandardRealSelectionBar(false)}
-                      {renderStandardRealChartSections(false)}
-                    </div>
-                  ) : null}
-                </PanelBlock>
-              </div>
-            ) : (
-              <PanelBlock
-                level="subsection"
-                title="Ficha"
-                description="Selecciona un tema para abrir su forma completa."
-              >
-                <div className="text-sm text-slate-600">Aquí aparecerá la forma completa del standard seleccionado.</div>
-              </PanelBlock>
-            )}
-          </div>
-        )}
-      </PanelBlock>
-    );
   }
 
   function boardVisibilityForSection(section) {
@@ -8231,7 +7043,18 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
           </PanelBlock>
         ) : null}
 
-        {boardVisibility.standards ? renderStandardsPanel() : null}
+        {boardVisibility.standards ? (
+          <StandardsPanel
+            layout={{ isMobileLayout }}
+            notice={standardsNotice}
+            catalog={catalog}
+            mobileCatalog={mobileCatalog}
+            selection={selection}
+            chart={chart}
+            actions={actions}
+            ui={{ UI_BTN_SM, UI_LABEL_SM, UI_INPUT_SM, InfoTitle }}
+          />
+        ) : null}
 
         {(boardVisibility.chords || boardVisibility.nearChords) ? (
           <StudyPanel
@@ -8466,14 +7289,6 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
         <MobileInfoPopover
           mobileInfoPopover={mobileInfoPopover}
           onClose={() => setMobileInfoPopover(null)}
-        />
-        <MobileStandardsCatalogOverlay
-          open={mobileStandardsCatalogOpen}
-          onClose={() => setMobileStandardsCatalogOpen(false)}
-          filters={{ standardsFilters, setStandardsFilters, standardsFiltersActive, resetStandardsFilters }}
-          catalog={{ standardsCatalogError, retryStandardsCatalogLoad, standardsCatalogLoading }}
-          selection={{ filteredStandards, selectedStandard, selectStandardItem }}
-          ui={{ UI_LABEL_SM, UI_INPUT_SM, UI_BTN_SM }}
         />
         {renderMobileNearSlotEditorPortal()}
         {isCompactLayout ? (
