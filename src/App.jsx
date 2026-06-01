@@ -281,7 +281,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "5.69";
+const APP_VERSION = "5.70";
 
 function buildChordCopyFingerprint({
   rootPc,
@@ -549,7 +549,7 @@ export default function FretboardScalesPage() {
       const safeStart = Math.floor(Number(start) || 1);
       return Math.max(1, Math.min(startMax, safeStart));
     });
-  }, [maxFret]);
+  }, [maxFret, setChordDetectWindowStart]);
 
   // --------------------------------------------------------------------------
   // REGLAS DE COHERENCIA DE UI (sin cambiar sonido ni funcionalidad)
@@ -2491,23 +2491,23 @@ export default function FretboardScalesPage() {
       lastChordDetectCandidateRef.current = chordDetectSelectedCandidate;
       pendingChordDetectCandidateRef.current = null;
     }
-  }, [chordDetectSelectedCandidate]);
+  }, [chordDetectSelectedCandidate, lastChordDetectCandidateRef, pendingChordDetectCandidateRef]);
 
   useEffect(() => {
     if (!chordDetectMode) setChordDetectClearMinHeight(null);
-  }, [chordDetectMode]);
+  }, [chordDetectMode, setChordDetectClearMinHeight]);
 
   useEffect(() => {
     if (!chordDetectClearMinHeight) return;
     const timer = window.setTimeout(() => setChordDetectClearMinHeight(null), 800);
     return () => window.clearTimeout(timer);
-  }, [chordDetectClearMinHeight]);
+  }, [chordDetectClearMinHeight, setChordDetectClearMinHeight]);
 
   useLayoutEffect(() => {
     if (chordDetectSelectedKeys.length) return;
     lastChordDetectCandidateRef.current = null;
     pendingChordDetectCandidateRef.current = null;
-  }, [chordDetectSelectedKeys.length]);
+  }, [chordDetectSelectedKeys.length, lastChordDetectCandidateRef, pendingChordDetectCandidateRef]);
 
   useLayoutEffect(() => {
     if (!chordDetectMode) return;
@@ -2536,7 +2536,7 @@ export default function FretboardScalesPage() {
     if (pendingChordDetectCandidateRef.current && nextId) {
       pendingChordDetectCandidateRef.current = null;
     }
-  }, [chordDetectMode, chordDetectSelectionSignature, chordDetectCandidatesRanked, chordDetectCandidateId, chordDetectPrioritizeContext]);
+  }, [chordDetectMode, chordDetectSelectionSignature, chordDetectCandidatesRanked, chordDetectCandidateId, chordDetectPrioritizeContext, isManualCandidateSelectRef, lastChordDetectCandidateRef, pendingChordDetectCandidateRef, setChordDetectCandidateId]);
 
   // --------------------------------------------------------------------------
   // HELPERS LOCALES: DETECCIÓN DE ACORDES (audio y selección)
@@ -2602,13 +2602,13 @@ export default function FretboardScalesPage() {
     fnScheduleChordDetectMidi(vCtx, pitchAt(sIdx, fret), vCtx.currentTime, 1.2);
   }
 
-  function clearChordDetectViewportStabilizers() {
+  const clearChordDetectViewportStabilizers = useCallback(() => {
     if (typeof window === "undefined") return;
     chordDetectViewportFramesRef.current.forEach((frameId) => window.cancelAnimationFrame(frameId));
     chordDetectViewportFramesRef.current = [];
     chordDetectViewportTimersRef.current.forEach((timerId) => window.clearTimeout(timerId));
     chordDetectViewportTimersRef.current = [];
-  }
+  }, [chordDetectViewportFramesRef, chordDetectViewportTimersRef]);
 
   function focusChordDetectPanelWithoutScroll() {
     if (typeof document === "undefined") return;
@@ -2674,11 +2674,11 @@ export default function FretboardScalesPage() {
     restoreFrames(12);
   }
 
-  function clearChordDetectPlaybackVisuals() {
+  const clearChordDetectPlaybackVisuals = useCallback(() => {
     chordDetectPlaybackTimersRef.current.forEach((timerId) => window.clearTimeout(timerId));
     chordDetectPlaybackTimersRef.current = [];
     setChordDetectPlayingKeys([]);
-  }
+  }, [chordDetectPlaybackTimersRef, setChordDetectPlayingKeys]);
 
   async function fnPlayChordDetectSelection() {
     if (!chordDetectPlaybackNotes.length) return;
@@ -2738,17 +2738,17 @@ export default function FretboardScalesPage() {
       }
       chordDetectAudioCtxRef.current = null;
     };
-  }, []);
+  }, [clearChordDetectPlaybackVisuals, chordDetectAudioCtxRef]);
 
   useEffect(() => {
     if (chordDetectPlayingKeys.some((key) => !chordDetectSelectedKeys.includes(key))) {
       clearChordDetectPlaybackVisuals();
     }
-  }, [chordDetectPlayingKeys, chordDetectSelectedKeys]);
+  }, [chordDetectPlayingKeys, chordDetectSelectedKeys, clearChordDetectPlaybackVisuals]);
 
   useEffect(() => () => {
     clearChordDetectViewportStabilizers();
-  }, []);
+  }, [clearChordDetectViewportStabilizers]);
 
   function clearChordDetectSelection(e = null) {
     e?.preventDefault?.();
@@ -3239,7 +3239,7 @@ export default function FretboardScalesPage() {
       const safeStart = Math.floor(Number(start) || 1);
       return Math.max(chordDetectWindowStartMin, Math.min(chordDetectWindowAllowedStartMax, safeStart));
     });
-  }, [chordDetectWindowAllowedStartMax, chordDetectWindowStartMin]);
+  }, [chordDetectWindowAllowedStartMax, chordDetectWindowStartMin, setChordDetectWindowStart]);
 
   const nearFrom = useMemo(
     () => Math.max(0, Math.min(maxFret, Math.floor(Number(nearWindowStart) || 0))),
