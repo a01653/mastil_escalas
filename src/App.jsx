@@ -281,7 +281,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "5.63";
+const APP_VERSION = "5.64";
 
 function buildChordCopyFingerprint({
   rootPc,
@@ -515,7 +515,8 @@ export default function FretboardScalesPage() {
     setMobileSectionMotion("none");
     resetMobileSectionSlide();
     setMobileActiveSection(firstVisible);
-  }, [isMobileLayout, showBoards, setMobileMenuOpen, setMobileActiveSection, setMobileSectionTransition, setMobileSectionMotion, setMobileTonalContextOpen, setMobileChordEditorOpen, setMobileNearChordEditorIdx, setMobileInfoPopover, resetMobileSectionSlide]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isMobileLayout, showBoards, setMobileMenuOpen, setMobileActiveSection, setMobileSectionTransition, setMobileSectionMotion, setMobileTonalContextOpen, setMobileChordEditorOpen, setMobileNearChordEditorIdx, setMobileInfoPopover]);
 
   useEffect(() => {
     const prevLayout = layoutModeRef.current;
@@ -6959,6 +6960,8 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
                 <button
                   key={option.value}
                   type="button"
+                  data-testid={`mobile-nav-${option.value}`}
+                  data-active={isNavActive ? "true" : "false"}
                   className={`flex min-h-[58px] flex-col items-center justify-center gap-1 rounded-[22px] px-1.5 py-2 text-[10px] font-semibold leading-tight transition-colors ${isNavActive ? "bg-[#71a3c1] text-slate-900 shadow-[0_8px_20px_rgba(113,163,193,0.28)]" : "bg-transparent text-slate-600 hover:bg-sky-50 hover:text-slate-900"}`}
                   onClick={() => selectBoardView(option.value)}
                   title={option.label}
