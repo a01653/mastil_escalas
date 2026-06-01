@@ -40,6 +40,10 @@ import { useTonalityFeature } from "./features/tonality/useTonalityFeature.js";
 import { useMobileLayoutFeature } from "./features/layout/useMobileLayoutFeature.js";
 import { useHarmonyFeature } from "./features/harmony/useHarmonyFeature.js";
 import { useChordDetectionFeature } from "./features/chord-detection/useChordDetectionFeature.js";
+import {
+  buildChordDetectSelectedCandidateNotesText,
+  buildChordDetectStaffEvents,
+} from "./features/chord-detection/chordDetectionPresentationCore.js";
 
 import * as AppStaticData from "./music/appStaticData.js";
 const {
@@ -117,7 +121,6 @@ const {
   buildHarmonyDegreeChord,
   analyzeChordSetTonality,
   spellNoteFromChordInterval,
-  buildDetectedCandidateNoteNameForPc,
   buildDetectedCandidateLabelForPc,
   buildDetectedCandidateRoleForPc,
   buildManualSelectionVoicing,
@@ -278,7 +281,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "5.79";
+const APP_VERSION = "5.80";
 
 function buildChordCopyFingerprint({
   rootPc,
@@ -2957,14 +2960,11 @@ export default function FretboardScalesPage() {
   }
 
   const chordDetectStaffEvents = useMemo(
-    () => chordDetectSelectedNotes.length
-      ? [{
-          notes: [...chordDetectSelectedNotes].sort((a, b) => a.pitch - b.pitch).map((n) => n.pitch),
-          spelledNotes: [...chordDetectSelectedNotes]
-            .sort((a, b) => a.pitch - b.pitch)
-            .map((n) => buildDetectedCandidateNoteNameForPc(n.pc, chordDetectSelectedCandidate, chordPreferSharps)),
-        }]
-      : [],
+    () => buildChordDetectStaffEvents({
+      selectedNotes: chordDetectSelectedNotes,
+      selectedCandidate: chordDetectSelectedCandidate,
+      preferSharps: chordPreferSharps,
+    }),
     [chordDetectSelectedNotes, chordDetectSelectedCandidate, chordPreferSharps]
   );
 
@@ -2991,20 +2991,10 @@ export default function FretboardScalesPage() {
   }, [chordDetectSelectedNotes, chordDetectSelectedCandidate, chordRootPc, maxFret, voicingInputText]);
 
   const _chordDetectSelectedCandidateNotesText = useMemo(() => {
-    if (!chordDetectSelectedCandidate) return "";
-    const coreNotes = Array.isArray(chordDetectSelectedCandidate.visibleNotes)
-      ? chordDetectSelectedCandidate.visibleNotes.filter(Boolean)
-      : [];
-    const noteText = Array.from(new Set(coreNotes)).join(", ");
-    if (chordDetectSelectedCandidate.externalBassInterval == null) return noteText;
-
-    const bassName = spellNoteFromChordInterval(
-      chordDetectSelectedCandidate.rootPc,
-      chordDetectSelectedCandidate.externalBassInterval,
-      chordDetectSelectedCandidate.preferSharps ?? chordPreferSharps
-    );
-
-    return noteText ? `${noteText} · bajo en ${bassName}` : `bajo en ${bassName}`;
+    return buildChordDetectSelectedCandidateNotesText({
+      selectedCandidate: chordDetectSelectedCandidate,
+      preferSharps: chordPreferSharps,
+    });
   }, [chordDetectSelectedCandidate, chordPreferSharps]);
 
   const chordDetectSelectedCandidateBadgeItems = useMemo(() => {
