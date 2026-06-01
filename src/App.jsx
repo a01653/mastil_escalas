@@ -45,6 +45,7 @@ import {
   buildChordDetectSelectedCandidateNotesText,
   buildChordDetectStaffEvents,
 } from "./features/chord-detection/chordDetectionPresentationCore.js";
+import { scheduleChordDetectMidi } from "./features/chord-detection/chordDetectAudioCore.js";
 
 import * as AppStaticData from "./music/appStaticData.js";
 const {
@@ -282,7 +283,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "5.81";
+const APP_VERSION = "5.82";
 
 function buildChordCopyFingerprint({
   rootPc,
@@ -2464,10 +2465,6 @@ export default function FretboardScalesPage() {
   // HELPERS LOCALES: DETECCIÓN DE ACORDES (audio y selección)
   // --------------------------------------------------------------------------
 
-  function fnMidiToFreq(vMidi) {
-    return 440 * Math.pow(2, (Number(vMidi) - 69) / 12);
-  }
-
   async function fnGetChordDetectAudioCtx() {
     if (typeof window === "undefined") return null;
     const vAudioCtor = window.AudioContext || window.webkitAudioContext;
@@ -2490,38 +2487,10 @@ export default function FretboardScalesPage() {
     return vCtx;
   }
 
-  function fnScheduleChordDetectMidi(vCtx, vMidi, vStartTime, vDuration = 1.2) {
-    const vOsc = vCtx.createOscillator();
-    const vGain = vCtx.createGain();
-
-    vOsc.type = "triangle";
-    vOsc.frequency.setValueAtTime(fnMidiToFreq(vMidi), vStartTime);
-
-    vGain.gain.setValueAtTime(0.0001, vStartTime);
-    vGain.gain.exponentialRampToValueAtTime(0.16, vStartTime + 0.02);
-    vGain.gain.exponentialRampToValueAtTime(0.08, vStartTime + 0.18);
-    vGain.gain.exponentialRampToValueAtTime(0.045, vStartTime + 0.6);
-    vGain.gain.exponentialRampToValueAtTime(0.0001, vStartTime + Math.max(0.75, vDuration - 0.05));
-
-    vOsc.connect(vGain);
-    vGain.connect(vCtx.destination);
-
-    vOsc.start(vStartTime);
-    vOsc.stop(vStartTime + vDuration);
-    vOsc.onended = () => {
-      try { vOsc.disconnect(); } catch {
-        // El nodo puede estar ya desconectado.
-      }
-      try { vGain.disconnect(); } catch {
-        // El nodo puede estar ya desconectado.
-      }
-    };
-  }
-
   async function fnPlayChordDetectNote(sIdx, fret) {
     const vCtx = await fnGetChordDetectAudioCtx();
     if (!vCtx) return;
-    fnScheduleChordDetectMidi(vCtx, pitchAt(sIdx, fret), vCtx.currentTime, 1.2);
+    scheduleChordDetectMidi(vCtx, pitchAt(sIdx, fret), vCtx.currentTime, 1.2);
   }
 
   const clearChordDetectViewportStabilizers = useCallback(() => {
@@ -2615,7 +2584,7 @@ export default function FretboardScalesPage() {
     clearChordDetectPlaybackVisuals();
 
     vNotes.forEach((vNote, vIdx) => {
-      fnScheduleChordDetectMidi(vCtx, vNote.pitch, vNow + (vIdx * vStep), vDuration);
+      scheduleChordDetectMidi(vCtx, vNote.pitch, vNow + (vIdx * vStep), vDuration);
       const timerId = window.setTimeout(() => {
         setChordDetectPlayingKeys([vNote.key]);
       }, Math.max(0, Math.round(vIdx * vStep * 1000)));
@@ -2640,7 +2609,7 @@ export default function FretboardScalesPage() {
 
     clearChordDetectPlaybackVisuals();
     vNotes.forEach((vNote) => {
-      fnScheduleChordDetectMidi(vCtx, vNote.pitch, vNow, vDuration);
+      scheduleChordDetectMidi(vCtx, vNote.pitch, vNow, vDuration);
     });
     setChordDetectPlayingKeys(vNotes.map((vNote) => vNote.key));
 
