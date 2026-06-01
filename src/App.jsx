@@ -281,7 +281,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "5.70";
+const APP_VERSION = "5.71";
 
 function buildChordCopyFingerprint({
   rootPc,
@@ -468,7 +468,7 @@ export default function FretboardScalesPage() {
   // ESTADO: DETECCIÓN DE ACORDES EN MÁSTIL
   // --------------------------------------------------------------------------
 
-  const chordDetection = useChordDetectionFeature();
+  const chordDetection = useChordDetectionFeature({ maxFret });
   const {
     chordDetectMode, setChordDetectMode,
     chordDetectClickAudio, setChordDetectClickAudio,
@@ -496,6 +496,13 @@ export default function FretboardScalesPage() {
     chordDetectViewportTimersRef,
     chordDetectPlaybackTimersRef,
   } = chordDetection.refs;
+  const {
+    chordDetectWindowStartMin,
+    chordDetectWindowAllowedStartMax,
+    chordDetectWindowFrom,
+    chordDetectWindowTo,
+    chordDetectVisibleFrets,
+  } = chordDetection.derived;
   const layoutModeRef = useRef({
     mobile: false,
     compact: false,
@@ -3179,60 +3186,6 @@ export default function FretboardScalesPage() {
     const bassPc = activeChordVoicing?.bassPc ?? chordBassPc;
     return chordPcToSpelledName(bassPc);
   }, [activeChordVoicing, chordBassPc, chordPcToSpelledName]);
-
-  const chordDetectSelectedFrettedRange = useMemo(() => {
-    const fretted = chordDetectSelectedNotes
-      .map((n) => Number(n?.fret))
-      .filter((fret) => Number.isFinite(fret) && fret > 0);
-    if (!fretted.length) return null;
-    return {
-      min: Math.min(...fretted),
-      max: Math.max(...fretted),
-    };
-  }, [chordDetectSelectedNotes]);
-
-  const chordDetectWindowStartMax = useMemo(
-    () => Math.max(1, maxFret - (MOBILE_CHORD_INVESTIGATION_WINDOW_SIZE - 1)),
-    [maxFret]
-  );
-
-  const chordDetectWindowStartMin = useMemo(
-    () => chordDetectSelectedFrettedRange
-      ? Math.max(1, chordDetectSelectedFrettedRange.max - (MOBILE_CHORD_INVESTIGATION_WINDOW_SIZE - 1))
-      : 1,
-    [chordDetectSelectedFrettedRange]
-  );
-
-  const chordDetectWindowAllowedStartMax = useMemo(
-    () => chordDetectSelectedFrettedRange
-      ? Math.max(
-          chordDetectWindowStartMin,
-          Math.min(chordDetectWindowStartMax, chordDetectSelectedFrettedRange.min)
-        )
-      : chordDetectWindowStartMax,
-    [chordDetectSelectedFrettedRange, chordDetectWindowStartMax, chordDetectWindowStartMin]
-  );
-
-  const chordDetectWindowFrom = useMemo(
-    () => Math.max(
-      chordDetectWindowStartMin,
-      Math.min(chordDetectWindowAllowedStartMax, Math.floor(Number(chordDetectWindowStart) || 1))
-    ),
-    [chordDetectWindowStart, chordDetectWindowAllowedStartMax, chordDetectWindowStartMin]
-  );
-
-  const chordDetectWindowTo = useMemo(
-    () => Math.max(chordDetectWindowFrom, Math.min(maxFret, chordDetectWindowFrom + MOBILE_CHORD_INVESTIGATION_WINDOW_SIZE - 1)),
-    [chordDetectWindowFrom, maxFret]
-  );
-
-  const chordDetectVisibleFrets = useMemo(
-    () => normalizeVisibleFrets(
-      [0, ...Array.from({ length: Math.max(0, chordDetectWindowTo - chordDetectWindowFrom + 1) }, (_, idx) => chordDetectWindowFrom + idx)],
-      maxFret
-    ),
-    [chordDetectWindowFrom, chordDetectWindowTo, maxFret]
-  );
 
   useEffect(() => {
     setChordDetectWindowStart((start) => {
