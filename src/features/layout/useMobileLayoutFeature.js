@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   COMPACT_LAYOUT_WIDTH_MEDIA_QUERY,
   MOBILE_LAYOUT_WIDTH_MEDIA_QUERY,
   MOBILE_SECTION_OPTIONS,
+  MOBILE_SECTION_SWIPE_COMMIT_RATIO,
   NARROW_BOARD_LAYOUT_WIDTH_MEDIA_QUERY,
 } from "../../music/appStaticData.js";
 
@@ -26,7 +27,13 @@ function useMediaQuery(query, setter) {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 }
 
-export function useMobileLayoutFeature() {
+// externalSwipeGuardsRef: ref a un boolean gestionado por App.jsx
+// Permite que App.jsx actualice guards síncronamente durante el render sin
+// pasar closures obsoletos como parámetros de hook.
+export function useMobileLayoutFeature({
+  externalSwipeGuardsRef = null,
+  onDesktopSectionChange = null,
+} = {}) {
   // ── Media queries ─────────────────────────────────────────────────────────
   const [isMobileLayout, setIsMobileLayout] = useState(false);
   const [isNarrowBoardLayout, setIsNarrowBoardLayout] = useState(false);
@@ -68,6 +75,39 @@ export function useMobileLayoutFeature() {
     const idx = mobileSectionIndex();
     const nextIdx = idx + delta;
     return idx >= 0 && nextIdx >= 0 && nextIdx < MOBILE_SECTION_OPTIONS.length;
+  }
+
+  // Cambia la sección activa (unifica lógica móvil + desktop).
+  function selectBoardView(section) {
+    if (isMobileLayout) {
+      setMobileChordEditorOpen(false);
+      if (mobileSectionTransition) {
+        setMobileMenuOpen(false);
+        return;
+      }
+      const mobileRenderedCenter = mobileSectionTransition?.fromSection || mobileActiveSection;
+      const currentIdx = MOBILE_SECTION_OPTIONS.findIndex((o) => o.value === mobileRenderedCenter);
+      const nextIdx = MOBILE_SECTION_OPTIONS.findIndex((o) => o.value === section);
+      if (nextIdx < 0 || currentIdx < 0 || nextIdx === currentIdx) {
+        setMobileActiveSection(section);
+        setMobileMenuOpen(false);
+        setMobileSectionMotion("none");
+        resetMobileSectionSlide();
+        return;
+      }
+      setMobileSectionTransition({
+        fromSection: mobileRenderedCenter,
+        targetSection: section,
+        direction: nextIdx > currentIdx ? 1 : -1,
+      });
+      setMobileActiveSection(section);
+      setMobileSectionMotion("none");
+      resetMobileSectionSlide();
+      setMobileMenuOpen(false);
+      setMobileSectionSlideTransform(nextIdx > currentIdx ? -mobileSectionViewportWidth() : mobileSectionViewportWidth());
+      return;
+    }
+    onDesktopSectionChange?.(section);
   }
 
   // ── Overlays móviles ──────────────────────────────────────────────────────
@@ -143,6 +183,156 @@ export function useMobileLayoutFeature() {
     };
   }, [isMobileLayout, mobileInfoPopoverOpen, mobileChordEditorOpen, mobileNearChordEditorIdx, mobileTonalContextOpen]);
 
+  // ── Swipe de secciones móviles ────────────────────────────────────────────
+  const mobileSectionPointerRef = useRef(null);
+  const mobileSectionSlideRef = useRef(null);
+  const mobileSectionSuppressClickRef = useRef(false);
+
+  function isMobileSectionSwipeIgnored(target) {
+    return !!target?.closest?.("button,input,select,textarea,a,label,[role='button'],[contenteditable='true'],[data-mobile-swipe-ignore='true']");
+  }
+
+  function mobileSectionViewportWidth() {
+    const el = mobileSectionSlideRef.current;
+    return el?.parentElement?.clientWidth || (typeof window !== "undefined" ? window.innerWidth : 360) || 360;
+  }
+
+  function mobileSectionCommitDistancePx() {
+    return mobileSectionViewportWidth() * MOBILE_SECTION_SWIPE_COMMIT_RATIO;
+  }
+
+  function setMobileSectionSlideTransform(dx, dragging = false) {
+    const el = mobileSectionSlideRef.current;
+    if (!el) return;
+    el.style.transition = dragging ? "none" : "";
+    el.style.setProperty("--mobile-section-drag-x", `${Math.round(dx)}px`);
+    el.style.opacity = dragging ? String(Math.max(0.78, 1 - Math.min(Math.abs(dx), 320) / 1100)) : "";
+  }
+
+  function resetMobileSectionSlide() {
+    const el = mobileSectionSlideRef.current;
+    if (!el) return;
+    el.style.transition = "";
+    el.style.setProperty("--mobile-section-drag-x", "0px");
+    el.style.opacity = "";
+  }
+
+  function settleMobileSectionSwipe(delta) {
+    const currentIdx = mobileSectionIndex();
+    const nextIdx = currentIdx + delta;
+    if (currentIdx < 0 || nextIdx < 0 || nextIdx >= MOBILE_SECTION_OPTIONS.length) {
+      resetMobileSectionSlide();
+      return;
+    }
+    const targetSection = MOBILE_SECTION_OPTIONS[nextIdx].value;
+    setMobileSectionTransition({
+      fromSection: mobileActiveSection,
+      targetSection,
+      direction: delta,
+    });
+    setMobileActiveSection(targetSection);
+    setMobileSectionMotion("none");
+    setMobileMenuOpen(false);
+    setMobileSectionSlideTransform(delta > 0 ? -mobileSectionViewportWidth() : mobileSectionViewportWidth());
+  }
+
+  function handleMobileSectionPointerDown(e) {
+    if (!isMobileLayout || mobileSectionTransition || mobileMenuOpen || mobileTonalContextOpen || mobileChordEditorOpen || mobileNearChordEditorIdx != null || externalSwipeGuardsRef?.current || mobileInfoPopover) return;
+    if ((e.pointerType && e.pointerType !== "touch" && e.pointerType !== "pen") || isMobileSectionSwipeIgnored(e.target)) {
+      mobileSectionPointerRef.current = null;
+      return;
+    }
+    setMobileSectionMotion("none");
+    resetMobileSectionSlide();
+    mobileSectionPointerRef.current = {
+      pointerId: e.pointerId,
+      x: e.clientX,
+      y: e.clientY,
+      dragging: false,
+      verticalScroll: false,
+    };
+  }
+
+  function handleMobileSectionPointerMove(e) {
+    const start = mobileSectionPointerRef.current;
+    if (!start || start.pointerId !== e.pointerId || start.verticalScroll) return;
+    const dx = e.clientX - start.x;
+    const dy = e.clientY - start.y;
+
+    if (!start.dragging) {
+      if (Math.abs(dy) > 12 && Math.abs(dy) > Math.abs(dx)) {
+        start.verticalScroll = true;
+        return;
+      }
+      if (!(Math.abs(dx) > 14 && Math.abs(dx) > Math.abs(dy) * 1.2)) return;
+      start.dragging = true;
+      e.currentTarget.setPointerCapture?.(e.pointerId);
+    }
+
+    e.preventDefault();
+    const canMove = canMoveMobileSectionBy(dx < 0 ? 1 : -1);
+    const viewportWidth = mobileSectionViewportWidth();
+    const maxDrag = Math.max(150, viewportWidth * 0.92);
+    const boundedDx = Math.max(-maxDrag, Math.min(maxDrag, canMove ? dx : dx * 0.22));
+    start.visualDx = boundedDx;
+    setMobileSectionSlideTransform(boundedDx, true);
+  }
+
+  function handleMobileSectionPointerEnd(e) {
+    const start = mobileSectionPointerRef.current;
+    mobileSectionPointerRef.current = null;
+    try {
+      e.currentTarget.releasePointerCapture?.(e.pointerId);
+    } catch {
+      // Si el puntero ya fue liberado, no hay nada que corregir.
+    }
+    if (!start || start.pointerId !== e.pointerId || start.verticalScroll) {
+      resetMobileSectionSlide();
+      return;
+    }
+    const dx = e.clientX - start.x;
+    const dy = e.clientY - start.y;
+    const visualDx = typeof start.visualDx === "number" ? start.visualDx : dx;
+    const delta = visualDx < 0 ? 1 : -1;
+    const isHorizontalSwipe = start.dragging
+      && Math.abs(visualDx) > mobileSectionCommitDistancePx()
+      && Math.abs(dx) > Math.abs(dy) * 1.2
+      && canMoveMobileSectionBy(delta);
+    if (!isHorizontalSwipe) {
+      resetMobileSectionSlide();
+      return;
+    }
+
+    mobileSectionSuppressClickRef.current = true;
+    window.setTimeout(() => {
+      mobileSectionSuppressClickRef.current = false;
+    }, 250);
+    settleMobileSectionSwipe(delta);
+  }
+
+  function handleMobileSectionPointerCancel(e) {
+    mobileSectionPointerRef.current = null;
+    setMobileSectionTransition(null);
+    try {
+      e.currentTarget.releasePointerCapture?.(e.pointerId);
+    } catch {
+      // Si el puntero ya fue liberado, no hay nada que corregir.
+    }
+    resetMobileSectionSlide();
+  }
+
+  function handleMobileSectionClickCapture(e) {
+    if (!mobileSectionSuppressClickRef.current) return;
+    e.preventDefault();
+    e.stopPropagation();
+  }
+
+  function handleMobileSectionSlideTransitionEnd(e) {
+    if (!isMobileLayout || e.target !== e.currentTarget || e.propertyName !== "transform") return;
+    if (!mobileSectionTransition) return;
+    setMobileSectionTransition(null);
+  }
+
   return {
     media: {
       isMobileLayout,
@@ -156,6 +346,7 @@ export function useMobileLayoutFeature() {
       mobileSectionMotion, setMobileSectionMotion,
       mobileSectionIndex,
       canMoveMobileSectionBy,
+      selectBoardView,
     },
     overlays: {
       mobileTonalContextOpen, setMobileTonalContextOpen,
@@ -164,6 +355,17 @@ export function useMobileLayoutFeature() {
       mobileInfoPopover, setMobileInfoPopover,
       mobileInfoPopoverOpen,
       openMobileInfoPopover,
+    },
+    swipe: {
+      mobileSectionSlideRef,
+      handleMobileSectionPointerDown,
+      handleMobileSectionPointerMove,
+      handleMobileSectionPointerEnd,
+      handleMobileSectionPointerCancel,
+      handleMobileSectionClickCapture,
+      handleMobileSectionSlideTransitionEnd,
+      resetMobileSectionSlide,
+      setMobileSectionSlideTransform,
     },
   };
 }

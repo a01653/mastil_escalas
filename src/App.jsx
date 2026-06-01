@@ -58,7 +58,6 @@ const {
   CHORD_STUDY_INFO_TEXT,
   CHORD_FRETBOARD_INFO_TEXT,
   DETECTED_CHORDS_INFO_TEXT,
-  MOBILE_SECTION_SWIPE_COMMIT_RATIO,
   PRIMARY_BOARD_SECTIONS,
   TONAL_CONTEXT_TOOLTIP,
   MOBILE_VERTICAL_STRING_ORDER,
@@ -282,7 +281,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "5.62";
+const APP_VERSION = "5.63";
 
 function buildChordCopyFingerprint({
   rootPc,
@@ -348,9 +347,6 @@ export default function FretboardScalesPage() {
   const tonalContextRef = useRef(null);
   const importConfigInputRef = useRef(null);
   const chordDetectAudioCtxRef = useRef(null);
-  const mobileSectionPointerRef = useRef(null);
-  const mobileSectionSlideRef = useRef(null);
-  const mobileSectionSuppressClickRef = useRef(false);
   const mobileChordSummaryMeasureRef = useRef(null);
   const [, setMobileChordSummaryUseCompact] = useState(false);
 
@@ -389,16 +385,31 @@ export default function FretboardScalesPage() {
 
   // Qué mástiles mostrar
   const [showBoards, setShowBoards] = useState(() => normalizeBoardVisibility({ chords: true, configuration: false }, "chords"));
-  const layoutFeature = useMobileLayoutFeature();
+  // Ref actualizado durante cada render para que handleMobileSectionPointerDown
+  // lea el valor correcto en el momento del evento, sin closures obsoletos.
+  const externalSwipeGuardsRef = useRef(false);
+  const layoutFeature = useMobileLayoutFeature({
+    externalSwipeGuardsRef,
+    onDesktopSectionChange: (section) => setShowBoards((prev) => normalizeBoardVisibility({ ...prev, [section]: true }, section)),
+  });
   const { isMobileLayout, isNarrowBoardLayout, isCompactLayout } = layoutFeature.media;
   const {
     mobileMenuOpen, setMobileMenuOpen,
     mobileActiveSection, setMobileActiveSection,
     mobileSectionTransition, setMobileSectionTransition,
     mobileSectionMotion, setMobileSectionMotion,
-    mobileSectionIndex,
-    canMoveMobileSectionBy,
+    selectBoardView,
   } = layoutFeature.navigation;
+  const {
+    mobileSectionSlideRef,
+    handleMobileSectionPointerDown,
+    handleMobileSectionPointerMove,
+    handleMobileSectionPointerEnd,
+    handleMobileSectionPointerCancel,
+    handleMobileSectionClickCapture,
+    handleMobileSectionSlideTransitionEnd,
+    resetMobileSectionSlide,
+  } = layoutFeature.swipe;
   const {
     mobileTonalContextOpen, setMobileTonalContextOpen,
     mobileChordEditorOpen, setMobileChordEditorOpen,
@@ -504,7 +515,7 @@ export default function FretboardScalesPage() {
     setMobileSectionMotion("none");
     resetMobileSectionSlide();
     setMobileActiveSection(firstVisible);
-  }, [isMobileLayout, showBoards, setMobileMenuOpen, setMobileActiveSection, setMobileSectionTransition, setMobileSectionMotion, setMobileTonalContextOpen, setMobileChordEditorOpen, setMobileNearChordEditorIdx, setMobileInfoPopover]);
+  }, [isMobileLayout, showBoards, setMobileMenuOpen, setMobileActiveSection, setMobileSectionTransition, setMobileSectionMotion, setMobileTonalContextOpen, setMobileChordEditorOpen, setMobileNearChordEditorIdx, setMobileInfoPopover, resetMobileSectionSlide]);
 
   useEffect(() => {
     const prevLayout = layoutModeRef.current;
@@ -6037,6 +6048,7 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
     onApplyToNearChords: applyStandardChordSetToNearChords,
   });
   const { notice: standardsNotice, catalog, mobileCatalog, selection, chart, actions } = standards;
+  externalSwipeGuardsRef.current = !!(mobileCatalog?.mobileStandardsCatalogOpen) || manualOpen || studyOpen;
   const themeSoftBg = themeObjectBg;
   const themeHoverBg = themeObjectBg;
   const themeDisabledControlText = isDark(themeDisabledControlBg) ? "#f8fafc" : "#64748b";
@@ -6360,171 +6372,6 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
         </span>
       </div>
     );
-  }
-
-  function selectBoardView(section) {
-    if (isMobileLayout) {
-      setMobileChordEditorOpen(false);
-      if (mobileSectionTransition) {
-        setMobileMenuOpen(false);
-        return;
-      }
-      const currentIdx = MOBILE_BOTTOM_NAV_OPTIONS.findIndex((option) => option.value === mobileRenderedCenterSection);
-      const nextIdx = MOBILE_BOTTOM_NAV_OPTIONS.findIndex((option) => option.value === section);
-      if (nextIdx < 0 || currentIdx < 0 || nextIdx === currentIdx) {
-        setMobileActiveSection(section);
-        setMobileMenuOpen(false);
-        setMobileSectionMotion("none");
-        resetMobileSectionSlide();
-        return;
-      }
-      setMobileSectionTransition({
-        fromSection: mobileRenderedCenterSection,
-        targetSection: section,
-        direction: nextIdx > currentIdx ? 1 : -1,
-      });
-      setMobileActiveSection(section);
-      setMobileSectionMotion("none");
-      resetMobileSectionSlide();
-      setMobileMenuOpen(false);
-      setMobileSectionSlideTransform(nextIdx > currentIdx ? -mobileSectionViewportWidth() : mobileSectionViewportWidth());
-      return;
-    }
-    setShowBoards((prev) => normalizeBoardVisibility({ ...prev, [section]: true }, section));
-  }
-
-  function isMobileSectionSwipeIgnored(target) {
-    return !!target?.closest?.("button,input,select,textarea,a,label,[role='button'],[contenteditable='true'],[data-mobile-swipe-ignore='true']");
-  }
-
-  function mobileSectionViewportWidth() {
-    const el = mobileSectionSlideRef.current;
-    return el?.parentElement?.clientWidth || (typeof window !== "undefined" ? window.innerWidth : 360) || 360;
-  }
-
-  function mobileSectionCommitDistancePx() {
-    return mobileSectionViewportWidth() * MOBILE_SECTION_SWIPE_COMMIT_RATIO;
-  }
-
-  function setMobileSectionSlideTransform(dx, dragging = false) {
-    const el = mobileSectionSlideRef.current;
-    if (!el) return;
-    el.style.transition = dragging ? "none" : "";
-    el.style.setProperty("--mobile-section-drag-x", `${Math.round(dx)}px`);
-    el.style.opacity = dragging ? String(Math.max(0.78, 1 - Math.min(Math.abs(dx), 320) / 1100)) : "";
-  }
-
-  function resetMobileSectionSlide() {
-    const el = mobileSectionSlideRef.current;
-    if (!el) return;
-    el.style.transition = "";
-    el.style.setProperty("--mobile-section-drag-x", "0px");
-    el.style.opacity = "";
-  }
-
-  function settleMobileSectionSwipe(delta) {
-    const currentIdx = mobileSectionIndex();
-    const nextIdx = currentIdx + delta;
-    if (currentIdx < 0 || nextIdx < 0 || nextIdx >= MOBILE_BOTTOM_NAV_OPTIONS.length) {
-      resetMobileSectionSlide();
-      return;
-    }
-    const targetSection = MOBILE_BOTTOM_NAV_OPTIONS[nextIdx].value;
-    setMobileSectionTransition({
-      fromSection: mobileActiveSection,
-      targetSection,
-      direction: delta,
-    });
-    setMobileActiveSection(targetSection);
-    setMobileSectionMotion("none");
-    setMobileMenuOpen(false);
-    setMobileSectionSlideTransform(delta > 0 ? -mobileSectionViewportWidth() : mobileSectionViewportWidth());
-  }
-
-  function handleMobileSectionPointerDown(e) {
-    if (!isMobileLayout || mobileSectionTransition || mobileMenuOpen || mobileTonalContextOpen || mobileChordEditorOpen || mobileNearChordEditorIdx != null || mobileCatalog.mobileStandardsCatalogOpen || mobileInfoPopover || manualOpen || studyOpen) return;
-    if ((e.pointerType && e.pointerType !== "touch" && e.pointerType !== "pen") || isMobileSectionSwipeIgnored(e.target)) {
-      mobileSectionPointerRef.current = null;
-      return;
-    }
-    setMobileSectionMotion("none");
-    resetMobileSectionSlide();
-    mobileSectionPointerRef.current = {
-      pointerId: e.pointerId,
-      x: e.clientX,
-      y: e.clientY,
-      dragging: false,
-      verticalScroll: false,
-    };
-  }
-
-  function handleMobileSectionPointerMove(e) {
-    const start = mobileSectionPointerRef.current;
-    if (!start || start.pointerId !== e.pointerId || start.verticalScroll) return;
-    const dx = e.clientX - start.x;
-    const dy = e.clientY - start.y;
-
-    if (!start.dragging) {
-      if (Math.abs(dy) > 12 && Math.abs(dy) > Math.abs(dx)) {
-        start.verticalScroll = true;
-        return;
-      }
-      if (!(Math.abs(dx) > 14 && Math.abs(dx) > Math.abs(dy) * 1.2)) return;
-      start.dragging = true;
-      e.currentTarget.setPointerCapture?.(e.pointerId);
-    }
-
-    e.preventDefault();
-    const canMove = canMoveMobileSectionBy(dx < 0 ? 1 : -1);
-    const viewportWidth = mobileSectionViewportWidth();
-    const maxDrag = Math.max(150, viewportWidth * 0.92);
-    const boundedDx = Math.max(-maxDrag, Math.min(maxDrag, canMove ? dx : dx * 0.22));
-    start.visualDx = boundedDx;
-    setMobileSectionSlideTransform(boundedDx, true);
-  }
-
-  function handleMobileSectionPointerEnd(e) {
-    const start = mobileSectionPointerRef.current;
-    mobileSectionPointerRef.current = null;
-    try {
-      e.currentTarget.releasePointerCapture?.(e.pointerId);
-    } catch {
-      // Si el puntero ya fue liberado, no hay nada que corregir.
-    }
-    if (!start || start.pointerId !== e.pointerId || start.verticalScroll) {
-      resetMobileSectionSlide();
-      return;
-    }
-    const dx = e.clientX - start.x;
-    const dy = e.clientY - start.y;
-    const visualDx = typeof start.visualDx === "number" ? start.visualDx : dx;
-    const delta = visualDx < 0 ? 1 : -1;
-    const isHorizontalSwipe = start.dragging
-      && Math.abs(visualDx) > mobileSectionCommitDistancePx()
-      && Math.abs(dx) > Math.abs(dy) * 1.2
-      && canMoveMobileSectionBy(delta);
-    if (!isHorizontalSwipe) {
-      resetMobileSectionSlide();
-      return;
-    }
-
-    mobileSectionSuppressClickRef.current = true;
-    window.setTimeout(() => {
-      mobileSectionSuppressClickRef.current = false;
-    }, 250);
-    settleMobileSectionSwipe(delta);
-  }
-
-  function handleMobileSectionClickCapture(e) {
-    if (!mobileSectionSuppressClickRef.current) return;
-    e.preventDefault();
-    e.stopPropagation();
-  }
-
-  function handleMobileSectionSlideTransitionEnd(e) {
-    if (!isMobileLayout || e.target !== e.currentTarget || e.propertyName !== "transform") return;
-    if (!mobileSectionTransition) return;
-    setMobileSectionTransition(null);
   }
 
   function buildTonalContextProps() {
@@ -6987,16 +6834,7 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
               onPointerDown={handleMobileSectionPointerDown}
               onPointerMove={handleMobileSectionPointerMove}
               onPointerUp={handleMobileSectionPointerEnd}
-              onPointerCancel={(e) => {
-                mobileSectionPointerRef.current = null;
-                setMobileSectionTransition(null);
-                try {
-                  e.currentTarget.releasePointerCapture?.(e.pointerId);
-                } catch {
-                  // Si el puntero ya fue liberado, no hay nada que corregir.
-                }
-                resetMobileSectionSlide();
-              }}
+              onPointerCancel={handleMobileSectionPointerCancel}
               onClickCapture={handleMobileSectionClickCapture}
             >
               <div
