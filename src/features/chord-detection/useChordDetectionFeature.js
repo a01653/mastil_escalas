@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   MOBILE_CHORD_INVESTIGATION_WINDOW_SIZE,
   STRINGS,
@@ -199,6 +199,24 @@ export function useChordDetectionFeature({ maxFret }) {
     }
   }, [chordDetectMode, chordDetectSelectionSignature, chordDetectCandidatesRanked, chordDetectCandidateId, chordDetectPrioritizeContext, isManualCandidateSelectRef, lastChordDetectCandidateRef, pendingChordDetectCandidateRef, setChordDetectCandidateId]);
 
+  const selectDetectedCandidate = useCallback((candidate) => {
+    isManualCandidateSelectRef.current = true;
+    lastChordDetectCandidateRef.current = candidate || null;
+    pendingChordDetectCandidateRef.current = candidate || null;
+    setChordDetectCandidateId(candidate?.id || null);
+  }, [setChordDetectCandidateId]);
+
+  const clearChordDetectSelection = useCallback(() => {
+    pendingChordDetectCandidateRef.current = null;
+    setChordDetectSelectedKeys([]);
+    setChordDetectCandidateId(null);
+    lastChordDetectCandidateRef.current = null;
+  }, [setChordDetectCandidateId, setChordDetectSelectedKeys]);
+
+  const capturePendingCandidateBeforeSelectionEdit = useCallback(() => {
+    pendingChordDetectCandidateRef.current = chordDetectSelectedCandidate || lastChordDetectCandidateRef.current || null;
+  }, [chordDetectSelectedCandidate]);
+
   return {
     state: {
       chordDetectMode, setChordDetectMode,
@@ -239,6 +257,11 @@ export function useChordDetectionFeature({ maxFret }) {
       chordDetectWindowFrom,
       chordDetectWindowTo,
       chordDetectVisibleFrets,
+    },
+    actions: {
+      selectDetectedCandidate,
+      clearChordDetectSelection,
+      capturePendingCandidateBeforeSelectionEdit,
     },
   };
 }

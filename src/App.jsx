@@ -278,7 +278,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "5.76";
+const APP_VERSION = "5.77";
 
 function buildChordCopyFingerprint({
   rootPc,
@@ -483,9 +483,6 @@ export default function FretboardScalesPage() {
   } = chordDetection.state;
   const {
     chordDetectAudioCtxRef,
-    lastChordDetectCandidateRef,
-    pendingChordDetectCandidateRef,
-    isManualCandidateSelectRef,
     chordDetectPanelRef,
     chordDetectInvestigationAreaRef,
     chordDetectViewportFramesRef,
@@ -503,6 +500,11 @@ export default function FretboardScalesPage() {
     chordDetectWindowTo,
     chordDetectVisibleFrets,
   } = chordDetection.derived;
+  const {
+    selectDetectedCandidate,
+    clearChordDetectSelection: clearChordDetectSelectionState,
+    capturePendingCandidateBeforeSelectionEdit,
+  } = chordDetection.actions;
   const layoutModeRef = useRef({
     mobile: false,
     compact: false,
@@ -2673,17 +2675,7 @@ export default function FretboardScalesPage() {
     setChordDetectClearMinHeight(null);
     preserveChordDetectViewportScroll({ focusPanel: true });
     clearChordDetectPlaybackVisuals();
-    pendingChordDetectCandidateRef.current = null;
-    setChordDetectSelectedKeys([]);
-    setChordDetectCandidateId(null);
-    lastChordDetectCandidateRef.current = null;
-  }
-
-  function selectDetectedCandidate(candidate) {
-    isManualCandidateSelectRef.current = true;
-    lastChordDetectCandidateRef.current = candidate || null;
-    pendingChordDetectCandidateRef.current = candidate || null;
-    setChordDetectCandidateId(candidate?.id || null);
+    clearChordDetectSelectionState();
   }
 
   function updateChordDetectPrioritizeContext(value) {
@@ -2954,7 +2946,7 @@ export default function FretboardScalesPage() {
 
   function toggleChordDetectCell(sIdx, fret) {
     if (chordDetectClickAudio) fnPlayChordDetectNote(sIdx, fret);
-    pendingChordDetectCandidateRef.current = chordDetectSelectedCandidate || lastChordDetectCandidateRef.current || null;
+    capturePendingCandidateBeforeSelectionEdit();
     const key = `${sIdx}:${fret}`;
     setChordDetectSelectedKeys((prev) => {
       if (prev.includes(key)) return prev.filter((x) => x !== key);

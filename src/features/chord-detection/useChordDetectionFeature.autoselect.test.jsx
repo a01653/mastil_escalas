@@ -34,7 +34,7 @@ function AutoselectHarness() {
   const chordDetection = useChordDetectionFeature({ maxFret: 15 });
   const {
     setChordDetectMode,
-    chordDetectCandidateId, setChordDetectCandidateId,
+    chordDetectCandidateId,
     setChordRefEnabled,
     setChordRefNatural,
     setChordRefAcc,
@@ -44,29 +44,19 @@ function AutoselectHarness() {
   const {
     lastChordDetectCandidateRef,
     pendingChordDetectCandidateRef,
-    isManualCandidateSelectRef,
   } = chordDetection.refs;
   const {
     chordDetectCandidatesRanked,
     chordDetectSelectedCandidate,
   } = chordDetection.derived;
-
-  function selectDetectedCandidate(candidate) {
-    isManualCandidateSelectRef.current = true;
-    lastChordDetectCandidateRef.current = candidate || null;
-    pendingChordDetectCandidateRef.current = candidate || null;
-    setChordDetectCandidateId(candidate?.id || null);
-  }
-
-  function clearChordDetectSelection() {
-    pendingChordDetectCandidateRef.current = null;
-    setChordDetectSelectedKeys([]);
-    setChordDetectCandidateId(null);
-    lastChordDetectCandidateRef.current = null;
-  }
+  const {
+    selectDetectedCandidate,
+    clearChordDetectSelection,
+    capturePendingCandidateBeforeSelectionEdit,
+  } = chordDetection.actions;
 
   function toggleChordDetectCell(sIdx, fret) {
-    pendingChordDetectCandidateRef.current = chordDetectSelectedCandidate || lastChordDetectCandidateRef.current || null;
+    capturePendingCandidateBeforeSelectionEdit();
     const key = `${sIdx}:${fret}`;
     setChordDetectSelectedKeys((prev) => {
       if (prev.includes(key)) return prev.filter((x) => x !== key);
