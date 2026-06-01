@@ -11,6 +11,7 @@ import {
 } from "../../music/chordDetectionEngine.js";
 import { rankReadingsWithHarmonyContext as rankReadingsWithHarmonyContextPure } from "../../music/harmonyContextRanking.js";
 import { applyChordDetectCellToggle } from "./chordDetectionSelectionCore.js";
+import { useChordDetectionAudio } from "./useChordDetectionAudio.js";
 
 const CHORD_REF_NATURAL_PC = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
 
@@ -28,11 +29,9 @@ export function useChordDetectionFeature({ maxFret }) {
   const [chordDetectCandidateId, setChordDetectCandidateId] = useState(null);
   const [voicingInputText, setVoicingInputText] = useState("");
   const [chordDetectWindowStart, setChordDetectWindowStart] = useState(1);
-  const [chordDetectPlayingKeys, setChordDetectPlayingKeys] = useState([]);
   const [chordDetectClearMinHeight, setChordDetectClearMinHeight] = useState(null);
 
   // ── Refs de detección manual ──────────────────────────────────────────────
-  const chordDetectAudioCtxRef = useRef(null);
   const lastChordDetectCandidateRef = useRef(null);
   const pendingChordDetectCandidateRef = useRef(null);
   const isManualCandidateSelectRef = useRef(false);
@@ -40,7 +39,6 @@ export function useChordDetectionFeature({ maxFret }) {
   const chordDetectInvestigationAreaRef = useRef(null);
   const chordDetectViewportFramesRef = useRef([]);
   const chordDetectViewportTimersRef = useRef([]);
-  const chordDetectPlaybackTimersRef = useRef([]);
   const chordDetectSelectedKeysRef = useRef(chordDetectSelectedKeys);
 
   useLayoutEffect(() => {
@@ -242,6 +240,8 @@ export function useChordDetectionFeature({ maxFret }) {
     return result;
   }, [capturePendingCandidateBeforeSelectionEdit, setChordDetectSelectedKeys]);
 
+  const audio = useChordDetectionAudio({ chordDetectPlaybackNotes, chordDetectSelectedKeys });
+
   return {
     state: {
       chordDetectMode, setChordDetectMode,
@@ -256,11 +256,9 @@ export function useChordDetectionFeature({ maxFret }) {
       chordDetectCandidateId, setChordDetectCandidateId,
       voicingInputText, setVoicingInputText,
       chordDetectWindowStart, setChordDetectWindowStart,
-      chordDetectPlayingKeys, setChordDetectPlayingKeys,
       chordDetectClearMinHeight, setChordDetectClearMinHeight,
     },
     refs: {
-      chordDetectAudioCtxRef,
       lastChordDetectCandidateRef,
       pendingChordDetectCandidateRef,
       isManualCandidateSelectRef,
@@ -268,7 +266,6 @@ export function useChordDetectionFeature({ maxFret }) {
       chordDetectInvestigationAreaRef,
       chordDetectViewportFramesRef,
       chordDetectViewportTimersRef,
-      chordDetectPlaybackTimersRef,
     },
     derived: {
       chordDetectSelectedNotes,
@@ -289,5 +286,6 @@ export function useChordDetectionFeature({ maxFret }) {
       capturePendingCandidateBeforeSelectionEdit,
       toggleChordDetectCellSelection,
     },
+    audio,
   };
 }

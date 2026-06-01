@@ -45,7 +45,6 @@ import {
   buildChordDetectSelectedCandidateNotesText,
   buildChordDetectStaffEvents,
 } from "./features/chord-detection/chordDetectionPresentationCore.js";
-import { scheduleChordDetectMidi } from "./features/chord-detection/chordDetectAudioCore.js";
 
 import * as AppStaticData from "./music/appStaticData.js";
 const {
@@ -283,7 +282,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "5.82";
+const APP_VERSION = "5.83";
 
 function buildChordCopyFingerprint({
   rootPc,
@@ -483,22 +482,18 @@ export default function FretboardScalesPage() {
     chordDetectCandidateId, setChordDetectCandidateId,
     voicingInputText, setVoicingInputText,
     chordDetectWindowStart, setChordDetectWindowStart,
-    chordDetectPlayingKeys, setChordDetectPlayingKeys,
     chordDetectClearMinHeight, setChordDetectClearMinHeight,
   } = chordDetection.state;
   const {
-    chordDetectAudioCtxRef,
     chordDetectPanelRef,
     chordDetectInvestigationAreaRef,
     chordDetectViewportFramesRef,
     chordDetectViewportTimersRef,
-    chordDetectPlaybackTimersRef,
   } = chordDetection.refs;
   const {
     chordDetectSelectedNotes,
     chordDetectCandidatesRanked,
     chordDetectSelectedCandidate,
-    chordDetectPlaybackNotes,
     chordDetectWindowStartMin,
     chordDetectWindowAllowedStartMax,
     chordDetectWindowFrom,
@@ -510,6 +505,13 @@ export default function FretboardScalesPage() {
     clearChordDetectSelection: clearChordDetectSelectionState,
     toggleChordDetectCellSelection,
   } = chordDetection.actions;
+  const {
+    chordDetectPlayingKeys,
+    clearChordDetectPlaybackVisuals,
+    playChordDetectNote,
+    playChordDetectSelection,
+    playChordDetectVoicingTogether,
+  } = chordDetection.audio;
   const layoutModeRef = useRef({
     mobile: false,
     compact: false,
@@ -2465,34 +2467,6 @@ export default function FretboardScalesPage() {
   // HELPERS LOCALES: DETECCIÓN DE ACORDES (audio y selección)
   // --------------------------------------------------------------------------
 
-  async function fnGetChordDetectAudioCtx() {
-    if (typeof window === "undefined") return null;
-    const vAudioCtor = window.AudioContext || window.webkitAudioContext;
-    if (!vAudioCtor) return null;
-
-    let vCtx = chordDetectAudioCtxRef.current;
-    if (!vCtx) {
-      vCtx = new vAudioCtor();
-      chordDetectAudioCtxRef.current = vCtx;
-    }
-
-    if (vCtx.state === "suspended") {
-      try {
-        await vCtx.resume();
-      } catch {
-        // El gesto de usuario puede no habilitar audio en todos los navegadores.
-      }
-    }
-
-    return vCtx;
-  }
-
-  async function fnPlayChordDetectNote(sIdx, fret) {
-    const vCtx = await fnGetChordDetectAudioCtx();
-    if (!vCtx) return;
-    scheduleChordDetectMidi(vCtx, pitchAt(sIdx, fret), vCtx.currentTime, 1.2);
-  }
-
   const clearChordDetectViewportStabilizers = useCallback(() => {
     if (typeof window === "undefined") return;
     chordDetectViewportFramesRef.current.forEach((frameId) => window.cancelAnimationFrame(frameId));
@@ -2564,78 +2538,6 @@ export default function FretboardScalesPage() {
     restore();
     restoreFrames(12);
   }
-
-  const clearChordDetectPlaybackVisuals = useCallback(() => {
-    chordDetectPlaybackTimersRef.current.forEach((timerId) => window.clearTimeout(timerId));
-    chordDetectPlaybackTimersRef.current = [];
-    setChordDetectPlayingKeys([]);
-  }, [chordDetectPlaybackTimersRef, setChordDetectPlayingKeys]);
-
-  async function fnPlayChordDetectSelection() {
-    if (!chordDetectPlaybackNotes.length) return;
-    const vCtx = await fnGetChordDetectAudioCtx();
-    if (!vCtx) return;
-
-    const vNotes = chordDetectPlaybackNotes;
-    const vStep = 0.14;
-    const vDuration = 0.5;
-    const vNow = vCtx.currentTime;
-
-    clearChordDetectPlaybackVisuals();
-
-    vNotes.forEach((vNote, vIdx) => {
-      scheduleChordDetectMidi(vCtx, vNote.pitch, vNow + (vIdx * vStep), vDuration);
-      const timerId = window.setTimeout(() => {
-        setChordDetectPlayingKeys([vNote.key]);
-      }, Math.max(0, Math.round(vIdx * vStep * 1000)));
-      chordDetectPlaybackTimersRef.current.push(timerId);
-    });
-
-    const clearTimerId = window.setTimeout(() => {
-      setChordDetectPlayingKeys([]);
-      chordDetectPlaybackTimersRef.current = [];
-    }, Math.max(0, Math.round(((vNotes.length - 1) * vStep * 1000) + (vDuration * 1000))));
-    chordDetectPlaybackTimersRef.current.push(clearTimerId);
-  }
-
-  async function fnPlayChordDetectVoicingTogether() {
-    if (!chordDetectPlaybackNotes.length) return;
-    const vCtx = await fnGetChordDetectAudioCtx();
-    if (!vCtx) return;
-
-    const vNotes = chordDetectPlaybackNotes;
-    const vDuration = 1.25;
-    const vNow = vCtx.currentTime;
-
-    clearChordDetectPlaybackVisuals();
-    vNotes.forEach((vNote) => {
-      scheduleChordDetectMidi(vCtx, vNote.pitch, vNow, vDuration);
-    });
-    setChordDetectPlayingKeys(vNotes.map((vNote) => vNote.key));
-
-    const clearTimerId = window.setTimeout(() => {
-      setChordDetectPlayingKeys([]);
-      chordDetectPlaybackTimersRef.current = [];
-    }, Math.max(0, Math.round(vDuration * 1000)));
-    chordDetectPlaybackTimersRef.current.push(clearTimerId);
-  }
-
-  useEffect(() => {
-    return () => {
-      clearChordDetectPlaybackVisuals();
-      const vCtx = chordDetectAudioCtxRef.current;
-      if (vCtx && typeof vCtx.close === "function") {
-        vCtx.close().catch(() => {});
-      }
-      chordDetectAudioCtxRef.current = null;
-    };
-  }, [clearChordDetectPlaybackVisuals, chordDetectAudioCtxRef]);
-
-  useEffect(() => {
-    if (chordDetectPlayingKeys.some((key) => !chordDetectSelectedKeys.includes(key))) {
-      clearChordDetectPlaybackVisuals();
-    }
-  }, [chordDetectPlayingKeys, chordDetectSelectedKeys, clearChordDetectPlaybackVisuals]);
 
   useEffect(() => () => {
     clearChordDetectViewportStabilizers();
@@ -2918,7 +2820,7 @@ export default function FretboardScalesPage() {
   }
 
   function toggleChordDetectCell(sIdx, fret) {
-    if (chordDetectClickAudio) fnPlayChordDetectNote(sIdx, fret);
+    if (chordDetectClickAudio) playChordDetectNote(sIdx, fret);
     const result = toggleChordDetectCellSelection({
       sIdx,
       fret,
@@ -4362,8 +4264,8 @@ export default function FretboardScalesPage() {
         actions={{
           chordDetectClickAudio,
           setChordDetectClickAudio,
-          fnPlayChordDetectSelection,
-          fnPlayChordDetectVoicingTogether,
+          fnPlayChordDetectSelection: playChordDetectSelection,
+          fnPlayChordDetectVoicingTogether: playChordDetectVoicingTogether,
           clearChordDetectSelection,
           openMainChordStudy,
         }}
