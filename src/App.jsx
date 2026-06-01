@@ -25,7 +25,6 @@ import StandardsPanel from "./components/standards/StandardsPanel.jsx";
 import { Blocks, BookOpen, ChevronLeft, ChevronRight, Eraser, Info, Music, Play, Route, Search, Volume2, VolumeX, Waypoints, X } from "lucide-react";
 import {
   buildDetectedCandidateBadgeItems as buildDetectedCandidateBadgeItemsPure,
-  detectChordReadings as detectChordReadingsPure,
   detectOmitFromCandidate as detectOmitFromCandidatePure,
   formatChordName as formatChordNamePure,
   resolveDetectedCandidateFromContext as resolveDetectedCandidateFromContextPure,
@@ -281,7 +280,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "5.71";
+const APP_VERSION = "5.72";
 
 function buildChordCopyFingerprint({
   rootPc,
@@ -497,6 +496,10 @@ export default function FretboardScalesPage() {
     chordDetectPlaybackTimersRef,
   } = chordDetection.refs;
   const {
+    chordDetectSelectedNotes,
+    chordDetectCandidates,
+    chordDetectPlaybackNotes,
+    chordDetectSelectionSignature,
     chordDetectWindowStartMin,
     chordDetectWindowAllowedStartMax,
     chordDetectWindowFrom,
@@ -2437,30 +2440,6 @@ export default function FretboardScalesPage() {
   // CÁLCULOS DERIVADOS: DETECCIÓN DE ACORDES EN MÁSTIL
   // --------------------------------------------------------------------------
 
-  const chordDetectSelectedNotes = useMemo(() => {
-    return chordDetectSelectedKeys
-      .map((key) => {
-        const [sStr, fStr] = String(key || "").split(":");
-        const sIdx = parseInt(sStr, 10);
-        const fret = parseInt(fStr, 10);
-        if (!Number.isFinite(sIdx) || !Number.isFinite(fret)) return null;
-        return {
-          key,
-          sIdx,
-          fret,
-          pc: mod12(STRINGS[sIdx].pc + fret),
-          pitch: pitchAt(sIdx, fret),
-        };
-      })
-      .filter(Boolean)
-      .sort((a, b) => a.pitch - b.pitch);
-  }, [chordDetectSelectedKeys]);
-
-  const chordDetectCandidates = useMemo(
-    () => detectChordReadingsPure(chordDetectSelectedNotes),
-    [chordDetectSelectedNotes]
-  );
-
   const chordDetectCandidatesRanked = useMemo(() => {
     const harmonyContext = {
       enabled: chordRefEnabled,
@@ -2477,16 +2456,6 @@ export default function FretboardScalesPage() {
     const refQualitySuffix = { Mayor: "", maj7: "maj7", "7": "7", menor: "m", m7: "m7", "m7(b5)": "m7(b5)", dim: "dim", dim7: "dim7", sus4: "sus4", "7sus4": "7sus4" }[chordRefQuality] ?? chordRefQuality;
     return `${chordRefNatural}${refAccStr}${refQualitySuffix}`;
   }, [chordRefEnabled, chordRefNatural, chordRefAcc, chordRefQuality]);
-
-  const chordDetectPlaybackNotes = useMemo(
-    () => [...chordDetectSelectedNotes].sort((a, b) => b.sIdx - a.sIdx || a.fret - b.fret),
-    [chordDetectSelectedNotes]
-  );
-
-  const chordDetectSelectionSignature = useMemo(
-    () => [...chordDetectSelectedKeys].sort().join("|"),
-    [chordDetectSelectedKeys]
-  );
 
   const chordDetectSelectedCandidate = useMemo(
     () => chordDetectCandidatesRanked.find((c) => c.id === chordDetectCandidateId) || null,

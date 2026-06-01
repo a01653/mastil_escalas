@@ -1,8 +1,11 @@
 import { useMemo, useRef, useState } from "react";
 import {
   MOBILE_CHORD_INVESTIGATION_WINDOW_SIZE,
+  STRINGS,
   normalizeVisibleFrets,
 } from "../../music/appStaticData.js";
+import { mod12, pitchAt } from "../../music/appMusicBasics.js";
+import { detectChordReadings as detectChordReadingsPure } from "../../music/chordDetectionEngine.js";
 
 export function useChordDetectionFeature({ maxFret }) {
   // ── Estado de detección manual ────────────────────────────────────────────
@@ -97,6 +100,40 @@ export function useChordDetectionFeature({ maxFret }) {
     [chordDetectWindowFrom, chordDetectWindowTo, maxFret]
   );
 
+  const chordDetectSelectedNotes = useMemo(() => {
+    return chordDetectSelectedKeys
+      .map((key) => {
+        const [sStr, fStr] = String(key || "").split(":");
+        const sIdx = Number.parseInt(sStr, 10);
+        const fret = Number.parseInt(fStr, 10);
+        if (!Number.isFinite(sIdx) || !Number.isFinite(fret)) return null;
+        return {
+          key,
+          sIdx,
+          fret,
+          pc: mod12(STRINGS[sIdx].pc + fret),
+          pitch: pitchAt(sIdx, fret),
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => a.pitch - b.pitch);
+  }, [chordDetectSelectedKeys]);
+
+  const chordDetectCandidates = useMemo(
+    () => detectChordReadingsPure(chordDetectSelectedNotes),
+    [chordDetectSelectedNotes]
+  );
+
+  const chordDetectPlaybackNotes = useMemo(
+    () => [...chordDetectSelectedNotes].sort((a, b) => b.sIdx - a.sIdx || a.fret - b.fret),
+    [chordDetectSelectedNotes]
+  );
+
+  const chordDetectSelectionSignature = useMemo(
+    () => [...chordDetectSelectedKeys].sort().join("|"),
+    [chordDetectSelectedKeys]
+  );
+
   return {
     state: {
       chordDetectMode, setChordDetectMode,
@@ -126,6 +163,10 @@ export function useChordDetectionFeature({ maxFret }) {
       chordDetectPlaybackTimersRef,
     },
     derived: {
+      chordDetectSelectedNotes,
+      chordDetectCandidates,
+      chordDetectPlaybackNotes,
+      chordDetectSelectionSignature,
       chordDetectWindowStartMin,
       chordDetectWindowAllowedStartMax,
       chordDetectWindowFrom,
