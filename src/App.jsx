@@ -40,15 +40,13 @@ import { useRouteFeature } from "./features/route/useRouteFeature.js";
 import RouteLabFretboardComponent from "./components/route/RouteLabFretboard.jsx";
 import { buildConfigExportFilename, parseImportedConfigText } from "./utils/configIo.js";
 import { useTonalityFeature } from "./features/tonality/useTonalityFeature.js";
+import { useMobileLayoutFeature } from "./features/layout/useMobileLayoutFeature.js";
 
 import * as AppStaticData from "./music/appStaticData.js";
 const {
   NOTES_SHARP,
   NOTES_FLAT,
-  MOBILE_LAYOUT_WIDTH_MEDIA_QUERY,
   MOBILE_LAYOUT_TOUCH_MEDIA_QUERY,
-  COMPACT_LAYOUT_WIDTH_MEDIA_QUERY,
-  NARROW_BOARD_LAYOUT_WIDTH_MEDIA_QUERY,
   MOBILE_SECTION_OPTIONS,
   SCALE_INFO_TEXT,
   PATTERNS_INFO_TEXT,
@@ -284,7 +282,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "5.59";
+const APP_VERSION = "5.60";
 
 function buildChordCopyFingerprint({
   rootPc,
@@ -393,9 +391,8 @@ export default function FretboardScalesPage() {
 
   // Qué mástiles mostrar
   const [showBoards, setShowBoards] = useState(() => normalizeBoardVisibility({ chords: true, configuration: false }, "chords"));
-  const [isMobileLayout, setIsMobileLayout] = useState(false);
-  const [isNarrowBoardLayout, setIsNarrowBoardLayout] = useState(false);
-  const [isCompactLayout, setIsCompactLayout] = useState(false);
+  const layoutFeature = useMobileLayoutFeature();
+  const { isMobileLayout, isNarrowBoardLayout, isCompactLayout } = layoutFeature.media;
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobileActiveSection, setMobileActiveSection] = useState("chords");
   const [mobileSectionTransition, setMobileSectionTransition] = useState(null);
@@ -482,60 +479,6 @@ export default function FretboardScalesPage() {
     compact: false,
     initialized: false,
   });
-
-  useEffect(() => {
-    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return undefined;
-    const media = window.matchMedia(MOBILE_LAYOUT_WIDTH_MEDIA_QUERY);
-    const sync = () => setIsMobileLayout(media.matches);
-    if (typeof media.addEventListener === "function") {
-      media.addEventListener("change", sync);
-      sync();
-      return () => media.removeEventListener("change", sync);
-    }
-    if (typeof media.addListener === "function") {
-      media.addListener(sync);
-      sync();
-      return () => media.removeListener(sync);
-    }
-    sync();
-    return undefined;
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return undefined;
-    const media = window.matchMedia(NARROW_BOARD_LAYOUT_WIDTH_MEDIA_QUERY);
-    const sync = () => setIsNarrowBoardLayout(media.matches);
-    if (typeof media.addEventListener === "function") {
-      media.addEventListener("change", sync);
-      sync();
-      return () => media.removeEventListener("change", sync);
-    }
-    if (typeof media.addListener === "function") {
-      media.addListener(sync);
-      sync();
-      return () => media.removeListener(sync);
-    }
-    sync();
-    return undefined;
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return undefined;
-    const media = window.matchMedia(COMPACT_LAYOUT_WIDTH_MEDIA_QUERY);
-    const sync = () => setIsCompactLayout(media.matches);
-    if (typeof media.addEventListener === "function") {
-      media.addEventListener("change", sync);
-      sync();
-      return () => media.removeEventListener("change", sync);
-    }
-    if (typeof media.addListener === "function") {
-      media.addListener(sync);
-      sync();
-      return () => media.removeListener(sync);
-    }
-    sync();
-    return undefined;
-  }, []);
 
   // Cierra el panel de configuración cuando la ventana alcanza ≥1280px (xl).
   useEffect(() => {
