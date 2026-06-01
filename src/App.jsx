@@ -41,6 +41,7 @@ import RouteLabFretboardComponent from "./components/route/RouteLabFretboard.jsx
 import { buildConfigExportFilename, parseImportedConfigText } from "./utils/configIo.js";
 import { useTonalityFeature } from "./features/tonality/useTonalityFeature.js";
 import { useMobileLayoutFeature } from "./features/layout/useMobileLayoutFeature.js";
+import { useHarmonyFeature } from "./features/harmony/useHarmonyFeature.js";
 
 import * as AppStaticData from "./music/appStaticData.js";
 const {
@@ -281,7 +282,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "5.65";
+const APP_VERSION = "5.66";
 
 function buildChordCopyFingerprint({
   rootPc,
@@ -3995,14 +3996,8 @@ export default function FretboardScalesPage() {
 
 
   const scaleNotesText = useMemo(() => spelledScaleNotes.join(" · "), [spelledScaleNotes]);
-  const scaleTetradDegreesText = useMemo(
-    () => scaleTetradHarmony.map((x) => x.degreeName).join(" · "),
-    [scaleTetradHarmony]
-  );
-  const scaleTetradNotesText = useMemo(
-    () => scaleTetradHarmony.map((x) => x.noteName).join(" · "),
-    [scaleTetradHarmony]
-  );
+  const harmony = useHarmonyFeature({ scaleTetradHarmony });
+  const { scaleTetradDegreesText, scaleTetradNotesText } = harmony;
 
   // Acordes de la escala activa (armonización real según la escala seleccionada arriba)
   const harmonizedScale = useMemo(() => {
