@@ -282,7 +282,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "5.60";
+const APP_VERSION = "5.61";
 
 function buildChordCopyFingerprint({
   rootPc,
@@ -393,10 +393,14 @@ export default function FretboardScalesPage() {
   const [showBoards, setShowBoards] = useState(() => normalizeBoardVisibility({ chords: true, configuration: false }, "chords"));
   const layoutFeature = useMobileLayoutFeature();
   const { isMobileLayout, isNarrowBoardLayout, isCompactLayout } = layoutFeature.media;
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [mobileActiveSection, setMobileActiveSection] = useState("chords");
-  const [mobileSectionTransition, setMobileSectionTransition] = useState(null);
-  const [mobileSectionMotion, setMobileSectionMotion] = useState("none");
+  const {
+    mobileMenuOpen, setMobileMenuOpen,
+    mobileActiveSection, setMobileActiveSection,
+    mobileSectionTransition, setMobileSectionTransition,
+    mobileSectionMotion, setMobileSectionMotion,
+    mobileSectionIndex,
+    canMoveMobileSectionBy,
+  } = layoutFeature.navigation;
   const [mobileTonalContextOpen, setMobileTonalContextOpen] = useState(false);
   const [mobileChordEditorOpen, setMobileChordEditorOpen] = useState(false);
   const [mobileNearChordEditorIdx, setMobileNearChordEditorIdx] = useState(null);
@@ -480,22 +484,6 @@ export default function FretboardScalesPage() {
     initialized: false,
   });
 
-  // Cierra el panel de configuración cuando la ventana alcanza ≥1280px (xl).
-  useEffect(() => {
-    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return undefined;
-    const xlMedia = window.matchMedia("(min-width: 1280px)");
-    const closeMenu = () => { if (xlMedia.matches) setMobileMenuOpen(false); };
-    if (typeof xlMedia.addEventListener === "function") {
-      xlMedia.addEventListener("change", closeMenu);
-      return () => xlMedia.removeEventListener("change", closeMenu);
-    }
-    if (typeof xlMedia.addListener === "function") {
-      xlMedia.addListener(closeMenu);
-      return () => xlMedia.removeListener(closeMenu);
-    }
-    return undefined;
-  }, []);
-
   useEffect(() => {
     if (!isMobileLayout) {
       setMobileMenuOpen(false);
@@ -514,7 +502,7 @@ export default function FretboardScalesPage() {
     setMobileSectionMotion("none");
     resetMobileSectionSlide();
     setMobileActiveSection(firstVisible);
-  }, [isMobileLayout, showBoards]);
+  }, [isMobileLayout, showBoards, setMobileMenuOpen, setMobileActiveSection, setMobileSectionTransition, setMobileSectionMotion]);
 
   useEffect(() => {
     const prevLayout = layoutModeRef.current;
@@ -6467,16 +6455,6 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
       return;
     }
     setShowBoards((prev) => normalizeBoardVisibility({ ...prev, [section]: true }, section));
-  }
-
-  function mobileSectionIndex() {
-    return MOBILE_BOTTOM_NAV_OPTIONS.findIndex((option) => option.value === mobileActiveSection);
-  }
-
-  function canMoveMobileSectionBy(delta) {
-    const idx = mobileSectionIndex();
-    const nextIdx = idx + delta;
-    return idx >= 0 && nextIdx >= 0 && nextIdx < MOBILE_BOTTOM_NAV_OPTIONS.length;
   }
 
   function isMobileSectionSwipeIgnored(target) {

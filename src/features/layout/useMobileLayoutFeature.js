@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import {
   COMPACT_LAYOUT_WIDTH_MEDIA_QUERY,
   MOBILE_LAYOUT_WIDTH_MEDIA_QUERY,
+  MOBILE_SECTION_OPTIONS,
   NARROW_BOARD_LAYOUT_WIDTH_MEDIA_QUERY,
 } from "../../music/appStaticData.js";
 
@@ -26,6 +27,7 @@ function useMediaQuery(query, setter) {
 }
 
 export function useMobileLayoutFeature() {
+  // ── Media queries ─────────────────────────────────────────────────────────
   const [isMobileLayout, setIsMobileLayout] = useState(false);
   const [isNarrowBoardLayout, setIsNarrowBoardLayout] = useState(false);
   const [isCompactLayout, setIsCompactLayout] = useState(false);
@@ -34,11 +36,53 @@ export function useMobileLayoutFeature() {
   useMediaQuery(NARROW_BOARD_LAYOUT_WIDTH_MEDIA_QUERY, setIsNarrowBoardLayout);
   useMediaQuery(COMPACT_LAYOUT_WIDTH_MEDIA_QUERY, setIsCompactLayout);
 
+  // ── Navegación móvil ──────────────────────────────────────────────────────
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [mobileActiveSection, setMobileActiveSection] = useState("chords");
+  const [mobileSectionTransition, setMobileSectionTransition] = useState(null);
+  const [mobileSectionMotion, setMobileSectionMotion] = useState("none");
+
+  // Cierra el menú de configuración cuando la ventana alcanza ≥1280px (xl).
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return undefined;
+    const xlMedia = window.matchMedia("(min-width: 1280px)");
+    const closeMenu = () => { if (xlMedia.matches) setMobileMenuOpen(false); };
+    if (typeof xlMedia.addEventListener === "function") {
+      xlMedia.addEventListener("change", closeMenu);
+      return () => xlMedia.removeEventListener("change", closeMenu);
+    }
+    if (typeof xlMedia.addListener === "function") {
+      xlMedia.addListener(closeMenu);
+      return () => xlMedia.removeListener(closeMenu);
+    }
+    return undefined;
+  }, []);
+
+  // Índice de la sección activa en la lista de navegación.
+  function mobileSectionIndex() {
+    return MOBILE_SECTION_OPTIONS.findIndex((option) => option.value === mobileActiveSection);
+  }
+
+  // ¿Hay sección adyacente en la dirección dada? (delta: +1 derecha, -1 izquierda)
+  function canMoveMobileSectionBy(delta) {
+    const idx = mobileSectionIndex();
+    const nextIdx = idx + delta;
+    return idx >= 0 && nextIdx >= 0 && nextIdx < MOBILE_SECTION_OPTIONS.length;
+  }
+
   return {
     media: {
       isMobileLayout,
       isNarrowBoardLayout,
       isCompactLayout,
+    },
+    navigation: {
+      mobileMenuOpen, setMobileMenuOpen,
+      mobileActiveSection, setMobileActiveSection,
+      mobileSectionTransition, setMobileSectionTransition,
+      mobileSectionMotion, setMobileSectionMotion,
+      mobileSectionIndex,
+      canMoveMobileSectionBy,
     },
   };
 }
