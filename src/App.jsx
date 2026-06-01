@@ -39,6 +39,7 @@ import { buildStudyData } from "./features/study/buildStudyData.js";
 import { useRouteFeature } from "./features/route/useRouteFeature.js";
 import RouteLabFretboardComponent from "./components/route/RouteLabFretboard.jsx";
 import { buildConfigExportFilename, parseImportedConfigText } from "./utils/configIo.js";
+import { useTonalityFeature } from "./features/tonality/useTonalityFeature.js";
 
 import * as AppStaticData from "./music/appStaticData.js";
 const {
@@ -120,7 +121,6 @@ const {
   chordDisplaySuffixOnly,
   buildHarmonyDegreeChord,
   buildManualScaleHarmonySpecs,
-  buildScaleTetradHarmonization,
   analyzeChordSetTonality,
   spellNoteFromChordInterval,
   buildDetectedCandidateNoteNameForPc,
@@ -154,14 +154,9 @@ const {
   chordBassInterval,
   intervalToChordToken,
   buildChordDegreeLabelsFromUi,
-  spellScaleNotes,
   spellChordNotes,
-  parseTokensToIntervals,
   normalizeScaleName,
-  buildScaleIntervalLabels,
   scaleOptionLabel,
-  buildScaleIntervals,
-  pickThirdOffsets,
   rgba,
   FRET_CELL_BG,
   FRET_INLAY_BG,
@@ -169,7 +164,6 @@ const {
   sanitizePosCodeInput,
   buildMembershipMap,
   preferSharpsFromMajorTonicPc,
-  computeAutoPreferSharps,
 } = AppMusicBasics;
 
 import * as AppVoicingStudyCore from "./music/appVoicingStudyCore.js";
@@ -290,7 +284,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "5.58";
+const APP_VERSION = "5.59";
 
 function buildChordCopyFingerprint({
   rootPc,
@@ -377,29 +371,25 @@ export default function FretboardScalesPage() {
   // ESTADO: ESCALAS, VISTA Y MÁSTILES
   // --------------------------------------------------------------------------
 
-  const [accMode, setAccMode] = useState("auto"); // auto | sharps | flats
+  const tonality = useTonalityFeature();
+  const {
+    rootPc, setRootPc, scaleRootLetter, setScaleRootLetter, scaleRootAcc, setScaleRootAcc,
+    scaleName, setScaleName, harmonyMode, setHarmonyMode, accMode, setAccMode,
+    customInput, setCustomInput, extraInput, setExtraInput, showExtra, setShowExtra,
+    scaleIntervals, autoPreferSharps, preferSharps, scaleIntervalLabels, scalePcs,
+    thirdOffsets, hasFifth, extraIntervals, extraPcs, spelledScaleNotes, spelledExtraNotes,
+    scaleTetradHarmony, applyFromConfig,
+  } = tonality;
   // Vista (pueden coexistir)
   const [showIntervalsLabel, setShowIntervalsLabel] = useState(true);
   const [showNotesLabel, setShowNotesLabel] = useState(false);
   const [debugMode, setDebugMode] = useState(false);
-
-  const [rootPc, setRootPc] = useState(5); // F
-  const [scaleRootLetter, setScaleRootLetter] = useState("F");
-  const [scaleRootAcc, setScaleRootAcc] = useState(null); // null | "flat" | "sharp"
-  const [scaleName, setScaleName] = useState("Mayor");
-  const [harmonyMode, setHarmonyMode] = useState("diatonic");
   const isNamedPentatonicScale = scaleName === "Pentatónica mayor" || scaleName === "Pentatónica menor";
   const isBluesScale = scaleName === "Pentatónica menor + blue note" || scaleName === "Pentatónica mayor + blue note";
   const isKingBoxEligibleScale = isNamedPentatonicScale || isBluesScale;
   const [maxFret, setMaxFret] = useState(15);
 
   const [showNonScale, setShowNonScale] = useState(false);
-
-  const [customInput, setCustomInput] = useState("1 b3 5 6");
-
-  // Extras (default OFF)
-  const [extraInput, setExtraInput] = useState("b2");
-  const [showExtra, setShowExtra] = useState(false);
 
   // Qué mástiles mostrar
   const [showBoards, setShowBoards] = useState(() => normalizeBoardVisibility({ chords: true, configuration: false }, "chords"));
@@ -936,12 +926,7 @@ export default function FretboardScalesPage() {
   // ESTADO: RUTA MUSICAL
   // --------------------------------------------------------------------------
 
-  // Inputs de tonalidad necesarios por useRouteFeature — se calculan aquí
-  // para estar disponibles antes de persistedUiConfig (línea ~1029).
-  const scaleIntervals = useMemo(() => buildScaleIntervals(scaleName, customInput, rootPc), [scaleName, customInput, rootPc]);
   const usesFiveNoteBoxPatterns = scaleIntervals.length === 5;
-  const autoPreferSharps = useMemo(() => computeAutoPreferSharps({ rootPc, scaleName }), [rootPc, scaleName]);
-  const preferSharps = accMode === "auto" ? autoPreferSharps : accMode === "sharps";
 
   const route = useRouteFeature({ rootPc, scaleName, scaleIntervals, maxFret, preferSharps });
   const { lab: routeLab, labTuning: routeLabTuning, main: routeMain, mainTuning: routeMainTuning, derived: routeDerived } = route;
@@ -1250,7 +1235,7 @@ export default function FretboardScalesPage() {
         setConfigNotice({ type: "info", text: `Configuración antigua (v${payload.version}) cargada con saneado.` });
       }
 
-      if ("accMode" in saved) setAccMode(sanitizeOneOf(saved.accMode, ["auto", "sharps", "flats"], "auto"));
+      applyFromConfig(saved);
       if ("showIntervalsLabel" in saved) setShowIntervalsLabel(sanitizeBoolValue(saved.showIntervalsLabel, true));
       if ("showNotesLabel" in saved) setShowNotesLabel(sanitizeBoolValue(saved.showNotesLabel, false));
       if ("showKingBoxes" in saved) setShowKingBoxes(sanitizeBoolValue(saved.showKingBoxes, false));
@@ -1261,16 +1246,8 @@ export default function FretboardScalesPage() {
           albert: sanitizeColorValue(saved.kingBoxColors.albert, prev.albert),
         }));
       }
-      if ("rootPc" in saved) setRootPc(sanitizeNumberValue(saved.rootPc, 5, 0, 11));
-      if ("harmonyMode" in saved) setHarmonyMode(sanitizeOneOf(saved.harmonyMode, ["diatonic", "functional_minor"], "diatonic"));
-      if ("scaleRootLetter" in saved) setScaleRootLetter(sanitizeOneOf(saved.scaleRootLetter, LETTERS, "F"));
-      if ("scaleRootAcc" in saved) setScaleRootAcc(saved.scaleRootAcc == null ? null : sanitizeOneOf(saved.scaleRootAcc, ["flat", "sharp"], null));
-      if ("scaleName" in saved) setScaleName(sanitizeOneOf(normalizeScaleName(saved.scaleName), Object.keys(SCALE_PRESETS), "Mayor"));
       if ("maxFret" in saved) setMaxFret(sanitizeNumberValue(saved.maxFret, 15, 12, 24));
       if ("showNonScale" in saved) setShowNonScale(sanitizeBoolValue(saved.showNonScale, false));
-      if ("customInput" in saved && typeof saved.customInput === "string") setCustomInput(saved.customInput);
-      if ("extraInput" in saved && typeof saved.extraInput === "string") setExtraInput(saved.extraInput);
-      if ("showExtra" in saved) setShowExtra(sanitizeBoolValue(saved.showExtra, false));
       if (saved.showBoards && typeof saved.showBoards === "object") {
         setShowBoards((prev) => normalizeBoardVisibility({
           ...prev,
@@ -1547,8 +1524,6 @@ export default function FretboardScalesPage() {
   // CÁLCULOS DERIVADOS: ESCALA ACTIVA, PCS Y DELETREO
   // --------------------------------------------------------------------------
 
-  const scaleIntervalLabels = useMemo(() => buildScaleIntervalLabels(scaleName, scaleIntervals), [scaleName, scaleIntervals]);
-
   useEffect(() => {
     const root = appRootRef.current;
     if (!root) return;
@@ -1561,14 +1536,6 @@ export default function FretboardScalesPage() {
       if (inferred) el.setAttribute("title", inferred);
     });
   });
-
-  const scalePcs = useMemo(() => new Set(scaleIntervals.map((i) => mod12(rootPc + i))), [scaleIntervals, rootPc]);
-
-  const thirdOffsets = useMemo(() => pickThirdOffsets(scaleIntervals), [scaleIntervals]);
-  const hasFifth = useMemo(() => new Set(scaleIntervals.map(mod12)).has(7), [scaleIntervals]);
-
-  const extraIntervals = useMemo(() => parseTokensToIntervals({ input: extraInput, rootPc }), [extraInput, rootPc]);
-  const extraPcs = useMemo(() => new Set(extraIntervals.map((i) => mod12(rootPc + i))), [extraIntervals, rootPc]);
 
   const _noteOptions = useMemo(() => {
     const list = preferSharps ? NOTES_SHARP : NOTES_FLAT;
@@ -4128,13 +4095,7 @@ export default function FretboardScalesPage() {
   }, [storageHydrated, nearComputed.selected, nearSelectedSig]);
 
 
-  const spelledScaleNotes = useMemo(() => spellScaleNotes({ rootPc, scaleIntervals, preferSharps }), [rootPc, scaleIntervals, preferSharps]);
-  const spelledExtraNotes = useMemo(() => spellScaleNotes({ rootPc, scaleIntervals: extraIntervals, preferSharps }), [rootPc, extraIntervals, preferSharps]);
   const scaleNotesText = useMemo(() => spelledScaleNotes.join(" · "), [spelledScaleNotes]);
-  const scaleTetradHarmony = useMemo(
-    () => buildScaleTetradHarmonization({ rootPc, scaleName, harmonyMode, scaleIntervals, spelledScaleNotes, preferSharps }),
-    [rootPc, scaleName, harmonyMode, scaleIntervals, spelledScaleNotes, preferSharps]
-  );
   const scaleTetradDegreesText = useMemo(
     () => scaleTetradHarmony.map((x) => x.degreeName).join(" · "),
     [scaleTetradHarmony]
