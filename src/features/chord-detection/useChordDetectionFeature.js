@@ -147,6 +147,11 @@ export function useChordDetectionFeature({ maxFret }) {
     [chordDetectSelectedKeys]
   );
 
+  const chordDetectSelectedCandidate = useMemo(
+    () => chordDetectCandidatesRanked.find((c) => c.id === chordDetectCandidateId) || null,
+    [chordDetectCandidatesRanked, chordDetectCandidateId]
+  );
+
   return {
     state: {
       chordDetectMode, setChordDetectMode,
@@ -179,6 +184,7 @@ export function useChordDetectionFeature({ maxFret }) {
       chordDetectSelectedNotes,
       chordDetectCandidates,
       chordDetectCandidatesRanked,
+      chordDetectSelectedCandidate,
       chordDetectPlaybackNotes,
       chordDetectSelectionSignature,
       chordDetectWindowStartMin,

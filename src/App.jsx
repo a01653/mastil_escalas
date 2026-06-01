@@ -279,7 +279,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "5.73";
+const APP_VERSION = "5.74";
 
 function buildChordCopyFingerprint({
   rootPc,
@@ -496,6 +496,7 @@ export default function FretboardScalesPage() {
   const {
     chordDetectSelectedNotes,
     chordDetectCandidatesRanked,
+    chordDetectSelectedCandidate,
     chordDetectPlaybackNotes,
     chordDetectSelectionSignature,
     chordDetectWindowStartMin,
@@ -2444,11 +2445,6 @@ export default function FretboardScalesPage() {
     const refQualitySuffix = { Mayor: "", maj7: "maj7", "7": "7", menor: "m", m7: "m7", "m7(b5)": "m7(b5)", dim: "dim", dim7: "dim7", sus4: "sus4", "7sus4": "7sus4" }[chordRefQuality] ?? chordRefQuality;
     return `${chordRefNatural}${refAccStr}${refQualitySuffix}`;
   }, [chordRefEnabled, chordRefNatural, chordRefAcc, chordRefQuality]);
-
-  const chordDetectSelectedCandidate = useMemo(
-    () => chordDetectCandidatesRanked.find((c) => c.id === chordDetectCandidateId) || null,
-    [chordDetectCandidatesRanked, chordDetectCandidateId]
-  );
 
   useLayoutEffect(() => {
     if (chordDetectSelectedCandidate) {
