@@ -117,7 +117,8 @@ const CASES = [
       if (!sections[1].warning?.includes("ya cumple función dominante"))
         errors.push("FALLO: sec[1].warning debe indicar que ya es dominante diatónico");
       const tritone = findItem(sections, "Sustitución tritonal");
-      const tritText = tritone?.derivation?.join(" ") || "";
+      // Para acordes dominantes, el contenido está en subBlocks[0] (sustitución directa)
+      const tritText = tritone?.subBlocks?.[0]?.derivation?.join(" ") ?? tritone?.derivation?.join(" ") ?? "";
       if (!tritText.includes("Db7"))
         errors.push("FALLO: tritono de G7 debe ser Db7");
       const iiv = findItem(sections, "Interpolación II-V");
@@ -352,7 +353,7 @@ const CASES = [
       if (!isDom) errors.push("FALLO: Db7 debe ser dominante");
       if (!sections[0].warning) errors.push("FALLO: sec[0].warning debe ser no null");
       const tritone = findItem(sections, "Sustitución tritonal");
-      const tritText = tritone?.derivation?.join(" ") || "";
+      const tritText = tritone?.subBlocks?.[0]?.derivation?.join(" ") ?? tritone?.derivation?.join(" ") ?? "";
       if (!tritText.includes("G7"))
         errors.push("FALLO: tritono de Db7 debe ser G7");
       // Spelling de notas del acorde

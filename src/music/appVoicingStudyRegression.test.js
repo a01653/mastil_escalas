@@ -281,10 +281,11 @@ describe("guide — caso 3: G7 en C Mayor (V7)", () => {
     expect(sections[1].warning).toContain("El acorde estudiado ya cumple función dominante");
   });
 
-  test("sustituto tritonal directo de G7 es Db7", () => {
+  test("sustituto tritonal directo de G7 es Db7 (Bloque A)", () => {
     const tritoneItem = findItem(sections, "Sustitución tritonal");
-    const derivText = tritoneItem.derivation.join(" ");
-    expect(derivText).toContain("Db7");
+    // Acorde dominante: subBlocks[0] = sustitución directa, subBlocks[1] = preparación
+    const blockAText = tritoneItem.subBlocks[0].derivation.join(" ");
+    expect(blockAText).toContain("Db7");
   });
 
   test("II-V principal es Dm7 - G7 → Cmaj7 (escala activa)", () => {
@@ -451,10 +452,11 @@ describe("guide — caso 12: Db7 en C Mayor (sustituto tritonal de G7)", () => {
     expect(isStudyDominantChord(PLAN_DOM7)).toBe(true);
   });
 
-  test("tritone de Db7 es G7 — confirma relación de sustitución tritonal con G7", () => {
+  test("tritone de Db7 es G7 — confirma relación de sustitución tritonal con G7 (Bloque A)", () => {
     const tritoneItem = findItem(sections, "Sustitución tritonal");
-    const derivText = tritoneItem.derivation.join(" ");
-    expect(derivText).toContain("G7");
+    // Db7 es dominante real: subBlocks[0] = sustitución directa muestra el tritono (G7)
+    const blockAText = tritoneItem.subBlocks[0].derivation.join(" ");
+    expect(blockAText).toContain("G7");
   });
 
   test("spelling de Db7: notas Db, F, Ab, Cb (b7 como Cb, no B)", () => {

@@ -887,10 +887,51 @@ return (
                             <div className="mt-3 space-y-3">
                               {renderStudyOuterBlock("Qué es", item.definition)}
                               {renderStudyOuterBlock("Cuándo aplica", item.appliesWhen)}
-                              {renderStudyOuterBlock("Cómo sale", item.derivation)}
-                              {renderStudyOuterBlock("Ejemplos y lectura", item.examples)}
+                              {/* subBlocks: cada uno tiene su propio subtitle, derivation, examples y staffGroups */}
+                              {Array.isArray(item.subBlocks) && item.subBlocks.length
+                                ? item.subBlocks.map((block, blockIdx) => (
+                                    <div key={`sub-${blockIdx}`} className={blockIdx ? "border-t border-dashed border-slate-200 pt-3" : ""}>
+                                      <div className="mb-2 text-sm font-semibold text-slate-700">{block.subtitle}</div>
+                                      <div className="space-y-3">
+                                        {renderStudyOuterBlock("Cómo sale", block.derivation)}
+                                        {renderStudyOuterBlock("Ejemplos y lectura", block.examples)}
+                                      </div>
+                                      {Array.isArray(block.staffGroups) && block.staffGroups.length ? (
+                                        <div className="space-y-3 pt-3">
+                                          {block.staffGroups.filter((group) => group?.events?.length).map((group, groupIdx) => (
+                                            <div
+                                              key={`${item.title}-sub${blockIdx}-staff-${groupIdx}`}
+                                              className="rounded-lg border border-slate-200 bg-white p-3"
+                                            >
+                                              <div className="text-xs font-semibold text-slate-700">{group.title}</div>
+                                              {group.caption ? <div className="mt-1 text-justify text-xs leading-5 text-slate-500">{group.caption}</div> : null}
+                                              {Array.isArray(group.labels) && group.labels.length ? (
+                                                <div className="mt-2 text-justify text-xs leading-5 text-slate-600">Acordes en este orden: {group.labels.join(" · ")}</div>
+                                              ) : null}
+                                              <div className="mt-3">
+                                                <MusicStaff
+                                                  events={group.events}
+                                                  preferSharps={d?.preferSharps ?? chordPreferSharps}
+                                                  clefMode="guitar"
+                                                  keySignature={group.keySignature ?? substitutionKeySignature}
+                                                  showFooter
+                                                  footerLabels={group.labels}
+                                                />
+                                              </div>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      ) : null}
+                                    </div>
+                                  ))
+                                : (
+                                  <>
+                                    {renderStudyOuterBlock("Cómo sale", item.derivation)}
+                                    {renderStudyOuterBlock("Ejemplos y lectura", item.examples)}
+                                  </>
+                                )}
                             </div>
-                            {Array.isArray(item.staffGroups) && item.staffGroups.length ? (
+                            {!item.subBlocks && Array.isArray(item.staffGroups) && item.staffGroups.length ? (
                               <div className="space-y-3 pt-4">
                                 {item.staffGroups.filter((group) => group?.events?.length).map((group, groupIdx) => (
                                   <div

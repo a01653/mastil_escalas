@@ -2638,40 +2638,63 @@ export function buildStudySubstitutionGuide({ chordRootPc, chordName, plan, pref
       title: "Sustitución tritonal",
       definition: "Sustituye un dominante 7 por otro dominante 7 situado a un tritono. Funciona porque ambos comparten el mismo tritono tonal: la 3ª de uno pasa a ser la b7ª del otro y viceversa.",
       appliesWhen: "Solo aplica a acordes con función dominante real. Un maj7 no es dominante, porque no tiene 7ª menor.",
-      derivation: isDiatonicDom
-        ? [
-            dominantPlaneText,
-            `${targetSpec.label} ya es V7 en la escala activa. Su sustituto tritonal directo es ${sameRootTritoneSpec.label}: comparte el mismo tritono y resuelve de igual forma hacia el I.`,
-            buildDominantTritoneExplanation(sameRootDominantSpec, sameRootTritoneSpec),
-            `(Tonicización alternativa) Si en cambio se trata ${targetSpec.label} como objetivo de llegada, su dominante sería ${targetDominantSpec.label} y su tritono ${tritoneToTargetSpec.label}. Eso implica tonicizar ${pcToName(safeRootPc, safePreferSharps)} momentáneamente.`,
-          ]
-        : [
-            dominantPlaneText,
-            `Si el objetivo es llegar a ${targetSpec.label}, su dominante natural es ${targetDominantSpec.label}.`,
-            `El acorde a tritono de ${targetDominantSpec.label} es ${tritoneToTargetSpec.label}.`,
-            buildDominantTritoneExplanation(targetDominantSpec, tritoneToTargetSpec),
-            currentIsDominant
-              ? `${targetSpec.label} ya es dominante, así que su sustituto tritonal directo es ${sameRootTritoneSpec.label}.`
-              : `${targetSpec.label} no actúa como dominante tal como está escrito. Si quisieras usar esa raíz como dominante, habría que convertirlo en ${sameRootDominantSpec.label}; su sustituto tritonal sería ${sameRootTritoneSpec.label}.`,
-          ],
-      examples: isDiatonicDom
-        ? [
-            `${sameRootTritoneSpec.label} \u2192 I: sustituto tritonal de ${targetSpec.label} en la cadena V \u2192 I de la escala activa.`,
-            `(Tonicización) ${targetDominantSpec.label} \u2192 ${targetSpec.label} \u2192 I: cadena tratando ${targetSpec.label} como centro temporal antes de resolver.`,
-          ]
-        : [
-            `${targetDominantSpec.label} \u2192 ${targetSpec.label}: resolución tradicional por salto de quinta.`,
-            `${tritoneToTargetSpec.label} \u2192 ${targetSpec.label}: resolución cromática por semitono descendente en el bajo, con un color más suave y jazzístico.`,
-          ],
-      staffGroups: isDiatonicDom
-        ? [
-            buildStudyStaffGroup("Sustituto tritonal directo del dominante", [targetSpec, sameRootTritoneSpec], `Orden: ${targetSpec.label} · ${sameRootTritoneSpec.label}`, { keySignature: { type: null, count: 0 } }),
-            buildStudyStaffGroup("(Tonicización alternativa) Dominante y tritono hacia la raíz", [targetDominantSpec, tritoneToTargetSpec, targetSpec], `Orden: ${targetDominantSpec.label} · ${tritoneToTargetSpec.label} · ${targetSpec.label}`, { keySignature: { type: null, count: 0 } }),
-          ]
-        : [
-            buildStudyStaffGroup("Dominante real y sustituto tritonal hacia el acorde estudiado", [targetDominantSpec, tritoneToTargetSpec, targetSpec], `Orden: ${targetDominantSpec.label} · ${tritoneToTargetSpec.label} · ${targetSpec.label}`, { keySignature: { type: null, count: 0 } }),
-            buildStudyStaffGroup("Si la misma raíz actuara como dominante", [sameRootDominantSpec, sameRootTritoneSpec], `Orden: ${sameRootDominantSpec.label} · ${sameRootTritoneSpec.label}`, { keySignature: { type: null, count: 0 } }),
-          ],
+      ...(currentIsDominant
+        ? {
+            // Dominante real: dos bloques separados que distinguen sustitución directa vs preparación.
+            subBlocks: [
+              {
+                subtitle: "Sustitución tritonal directa del acorde estudiado",
+                derivation: [
+                  `${targetSpec.label} ya es un dominante 7. Su sustituto tritonal directo es ${sameRootTritoneSpec.label}, porque ambos comparten el tritono formado por la 3ª y la b7.`,
+                  buildDominantTritoneExplanation(sameRootDominantSpec, sameRootTritoneSpec),
+                  ...(isDiatonicDom
+                    ? [`En la escala activa, ${targetSpec.label} actúa como V7. ${sameRootTritoneSpec.label} resuelve de la misma forma hacia el I.`]
+                    : []),
+                ],
+                examples: [
+                  `${sameRootTritoneSpec.label} sustituye directamente a ${targetSpec.label}: comparten el mismo tritono tonal.`,
+                ],
+                staffGroups: [
+                  buildStudyStaffGroup("Sustitución tritonal directa", [targetSpec, sameRootTritoneSpec], `Orden: ${targetSpec.label} · ${sameRootTritoneSpec.label}`, { keySignature: { type: null, count: 0 } }),
+                ],
+              },
+              {
+                subtitle: "Dominante de preparación hacia el acorde estudiado",
+                derivation: [
+                  `Si el objetivo es llegar a ${targetSpec.label}, su dominante natural es ${targetDominantSpec.label}.`,
+                  `El sustituto tritonal de ${targetDominantSpec.label} es ${tritoneToTargetSpec.label}.`,
+                  buildDominantTritoneExplanation(targetDominantSpec, tritoneToTargetSpec),
+                  `${tritoneToTargetSpec.label} resuelve cromáticamente hacia ${targetSpec.label} con un movimiento descendente de semitono en el bajo.`,
+                  ...(isDiatonicDom
+                    ? [`Nota: tonicizar ${pcToName(safeRootPc, safePreferSharps)} momentáneamente equivale a tratar el acorde estudiado como centro temporal antes de resolver a la función principal en la escala.`]
+                    : []),
+                ],
+                examples: [
+                  `${targetDominantSpec.label} → ${targetSpec.label}: resolución tradicional por salto de quinta.`,
+                  `${tritoneToTargetSpec.label} → ${targetSpec.label}: resolución cromática por semitono descendente, con un color más suave y jazzístico.`,
+                ],
+                staffGroups: [
+                  buildStudyStaffGroup("Dominante y sustituto tritonal hacia el acorde estudiado", [targetDominantSpec, tritoneToTargetSpec, targetSpec], `Orden: ${targetDominantSpec.label} · ${tritoneToTargetSpec.label} · ${targetSpec.label}`, { keySignature: { type: null, count: 0 } }),
+                ],
+              },
+            ],
+          }
+        : {
+            // No dominante: aviso + contexto de preparación como referencia.
+            derivation: [
+              dominantPlaneText,
+              `${targetSpec.label} no actúa como dominante tal como está escrito. Si quisieras usar esa raíz como dominante, habría que convertirlo en ${sameRootDominantSpec.label}; su sustituto tritonal sería ${sameRootTritoneSpec.label}.`,
+              `Si el objetivo es llegar a ${targetSpec.label}, su dominante natural es ${targetDominantSpec.label}. El sustituto tritonal de ${targetDominantSpec.label} es ${tritoneToTargetSpec.label}.`,
+              buildDominantTritoneExplanation(targetDominantSpec, tritoneToTargetSpec),
+            ],
+            examples: [
+              `${targetDominantSpec.label} → ${targetSpec.label}: resolución tradicional por salto de quinta.`,
+              `${tritoneToTargetSpec.label} → ${targetSpec.label}: resolución cromática por semitono descendente en el bajo, con un color más suave y jazzístico.`,
+            ],
+            staffGroups: [
+              buildStudyStaffGroup("Dominante y sustituto tritonal hacia el acorde estudiado", [targetDominantSpec, tritoneToTargetSpec, targetSpec], `Orden: ${targetDominantSpec.label} · ${tritoneToTargetSpec.label} · ${targetSpec.label}`, { keySignature: { type: null, count: 0 } }),
+            ],
+          }),
     },
     {
       title: "Dominante por disminuido",
