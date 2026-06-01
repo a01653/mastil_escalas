@@ -278,7 +278,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "5.77";
+const APP_VERSION = "5.79";
 
 function buildChordCopyFingerprint({
   rootPc,
@@ -503,7 +503,7 @@ export default function FretboardScalesPage() {
   const {
     selectDetectedCandidate,
     clearChordDetectSelection: clearChordDetectSelectionState,
-    capturePendingCandidateBeforeSelectionEdit,
+    toggleChordDetectCellSelection,
   } = chordDetection.actions;
   const layoutModeRef = useRef({
     mobile: false,
@@ -2946,29 +2946,14 @@ export default function FretboardScalesPage() {
 
   function toggleChordDetectCell(sIdx, fret) {
     if (chordDetectClickAudio) fnPlayChordDetectNote(sIdx, fret);
-    capturePendingCandidateBeforeSelectionEdit();
-    const key = `${sIdx}:${fret}`;
-    setChordDetectSelectedKeys((prev) => {
-      if (prev.includes(key)) return prev.filter((x) => x !== key);
-      const withoutSameString = prev.filter((x) => !String(x).startsWith(`${sIdx}:`));
-      const next = [...withoutSameString, key];
-      const fretted = next
-        .map((item) => {
-          const [, fretStr] = String(item || "").split(":");
-          const parsed = parseInt(fretStr, 10);
-          return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
-        })
-        .filter((value) => value != null);
-      if (fretted.length) {
-        const minFret = Math.min(...fretted);
-        const maxFretSel = Math.max(...fretted);
-        if ((maxFretSel - minFret + 1) > MOBILE_CHORD_INVESTIGATION_WINDOW_SIZE) {
-          setConfigNotice({ type: "info", text: "La selección manual no puede superar 6 trastes sin contar cuerdas al aire." });
-          return prev;
-        }
-      }
-      return next;
+    const result = toggleChordDetectCellSelection({
+      sIdx,
+      fret,
+      windowSize: MOBILE_CHORD_INVESTIGATION_WINDOW_SIZE,
     });
+    if (result.rejected && result.reason === "span_limit") {
+      setConfigNotice({ type: "info", text: "La selección manual no puede superar 6 trastes sin contar cuerdas al aire." });
+    }
   }
 
   const chordDetectStaffEvents = useMemo(

@@ -10,6 +10,7 @@ import {
   resolveDetectedCandidateFromContext as resolveDetectedCandidateFromContextPure,
 } from "../../music/chordDetectionEngine.js";
 import { rankReadingsWithHarmonyContext as rankReadingsWithHarmonyContextPure } from "../../music/harmonyContextRanking.js";
+import { applyChordDetectCellToggle } from "./chordDetectionSelectionCore.js";
 
 const CHORD_REF_NATURAL_PC = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
 
@@ -40,6 +41,11 @@ export function useChordDetectionFeature({ maxFret }) {
   const chordDetectViewportFramesRef = useRef([]);
   const chordDetectViewportTimersRef = useRef([]);
   const chordDetectPlaybackTimersRef = useRef([]);
+  const chordDetectSelectedKeysRef = useRef(chordDetectSelectedKeys);
+
+  useLayoutEffect(() => {
+    chordDetectSelectedKeysRef.current = chordDetectSelectedKeys;
+  }, [chordDetectSelectedKeys]);
 
   const chordDetectSelectedFrettedRange = useMemo(() => {
     const fretted = chordDetectSelectedKeys
@@ -217,6 +223,25 @@ export function useChordDetectionFeature({ maxFret }) {
     pendingChordDetectCandidateRef.current = chordDetectSelectedCandidate || lastChordDetectCandidateRef.current || null;
   }, [chordDetectSelectedCandidate]);
 
+  const toggleChordDetectCellSelection = useCallback(({
+    sIdx,
+    fret,
+    windowSize = MOBILE_CHORD_INVESTIGATION_WINDOW_SIZE,
+  }) => {
+    capturePendingCandidateBeforeSelectionEdit();
+    const selectedKeys = chordDetectSelectedKeysRef.current;
+    const result = applyChordDetectCellToggle({
+      selectedKeys,
+      sIdx,
+      fret,
+      windowSize,
+    });
+    if (result.nextKeys !== selectedKeys) {
+      setChordDetectSelectedKeys(result.nextKeys);
+    }
+    return result;
+  }, [capturePendingCandidateBeforeSelectionEdit, setChordDetectSelectedKeys]);
+
   return {
     state: {
       chordDetectMode, setChordDetectMode,
@@ -262,6 +287,7 @@ export function useChordDetectionFeature({ maxFret }) {
       selectDetectedCandidate,
       clearChordDetectSelection,
       capturePendingCandidateBeforeSelectionEdit,
+      toggleChordDetectCellSelection,
     },
   };
 }

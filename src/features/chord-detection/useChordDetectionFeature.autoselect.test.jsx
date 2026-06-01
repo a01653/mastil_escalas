@@ -52,18 +52,15 @@ function AutoselectHarness() {
   const {
     selectDetectedCandidate,
     clearChordDetectSelection,
-    capturePendingCandidateBeforeSelectionEdit,
+    toggleChordDetectCellSelection,
   } = chordDetection.actions;
 
   function toggleChordDetectCell(sIdx, fret) {
-    capturePendingCandidateBeforeSelectionEdit();
-    const key = `${sIdx}:${fret}`;
-    setChordDetectSelectedKeys((prev) => {
-      if (prev.includes(key)) return prev.filter((x) => x !== key);
-      const withoutSameString = prev.filter((x) => !String(x).startsWith(`${sIdx}:`));
-      return [...withoutSameString, key];
+    return toggleChordDetectCellSelection({
+      sIdx,
+      fret,
+      windowSize: 6,
     });
-    setChordDetectMode(true);
   }
 
   useLayoutEffect(() => {
