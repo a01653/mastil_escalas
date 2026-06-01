@@ -1,11 +1,14 @@
-import { useMemo, useRef, useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   MOBILE_CHORD_INVESTIGATION_WINDOW_SIZE,
   STRINGS,
   normalizeVisibleFrets,
 } from "../../music/appStaticData.js";
 import { mod12, pitchAt } from "../../music/appMusicBasics.js";
-import { detectChordReadings as detectChordReadingsPure } from "../../music/chordDetectionEngine.js";
+import {
+  detectChordReadings as detectChordReadingsPure,
+  resolveDetectedCandidateFromContext as resolveDetectedCandidateFromContextPure,
+} from "../../music/chordDetectionEngine.js";
 import { rankReadingsWithHarmonyContext as rankReadingsWithHarmonyContextPure } from "../../music/harmonyContextRanking.js";
 
 const CHORD_REF_NATURAL_PC = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
@@ -151,6 +154,50 @@ export function useChordDetectionFeature({ maxFret }) {
     () => chordDetectCandidatesRanked.find((c) => c.id === chordDetectCandidateId) || null,
     [chordDetectCandidatesRanked, chordDetectCandidateId]
   );
+
+  useLayoutEffect(() => {
+    if (chordDetectSelectedCandidate) {
+      lastChordDetectCandidateRef.current = chordDetectSelectedCandidate;
+      pendingChordDetectCandidateRef.current = null;
+    }
+  }, [chordDetectSelectedCandidate, lastChordDetectCandidateRef, pendingChordDetectCandidateRef]);
+
+  useLayoutEffect(() => {
+    if (chordDetectSelectedKeys.length) return;
+    lastChordDetectCandidateRef.current = null;
+    pendingChordDetectCandidateRef.current = null;
+  }, [chordDetectSelectedKeys.length, lastChordDetectCandidateRef, pendingChordDetectCandidateRef]);
+
+  useLayoutEffect(() => {
+    if (!chordDetectMode) return;
+
+    // Selección explícita del usuario: siempre respetarla si el candidato sigue en la lista.
+    if (isManualCandidateSelectRef.current) {
+      isManualCandidateSelectRef.current = false;
+      const exists = chordDetectCandidateId != null && chordDetectCandidatesRanked.some((c) => c.id === chordDetectCandidateId);
+      if (exists) return;
+    }
+
+    const nextId = resolveDetectedCandidateFromContextPure({
+      candidates: chordDetectCandidatesRanked,
+      currentCandidateId: chordDetectCandidateId,
+      pendingCandidate: pendingChordDetectCandidateRef.current,
+      lastCandidate: lastChordDetectCandidateRef.current,
+      prioritizeContext: chordDetectPrioritizeContext,
+    })?.id || null;
+    if (!chordDetectCandidatesRanked.length) {
+      // Mantiene la política existente: sin candidatos, la selección actual debe limpiarse inmediatamente.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      if (chordDetectCandidateId !== null) setChordDetectCandidateId(null);
+      return;
+    }
+    if ((chordDetectCandidateId || null) !== nextId) {
+      setChordDetectCandidateId(nextId);
+    }
+    if (pendingChordDetectCandidateRef.current && nextId) {
+      pendingChordDetectCandidateRef.current = null;
+    }
+  }, [chordDetectMode, chordDetectSelectionSignature, chordDetectCandidatesRanked, chordDetectCandidateId, chordDetectPrioritizeContext, isManualCandidateSelectRef, lastChordDetectCandidateRef, pendingChordDetectCandidateRef, setChordDetectCandidateId]);
 
   return {
     state: {

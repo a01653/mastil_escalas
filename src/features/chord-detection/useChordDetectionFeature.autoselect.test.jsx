@@ -4,7 +4,6 @@ import { act, useLayoutEffect } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { resolveDetectedCandidateFromContext as resolveDetectedCandidateFromContextPure } from "../../music/chordDetectionEngine.js";
 import { useChordDetectionFeature } from "./useChordDetectionFeature.js";
 
 let container = null;
@@ -34,14 +33,13 @@ function applyManualPattern(setChordDetectMode, setChordDetectSelectedKeys, patt
 function AutoselectHarness() {
   const chordDetection = useChordDetectionFeature({ maxFret: 15 });
   const {
-    chordDetectMode, setChordDetectMode,
-    chordDetectPrioritizeContext,
+    setChordDetectMode,
     chordDetectCandidateId, setChordDetectCandidateId,
     setChordRefEnabled,
     setChordRefNatural,
     setChordRefAcc,
     setChordRefQuality,
-    chordDetectSelectedKeys, setChordDetectSelectedKeys,
+    setChordDetectSelectedKeys,
   } = chordDetection.state;
   const {
     lastChordDetectCandidateRef,
@@ -51,59 +49,7 @@ function AutoselectHarness() {
   const {
     chordDetectCandidatesRanked,
     chordDetectSelectedCandidate,
-    chordDetectSelectionSignature,
   } = chordDetection.derived;
-
-  useLayoutEffect(() => {
-    if (chordDetectSelectedCandidate) {
-      lastChordDetectCandidateRef.current = chordDetectSelectedCandidate;
-      pendingChordDetectCandidateRef.current = null;
-    }
-  }, [chordDetectSelectedCandidate, lastChordDetectCandidateRef, pendingChordDetectCandidateRef]);
-
-  useLayoutEffect(() => {
-    if (chordDetectSelectedKeys.length) return;
-    lastChordDetectCandidateRef.current = null;
-    pendingChordDetectCandidateRef.current = null;
-  }, [chordDetectSelectedKeys.length, lastChordDetectCandidateRef, pendingChordDetectCandidateRef]);
-
-  useLayoutEffect(() => {
-    if (!chordDetectMode) return;
-
-    if (isManualCandidateSelectRef.current) {
-      isManualCandidateSelectRef.current = false;
-      const exists = chordDetectCandidateId != null && chordDetectCandidatesRanked.some((c) => c.id === chordDetectCandidateId);
-      if (exists) return;
-    }
-
-    const nextId = resolveDetectedCandidateFromContextPure({
-      candidates: chordDetectCandidatesRanked,
-      currentCandidateId: chordDetectCandidateId,
-      pendingCandidate: pendingChordDetectCandidateRef.current,
-      lastCandidate: lastChordDetectCandidateRef.current,
-      prioritizeContext: chordDetectPrioritizeContext,
-    })?.id || null;
-    if (!chordDetectCandidatesRanked.length) {
-      if (chordDetectCandidateId !== null) setChordDetectCandidateId(null);
-      return;
-    }
-    if ((chordDetectCandidateId || null) !== nextId) {
-      setChordDetectCandidateId(nextId);
-    }
-    if (pendingChordDetectCandidateRef.current && nextId) {
-      pendingChordDetectCandidateRef.current = null;
-    }
-  }, [
-    chordDetectMode,
-    chordDetectSelectionSignature,
-    chordDetectCandidatesRanked,
-    chordDetectCandidateId,
-    chordDetectPrioritizeContext,
-    isManualCandidateSelectRef,
-    lastChordDetectCandidateRef,
-    pendingChordDetectCandidateRef,
-    setChordDetectCandidateId,
-  ]);
 
   function selectDetectedCandidate(candidate) {
     isManualCandidateSelectRef.current = true;

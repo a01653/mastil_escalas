@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import PanelBlock from "./components/PanelBlock.jsx";
 import ChordsPanel, { CopyVoicingButton } from "./components/chords/ChordsPanel.jsx";
@@ -27,7 +27,6 @@ import {
   buildDetectedCandidateBadgeItems as buildDetectedCandidateBadgeItemsPure,
   detectOmitFromCandidate as detectOmitFromCandidatePure,
   formatChordName as formatChordNamePure,
-  resolveDetectedCandidateFromContext as resolveDetectedCandidateFromContextPure,
 } from "./music/chordDetectionEngine.js";
 import { chordDbKeyNameFromPc } from "./music/chordDbCatalog.js";
 
@@ -279,7 +278,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "5.75";
+const APP_VERSION = "5.76";
 
 function buildChordCopyFingerprint({
   rootPc,
@@ -498,7 +497,6 @@ export default function FretboardScalesPage() {
     chordDetectCandidatesRanked,
     chordDetectSelectedCandidate,
     chordDetectPlaybackNotes,
-    chordDetectSelectionSignature,
     chordDetectWindowStartMin,
     chordDetectWindowAllowedStartMax,
     chordDetectWindowFrom,
@@ -2446,13 +2444,6 @@ export default function FretboardScalesPage() {
     return `${chordRefNatural}${refAccStr}${refQualitySuffix}`;
   }, [chordRefEnabled, chordRefNatural, chordRefAcc, chordRefQuality]);
 
-  useLayoutEffect(() => {
-    if (chordDetectSelectedCandidate) {
-      lastChordDetectCandidateRef.current = chordDetectSelectedCandidate;
-      pendingChordDetectCandidateRef.current = null;
-    }
-  }, [chordDetectSelectedCandidate, lastChordDetectCandidateRef, pendingChordDetectCandidateRef]);
-
   useEffect(() => {
     if (!chordDetectMode) setChordDetectClearMinHeight(null);
   }, [chordDetectMode, setChordDetectClearMinHeight]);
@@ -2462,41 +2453,6 @@ export default function FretboardScalesPage() {
     const timer = window.setTimeout(() => setChordDetectClearMinHeight(null), 800);
     return () => window.clearTimeout(timer);
   }, [chordDetectClearMinHeight, setChordDetectClearMinHeight]);
-
-  useLayoutEffect(() => {
-    if (chordDetectSelectedKeys.length) return;
-    lastChordDetectCandidateRef.current = null;
-    pendingChordDetectCandidateRef.current = null;
-  }, [chordDetectSelectedKeys.length, lastChordDetectCandidateRef, pendingChordDetectCandidateRef]);
-
-  useLayoutEffect(() => {
-    if (!chordDetectMode) return;
-
-    // Selección explícita del usuario: siempre respetarla si el candidato sigue en la lista.
-    if (isManualCandidateSelectRef.current) {
-      isManualCandidateSelectRef.current = false;
-      const exists = chordDetectCandidateId != null && chordDetectCandidatesRanked.some((c) => c.id === chordDetectCandidateId);
-      if (exists) return;
-    }
-
-    const nextId = resolveDetectedCandidateFromContextPure({
-      candidates: chordDetectCandidatesRanked,
-      currentCandidateId: chordDetectCandidateId,
-      pendingCandidate: pendingChordDetectCandidateRef.current,
-      lastCandidate: lastChordDetectCandidateRef.current,
-      prioritizeContext: chordDetectPrioritizeContext,
-    })?.id || null;
-    if (!chordDetectCandidatesRanked.length) {
-      if (chordDetectCandidateId !== null) setChordDetectCandidateId(null);
-      return;
-    }
-    if ((chordDetectCandidateId || null) !== nextId) {
-      setChordDetectCandidateId(nextId);
-    }
-    if (pendingChordDetectCandidateRef.current && nextId) {
-      pendingChordDetectCandidateRef.current = null;
-    }
-  }, [chordDetectMode, chordDetectSelectionSignature, chordDetectCandidatesRanked, chordDetectCandidateId, chordDetectPrioritizeContext, isManualCandidateSelectRef, lastChordDetectCandidateRef, pendingChordDetectCandidateRef, setChordDetectCandidateId]);
 
   // --------------------------------------------------------------------------
   // HELPERS LOCALES: DETECCIÓN DE ACORDES (audio y selección)
