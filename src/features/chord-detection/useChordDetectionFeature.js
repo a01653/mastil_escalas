@@ -6,6 +6,9 @@ import {
 } from "../../music/appStaticData.js";
 import { mod12, pitchAt } from "../../music/appMusicBasics.js";
 import { detectChordReadings as detectChordReadingsPure } from "../../music/chordDetectionEngine.js";
+import { rankReadingsWithHarmonyContext as rankReadingsWithHarmonyContextPure } from "../../music/harmonyContextRanking.js";
+
+const CHORD_REF_NATURAL_PC = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
 
 export function useChordDetectionFeature({ maxFret }) {
   // ── Estado de detección manual ────────────────────────────────────────────
@@ -129,6 +132,16 @@ export function useChordDetectionFeature({ maxFret }) {
     [chordDetectSelectedNotes]
   );
 
+  const chordDetectCandidatesRanked = useMemo(() => {
+    const harmonyContext = {
+      enabled: chordRefEnabled,
+      rootPc: ((CHORD_REF_NATURAL_PC[chordRefNatural] ?? 0) + chordRefAcc + 12) % 12,
+      quality: chordRefQuality,
+      selectedNotes: chordDetectSelectedNotes,
+    };
+    return rankReadingsWithHarmonyContextPure(chordDetectCandidates, harmonyContext);
+  }, [chordDetectCandidates, chordRefEnabled, chordRefNatural, chordRefAcc, chordRefQuality, chordDetectSelectedNotes]);
+
   const chordDetectSelectionSignature = useMemo(
     () => [...chordDetectSelectedKeys].sort().join("|"),
     [chordDetectSelectedKeys]
@@ -165,6 +178,7 @@ export function useChordDetectionFeature({ maxFret }) {
     derived: {
       chordDetectSelectedNotes,
       chordDetectCandidates,
+      chordDetectCandidatesRanked,
       chordDetectPlaybackNotes,
       chordDetectSelectionSignature,
       chordDetectWindowStartMin,

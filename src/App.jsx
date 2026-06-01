@@ -29,7 +29,6 @@ import {
   formatChordName as formatChordNamePure,
   resolveDetectedCandidateFromContext as resolveDetectedCandidateFromContextPure,
 } from "./music/chordDetectionEngine.js";
-import { rankReadingsWithHarmonyContext as rankReadingsWithHarmonyContextPure } from "./music/harmonyContextRanking.js";
 import { chordDbKeyNameFromPc } from "./music/chordDbCatalog.js";
 
 import { buildNearSlotsFromChordSymbols } from "./music/standardsCatalog.js";
@@ -280,7 +279,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "5.72";
+const APP_VERSION = "5.73";
 
 function buildChordCopyFingerprint({
   rootPc,
@@ -334,7 +333,6 @@ async function parseJsonResponseStrict(res, urlForError) {
 
 // ─── Acorde de referencia (bloque "Investigar en mástil") ────────────────────
 const CHORD_REF_NATURAL_LETTERS = ["C", "D", "E", "F", "G", "A", "B"];
-const CHORD_REF_NATURAL_PC      = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
 const CHORD_REF_QUALITIES       = ["Mayor", "maj7", "7", "menor", "m7", "m7(b5)", "dim", "dim7", "sus4", "7sus4"];
 
 export default function FretboardScalesPage() {
@@ -497,7 +495,7 @@ export default function FretboardScalesPage() {
   } = chordDetection.refs;
   const {
     chordDetectSelectedNotes,
-    chordDetectCandidates,
+    chordDetectCandidatesRanked,
     chordDetectPlaybackNotes,
     chordDetectSelectionSignature,
     chordDetectWindowStartMin,
@@ -2439,16 +2437,6 @@ export default function FretboardScalesPage() {
   // --------------------------------------------------------------------------
   // CÁLCULOS DERIVADOS: DETECCIÓN DE ACORDES EN MÁSTIL
   // --------------------------------------------------------------------------
-
-  const chordDetectCandidatesRanked = useMemo(() => {
-    const harmonyContext = {
-      enabled: chordRefEnabled,
-      rootPc: ((CHORD_REF_NATURAL_PC[chordRefNatural] ?? 0) + chordRefAcc + 12) % 12,
-      quality: chordRefQuality,
-      selectedNotes: chordDetectSelectedNotes,
-    };
-    return rankReadingsWithHarmonyContextPure(chordDetectCandidates, harmonyContext);
-  }, [chordDetectCandidates, chordRefEnabled, chordRefNatural, chordRefAcc, chordRefQuality, chordDetectSelectedNotes]);
 
   const refChordDisplayName = useMemo(() => {
     if (!chordRefEnabled) return null;
