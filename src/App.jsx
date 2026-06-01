@@ -282,7 +282,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "5.61";
+const APP_VERSION = "5.62";
 
 function buildChordCopyFingerprint({
   rootPc,
@@ -361,8 +361,6 @@ export default function FretboardScalesPage() {
   const [manualOpen, setManualOpen] = useState(false);
   const [studyOpen, setStudyOpen] = useState(false);
   const [studyTarget, setStudyTarget] = useState("main");
-  const [mobileInfoPopover, setMobileInfoPopover] = useState(null);
-  const mobileInfoPopoverOpen = !!mobileInfoPopover;
 
   // Notación (auto / override)
   // --------------------------------------------------------------------------
@@ -401,9 +399,13 @@ export default function FretboardScalesPage() {
     mobileSectionIndex,
     canMoveMobileSectionBy,
   } = layoutFeature.navigation;
-  const [mobileTonalContextOpen, setMobileTonalContextOpen] = useState(false);
-  const [mobileChordEditorOpen, setMobileChordEditorOpen] = useState(false);
-  const [mobileNearChordEditorIdx, setMobileNearChordEditorIdx] = useState(null);
+  const {
+    mobileTonalContextOpen, setMobileTonalContextOpen,
+    mobileChordEditorOpen, setMobileChordEditorOpen,
+    mobileNearChordEditorIdx, setMobileNearChordEditorIdx,
+    mobileInfoPopover, setMobileInfoPopover,
+    openMobileInfoPopover,
+  } = layoutFeature.overlays;
   const [showKingBoxes, setShowKingBoxes] = useState(false);
   const [kingBoxMode, setKingBoxMode] = useState("bb");
   const [kingBoxColors, setKingBoxColors] = useState({
@@ -502,7 +504,7 @@ export default function FretboardScalesPage() {
     setMobileSectionMotion("none");
     resetMobileSectionSlide();
     setMobileActiveSection(firstVisible);
-  }, [isMobileLayout, showBoards, setMobileMenuOpen, setMobileActiveSection, setMobileSectionTransition, setMobileSectionMotion]);
+  }, [isMobileLayout, showBoards, setMobileMenuOpen, setMobileActiveSection, setMobileSectionTransition, setMobileSectionMotion, setMobileTonalContextOpen, setMobileChordEditorOpen, setMobileNearChordEditorIdx, setMobileInfoPopover]);
 
   useEffect(() => {
     const prevLayout = layoutModeRef.current;
@@ -523,7 +525,7 @@ export default function FretboardScalesPage() {
     if (chordDetectMode && mobileChordEditorOpen) {
       setMobileChordEditorOpen(false);
     }
-  }, [chordDetectMode, mobileChordEditorOpen]);
+  }, [chordDetectMode, mobileChordEditorOpen, setMobileChordEditorOpen]);
 
   useEffect(() => {
     const startMax = Math.max(1, maxFret - (MOBILE_CHORD_INVESTIGATION_WINDOW_SIZE - 1));
@@ -532,52 +534,6 @@ export default function FretboardScalesPage() {
       return Math.max(1, Math.min(startMax, safeStart));
     });
   }, [maxFret]);
-
-  useEffect(() => {
-    if (typeof window === "undefined" || typeof document === "undefined") return undefined;
-    if (!isMobileLayout || !(mobileInfoPopoverOpen || mobileChordEditorOpen || mobileNearChordEditorIdx != null || mobileTonalContextOpen)) return undefined;
-
-    const scrollY = window.scrollY || document.documentElement.scrollTop || 0;
-    const body = document.body;
-    const html = document.documentElement;
-    const prevBody = {
-      overflow: body.style.overflow,
-      position: body.style.position,
-      top: body.style.top,
-      left: body.style.left,
-      right: body.style.right,
-      width: body.style.width,
-      touchAction: body.style.touchAction,
-    };
-    const prevHtml = {
-      overflow: html.style.overflow,
-      overscrollBehavior: html.style.overscrollBehavior,
-    };
-
-    html.style.overflow = "hidden";
-    html.style.overscrollBehavior = "none";
-    body.style.overflow = "hidden";
-    body.style.position = "fixed";
-    body.style.top = `-${scrollY}px`;
-    body.style.left = "0";
-    body.style.right = "0";
-    body.style.width = "100%";
-    body.style.touchAction = "none";
-
-    return () => {
-      html.style.overflow = prevHtml.overflow;
-      html.style.overscrollBehavior = prevHtml.overscrollBehavior;
-      body.style.overflow = prevBody.overflow;
-      body.style.position = prevBody.position;
-      body.style.top = prevBody.top;
-      body.style.left = prevBody.left;
-      body.style.right = prevBody.right;
-      body.style.width = prevBody.width;
-      body.style.touchAction = prevBody.touchAction;
-      window.scrollTo(0, scrollY);
-    };
-  }, [isMobileLayout, mobileInfoPopoverOpen, mobileChordEditorOpen, mobileNearChordEditorIdx, mobileTonalContextOpen]);
-
 
   // --------------------------------------------------------------------------
   // REGLAS DE COHERENCIA DE UI (sin cambiar sonido ni funcionalidad)
@@ -4452,26 +4408,6 @@ export default function FretboardScalesPage() {
 
   function HoverCellNote(props) {
     return <HoverCellNoteImpl {...props} hoverCellNoteText={hoverCellNoteText} />;
-  }
-
-  function openMobileInfoPopover(event, title, text) {
-    event.preventDefault();
-    event.stopPropagation();
-    const rect = event.currentTarget.getBoundingClientRect();
-    const viewportWidth = window.innerWidth || 360;
-    const width = isMobileLayout
-      ? Math.min(360, Math.max(240, viewportWidth - 24))
-      : Math.min(620, Math.max(420, viewportWidth - 48));
-    const centeredLeft = (viewportWidth - width) / 2;
-    const left = Math.max(12, Math.min(centeredLeft, viewportWidth - width - 12));
-    setMobileInfoPopover({
-      title,
-      text,
-      left,
-      top: rect.bottom + 8,
-      width,
-      arrowLeft: rect.left + rect.width / 2 - left,
-    });
   }
 
   function InfoTitle(props) {
