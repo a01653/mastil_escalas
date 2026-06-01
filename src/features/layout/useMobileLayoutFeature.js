@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   COMPACT_LAYOUT_WIDTH_MEDIA_QUERY,
   MOBILE_LAYOUT_WIDTH_MEDIA_QUERY,
@@ -201,21 +201,22 @@ export function useMobileLayoutFeature({
     return mobileSectionViewportWidth() * MOBILE_SECTION_SWIPE_COMMIT_RATIO;
   }
 
-  function setMobileSectionSlideTransform(dx, dragging = false) {
+  // Identidad estable: solo lee un ref, sin dependencias de estado.
+  const setMobileSectionSlideTransform = useCallback((dx, dragging = false) => {
     const el = mobileSectionSlideRef.current;
     if (!el) return;
     el.style.transition = dragging ? "none" : "";
     el.style.setProperty("--mobile-section-drag-x", `${Math.round(dx)}px`);
     el.style.opacity = dragging ? String(Math.max(0.78, 1 - Math.min(Math.abs(dx), 320) / 1100)) : "";
-  }
+  }, []);
 
-  function resetMobileSectionSlide() {
+  const resetMobileSectionSlide = useCallback(() => {
     const el = mobileSectionSlideRef.current;
     if (!el) return;
     el.style.transition = "";
     el.style.setProperty("--mobile-section-drag-x", "0px");
     el.style.opacity = "";
-  }
+  }, []);
 
   function settleMobileSectionSwipe(delta) {
     const currentIdx = mobileSectionIndex();

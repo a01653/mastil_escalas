@@ -280,7 +280,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "5.67";
+const APP_VERSION = "5.68";
 
 function buildChordCopyFingerprint({
   rootPc,
@@ -514,8 +514,7 @@ export default function FretboardScalesPage() {
     setMobileSectionMotion("none");
     resetMobileSectionSlide();
     setMobileActiveSection(firstVisible);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isMobileLayout, showBoards, setMobileMenuOpen, setMobileActiveSection, setMobileSectionTransition, setMobileSectionMotion, setMobileTonalContextOpen, setMobileChordEditorOpen, setMobileNearChordEditorIdx, setMobileInfoPopover]);
+  }, [isMobileLayout, showBoards, setMobileMenuOpen, setMobileActiveSection, setMobileSectionTransition, setMobileSectionMotion, setMobileTonalContextOpen, setMobileChordEditorOpen, setMobileNearChordEditorIdx, setMobileInfoPopover, resetMobileSectionSlide]);
 
   useEffect(() => {
     const prevLayout = layoutModeRef.current;
