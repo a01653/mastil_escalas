@@ -24,7 +24,6 @@ import MobileInfoPopover from "./components/help/MobileInfoPopover.jsx";
 import StandardsPanel from "./components/standards/StandardsPanel.jsx";
 import { Blocks, BookOpen, ChevronLeft, ChevronRight, Eraser, Info, Music, Play, Route, Search, Volume2, VolumeX, Waypoints, X } from "lucide-react";
 import {
-  buildDetectedCandidateBadgeItems as buildDetectedCandidateBadgeItemsPure,
   detectOmitFromCandidate as detectOmitFromCandidatePure,
   formatChordName as formatChordNamePure,
 } from "./music/chordDetectionEngine.js";
@@ -41,6 +40,8 @@ import { useMobileLayoutFeature } from "./features/layout/useMobileLayoutFeature
 import { useHarmonyFeature } from "./features/harmony/useHarmonyFeature.js";
 import { useChordDetectionFeature } from "./features/chord-detection/useChordDetectionFeature.js";
 import {
+  buildChordDetectSelectedCandidateBadgeItems,
+  buildChordDetectSelectedCandidateBassNote,
   buildChordDetectSelectedCandidateNotesText,
   buildChordDetectStaffEvents,
 } from "./features/chord-detection/chordDetectionPresentationCore.js";
@@ -281,7 +282,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "5.80";
+const APP_VERSION = "5.81";
 
 function buildChordCopyFingerprint({
   rootPc,
@@ -2998,17 +2999,17 @@ export default function FretboardScalesPage() {
   }, [chordDetectSelectedCandidate, chordPreferSharps]);
 
   const chordDetectSelectedCandidateBadgeItems = useMemo(() => {
-    return buildDetectedCandidateBadgeItemsPure(chordDetectSelectedCandidate, chordPreferSharps);
+    return buildChordDetectSelectedCandidateBadgeItems({
+      selectedCandidate: chordDetectSelectedCandidate,
+      preferSharps: chordPreferSharps,
+    });
   }, [chordDetectSelectedCandidate, chordPreferSharps]);
 
   const chordDetectSelectedCandidateBassNote = useMemo(() => {
-    if (!chordDetectSelectedCandidate) return null;
-    const prefer = chordDetectSelectedCandidate.preferSharps ?? chordPreferSharps;
-    const bassInterval = chordDetectSelectedCandidate.externalBassInterval != null
-      ? chordDetectSelectedCandidate.externalBassInterval
-      : mod12(chordDetectSelectedCandidate.bassPc - chordDetectSelectedCandidate.rootPc);
-
-    return spellNoteFromChordInterval(chordDetectSelectedCandidate.rootPc, bassInterval, prefer);
+    return buildChordDetectSelectedCandidateBassNote({
+      selectedCandidate: chordDetectSelectedCandidate,
+      preferSharps: chordPreferSharps,
+    });
   }, [chordDetectSelectedCandidate, chordPreferSharps]);
 
   const chordBaseDisplayName = chordDisplayNameFromUI({

@@ -1,7 +1,9 @@
 import {
   buildDetectedCandidateNoteNameForPc,
+  mod12,
   spellNoteFromChordInterval,
 } from "../../music/appMusicBasics.js";
+import { buildDetectedCandidateBadgeItems as buildDetectedCandidateBadgeItemsPure } from "../../music/chordDetectionEngine.js";
 
 export function buildChordDetectStaffEvents({
   selectedNotes,
@@ -37,4 +39,25 @@ export function buildChordDetectSelectedCandidateNotesText({
   );
 
   return noteText ? `${noteText} · bajo en ${bassName}` : `bajo en ${bassName}`;
+}
+
+export function buildChordDetectSelectedCandidateBadgeItems({
+  selectedCandidate,
+  preferSharps,
+}) {
+  return buildDetectedCandidateBadgeItemsPure(selectedCandidate, preferSharps);
+}
+
+export function buildChordDetectSelectedCandidateBassNote({
+  selectedCandidate,
+  preferSharps,
+}) {
+  if (!selectedCandidate) return null;
+
+  const prefer = selectedCandidate.preferSharps ?? preferSharps;
+  const bassInterval = selectedCandidate.externalBassInterval != null
+    ? selectedCandidate.externalBassInterval
+    : mod12(selectedCandidate.bassPc - selectedCandidate.rootPc);
+
+  return spellNoteFromChordInterval(selectedCandidate.rootPc, bassInterval, prefer);
 }

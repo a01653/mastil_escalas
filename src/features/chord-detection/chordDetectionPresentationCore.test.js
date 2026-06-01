@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buildChordDetectSelectedCandidateBadgeItems,
+  buildChordDetectSelectedCandidateBassNote,
   buildChordDetectSelectedCandidateNotesText,
   buildChordDetectStaffEvents,
 } from "./chordDetectionPresentationCore.js";
@@ -66,5 +68,58 @@ describe("chordDetectionPresentationCore", () => {
     });
 
     expect(result).toBe("");
+  });
+
+  it("badge items con candidato válido", () => {
+    const result = buildChordDetectSelectedCandidateBadgeItems({
+      selectedCandidate: {
+        formula: {
+          intervals: [0, 4, 7, 11],
+          degreeLabels: ["1", "3", "5", "7"],
+        },
+        rootPc: 5,
+        preferSharps: false,
+        visibleIntervals: [0, 4, 7, 11],
+      },
+      preferSharps: true,
+    });
+
+    expect(result).toEqual([
+      { note: "F", degree: "1", role: "root" },
+      { note: "A", degree: "3", role: "third" },
+      { note: "C", degree: "5", role: "fifth" },
+      { note: "E", degree: "7", role: "seventh" },
+    ]);
+  });
+
+  it("badge items vacío si no hay candidato", () => {
+    const result = buildChordDetectSelectedCandidateBadgeItems({
+      selectedCandidate: null,
+      preferSharps: true,
+    });
+
+    expect(result).toEqual([]);
+  });
+
+  it("bass note con candidato válido y spelling correcto", () => {
+    const result = buildChordDetectSelectedCandidateBassNote({
+      selectedCandidate: {
+        rootPc: 7,
+        bassPc: 10,
+        preferSharps: false,
+      },
+      preferSharps: true,
+    });
+
+    expect(result).toBe("Bb");
+  });
+
+  it("bass note nulo si no hay candidato", () => {
+    const result = buildChordDetectSelectedCandidateBassNote({
+      selectedCandidate: null,
+      preferSharps: true,
+    });
+
+    expect(result).toBeNull();
   });
 });
