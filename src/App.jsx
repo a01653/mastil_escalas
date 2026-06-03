@@ -45,6 +45,7 @@ import {
   buildChordDetectSelectedCandidateNotesText,
   buildChordDetectStaffEvents,
 } from "./features/chord-detection/chordDetectionPresentationCore.js";
+import { buildQuartalChordBuilderPatch } from "./features/chord-detection/chordDetectionCopyCore.js";
 
 import * as AppStaticData from "./music/appStaticData.js";
 const {
@@ -284,7 +285,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "5.87";
+const APP_VERSION = "5.88";
 
 function chordDbUrl(keyName, suffix) {
   // Ruta RELATIVA dentro de /public (sin base) => chords-db/...
@@ -2511,16 +2512,17 @@ export default function FretboardScalesPage() {
     const requiredMaxDist = manualCopiedVoicing?.reach ? clampChordMaxDistForReach(manualCopiedVoicing.reach) : null;
 
     if (p.family === "quartal") {
-      setChordFamily("quartal");
-      setChordRootPc(p.rootPc);
-      setChordSpellPreferSharps(!!p.spellPreferSharps);
-      setChordQuartalType(p.quartalType || "pure");
-      setChordQuartalVoices(p.quartalVoices || "4");
-      setChordQuartalSpread(p.quartalSpread || "closed");
-      setChordQuartalReference(p.quartalReference || "root");
-      setChordQuartalSelectedFrets(null);
-      setChordQuartalVoicingIdx(0);
-      setChordOmit("none");
+      const patch = buildQuartalChordBuilderPatch(p);
+      setChordFamily(patch.family);
+      setChordRootPc(patch.rootPc);
+      setChordSpellPreferSharps(patch.spellPreferSharps);
+      setChordQuartalType(patch.quartalType);
+      setChordQuartalVoices(patch.quartalVoices);
+      setChordQuartalSpread(patch.quartalSpread);
+      setChordQuartalReference(patch.quartalReference);
+      setChordQuartalSelectedFrets(patch.quartalSelectedFrets);
+      setChordQuartalVoicingIdx(patch.quartalVoicingIdx);
+      setChordOmit(patch.omit);
       setChordDetectMode(false);
       return;
     }
