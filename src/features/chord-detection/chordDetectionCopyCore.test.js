@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildQuartalChordBuilderPatch } from "./chordDetectionCopyCore.js";
+import { buildQuartalChordBuilderPatch, buildGuideToneChordBuilderPatch } from "./chordDetectionCopyCore.js";
 import {
   resolveGuideToneCopiedVoicing,
   buildChordCopyFingerprint,
@@ -209,5 +209,127 @@ describe("ruta tertian — deriveDetectedCandidateCopyInversion", () => {
 
   it("devuelve null si el candidato no tiene uiPatch", () => {
     expect(deriveDetectedCandidateCopyInversion({ rootPc: 0, bassPc: 0 })).toBeNull();
+  });
+});
+
+// ── Ruta 2 (ensamblado de patch): buildGuideToneChordBuilderPatch ────────────
+// Fija el patch que el adaptador aplicará en la rama guide-tones, antes de cablearlo.
+describe("ruta guide tones — buildGuideToneChordBuilderPatch", () => {
+  // xx325x: D(3)=F, G(2)=A, B(5)=E → notas F(5), A(9), E(4) sobre raíz F(5).
+  const fVoicing = () => ({ frets: "xx325x", notes: [{ pc: 5 }, { pc: 9 }, { pc: 4 }], reach: 3 });
+  const fCandidate = () => ({ uiPatch: { rootPc: 5, spellPreferSharps: false }, name: "Fmaj7(no5)" });
+
+  it("caso positivo xx325x: produce un patch guide_tones con calidad/forma/inversión/frets correctos", () => {
+    const patch = buildGuideToneChordBuilderPatch({
+      candidate: fCandidate(),
+      manualCopiedVoicing: fVoicing(),
+      nextAllowOpenStrings: false,
+      maxSpan: 5,
+      requiredMaxDist: null,
+      maxFret: 12,
+    });
+    expect(patch).not.toBeNull();
+    expect(patch.family).toBe("guide_tones");
+    expect(patch.rootPc).toBe(5);
+    expect(patch.spellPreferSharps).toBe(false);
+    expect(patch.guideToneQuality).toBe("maj7");
+    expect(patch.guideToneInversion).toBe("all");
+    expect(patch.guideToneSelectedFrets).toBe("xx325x");
+    expect(patch.guideToneVoicingIdx).toBe(0);
+    expect(patch.copiedEntry).toBeNull();
+    expect(patch.pendingRestore).toEqual({ active: false, frets: null });
+    expect(patch.pendingCopyResolution).toBeNull();
+  });
+
+  it("devuelve null si manualCopiedVoicing no tiene frets", () => {
+    expect(
+      buildGuideToneChordBuilderPatch({
+        candidate: fCandidate(),
+        manualCopiedVoicing: { frets: "", notes: [{ pc: 5 }, { pc: 9 }, { pc: 4 }] },
+        nextAllowOpenStrings: false,
+        maxSpan: 5,
+        requiredMaxDist: null,
+        maxFret: 12,
+      })
+    ).toBeNull();
+    expect(
+      buildGuideToneChordBuilderPatch({
+        candidate: fCandidate(),
+        manualCopiedVoicing: null,
+        nextAllowOpenStrings: false,
+        maxSpan: 5,
+        requiredMaxDist: null,
+        maxFret: 12,
+      })
+    ).toBeNull();
+  });
+
+  it("devuelve null si la firma no es de guide tones (tríada mayor 1-3-5)", () => {
+    expect(
+      buildGuideToneChordBuilderPatch({
+        candidate: { uiPatch: { rootPc: 0, spellPreferSharps: false }, name: "C" },
+        manualCopiedVoicing: { frets: "xx2010", notes: [{ pc: 0 }, { pc: 4 }, { pc: 7 }] },
+        nextAllowOpenStrings: false,
+        maxSpan: 5,
+        requiredMaxDist: null,
+        maxFret: 12,
+      })
+    ).toBeNull();
+  });
+
+  it("allowOpenStrings combina nextAllowOpenStrings || requiresOpenStrings", () => {
+    // nextAllowOpenStrings=true → el OR es true sin depender de requiresOpenStrings.
+    const patchTrue = buildGuideToneChordBuilderPatch({
+      candidate: fCandidate(),
+      manualCopiedVoicing: fVoicing(),
+      nextAllowOpenStrings: true,
+      maxSpan: 5,
+      requiredMaxDist: null,
+      maxFret: 12,
+    });
+    expect(patchTrue.allowOpenStrings).toBe(true);
+    // nextAllowOpenStrings=false y xx325x sin cuerdas al aire → requiresOpenStrings=false → false.
+    const patchFalse = buildGuideToneChordBuilderPatch({
+      candidate: fCandidate(),
+      manualCopiedVoicing: fVoicing(),
+      nextAllowOpenStrings: false,
+      maxSpan: 5,
+      requiredMaxDist: null,
+      maxFret: 12,
+    });
+    expect(patchFalse.allowOpenStrings).toBe(false);
+  });
+
+  it("maxDist es un passthrough exacto de requiredMaxDist", () => {
+    const patch4 = buildGuideToneChordBuilderPatch({
+      candidate: fCandidate(),
+      manualCopiedVoicing: fVoicing(),
+      nextAllowOpenStrings: false,
+      maxSpan: 4,
+      requiredMaxDist: 4,
+      maxFret: 12,
+    });
+    expect(patch4.maxDist).toBe(4);
+    const patchNull = buildGuideToneChordBuilderPatch({
+      candidate: fCandidate(),
+      manualCopiedVoicing: fVoicing(),
+      nextAllowOpenStrings: false,
+      maxSpan: 5,
+      requiredMaxDist: null,
+      maxFret: 12,
+    });
+    expect(patchNull.maxDist).toBeNull();
+  });
+
+  it("notice conserva exactamente el formato 'Copiado en Acorde: <nombre>'", () => {
+    const patch = buildGuideToneChordBuilderPatch({
+      candidate: fCandidate(),
+      manualCopiedVoicing: fVoicing(),
+      nextAllowOpenStrings: false,
+      maxSpan: 5,
+      requiredMaxDist: null,
+      maxFret: 12,
+    });
+    expect(patch.notice).toBe("Copiado en Acorde: Fmaj7(no5)");
   });
 });
