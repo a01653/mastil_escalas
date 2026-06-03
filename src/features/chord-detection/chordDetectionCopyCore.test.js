@@ -4,6 +4,7 @@ import {
   buildQuartalChordBuilderPatch,
   buildGuideToneChordBuilderPatch,
   buildTertianChordBuilderPatchFromDetectedCandidate,
+  buildChordBuilderPatchFromDetectedCandidate,
 } from "./chordDetectionCopyCore.js";
 import {
   resolveGuideToneCopiedVoicing,
@@ -456,5 +457,80 @@ describe("ruta tertian — buildTertianChordBuilderPatchFromDetectedCandidate", 
       structure: "chord",
       allowOpenStrings: true,
     });
+  });
+});
+
+// ── Dispatcher: buildChordBuilderPatchFromDetectedCandidate ───────────────────
+// Verifica la prioridad quartal → guide-tones → tertian, el gating del catálogo
+// (solo tertian con frets lo consulta) y que es async.
+describe("dispatcher — buildChordBuilderPatchFromDetectedCandidate", () => {
+  const failFetch = async () => { throw new Error("fetchCatalogVoicings no debe llamarse"); };
+  const baseArgs = (overrides = {}) => ({
+    candidate: undefined,
+    manualCopiedVoicing: null,
+    detectedInversion: null,
+    nextAllowOpenStrings: false,
+    copiedHasOpenStrings: false,
+    wantedFrets: null,
+    requiredMaxDist: null,
+    chordMaxDist: 4,
+    maxFret: 15,
+    baseCatalogVoicings: [],
+    fetchCatalogVoicings: failFetch,
+    ...overrides,
+  });
+
+  it("1. familia quartal → patch family 'quartal' sin consultar el catálogo", async () => {
+    const patch = await buildChordBuilderPatchFromDetectedCandidate(baseArgs({
+      candidate: { uiPatch: { family: "quartal", rootPc: 7, spellPreferSharps: false } },
+    }));
+    expect(patch.family).toBe("quartal");
+    expect(patch.rootPc).toBe(7);
+  });
+
+  it("2. match guide-tones (xx325x) → patch family 'guide_tones' sin consultar el catálogo", async () => {
+    const patch = await buildChordBuilderPatchFromDetectedCandidate(baseArgs({
+      candidate: { uiPatch: { rootPc: 5, spellPreferSharps: false }, name: "Fmaj7(no5)" },
+      manualCopiedVoicing: { frets: "xx325x", notes: [{ pc: 5 }, { pc: 9 }, { pc: 4 }], reach: 3 },
+      wantedFrets: "xx325x",
+      maxFret: 12,
+    }));
+    expect(patch.family).toBe("guide_tones");
+    expect(patch.guideToneQuality).toBe("maj7");
+  });
+
+  it("3. guide-tones null + tertian con frets → patch family 'tertian' y SÍ consulta el catálogo", async () => {
+    let fetched = false;
+    const asus2 = buildVoicingFromFretsLH({ fretsLH: [null, 0, 2, 2, 0, null], rootPc: 9, maxFret: 15 });
+    const patch = await buildChordBuilderPatchFromDetectedCandidate(baseArgs({
+      candidate: { uiPatch: { rootPc: 9, quality: "maj", suspension: "sus2", structure: "triad", spellPreferSharps: false }, formula: { suffix: "sus2" }, name: "Asus2" },
+      manualCopiedVoicing: asus2,
+      nextAllowOpenStrings: true,
+      wantedFrets: "x0220x",
+      fetchCatalogVoicings: async () => { fetched = true; return []; },
+    }));
+    expect(patch.family).toBe("tertian");
+    expect(patch.structure).toBe("chord");
+    expect(fetched, "tertian con frets debe consultar el catálogo").toBe(true);
+  });
+
+  it("4. es async: devuelve una Promise que resuelve al patch correcto", async () => {
+    const result = buildChordBuilderPatchFromDetectedCandidate(baseArgs({
+      candidate: { uiPatch: { family: "quartal", rootPc: 0, spellPreferSharps: false } },
+    }));
+    expect(result).toBeInstanceOf(Promise);
+    const patch = await result;
+    expect(patch.family).toBe("quartal");
+  });
+
+  it("5. tertian sin frets (note-set) no consulta el catálogo", async () => {
+    let fetched = false;
+    const patch = await buildChordBuilderPatchFromDetectedCandidate(baseArgs({
+      candidate: { uiPatch: { rootPc: 2, quality: "min", suspension: "none", structure: "chord", spellPreferSharps: false }, formula: { suffix: "m" }, name: "Dm" },
+      manualCopiedVoicing: null,
+      fetchCatalogVoicings: async () => { fetched = true; return []; },
+    }));
+    expect(patch.family).toBe("tertian");
+    expect(fetched, "tertian sin frets no debe consultar el catálogo").toBe(false);
   });
 });

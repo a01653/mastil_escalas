@@ -264,3 +264,69 @@ export async function buildTertianChordBuilderPatchFromDetectedCandidate({
     notice,
   };
 }
+
+// Dispatcher unificado del flujo "Copiar en Acorde".
+//
+// Compone los tres builders por familia con la prioridad de producción:
+//   1. Quartal     → buildQuartalChordBuilderPatch(p)            (sync)
+//   2. Guide-tones → buildGuideToneChordBuilderPatch({...})      (sync; null → cae a tertian)
+//   3. Tertian     → buildTertianChordBuilderPatchFromDetectedCandidate({...})  (async)
+//
+// Devuelve una unión discriminada por `family` ("quartal" | "guide_tones" | "tertian").
+// Con un `uiPatch` válido nunca devuelve null: tertian es el default y siempre produce patch.
+//
+// Reglas que replica del inline:
+// - Solo tertian consulta el catálogo: quartal y guide-tones NO llaman a `fetchCatalogVoicings`.
+// - `maxSpan` de guide-tones = `requiredMaxDist != null ? requiredMaxDist : chordMaxDist`.
+// - La caída guide-tones → tertian se preserva con `if (guideTonePatch) return guideTonePatch`.
+//
+// Es async por la rama tertian; quartal/guide-tones se resuelven de forma síncrona dentro
+// de la promesa (sin tocar el catálogo). Los guards `!candidate` / `!candidate.uiPatch`
+// (que disparan setters de detección/estudio) quedan en el adaptador, no aquí.
+//
+// IMPORTANTE: todavía NO está cableado en `applyDetectedCandidate`.
+export async function buildChordBuilderPatchFromDetectedCandidate({
+  candidate,
+  manualCopiedVoicing,
+  detectedInversion,
+  nextAllowOpenStrings,
+  copiedHasOpenStrings,
+  wantedFrets,
+  requiredMaxDist,
+  chordMaxDist,
+  maxFret,
+  baseCatalogVoicings,
+  fetchCatalogVoicings,
+}) {
+  const p = candidate?.uiPatch || {};
+
+  if (p.family === "quartal") {
+    return buildQuartalChordBuilderPatch(p);
+  }
+
+  const guideTonePatch = buildGuideToneChordBuilderPatch({
+    candidate,
+    manualCopiedVoicing,
+    nextAllowOpenStrings,
+    maxSpan: requiredMaxDist != null ? requiredMaxDist : chordMaxDist,
+    requiredMaxDist,
+    maxFret,
+  });
+  if (guideTonePatch) {
+    return guideTonePatch;
+  }
+
+  return buildTertianChordBuilderPatchFromDetectedCandidate({
+    candidate,
+    manualCopiedVoicing,
+    detectedInversion,
+    nextAllowOpenStrings,
+    copiedHasOpenStrings,
+    wantedFrets,
+    requiredMaxDist,
+    chordMaxDist,
+    maxFret,
+    baseCatalogVoicings,
+    fetchCatalogVoicings,
+  });
+}
