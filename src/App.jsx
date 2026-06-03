@@ -24,7 +24,6 @@ import MobileInfoPopover from "./components/help/MobileInfoPopover.jsx";
 import StandardsPanel from "./components/standards/StandardsPanel.jsx";
 import { Blocks, BookOpen, ChevronLeft, ChevronRight, Eraser, Info, Music, Play, Route, Search, Volume2, VolumeX, Waypoints, X } from "lucide-react";
 import {
-  detectOmitFromCandidate as detectOmitFromCandidatePure,
   formatChordName as formatChordNamePure,
 } from "./music/chordDetectionEngine.js";
 import { chordDbKeyNameFromPc } from "./music/chordDbCatalog.js";
@@ -45,7 +44,7 @@ import {
   buildChordDetectSelectedCandidateNotesText,
   buildChordDetectStaffEvents,
 } from "./features/chord-detection/chordDetectionPresentationCore.js";
-import { buildQuartalChordBuilderPatch, buildGuideToneChordBuilderPatch } from "./features/chord-detection/chordDetectionCopyCore.js";
+import { buildQuartalChordBuilderPatch, buildGuideToneChordBuilderPatch, buildTertianChordBuilderPatchFromDetectedCandidate } from "./features/chord-detection/chordDetectionCopyCore.js";
 
 import * as AppStaticData from "./music/appStaticData.js";
 const {
@@ -196,7 +195,6 @@ const {
   computeInversionSelectorOptions,
   selectClosestPhysicalVoicingIndex,
   deriveDetectedCandidateCopyInversion,
-  resolveCopiedVoicingAcrossStructures,
   buildChordCopyFingerprint,
 } = AppVoicingStudyCore;
 
@@ -284,7 +282,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "5.92";
+const APP_VERSION = "5.93";
 
 function chordDbUrl(keyName, suffix) {
   // Ruta RELATIVA dentro de /public (sin base) => chords-db/...
@@ -2555,137 +2553,46 @@ export default function FretboardScalesPage() {
       return;
     }
 
-    const detectedOmit = detectOmitFromCandidatePure(candidate);
-    const fpInversion = manualCopiedVoicing ? "all" : (detectedInversion || p.inversion || "root");
-    const fpForm = p.form || p.positionForm || "open";
-    const fpMaxDist = requiredMaxDist != null ? requiredMaxDist : chordMaxDist;
-    let catalogVoicings = chordDb?.positions || [];
-    if (manualCopiedVoicing?.frets) {
-      const chordCatalogVoicings = await ensureChordDbCatalogVoicings({
-        rootPc: p.rootPc,
-        quality: p.quality,
-        suspension: p.suspension || "none",
-        ext7: !!p.ext7,
-        ext6: !!p.ext6,
-        ext9: !!p.ext9,
-        ext11: !!p.ext11,
-        ext13: !!p.ext13,
-        omit: detectedOmit,
-        bassPc: manualCopiedVoicing?.bassPc ?? null,
-        preferredFrets: wantedFrets,
-      });
-      if (chordCatalogVoicings.length) {
-        catalogVoicings = chordCatalogVoicings;
-      }
-    }
-    const exactChordCatalogMatch = !!manualCopiedVoicing?.frets
-      && catalogVoicings.some((candidate) => String(candidate?.frets || "").trim().toLowerCase() === String(wantedFrets || "").trim().toLowerCase());
-    const resolvedCopy = manualCopiedVoicing?.frets
-      ? resolveCopiedVoicingAcrossStructures({
-          voicing: manualCopiedVoicing,
-          rootPc: p.rootPc,
-          quality: p.quality,
-          suspension: p.suspension || "none",
-          structure: p.structure,
-          ext7: !!p.ext7,
-          ext6: !!p.ext6,
-          ext9: !!p.ext9,
-          ext11: !!p.ext11,
-          ext13: !!p.ext13,
-          omit: detectedOmit,
-          form: fpForm,
-          allowOpenStrings: nextAllowOpenStrings,
-          maxFret,
-          maxSpan: fpMaxDist,
-          catalogVoicings,
-        })
-      : null;
-    const denseOpenStringFallback = !exactChordCatalogMatch
-      && !resolvedCopy?.structure
-      && !!manualCopiedVoicing?.frets
-      && copiedHasOpenStrings
-      && (manualCopiedVoicing.notes?.length ?? 0) >= 5;
-    const effectiveResolvedCopy = exactChordCatalogMatch
-      ? {
-          structure: "chord",
-          voicing: manualCopiedVoicing,
-          compatibleWithCurrentFilters: false,
-          matchesRequestedStructure: false,
-          requiresStructureChange: true,
-          requiresOpenStrings: true,
-        }
-      : (resolvedCopy || (denseOpenStringFallback
-      ? {
-          structure: "chord",
-          voicing: manualCopiedVoicing,
-          compatibleWithCurrentFilters: false,
-          matchesRequestedStructure: false,
-          requiresStructureChange: true,
-          requiresOpenStrings: true,
-        }
-      : null));
-    const targetStructure = effectiveResolvedCopy?.structure || p.structure;
-    setChordFamily("tertian");
-    setChordRootPc(p.rootPc);
-    setChordSpellPreferSharps(!!p.spellPreferSharps);
-    setChordQuality(p.quality);
-    setChordSuspension(p.suspension || "none");
-    applyChordStructureSelection(targetStructure);
-    setChordAllowOpenStrings(nextAllowOpenStrings);
+    const tertianPatch = await buildTertianChordBuilderPatchFromDetectedCandidate({
+      candidate,
+      manualCopiedVoicing,
+      detectedInversion,
+      nextAllowOpenStrings,
+      copiedHasOpenStrings,
+      wantedFrets,
+      requiredMaxDist,
+      chordMaxDist,
+      maxFret,
+      baseCatalogVoicings: chordDb?.positions || [],
+      fetchCatalogVoicings: ensureChordDbCatalogVoicings,
+    });
+    setChordFamily(tertianPatch.family);
+    setChordRootPc(tertianPatch.rootPc);
+    setChordSpellPreferSharps(tertianPatch.spellPreferSharps);
+    setChordQuality(tertianPatch.quality);
+    setChordSuspension(tertianPatch.suspension);
+    applyChordStructureSelection(tertianPatch.structure);
+    setChordAllowOpenStrings(tertianPatch.allowOpenStrings);
     // Si hay patrón físico, usar "all" para que el generador cubra todas las inversiones
     // y seleccione el patrón real cuando exista en alguna estructura compatible.
-    setChordInversion(fpInversion);
-    setChordPositionForm(p.positionForm || "open");
-    setChordForm(fpForm);
-    setChordExt7(!!p.ext7);
-    setChordExt6(!!p.ext6);
-    setChordExt9(!!p.ext9);
-    setChordExt11(!!p.ext11);
-    setChordExt13(!!p.ext13);
-    setChordOmit(detectedOmit);
-    if (requiredMaxDist != null && requiredMaxDist !== chordMaxDist) {
-      setChordMaxDist(requiredMaxDist);
+    setChordInversion(tertianPatch.inversion);
+    setChordPositionForm(tertianPatch.positionForm);
+    setChordForm(tertianPatch.form);
+    setChordExt7(tertianPatch.ext7);
+    setChordExt6(tertianPatch.ext6);
+    setChordExt9(tertianPatch.ext9);
+    setChordExt11(tertianPatch.ext11);
+    setChordExt13(tertianPatch.ext13);
+    setChordOmit(tertianPatch.omit);
+    if (tertianPatch.maxDist != null && tertianPatch.maxDist !== chordMaxDist) {
+      setChordMaxDist(tertianPatch.maxDist);
     }
-    let restoreFrets = wantedFrets;
-    // Si no existe ninguna coincidencia real en estructuras compatibles, reservar el
-    // fallback "(copiado)" como último recurso dentro de la estructura final.
-    if (manualCopiedVoicing?.frets) {
-      const fp = buildChordCopyFingerprint({
-        rootPc: p.rootPc,
-        quality: p.quality,
-        suspension: p.suspension || "none",
-        structure: targetStructure,
-        ext7: !!p.ext7,
-        ext6: !!p.ext6,
-        ext9: !!p.ext9,
-        ext11: !!p.ext11,
-        ext13: !!p.ext13,
-        omit: detectedOmit,
-        inversion: fpInversion,
-        form: fpForm,
-        maxDist: fpMaxDist,
-        allowOpenStrings: nextAllowOpenStrings,
-      });
-      const preservedVoicing = effectiveResolvedCopy?.voicing || manualCopiedVoicing;
-      setChordCopiedEntry({ voicing: preservedVoicing, fingerprint: fp });
-    } else {
-      setChordCopiedEntry(null);
-      restoreFrets = null;
-    }
-    pendingChordRestoreRef.current = { active: true, frets: restoreFrets };
-    pendingChordCopyResolutionRef.current = manualCopiedVoicing?.frets
-      ? {
-          frets: restoreFrets,
-          structure: targetStructure,
-          allowOpenStrings: nextAllowOpenStrings,
-        }
-      : null;
-    setChordSelectedFrets(restoreFrets);
+    setChordCopiedEntry(tertianPatch.copiedEntry);
+    pendingChordRestoreRef.current = tertianPatch.pendingRestore;
+    pendingChordCopyResolutionRef.current = tertianPatch.pendingCopyResolution;
+    setChordSelectedFrets(tertianPatch.restoreFrets);
     setChordVoicingIdx(0);
-
-    const chordName = formatChordNamePure(candidate);
-    const omitLabel = detectedOmit !== "none" ? ` · Omitir ${detectedOmit}` : "";
-    setChordCopyNotice(`Copiado en Acorde: ${chordName}${omitLabel}`);
+    setChordCopyNotice(tertianPatch.notice);
     setChordDetectMode(false);
   }
 
