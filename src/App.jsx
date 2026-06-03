@@ -282,7 +282,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "5.84";
+const APP_VERSION = "5.85";
 
 function buildChordCopyFingerprint({
   rootPc,
@@ -487,8 +487,6 @@ export default function FretboardScalesPage() {
   const {
     chordDetectPanelRef,
     chordDetectInvestigationAreaRef,
-    chordDetectViewportFramesRef,
-    chordDetectViewportTimersRef,
   } = chordDetection.refs;
   const {
     chordDetectSelectedNotes,
@@ -512,6 +510,9 @@ export default function FretboardScalesPage() {
     playChordDetectSelection,
     playChordDetectVoicingTogether,
   } = chordDetection.audio;
+  const {
+    preserveChordDetectViewportScroll,
+  } = chordDetection.viewport;
   const layoutModeRef = useRef({
     mobile: false,
     compact: false,
@@ -2466,82 +2467,6 @@ export default function FretboardScalesPage() {
   // --------------------------------------------------------------------------
   // HELPERS LOCALES: DETECCIÓN DE ACORDES (audio y selección)
   // --------------------------------------------------------------------------
-
-  const clearChordDetectViewportStabilizers = useCallback(() => {
-    if (typeof window === "undefined") return;
-    chordDetectViewportFramesRef.current.forEach((frameId) => window.cancelAnimationFrame(frameId));
-    chordDetectViewportFramesRef.current = [];
-    chordDetectViewportTimersRef.current.forEach((timerId) => window.clearTimeout(timerId));
-    chordDetectViewportTimersRef.current = [];
-  }, [chordDetectViewportFramesRef, chordDetectViewportTimersRef]);
-
-  function focusChordDetectPanelWithoutScroll() {
-    if (typeof document === "undefined") return;
-    const panel = chordDetectPanelRef.current;
-    if (panel instanceof HTMLElement && typeof panel.focus === "function") {
-      try {
-        panel.focus({ preventScroll: true });
-        return;
-      } catch {
-        // Older browsers may not support the preventScroll option.
-      }
-      try {
-        panel.focus();
-        return;
-      } catch {
-        // If focus fails, blur the active control below.
-      }
-    }
-    if (document.activeElement instanceof HTMLElement) {
-      document.activeElement.blur();
-    }
-  }
-
-  function preserveChordDetectViewportScroll({ blurActive = false, focusPanel = false } = {}) {
-    if (typeof window === "undefined" || typeof document === "undefined") return;
-
-    const scrollX = window.scrollX || document.documentElement.scrollLeft || 0;
-    const scrollY = window.scrollY || document.documentElement.scrollTop || 0;
-    if (focusPanel) {
-      focusChordDetectPanelWithoutScroll();
-    } else if (blurActive && document.activeElement instanceof HTMLElement) {
-      document.activeElement.blur();
-    }
-
-    clearChordDetectViewportStabilizers();
-
-    const restore = () => {
-      const currentX = window.scrollX || document.documentElement.scrollLeft || 0;
-      const currentY = window.scrollY || document.documentElement.scrollTop || 0;
-      if (Math.abs(currentX - scrollX) > 1 || Math.abs(currentY - scrollY) > 1) {
-        window.scrollTo(scrollX, scrollY);
-      }
-    };
-
-    const restoreFrames = (remaining) => {
-      const frameId = window.requestAnimationFrame(() => {
-        chordDetectViewportFramesRef.current = chordDetectViewportFramesRef.current.filter((id) => id !== frameId);
-        restore();
-        if (remaining > 1) restoreFrames(remaining - 1);
-      });
-      chordDetectViewportFramesRef.current.push(frameId);
-    };
-
-    [0, 60, 140, 320, 700].forEach((delay) => {
-      const timerId = window.setTimeout(() => {
-        restore();
-        chordDetectViewportTimersRef.current = chordDetectViewportTimersRef.current.filter((id) => id !== timerId);
-      }, delay);
-      chordDetectViewportTimersRef.current.push(timerId);
-    });
-
-    restore();
-    restoreFrames(12);
-  }
-
-  useEffect(() => () => {
-    clearChordDetectViewportStabilizers();
-  }, [clearChordDetectViewportStabilizers]);
 
   function clearChordDetectSelection(e = null) {
     e?.preventDefault?.();
