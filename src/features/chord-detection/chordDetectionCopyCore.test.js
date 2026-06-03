@@ -1,10 +1,15 @@
 import { describe, expect, it } from "vitest";
 
-import { buildQuartalChordBuilderPatch, buildGuideToneChordBuilderPatch } from "./chordDetectionCopyCore.js";
+import {
+  buildQuartalChordBuilderPatch,
+  buildGuideToneChordBuilderPatch,
+  buildTertianChordBuilderPatchFromDetectedCandidate,
+} from "./chordDetectionCopyCore.js";
 import {
   resolveGuideToneCopiedVoicing,
   buildChordCopyFingerprint,
   deriveDetectedCandidateCopyInversion,
+  buildVoicingFromFretsLH,
 } from "../../music/appVoicingStudyCore.js";
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -331,5 +336,125 @@ describe("ruta guide tones — buildGuideToneChordBuilderPatch", () => {
       maxFret: 12,
     });
     expect(patch.notice).toBe("Copiado en Acorde: Fmaj7(no5)");
+  });
+});
+
+// ── Ruta 3 (async): buildTertianChordBuilderPatchFromDetectedCandidate ────────
+// Fija el patch tertian (la rama async con fetch de catálogo inyectado), antes de cablearlo.
+describe("ruta tertian — buildTertianChordBuilderPatchFromDetectedCandidate", () => {
+  // Asus2 x0220x: voicing físico real conocido (reusado de los tests de
+  // resolveCopiedVoicingAcrossStructures). Desde Triada resuelve a estructura "chord".
+  const asus2Voicing = () => buildVoicingFromFretsLH({ fretsLH: [null, 0, 2, 2, 0, null], rootPc: 9, maxFret: 15 });
+  const asus2Candidate = () => ({
+    uiPatch: { rootPc: 9, quality: "maj", suspension: "sus2", structure: "triad", spellPreferSharps: false },
+    formula: { suffix: "sus2" },
+    name: "Asus2",
+  });
+  const baseArgs = (overrides = {}) => ({
+    candidate: asus2Candidate(),
+    manualCopiedVoicing: asus2Voicing(),
+    detectedInversion: null,
+    nextAllowOpenStrings: true,
+    copiedHasOpenStrings: false,
+    wantedFrets: "x0220x",
+    requiredMaxDist: null,
+    chordMaxDist: 4,
+    maxFret: 15,
+    baseCatalogVoicings: [],
+    fetchCatalogVoicings: async () => [],
+    ...overrides,
+  });
+
+  it("1. exactChordCatalogMatch: el catálogo contiene wantedFrets → fuerza structure 'chord' y preserva el voicing manual", async () => {
+    const manual = asus2Voicing();
+    const patch = await buildTertianChordBuilderPatchFromDetectedCandidate(baseArgs({
+      manualCopiedVoicing: manual,
+      fetchCatalogVoicings: async () => [{ frets: "x0220x" }],
+    }));
+    expect(patch.structure).toBe("chord");
+    expect(patch.copiedEntry.voicing).toBe(manual); // preservedVoicing = manualCopiedVoicing
+  });
+
+  it("2. denseOpenStringFallback: 6 cuerdas al aire (≥5 notas) sin resolución → fuerza structure 'chord'", async () => {
+    const allOpen = buildVoicingFromFretsLH({ fretsLH: [0, 0, 0, 0, 0, 0], rootPc: 4, maxFret: 15 });
+    const patch = await buildTertianChordBuilderPatchFromDetectedCandidate(baseArgs({
+      candidate: { uiPatch: { rootPc: 4, quality: "maj", suspension: "none", structure: "chord", spellPreferSharps: true }, formula: { suffix: "" }, name: "E" },
+      manualCopiedVoicing: allOpen,
+      copiedHasOpenStrings: true,
+      wantedFrets: allOpen.frets,
+      fetchCatalogVoicings: async () => [],
+    }));
+    expect(patch.structure).toBe("chord");
+    expect(patch.copiedEntry.voicing).toBe(allOpen); // fallback usa el voicing manual
+  });
+
+  it("3. resolvedCopy normal: targetStructure = resolvedCopy.structure", async () => {
+    const patch = await buildTertianChordBuilderPatchFromDetectedCandidate(baseArgs({
+      fetchCatalogVoicings: async () => [], // sin exactMatch → usa resolveCopiedVoicingAcrossStructures
+    }));
+    expect(patch.structure).toBe("chord"); // Asus2 x0220x desde triad resuelve a 'chord'
+    expect(patch.restoreFrets).toBe("x0220x");
+  });
+
+  it("4. ruta sin frets / note-set: copiedEntry null, restoreFrets null, pendingRestore {active,frets:null}, pendingCopyResolution null", async () => {
+    let fetched = false;
+    const patch = await buildTertianChordBuilderPatchFromDetectedCandidate(baseArgs({
+      candidate: { uiPatch: { rootPc: 2, quality: "min", suspension: "none", structure: "chord", spellPreferSharps: false }, formula: { suffix: "m" }, name: "Dm" },
+      manualCopiedVoicing: null,
+      nextAllowOpenStrings: false,
+      wantedFrets: null,
+      fetchCatalogVoicings: async () => { fetched = true; return []; },
+    }));
+    expect(patch.copiedEntry).toBeNull();
+    expect(patch.restoreFrets).toBeNull();
+    expect(patch.pendingRestore).toEqual({ active: true, frets: null });
+    expect(patch.pendingCopyResolution).toBeNull();
+    expect(patch.structure).toBe("chord"); // = p.structure
+    expect(patch.inversion).toBe("root"); // detectedInversion || p.inversion || "root"
+    expect(fetched, "no debe consultar el catálogo cuando no hay frets").toBe(false);
+  });
+
+  it("5. copiedEntry: fingerprint coherente con targetStructure y preservedVoicing = manual en exactMatch", async () => {
+    const manual = asus2Voicing();
+    const patch = await buildTertianChordBuilderPatchFromDetectedCandidate(baseArgs({
+      manualCopiedVoicing: manual,
+      fetchCatalogVoicings: async () => [{ frets: "x0220x" }],
+    }));
+    const expectedFp = buildChordCopyFingerprint({
+      rootPc: 9, quality: "maj", suspension: "sus2", structure: "chord",
+      ext7: false, ext6: false, ext9: false, ext11: false, ext13: false,
+      omit: "none", inversion: "all", form: "open", maxDist: 4, allowOpenStrings: true,
+    });
+    expect(patch.copiedEntry.fingerprint).toBe(expectedFp);
+    expect(patch.copiedEntry.voicing).toBe(manual);
+  });
+
+  it("6. notice: incluye omitLabel cuando detectedOmit !== 'none' y lo omite cuando 'none'", async () => {
+    const withOmit = await buildTertianChordBuilderPatchFromDetectedCandidate(baseArgs({
+      candidate: { uiPatch: { rootPc: 10, quality: "dom", suspension: "none", structure: "chord", spellPreferSharps: false }, formula: { suffix: "7(add13,no5)" }, name: "Bb7(add13,no5)" },
+      manualCopiedVoicing: null,
+      wantedFrets: null,
+    }));
+    expect(withOmit.omit).toBe("5");
+    expect(withOmit.notice).toBe("Copiado en Acorde: Bb7(add13,no5) · Omitir 5");
+
+    const noOmit = await buildTertianChordBuilderPatchFromDetectedCandidate(baseArgs({
+      candidate: { uiPatch: { rootPc: 10, quality: "dom", suspension: "none", structure: "chord", spellPreferSharps: false }, formula: { suffix: "7" }, name: "Bb7" },
+      manualCopiedVoicing: null,
+      wantedFrets: null,
+    }));
+    expect(noOmit.omit).toBe("none");
+    expect(noOmit.notice).toBe("Copiado en Acorde: Bb7");
+  });
+
+  it("7. pendingCopyResolution: {frets, structure, allowOpenStrings} cuando hay frets", async () => {
+    const patch = await buildTertianChordBuilderPatchFromDetectedCandidate(baseArgs({
+      fetchCatalogVoicings: async () => [],
+    }));
+    expect(patch.pendingCopyResolution).toEqual({
+      frets: "x0220x",
+      structure: "chord",
+      allowOpenStrings: true,
+    });
   });
 });

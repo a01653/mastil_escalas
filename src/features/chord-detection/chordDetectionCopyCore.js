@@ -1,5 +1,9 @@
-import { resolveGuideToneCopiedVoicing } from "../../music/appVoicingStudyCore.js";
-import { formatChordName } from "../../music/chordDetectionEngine.js";
+import {
+  resolveGuideToneCopiedVoicing,
+  resolveCopiedVoicingAcrossStructures,
+  buildChordCopyFingerprint,
+} from "../../music/appVoicingStudyCore.js";
+import { formatChordName, detectOmitFromCandidate } from "../../music/chordDetectionEngine.js";
 
 // Núcleo puro del flujo "Copiar en Acorde" (detección manual → Chord Builder).
 //
@@ -92,5 +96,171 @@ export function buildGuideToneChordBuilderPatch({
     pendingRestore: { active: false, frets: null },
     pendingCopyResolution: null,
     notice: `Copiado en Acorde: ${chordName}`,
+  };
+}
+
+// Rama tertian/default de `applyDetectedCandidate` (App.jsx líneas 2558–2689).
+//
+// Es la única rama async: para resolver el voicing copiado consulta el catálogo de
+// acordes mediante `fetchCatalogVoicings` (inyectado = `ensureChordDbCatalogVoicings`),
+// que es impuro (fetch + setChordDbCache + lee estado). Por eso NO se llama
+// directamente desde aquí: se recibe como parámetro. El catálogo base (`chordDb?.positions`)
+// también se inyecta como `baseCatalogVoicings`.
+//
+// El resto del cálculo (omit, inversión/forma, exactChordCatalogMatch,
+// resolveCopiedVoicingAcrossStructures, denseOpenStringFallback, effectiveResolvedCopy,
+// targetStructure, fingerprint/copiedEntry, pendingRestore/pendingCopyResolution, notice)
+// replica verbatim la lógica inline.
+//
+// IMPORTANTE: todavía NO está cableada en `applyDetectedCandidate`. El adaptador futuro
+// aplica los setters desde el patch, conserva `applyChordStructureSelection(patch.structure)`,
+// el set condicional de `maxDist` (lee estado `chordMaxDist`), las mutaciones de ref
+// (`pendingRestore`/`pendingCopyResolution`) y el efecto `setChordDetectMode(false)`.
+export async function buildTertianChordBuilderPatchFromDetectedCandidate({
+  candidate,
+  manualCopiedVoicing,
+  detectedInversion,
+  nextAllowOpenStrings,
+  copiedHasOpenStrings,
+  wantedFrets,
+  requiredMaxDist,
+  chordMaxDist,
+  maxFret,
+  baseCatalogVoicings,
+  fetchCatalogVoicings,
+}) {
+  const p = candidate?.uiPatch || {};
+  const detectedOmit = detectOmitFromCandidate(candidate);
+  const fpInversion = manualCopiedVoicing ? "all" : (detectedInversion || p.inversion || "root");
+  const fpForm = p.form || p.positionForm || "open";
+  const fpMaxDist = requiredMaxDist != null ? requiredMaxDist : chordMaxDist;
+  let catalogVoicings = baseCatalogVoicings || [];
+  if (manualCopiedVoicing?.frets) {
+    const chordCatalogVoicings = await fetchCatalogVoicings({
+      rootPc: p.rootPc,
+      quality: p.quality,
+      suspension: p.suspension || "none",
+      ext7: !!p.ext7,
+      ext6: !!p.ext6,
+      ext9: !!p.ext9,
+      ext11: !!p.ext11,
+      ext13: !!p.ext13,
+      omit: detectedOmit,
+      bassPc: manualCopiedVoicing?.bassPc ?? null,
+      preferredFrets: wantedFrets,
+    });
+    if (chordCatalogVoicings.length) {
+      catalogVoicings = chordCatalogVoicings;
+    }
+  }
+  const exactChordCatalogMatch = !!manualCopiedVoicing?.frets
+    && catalogVoicings.some((pos) => String(pos?.frets || "").trim().toLowerCase() === String(wantedFrets || "").trim().toLowerCase());
+  const resolvedCopy = manualCopiedVoicing?.frets
+    ? resolveCopiedVoicingAcrossStructures({
+        voicing: manualCopiedVoicing,
+        rootPc: p.rootPc,
+        quality: p.quality,
+        suspension: p.suspension || "none",
+        structure: p.structure,
+        ext7: !!p.ext7,
+        ext6: !!p.ext6,
+        ext9: !!p.ext9,
+        ext11: !!p.ext11,
+        ext13: !!p.ext13,
+        omit: detectedOmit,
+        form: fpForm,
+        allowOpenStrings: nextAllowOpenStrings,
+        maxFret,
+        maxSpan: fpMaxDist,
+        catalogVoicings,
+      })
+    : null;
+  const denseOpenStringFallback = !exactChordCatalogMatch
+    && !resolvedCopy?.structure
+    && !!manualCopiedVoicing?.frets
+    && copiedHasOpenStrings
+    && (manualCopiedVoicing.notes?.length ?? 0) >= 5;
+  const effectiveResolvedCopy = exactChordCatalogMatch
+    ? {
+        structure: "chord",
+        voicing: manualCopiedVoicing,
+        compatibleWithCurrentFilters: false,
+        matchesRequestedStructure: false,
+        requiresStructureChange: true,
+        requiresOpenStrings: true,
+      }
+    : (resolvedCopy || (denseOpenStringFallback
+    ? {
+        structure: "chord",
+        voicing: manualCopiedVoicing,
+        compatibleWithCurrentFilters: false,
+        matchesRequestedStructure: false,
+        requiresStructureChange: true,
+        requiresOpenStrings: true,
+      }
+    : null));
+  const targetStructure = effectiveResolvedCopy?.structure || p.structure;
+
+  let restoreFrets = wantedFrets;
+  let copiedEntry;
+  if (manualCopiedVoicing?.frets) {
+    const fp = buildChordCopyFingerprint({
+      rootPc: p.rootPc,
+      quality: p.quality,
+      suspension: p.suspension || "none",
+      structure: targetStructure,
+      ext7: !!p.ext7,
+      ext6: !!p.ext6,
+      ext9: !!p.ext9,
+      ext11: !!p.ext11,
+      ext13: !!p.ext13,
+      omit: detectedOmit,
+      inversion: fpInversion,
+      form: fpForm,
+      maxDist: fpMaxDist,
+      allowOpenStrings: nextAllowOpenStrings,
+    });
+    const preservedVoicing = effectiveResolvedCopy?.voicing || manualCopiedVoicing;
+    copiedEntry = { voicing: preservedVoicing, fingerprint: fp };
+  } else {
+    copiedEntry = null;
+    restoreFrets = null;
+  }
+  const pendingRestore = { active: true, frets: restoreFrets };
+  const pendingCopyResolution = manualCopiedVoicing?.frets
+    ? {
+        frets: restoreFrets,
+        structure: targetStructure,
+        allowOpenStrings: nextAllowOpenStrings,
+      }
+    : null;
+
+  const chordName = formatChordName(candidate);
+  const omitLabel = detectedOmit !== "none" ? ` · Omitir ${detectedOmit}` : "";
+  const notice = `Copiado en Acorde: ${chordName}${omitLabel}`;
+
+  return {
+    family: "tertian",
+    rootPc: p.rootPc,
+    spellPreferSharps: !!p.spellPreferSharps,
+    quality: p.quality,
+    suspension: p.suspension || "none",
+    structure: targetStructure,
+    allowOpenStrings: nextAllowOpenStrings,
+    inversion: fpInversion,
+    positionForm: p.positionForm || "open",
+    form: fpForm,
+    ext7: !!p.ext7,
+    ext6: !!p.ext6,
+    ext9: !!p.ext9,
+    ext11: !!p.ext11,
+    ext13: !!p.ext13,
+    omit: detectedOmit,
+    maxDist: requiredMaxDist,
+    copiedEntry,
+    restoreFrets,
+    pendingRestore,
+    pendingCopyResolution,
+    notice,
   };
 }
