@@ -4,6 +4,7 @@ import * as AppMusicBasics from "../../music/appMusicBasics.js";
 const {
   mod12, pcToName, pitchAt, spellNoteFromChordInterval,
   computeAutoPreferSharps, resolveKeySignatureForScale,
+  fnBuildQuartalDegreeLabel,
 } = AppMusicBasics;
 import * as AppVoicingStudyCore from "../../music/appVoicingStudyCore.js";
 const {
@@ -12,7 +13,6 @@ const {
   buildChordNamingExplanation, analyzeVoicingVsPlan, analyzeScaleTensionsForChord,
   buildDominantInfo, buildBackdoorDominantInfo, buildChordResolutionRoman,
   analyzeChordScaleCompatibility, buildStudyAnchorId, buildStudySubstitutionGuide,
-  fnBuildQuartalDegreeLabel,
 } = AppVoicingStudyCore;
 import * as AppPatternRouteStaffCore from "../../music/appPatternRouteStaffCore.jsx";
 const {

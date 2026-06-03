@@ -1341,3 +1341,51 @@ test("72. Desde m(maj7) no muestra 'No he encontrado voicings...' al resolver ca
   await expect(page.getByText("No he encontrado voicings para este acorde", { exact: false })).toHaveCount(0);
 });
 
+// ── Test 73 (regresión) ──────────────────────────────────────────────────────
+// Bug: familia Cuartal + cambiar Referencia a "Diatónico a escala" rompía la app
+// (TypeError: fnBuildQuartalDegreeLabel is not a function) porque StudyPanel.jsx
+// importaba esa función del módulo equivocado. Solo se disparaba con referencia
+// "scale", el único caso donde plan.quartalDegree es un número.
+test("73. Cuartal + Referencia 'Diatónico a escala' no rompe la app (regresión StudyPanel)", async ({ page }) => {
+  const pageErrors = [];
+  page.on("pageerror", (err) => pageErrors.push(err.message));
+
+  await goToChords(page);
+
+  // Familia Cuartal: el select de familia es el único con opción de valor "quartal".
+  const familySelects = await page.locator("select").all();
+  let familySet = false;
+  for (const sel of familySelects) {
+    const vals = await sel.locator("option").evaluateAll((opts) => opts.map((o) => o.value));
+    if (vals.includes("quartal")) {
+      await sel.selectOption("quartal");
+      familySet = true;
+      break;
+    }
+  }
+  expect(familySet, "No se encontró el selector de familia con opción 'quartal'").toBe(true);
+
+  // Cambiar Referencia a "Diatónico a escala" (value "scale"); el select de referencia
+  // solo existe en la rama cuartal y es el único con opciones "scale" y "root".
+  const refSelects = await page.locator("select").all();
+  let refSelect = null;
+  for (const sel of refSelects) {
+    const vals = await sel.locator("option").evaluateAll((opts) => opts.map((o) => o.value));
+    if (vals.includes("scale") && vals.includes("root")) {
+      refSelect = sel;
+      break;
+    }
+  }
+  expect(refSelect, "No se encontró el selector de Referencia cuartal").not.toBeNull();
+  await refSelect.selectOption("scale");
+
+  // No debe aparecer la pantalla de error del RootErrorBoundary ni un pageerror.
+  await expect(page.getByText("La app encontro un error al cargarse")).toHaveCount(0);
+  // El panel sigue renderizando: al pasar a "scale" aparece el selector de escala cuartal
+  // (solo se renderiza cuando la referencia es "scale"), confirmando re-render correcto.
+  await expect(
+    page.locator('select[title="Escala usada para generar los cuartales diatónicos"]')
+  ).toBeVisible();
+  expect(pageErrors, `pageerrors inesperados: ${pageErrors.join(" | ")}`).toHaveLength(0);
+});
+
