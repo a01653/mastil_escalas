@@ -23,6 +23,8 @@ const spellChordNotes = (...args) => AppMusicBasics.spellChordNotes(...args);
 const spellFullyDiminishedSeventhNotes = (...args) => AppMusicBasics.spellFullyDiminishedSeventhNotes(...args);
 const computeAutoPreferSharps = (...args) => AppMusicBasics.computeAutoPreferSharps(...args);
 const chordCanUseJsonCatalog = (...args) => AppMusicBasics.chordCanUseJsonCatalog(...args);
+const guideToneDefinitionFromQuality = (...args) => AppMusicBasics.guideToneDefinitionFromQuality(...args);
+const guideToneBassIntervalsForSelection = (...args) => AppMusicBasics.guideToneBassIntervalsForSelection(...args);
 
 export function decodeChordDbFretChar(ch) {
   const c = String(ch || "").toLowerCase();
@@ -1321,6 +1323,63 @@ export function analyzeChordVoicingForCopy({
     tensionIntervals,
     hasExtensions: tensionIntervals.length > 0,
   };
+}
+
+export function buildChordCopyFingerprint({
+  rootPc,
+  quality,
+  suspension,
+  structure,
+  ext7,
+  ext6,
+  ext9,
+  ext11,
+  ext13,
+  omit,
+  inversion,
+  form,
+  maxDist,
+  allowOpenStrings,
+}) {
+  return `${rootPc}|${quality}|${suspension}|${structure}|${ext7 ? 1 : 0}|${ext6 ? 1 : 0}|${ext9 ? 1 : 0}|${ext11 ? 1 : 0}|${ext13 ? 1 : 0}|${omit}|${inversion}|${form}|${maxDist}|${allowOpenStrings ? 1 : 0}`;
+}
+
+export function resolveGuideToneCopiedVoicing({ voicing, rootPc, allowOpenStrings, maxSpan, maxFret }) {
+  const normalizedFrets = String(voicing?.frets || "").trim().toLowerCase();
+  if (!normalizedFrets || !Array.isArray(voicing?.notes) || voicing.notes.length !== 3) return null;
+
+  const relSig = Array.from(new Set(voicing.notes.map((note) => mod12(note.pc - rootPc)))).sort((a, b) => a - b).join(",");
+  const guideToneQuality = [
+    ["maj7", "0,4,11"],
+    ["min7", "0,3,10"],
+    ["dom7", "0,4,10"],
+    ["maj6", "0,4,9"],
+  ].find(([, sig]) => sig === relSig)?.[0] || null;
+  if (!guideToneQuality) return null;
+
+  const def = guideToneDefinitionFromQuality(guideToneQuality);
+  const findMatch = (candidateAllowOpenStrings) => {
+    const baseList = guideToneBassIntervalsForSelection(def, "all").flatMap((bassInterval) =>
+      generateExactIntervalChordVoicings({
+        rootPc,
+        intervals: def.intervals,
+        bassInterval,
+        maxFret,
+        maxSpan,
+      }).map((item) => normalizeGeneratedVoicingForDisplay(item, rootPc, rootPc))
+    );
+    let list = dedupeAndSortVoicings(baseList);
+    if (!candidateAllowOpenStrings) {
+      list = list.filter((item) => !voicingHasOpenStrings(item));
+    }
+    for (const form of ["closed", "open"]) {
+      const match = filterVoicingsByForm(list, form).find((item) => String(item?.frets || "").trim().toLowerCase() === normalizedFrets);
+      if (match) return { guideToneQuality, guideToneForm: form, guideToneInversion: "all", voicing: match, requiresOpenStrings: candidateAllowOpenStrings && !allowOpenStrings };
+    }
+    return null;
+  };
+
+  return findMatch(allowOpenStrings) || (voicingHasOpenStrings(voicing) ? findMatch(true) : null);
 }
 
 export function resolveCopiedVoicingAcrossStructures({

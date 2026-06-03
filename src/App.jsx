@@ -196,6 +196,8 @@ const {
   selectClosestPhysicalVoicingIndex,
   deriveDetectedCandidateCopyInversion,
   resolveCopiedVoicingAcrossStructures,
+  buildChordCopyFingerprint,
+  resolveGuideToneCopiedVoicing,
 } = AppVoicingStudyCore;
 
 import * as AppPatternRouteStaffCore from "./music/appPatternRouteStaffCore.jsx";
@@ -282,26 +284,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "5.85";
-
-function buildChordCopyFingerprint({
-  rootPc,
-  quality,
-  suspension,
-  structure,
-  ext7,
-  ext6,
-  ext9,
-  ext11,
-  ext13,
-  omit,
-  inversion,
-  form,
-  maxDist,
-  allowOpenStrings,
-}) {
-  return `${rootPc}|${quality}|${suspension}|${structure}|${ext7 ? 1 : 0}|${ext6 ? 1 : 0}|${ext9 ? 1 : 0}|${ext11 ? 1 : 0}|${ext13 ? 1 : 0}|${omit}|${inversion}|${form}|${maxDist}|${allowOpenStrings ? 1 : 0}`;
-}
+const APP_VERSION = "5.86";
 
 function chordDbUrl(keyName, suffix) {
   // Ruta RELATIVA dentro de /public (sin base) => chords-db/...
@@ -2513,44 +2496,6 @@ export default function FretboardScalesPage() {
     }
   }
 
-  function resolveGuideToneCopiedVoicing({ voicing, rootPc, allowOpenStrings, maxSpan }) {
-    const normalizedFrets = String(voicing?.frets || "").trim().toLowerCase();
-    if (!normalizedFrets || !Array.isArray(voicing?.notes) || voicing.notes.length !== 3) return null;
-
-    const relSig = Array.from(new Set(voicing.notes.map((note) => mod12(note.pc - rootPc)))).sort((a, b) => a - b).join(",");
-    const guideToneQuality = [
-      ["maj7", "0,4,11"],
-      ["min7", "0,3,10"],
-      ["dom7", "0,4,10"],
-      ["maj6", "0,4,9"],
-    ].find(([, sig]) => sig === relSig)?.[0] || null;
-    if (!guideToneQuality) return null;
-
-    const def = guideToneDefinitionFromQuality(guideToneQuality);
-    const findMatch = (candidateAllowOpenStrings) => {
-      const baseList = guideToneBassIntervalsForSelection(def, "all").flatMap((bassInterval) =>
-        generateExactIntervalChordVoicings({
-          rootPc,
-          intervals: def.intervals,
-          bassInterval,
-          maxFret,
-          maxSpan,
-        }).map((item) => normalizeGeneratedVoicingForDisplay(item, rootPc, rootPc))
-      );
-      let list = dedupeAndSortVoicings(baseList);
-      if (!candidateAllowOpenStrings) {
-        list = list.filter((item) => !voicingHasOpenStrings(item));
-      }
-      for (const form of ["closed", "open"]) {
-        const match = filterVoicingsByForm(list, form).find((item) => String(item?.frets || "").trim().toLowerCase() === normalizedFrets);
-        if (match) return { guideToneQuality, guideToneForm: form, guideToneInversion: "all", voicing: match, requiresOpenStrings: candidateAllowOpenStrings && !allowOpenStrings };
-      }
-      return null;
-    };
-
-    return findMatch(allowOpenStrings) || (voicingHasOpenStrings(voicing) ? findMatch(true) : null);
-  }
-
   async function applyDetectedCandidate(candidate) {
     if (!candidate) return;
     setChordDetectCandidateId(candidate.id);
@@ -2586,6 +2531,7 @@ export default function FretboardScalesPage() {
           rootPc: p.rootPc,
           allowOpenStrings: nextAllowOpenStrings,
           maxSpan: requiredMaxDist != null ? requiredMaxDist : chordMaxDist,
+          maxFret,
         })
       : null;
     if (guideToneCopy) {
