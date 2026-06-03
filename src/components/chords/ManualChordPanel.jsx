@@ -182,6 +182,7 @@ export default function ManualChordPanel({ layout, reading, actions, reference, 
               </button>
               <button
                 type="button"
+                data-testid="chord-detect-clear-btn"
                 className={`${chordDetectIconButtonBaseClass} ${chordDetectSelectedKeys.length ? "border-slate-200 bg-white text-slate-600 enabled:hover:border-rose-300 enabled:hover:bg-rose-50 enabled:hover:text-rose-700" : "cursor-not-allowed border-slate-200 bg-white text-slate-300 opacity-50"}`}
                 title="Limpiar selección manual"
                 aria-label="Limpiar selección manual"
