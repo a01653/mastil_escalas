@@ -41,10 +41,9 @@ import { useChordDetectionFeature } from "./features/chord-detection/useChordDet
 import {
   buildChordDetectSelectedCandidateBadgeItems,
   buildChordDetectSelectedCandidateBassNote,
-  buildChordDetectSelectedCandidateNotesText,
   buildChordDetectStaffEvents,
 } from "./features/chord-detection/chordDetectionPresentationCore.js";
-import { buildQuartalChordBuilderPatch, buildGuideToneChordBuilderPatch, buildTertianChordBuilderPatchFromDetectedCandidate } from "./features/chord-detection/chordDetectionCopyCore.js";
+import { buildChordBuilderPatchFromDetectedCandidate } from "./features/chord-detection/chordDetectionCopyCore.js";
 
 import * as AppStaticData from "./music/appStaticData.js";
 const {
@@ -282,7 +281,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "5.94";
+const APP_VERSION = "5.98";
 
 function chordDbUrl(keyName, suffix) {
   // Ruta RELATIVA dentro de /public (sin base) => chords-db/...
@@ -2508,8 +2507,21 @@ export default function FretboardScalesPage() {
     const wantedFrets = manualCopiedVoicing?.frets || null;
     const requiredMaxDist = manualCopiedVoicing?.reach ? clampChordMaxDistForReach(manualCopiedVoicing.reach) : null;
 
-    if (p.family === "quartal") {
-      const patch = buildQuartalChordBuilderPatch(p);
+    const patch = await buildChordBuilderPatchFromDetectedCandidate({
+      candidate,
+      manualCopiedVoicing,
+      detectedInversion,
+      nextAllowOpenStrings,
+      copiedHasOpenStrings,
+      wantedFrets,
+      requiredMaxDist,
+      chordMaxDist,
+      maxFret,
+      baseCatalogVoicings: chordDb?.positions || [],
+      fetchCatalogVoicings: ensureChordDbCatalogVoicings,
+    });
+
+    if (patch.family === "quartal") {
       setChordFamily(patch.family);
       setChordRootPc(patch.rootPc);
       setChordSpellPreferSharps(patch.spellPreferSharps);
@@ -2524,75 +2536,54 @@ export default function FretboardScalesPage() {
       return;
     }
 
-    const guideTonePatch = buildGuideToneChordBuilderPatch({
-      candidate,
-      manualCopiedVoicing,
-      nextAllowOpenStrings,
-      maxSpan: requiredMaxDist != null ? requiredMaxDist : chordMaxDist,
-      requiredMaxDist,
-      maxFret,
-    });
-    if (guideTonePatch) {
-      setChordFamily(guideTonePatch.family);
-      setChordRootPc(guideTonePatch.rootPc);
-      setChordSpellPreferSharps(guideTonePatch.spellPreferSharps);
-      setGuideToneQuality(guideTonePatch.guideToneQuality);
-      setGuideToneForm(guideTonePatch.guideToneForm);
-      setGuideToneInversion(guideTonePatch.guideToneInversion);
-      setChordAllowOpenStrings(guideTonePatch.allowOpenStrings);
-      if (guideTonePatch.maxDist != null && guideTonePatch.maxDist !== chordMaxDist) {
-        setChordMaxDist(guideTonePatch.maxDist);
+    if (patch.family === "guide_tones") {
+      setChordFamily(patch.family);
+      setChordRootPc(patch.rootPc);
+      setChordSpellPreferSharps(patch.spellPreferSharps);
+      setGuideToneQuality(patch.guideToneQuality);
+      setGuideToneForm(patch.guideToneForm);
+      setGuideToneInversion(patch.guideToneInversion);
+      setChordAllowOpenStrings(patch.allowOpenStrings);
+      if (patch.maxDist != null && patch.maxDist !== chordMaxDist) {
+        setChordMaxDist(patch.maxDist);
       }
-      setGuideToneSelectedFrets(guideTonePatch.guideToneSelectedFrets);
-      setGuideToneVoicingIdx(guideTonePatch.guideToneVoicingIdx);
-      setChordCopiedEntry(guideTonePatch.copiedEntry);
-      pendingChordRestoreRef.current = guideTonePatch.pendingRestore;
-      pendingChordCopyResolutionRef.current = guideTonePatch.pendingCopyResolution;
-      setChordCopyNotice(guideTonePatch.notice);
+      setGuideToneSelectedFrets(patch.guideToneSelectedFrets);
+      setGuideToneVoicingIdx(patch.guideToneVoicingIdx);
+      setChordCopiedEntry(patch.copiedEntry);
+      pendingChordRestoreRef.current = patch.pendingRestore;
+      pendingChordCopyResolutionRef.current = patch.pendingCopyResolution;
+      setChordCopyNotice(patch.notice);
       setChordDetectMode(false);
       return;
     }
 
-    const tertianPatch = await buildTertianChordBuilderPatchFromDetectedCandidate({
-      candidate,
-      manualCopiedVoicing,
-      detectedInversion,
-      nextAllowOpenStrings,
-      copiedHasOpenStrings,
-      wantedFrets,
-      requiredMaxDist,
-      chordMaxDist,
-      maxFret,
-      baseCatalogVoicings: chordDb?.positions || [],
-      fetchCatalogVoicings: ensureChordDbCatalogVoicings,
-    });
-    setChordFamily(tertianPatch.family);
-    setChordRootPc(tertianPatch.rootPc);
-    setChordSpellPreferSharps(tertianPatch.spellPreferSharps);
-    setChordQuality(tertianPatch.quality);
-    setChordSuspension(tertianPatch.suspension);
-    applyChordStructureSelection(tertianPatch.structure);
-    setChordAllowOpenStrings(tertianPatch.allowOpenStrings);
+    setChordFamily(patch.family);
+    setChordRootPc(patch.rootPc);
+    setChordSpellPreferSharps(patch.spellPreferSharps);
+    setChordQuality(patch.quality);
+    setChordSuspension(patch.suspension);
+    applyChordStructureSelection(patch.structure);
+    setChordAllowOpenStrings(patch.allowOpenStrings);
     // Si hay patrón físico, usar "all" para que el generador cubra todas las inversiones
     // y seleccione el patrón real cuando exista en alguna estructura compatible.
-    setChordInversion(tertianPatch.inversion);
-    setChordPositionForm(tertianPatch.positionForm);
-    setChordForm(tertianPatch.form);
-    setChordExt7(tertianPatch.ext7);
-    setChordExt6(tertianPatch.ext6);
-    setChordExt9(tertianPatch.ext9);
-    setChordExt11(tertianPatch.ext11);
-    setChordExt13(tertianPatch.ext13);
-    setChordOmit(tertianPatch.omit);
-    if (tertianPatch.maxDist != null && tertianPatch.maxDist !== chordMaxDist) {
-      setChordMaxDist(tertianPatch.maxDist);
+    setChordInversion(patch.inversion);
+    setChordPositionForm(patch.positionForm);
+    setChordForm(patch.form);
+    setChordExt7(patch.ext7);
+    setChordExt6(patch.ext6);
+    setChordExt9(patch.ext9);
+    setChordExt11(patch.ext11);
+    setChordExt13(patch.ext13);
+    setChordOmit(patch.omit);
+    if (patch.maxDist != null && patch.maxDist !== chordMaxDist) {
+      setChordMaxDist(patch.maxDist);
     }
-    setChordCopiedEntry(tertianPatch.copiedEntry);
-    pendingChordRestoreRef.current = tertianPatch.pendingRestore;
-    pendingChordCopyResolutionRef.current = tertianPatch.pendingCopyResolution;
-    setChordSelectedFrets(tertianPatch.restoreFrets);
+    setChordCopiedEntry(patch.copiedEntry);
+    pendingChordRestoreRef.current = patch.pendingRestore;
+    pendingChordCopyResolutionRef.current = patch.pendingCopyResolution;
+    setChordSelectedFrets(patch.restoreFrets);
     setChordVoicingIdx(0);
-    setChordCopyNotice(tertianPatch.notice);
+    setChordCopyNotice(patch.notice);
     setChordDetectMode(false);
   }
 
@@ -2638,13 +2629,6 @@ export default function FretboardScalesPage() {
     const typedPattern = String(voicingInputText || "").trim().toLowerCase();
     return typedPattern.length === 6 ? typedPattern : "";
   }, [chordDetectSelectedNotes, chordDetectSelectedCandidate, chordRootPc, maxFret, voicingInputText]);
-
-  const _chordDetectSelectedCandidateNotesText = useMemo(() => {
-    return buildChordDetectSelectedCandidateNotesText({
-      selectedCandidate: chordDetectSelectedCandidate,
-      preferSharps: chordPreferSharps,
-    });
-  }, [chordDetectSelectedCandidate, chordPreferSharps]);
 
   const chordDetectSelectedCandidateBadgeItems = useMemo(() => {
     return buildChordDetectSelectedCandidateBadgeItems({

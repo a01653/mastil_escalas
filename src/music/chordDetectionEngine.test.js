@@ -622,6 +622,93 @@ describe("chordDetectionEngine", () => {
     })?.name).toBe("Abmaj7b5/Ebb");
   });
 
+  test("mantiene la lectura estructural equivalente al pasar Gmaj7(add13,no5)/F# -> Gm(maj7,13,no5)/F#", () => {
+    const previousCandidate = detectedReadingsFromPositions([
+      { sIdx: 3, fret: 4 },
+      { sIdx: 2, fret: 4 },
+      { sIdx: 1, fret: 5 },
+      { sIdx: 0, fret: 3 },
+    ]).find((candidate) => candidate.name === "Gmaj7(add13,no5)/F#");
+    const finalCandidates = detectedReadingsFromPositions([
+      { sIdx: 3, fret: 4 },
+      { sIdx: 2, fret: 3 },
+      { sIdx: 1, fret: 5 },
+      { sIdx: 0, fret: 3 },
+    ]);
+
+    // Caso 3 que faltaba en cobertura: desaparece la lectura exacta, pero sigue
+    // existiendo su equivalente estructural y debe preferirse antes que el top rankeado.
+    expect(previousCandidate?.name).toBe("Gmaj7(add13,no5)/F#");
+    expect(finalCandidates[0]?.name).toBe("F#7(addb2,no5)");
+    expect(pickDefaultChordCandidate({
+      candidates: finalCandidates,
+      previousCandidate,
+      prioritizeContext: false,
+    })?.name).toBe("F#7(addb2,no5)");
+    expect(resolveDetectedCandidateFromContext({
+      candidates: finalCandidates,
+      currentCandidateId: previousCandidate?.id || null,
+      pendingCandidate: previousCandidate,
+      lastCandidate: previousCandidate,
+      prioritizeContext: true,
+    })?.name).toBe("Gm(maj7,13,no5)/F#");
+  });
+
+  test("mantiene la lectura estructural equivalente al pasar Gmaj7(add13,no5)/F# -> G7(add13,no5)/F", () => {
+    const previousCandidate = detectedReadingsFromPositions([
+      { sIdx: 3, fret: 4 },
+      { sIdx: 2, fret: 4 },
+      { sIdx: 1, fret: 5 },
+      { sIdx: 0, fret: 3 },
+    ]).find((candidate) => candidate.name === "Gmaj7(add13,no5)/F#");
+    const finalCandidates = detectedReadingsFromPositions([
+      { sIdx: 3, fret: 3 },
+      { sIdx: 2, fret: 4 },
+      { sIdx: 1, fret: 5 },
+      { sIdx: 0, fret: 3 },
+    ]);
+
+    expect(previousCandidate?.name).toBe("Gmaj7(add13,no5)/F#");
+    expect(finalCandidates[0]?.name).toBe("Em(addb2)/F");
+    expect(pickDefaultChordCandidate({
+      candidates: finalCandidates,
+      previousCandidate,
+      prioritizeContext: false,
+    })?.name).toBe("Em(addb2)/F");
+    expect(resolveDetectedCandidateFromContext({
+      candidates: finalCandidates,
+      currentCandidateId: previousCandidate?.id || null,
+      pendingCandidate: previousCandidate,
+      lastCandidate: previousCandidate,
+      prioritizeContext: true,
+    })?.name).toBe("G7(add13,no5)/F");
+  });
+
+  test("si no existe continuidad estructural clara, mantiene la caída al primer candidato rankeado", () => {
+    const previousCandidate = detectedReadingsFromPositions([
+      { sIdx: 4, fret: 5 },
+      { sIdx: 3, fret: 6 },
+      { sIdx: 2, fret: 5 },
+      { sIdx: 1, fret: 8 },
+    ]).find((candidate) => candidate.name === "Cuartal mixto Ab");
+    const finalCandidates = detectedReadingsFromPositions([
+      { sIdx: 4, fret: 5 },
+      { sIdx: 3, fret: 6 },
+      { sIdx: 2, fret: 5 },
+      { sIdx: 1, fret: 6 },
+    ]);
+
+    expect(previousCandidate?.name).toBe("Cuartal mixto Ab");
+    expect(finalCandidates[0]?.name).toBe("Dm7(b5)");
+    expect(resolveDetectedCandidateFromContext({
+      candidates: finalCandidates,
+      currentCandidateId: previousCandidate?.id || null,
+      pendingCandidate: previousCandidate,
+      lastCandidate: previousCandidate,
+      prioritizeContext: true,
+    })?.name).toBe("Dm7(b5)");
+  });
+
   test("con contexto Am(maj7)/G# → xx5555 prioriza Am7/G sobre C6/G (bajo baja semitono, raíz A preservada)", () => {
     // xx6555: G#(MIDI 56) – C(60) – E(64) – A(69)
     const candidates6555 = detectedReadingsFromPositions([

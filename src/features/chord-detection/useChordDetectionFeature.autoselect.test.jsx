@@ -199,6 +199,52 @@ describe("política React de autoselección de detección manual", () => {
     expect(latestHarness.selectedCandidateName).not.toBe(latestHarness.firstCandidateName);
   });
 
+  it("mantiene la lectura estructural equivalente cuando solo cambia la 3ª mayor a menor", async () => {
+    await act(async () => {
+      latestHarness.applyPattern("xx4453");
+    });
+
+    const manualCandidate = findCandidate(/^Gmaj7\(add13,no5\)\/F#$/);
+
+    await act(async () => {
+      latestHarness.selectCandidate(manualCandidate);
+    });
+
+    expect(latestHarness.selectedCandidateName).toBe("Gmaj7(add13,no5)/F#");
+
+    await act(async () => {
+      latestHarness.toggleCell(2, 3);
+      expect(latestHarness.getLivePendingCandidateId()).toBe(manualCandidate.id);
+    });
+
+    expect(latestHarness.firstCandidateName).toBe("F#7(addb2,no5)");
+    expect(latestHarness.selectedCandidateName).toBe("Gm(maj7,13,no5)/F#");
+    expect(latestHarness.selectedCandidateName).not.toBe("F#7(addb2,no5)");
+  });
+
+  it("mantiene la lectura estructural equivalente cuando cambia la 7M/bajo a b7/bajo coherente", async () => {
+    await act(async () => {
+      latestHarness.applyPattern("xx4453");
+    });
+
+    const manualCandidate = findCandidate(/^Gmaj7\(add13,no5\)\/F#$/);
+
+    await act(async () => {
+      latestHarness.selectCandidate(manualCandidate);
+    });
+
+    expect(latestHarness.selectedCandidateName).toBe("Gmaj7(add13,no5)/F#");
+
+    await act(async () => {
+      latestHarness.toggleCell(3, 3);
+      expect(latestHarness.getLivePendingCandidateId()).toBe(manualCandidate.id);
+    });
+
+    expect(latestHarness.firstCandidateName).toBe("Em(addb2)/F");
+    expect(latestHarness.selectedCandidateName).toBe("G7(add13,no5)/F");
+    expect(latestHarness.selectedCandidateName).not.toBe("Em(addb2)/F");
+  });
+
   it("al vaciar la selección física limpia candidateId y refs de continuidad", async () => {
     await act(async () => {
       latestHarness.applyPattern("x5555x");

@@ -7,15 +7,9 @@ import { formatChordName, detectOmitFromCandidate } from "../../music/chordDetec
 
 // Núcleo puro del flujo "Copiar en Acorde" (detección manual → Chord Builder).
 //
-// Porciones extraíbles de la futura `buildChordBuilderPatchFromDetectedCandidate`.
+// Núcleo puro ya cableado por `applyDetectedCandidate` (App.jsx).
 // Cada función es un mapeo puro del candidato detectado a los valores con los que se
 // configura el constructor; los setters siguen viviendo en el adaptador (App.jsx).
-//
-// IMPORTANTE: estos helpers todavía NO están todos cableados dentro de
-// `applyDetectedCandidate` (App.jsx). La rama quartal sí consume
-// `buildQuartalChordBuilderPatch` (desde v5.88); `buildGuideToneChordBuilderPatch`
-// aún NO está cableada y solo se prueba en aislamiento para fijar el contrato antes
-// de tocar la función grande y sus setters.
 //
 // Equivalencia exacta con el bloque inline `if (p.family === "quartal") { ... }`:
 //   setChordFamily("quartal")           → family
@@ -45,7 +39,7 @@ export function buildQuartalChordBuilderPatch(uiPatch) {
   };
 }
 
-// Rama guide-tones de `applyDetectedCandidate` (App.jsx líneas 2530–2558).
+// Rama guide-tones de `applyDetectedCandidate`.
 //
 // Detecta si la selección física copiada corresponde a un voicing de guide tones
 // (vía `resolveGuideToneCopiedVoicing`) y, en ese caso, devuelve el patch con el que
@@ -56,8 +50,7 @@ export function buildQuartalChordBuilderPatch(uiPatch) {
 // reproduciendo el doble gate inline `manualCopiedVoicing?.frets ? resolve(...) : null`
 // + `if (guideToneCopy)`.
 //
-// IMPORTANTE: todavía NO está cableada en `applyDetectedCandidate`. El adaptador
-// futuro precalcula `maxSpan = requiredMaxDist != null ? requiredMaxDist : chordMaxDist`,
+// El adaptador precalcula `maxSpan = requiredMaxDist != null ? requiredMaxDist : chordMaxDist`,
 // conserva el set condicional de `maxDist` (lee estado `chordMaxDist`), aplica las
 // mutaciones de ref con `pendingRestore`/`pendingCopyResolution` y el efecto final
 // `setChordDetectMode(false)`.
@@ -99,7 +92,7 @@ export function buildGuideToneChordBuilderPatch({
   };
 }
 
-// Rama tertian/default de `applyDetectedCandidate` (App.jsx líneas 2558–2689).
+// Rama tertian/default de `applyDetectedCandidate`.
 //
 // Es la única rama async: para resolver el voicing copiado consulta el catálogo de
 // acordes mediante `fetchCatalogVoicings` (inyectado = `ensureChordDbCatalogVoicings`),
@@ -112,9 +105,9 @@ export function buildGuideToneChordBuilderPatch({
 // targetStructure, fingerprint/copiedEntry, pendingRestore/pendingCopyResolution, notice)
 // replica verbatim la lógica inline.
 //
-// IMPORTANTE: todavía NO está cableada en `applyDetectedCandidate`. El adaptador futuro
-// aplica los setters desde el patch, conserva `applyChordStructureSelection(patch.structure)`,
-// el set condicional de `maxDist` (lee estado `chordMaxDist`), las mutaciones de ref
+// El adaptador aplica los setters desde el patch, conserva
+// `applyChordStructureSelection(patch.structure)`, el set condicional de `maxDist`
+// (lee estado `chordMaxDist`), las mutaciones de ref
 // (`pendingRestore`/`pendingCopyResolution`) y el efecto `setChordDetectMode(false)`.
 export async function buildTertianChordBuilderPatchFromDetectedCandidate({
   candidate,
@@ -284,7 +277,6 @@ export async function buildTertianChordBuilderPatchFromDetectedCandidate({
 // de la promesa (sin tocar el catálogo). Los guards `!candidate` / `!candidate.uiPatch`
 // (que disparan setters de detección/estudio) quedan en el adaptador, no aquí.
 //
-// IMPORTANTE: todavía NO está cableado en `applyDetectedCandidate`.
 export async function buildChordBuilderPatchFromDetectedCandidate({
   candidate,
   manualCopiedVoicing,

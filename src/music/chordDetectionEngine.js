@@ -1384,6 +1384,102 @@ function candidateContextIntervalSet(candidate) {
   return set;
 }
 
+function candidateContextUiShape(candidate) {
+  const ui = candidate?.uiPatch || candidate?.formula?.ui || null;
+  if (!ui) return null;
+  return {
+    suspension: String(ui.suspension || "none"),
+    structure: String(ui.structure || ""),
+    ext7: !!ui.ext7,
+    ext6: !!ui.ext6,
+    ext9: !!ui.ext9,
+    ext11: !!ui.ext11,
+    ext13: !!ui.ext13,
+  };
+}
+
+function normalizeCandidateContinuityDegree(label) {
+  const normalized = String(label || "").replace(/^[b#]+/, "");
+  return normalized || String(label || "");
+}
+
+function candidateContinuityDegreeSet(candidate) {
+  const labels = candidateVisibleDegreeLabels(candidate);
+  if (labels.length) {
+    return new Set(labels.map(normalizeCandidateContinuityDegree));
+  }
+  return new Set(Array.from(candidateContextIntervalSet(candidate)).map((interval) => String(mod12(interval))));
+}
+
+function candidateStructuralContinuityGroup(candidate) {
+  if (!candidate) return "";
+  if (candidate?.formula?.quartal) {
+    return `quartal:${String(candidate.formula?.quartalType || "")}`;
+  }
+  return "tertian";
+}
+
+function symmetricDifferenceCount(aSet, bSet) {
+  const union = new Set([...(aSet || []), ...(bSet || [])]);
+  let diffCount = 0;
+  union.forEach((value) => {
+    if (!!aSet?.has(value) !== !!bSet?.has(value)) diffCount += 1;
+  });
+  return diffCount;
+}
+
+function candidateStructuralContinuityDistance(previousCandidate, candidate) {
+  if (!previousCandidate || !candidate) return 999;
+  if (candidate.rootPc !== previousCandidate.rootPc) return 999;
+
+  const previousGroup = candidateStructuralContinuityGroup(previousCandidate);
+  const nextGroup = candidateStructuralContinuityGroup(candidate);
+  if (!previousGroup || previousGroup !== nextGroup) return 999;
+
+  let score = 0;
+
+  // Caso 3 de continuidad: desaparece la lectura exacta, pero sigue existiendo
+  // otra lectura con la misma raíz y la misma "forma" armónica general aunque
+  // cambie la cualidad de una sola nota estructural (3, 5, 7, 9, 11, 13...).
+  score += symmetricDifferenceCount(
+    candidateContinuityDegreeSet(previousCandidate),
+    candidateContinuityDegreeSet(candidate)
+  ) * 2;
+
+  score += symmetricDifferenceCount(
+    candidateContextIntervalSet(previousCandidate),
+    candidateContextIntervalSet(candidate)
+  );
+
+  const previousShape = candidateContextUiShape(previousCandidate);
+  const nextShape = candidateContextUiShape(candidate);
+  if (!!previousShape !== !!nextShape) return 999;
+  if (previousShape && nextShape) {
+    if (previousShape.suspension !== nextShape.suspension) score += 4;
+    if (previousShape.structure !== nextShape.structure) score += 4;
+    if (previousShape.ext7 !== nextShape.ext7) score += 2;
+    if (previousShape.ext6 !== nextShape.ext6) score += 2;
+    if (previousShape.ext9 !== nextShape.ext9) score += 2;
+    if (previousShape.ext11 !== nextShape.ext11) score += 2;
+    if (previousShape.ext13 !== nextShape.ext13) score += 2;
+  }
+
+  score += symmetricDifferenceCount(
+    new Set((previousCandidate?.missingLabels || []).map(normalizeCandidateContinuityDegree)),
+    new Set((candidate?.missingLabels || []).map(normalizeCandidateContinuityDegree))
+  ) * 2;
+
+  if (candidate.bassPc !== previousCandidate.bassPc) {
+    const previousBassInterval = mod12(previousCandidate.bassPc - previousCandidate.rootPc);
+    const nextBassInterval = mod12(candidate.bassPc - candidate.rootPc);
+    const forward = mod12(nextBassInterval - previousBassInterval);
+    const backward = mod12(previousBassInterval - nextBassInterval);
+    score += Math.min(forward, backward) <= 2 ? 1 : 3;
+  }
+
+  return score;
+}
+
 function candidateContextDistance(previousCandidate, candidate) {
   if (!previousCandidate || !candidate) return 999;
   if (candidate.rootPc !== previousCandidate.rootPc) return 999;
@@ -1425,6 +1521,16 @@ export function pickDefaultChordCandidate({ candidates, previousCandidate = null
 
   const exactMatch = list.find((candidate) => candidate?.id && previousCandidate?.id && candidate.id === previousCandidate.id) || null;
   if (exactMatch) return exactMatch;
+
+  const structuralContinuity = list
+    .map((candidate) => ({ candidate, distance: candidateStructuralContinuityDistance(previousCandidate, candidate) }))
+    .filter((entry) => entry.distance <= 3)
+    .sort((a, b) => {
+      if (a.distance !== b.distance) return a.distance - b.distance;
+      if ((a.candidate.rankScore ?? 999) !== (b.candidate.rankScore ?? 999)) return (a.candidate.rankScore ?? 999) - (b.candidate.rankScore ?? 999);
+      return (a.candidate.score ?? 999) - (b.candidate.score ?? 999);
+    })[0]?.candidate || null;
+  if (structuralContinuity) return structuralContinuity;
 
   // Tier 2: mismo root + misma familia + bajo diferente + ≤ 2 cambios de intervalos.
   // Diseñado para descensos cromáticos del bajo con raíz funcional preservada:
