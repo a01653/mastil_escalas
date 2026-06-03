@@ -45,7 +45,7 @@ import {
   buildChordDetectSelectedCandidateNotesText,
   buildChordDetectStaffEvents,
 } from "./features/chord-detection/chordDetectionPresentationCore.js";
-import { buildQuartalChordBuilderPatch } from "./features/chord-detection/chordDetectionCopyCore.js";
+import { buildQuartalChordBuilderPatch, buildGuideToneChordBuilderPatch } from "./features/chord-detection/chordDetectionCopyCore.js";
 
 import * as AppStaticData from "./music/appStaticData.js";
 const {
@@ -198,7 +198,6 @@ const {
   deriveDetectedCandidateCopyInversion,
   resolveCopiedVoicingAcrossStructures,
   buildChordCopyFingerprint,
-  resolveGuideToneCopiedVoicing,
 } = AppVoicingStudyCore;
 
 import * as AppPatternRouteStaffCore from "./music/appPatternRouteStaffCore.jsx";
@@ -285,7 +284,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "5.89";
+const APP_VERSION = "5.90";
 
 function chordDbUrl(keyName, suffix) {
   // Ruta RELATIVA dentro de /public (sin base) => chords-db/...
@@ -2527,33 +2526,31 @@ export default function FretboardScalesPage() {
       return;
     }
 
-    const guideToneCopy = manualCopiedVoicing?.frets
-      ? resolveGuideToneCopiedVoicing({
-          voicing: manualCopiedVoicing,
-          rootPc: p.rootPc,
-          allowOpenStrings: nextAllowOpenStrings,
-          maxSpan: requiredMaxDist != null ? requiredMaxDist : chordMaxDist,
-          maxFret,
-        })
-      : null;
-    if (guideToneCopy) {
-      setChordFamily("guide_tones");
-      setChordRootPc(p.rootPc);
-      setChordSpellPreferSharps(!!p.spellPreferSharps);
-      setGuideToneQuality(guideToneCopy.guideToneQuality);
-      setGuideToneForm(guideToneCopy.guideToneForm);
-      setGuideToneInversion(guideToneCopy.guideToneInversion);
-      setChordAllowOpenStrings(nextAllowOpenStrings || guideToneCopy.requiresOpenStrings);
-      if (requiredMaxDist != null && requiredMaxDist !== chordMaxDist) {
-        setChordMaxDist(requiredMaxDist);
+    const guideTonePatch = buildGuideToneChordBuilderPatch({
+      candidate,
+      manualCopiedVoicing,
+      nextAllowOpenStrings,
+      maxSpan: requiredMaxDist != null ? requiredMaxDist : chordMaxDist,
+      requiredMaxDist,
+      maxFret,
+    });
+    if (guideTonePatch) {
+      setChordFamily(guideTonePatch.family);
+      setChordRootPc(guideTonePatch.rootPc);
+      setChordSpellPreferSharps(guideTonePatch.spellPreferSharps);
+      setGuideToneQuality(guideTonePatch.guideToneQuality);
+      setGuideToneForm(guideTonePatch.guideToneForm);
+      setGuideToneInversion(guideTonePatch.guideToneInversion);
+      setChordAllowOpenStrings(guideTonePatch.allowOpenStrings);
+      if (guideTonePatch.maxDist != null && guideTonePatch.maxDist !== chordMaxDist) {
+        setChordMaxDist(guideTonePatch.maxDist);
       }
-      setGuideToneSelectedFrets(guideToneCopy.voicing.frets);
-      setGuideToneVoicingIdx(0);
-      setChordCopiedEntry(null);
-      pendingChordRestoreRef.current = { active: false, frets: null };
-      pendingChordCopyResolutionRef.current = null;
-      const chordName = formatChordNamePure(candidate);
-      setChordCopyNotice(`Copiado en Acorde: ${chordName}`);
+      setGuideToneSelectedFrets(guideTonePatch.guideToneSelectedFrets);
+      setGuideToneVoicingIdx(guideTonePatch.guideToneVoicingIdx);
+      setChordCopiedEntry(guideTonePatch.copiedEntry);
+      pendingChordRestoreRef.current = guideTonePatch.pendingRestore;
+      pendingChordCopyResolutionRef.current = guideTonePatch.pendingCopyResolution;
+      setChordCopyNotice(guideTonePatch.notice);
       setChordDetectMode(false);
       return;
     }
