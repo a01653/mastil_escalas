@@ -38,6 +38,7 @@ import { useTonalityFeature } from "./features/tonality/useTonalityFeature.js";
 import { useMobileLayoutFeature } from "./features/layout/useMobileLayoutFeature.js";
 import { useHarmonyFeature } from "./features/harmony/useHarmonyFeature.js";
 import { useChordDetectionFeature } from "./features/chord-detection/useChordDetectionFeature.js";
+import { useChordBuilderState } from "./features/chord-builder/useChordBuilderState.js";
 import {
   buildChordDetectSelectedCandidateBadgeItems,
   buildChordDetectSelectedCandidateBassNote,
@@ -281,7 +282,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "5.99";
+const APP_VERSION = "6.0.0";
 
 function chordDbUrl(keyName, suffix) {
   // Ruta RELATIVA dentro de /public (sin base) => chords-db/...
@@ -411,39 +412,52 @@ export default function FretboardScalesPage() {
   // --------------------------------------------------------------------------
 
   // ------------------------
-  // Acordes (panel opcional)
+  // Acordes (panel opcional) — estado en useChordBuilderState
   // ------------------------
-  const [chordRootPc, setChordRootPc] = useState(5); // F
-  const [chordSpellPreferSharps, setChordSpellPreferSharps] = useState(() => preferSharpsFromMajorTonicPc(5));
-  const [chordFamily, setChordFamily] = useState("tertian");
-  const [chordQuartalType, setChordQuartalType] = useState("pure");
-  const [chordQuartalVoices, setChordQuartalVoices] = useState("4");
-  const [chordQuartalSpread, setChordQuartalSpread] = useState("closed");
-  const [chordQuartalReference, setChordQuartalReference] = useState("root");
-  const [chordQuartalScaleName, setChordQuartalScaleName] = useState("Mayor");
-  const [chordQuartalVoicingIdx, setChordQuartalVoicingIdx] = useState(0);
-  const [chordQuartalSelectedFrets, setChordQuartalSelectedFrets] = useState(null);
-  const [guideToneQuality, setGuideToneQuality] = useState("maj7");
-  const [guideToneForm, setGuideToneForm] = useState("closed");
-  const [guideToneInversion, setGuideToneInversion] = useState("all");
-  const [guideToneVoicingIdx, setGuideToneVoicingIdx] = useState(0);
-  const [guideToneSelectedFrets, setGuideToneSelectedFrets] = useState(null);
-  const lastGuideToneVoicingRef = useRef(null);
+  const { state: chordBuilderState, refs: chordBuilderRefs } = useChordBuilderState();
+  const {
+    chordRootPc, setChordRootPc,
+    chordSpellPreferSharps, setChordSpellPreferSharps,
+    chordFamily, setChordFamily,
+    chordQuality, setChordQuality,
+    chordSuspension, setChordSuspension,
+    chordStructure, setChordStructure,
+    chordInversion, setChordInversion,
+    chordForm, setChordForm,
+    chordPositionForm, setChordPositionForm,
+    chordExt7, setChordExt7,
+    chordExt6, setChordExt6,
+    chordExt9, setChordExt9,
+    chordExt11, setChordExt11,
+    chordExt13, setChordExt13,
+    chordOmit, setChordOmit,
+    chordCopyNotice, setChordCopyNotice,
+    chordCopiedEntry, setChordCopiedEntry,
+    chordQuartalType, setChordQuartalType,
+    chordQuartalVoices, setChordQuartalVoices,
+    chordQuartalSpread, setChordQuartalSpread,
+    chordQuartalReference, setChordQuartalReference,
+    chordQuartalScaleName, setChordQuartalScaleName,
+    chordQuartalVoicingIdx, setChordQuartalVoicingIdx,
+    chordQuartalSelectedFrets, setChordQuartalSelectedFrets,
+    guideToneQuality, setGuideToneQuality,
+    guideToneForm, setGuideToneForm,
+    guideToneInversion, setGuideToneInversion,
+    guideToneVoicingIdx, setGuideToneVoicingIdx,
+    guideToneSelectedFrets, setGuideToneSelectedFrets,
+    chordVoicingIdx, setChordVoicingIdx,
+    chordSelectedFrets, setChordSelectedFrets,
+    chordMaxDist, setChordMaxDist,
+    chordAllowOpenStrings, setChordAllowOpenStrings,
+  } = chordBuilderState;
+  const {
+    lastChordVoicingRef,
+    skipChordVoicingRefSyncRef,
+    pendingChordRestoreRef,
+    pendingChordCopyResolutionRef,
+    lastGuideToneVoicingRef,
+  } = chordBuilderRefs;
   const skipGuideToneVoicingRefSyncRef = useRef(false);
-  const [chordQuality, setChordQuality] = useState("maj");
-  const [chordSuspension, setChordSuspension] = useState("none");
-  const [chordStructure, setChordStructure] = useState("triad");
-  const [chordInversion, setChordInversion] = useState("all");
-  const [chordForm, setChordForm] = useState("open");
-  const [chordPositionForm, setChordPositionForm] = useState("open");
-  const [chordExt7, setChordExt7] = useState(false);
-  const [chordExt6, setChordExt6] = useState(false);
-  const [chordExt9, setChordExt9] = useState(false);
-  const [chordExt11, setChordExt11] = useState(false);
-  const [chordExt13, setChordExt13] = useState(false);
-  const [chordOmit, setChordOmit] = useState("none");
-  const [chordCopyNotice, setChordCopyNotice] = useState(null);
-  const [chordCopiedEntry, setChordCopiedEntry] = useState(null); // { voicing, fingerprint } — patrón físico copiado para preservarlo si no está en la lista visible
   // --------------------------------------------------------------------------
   // ESTADO: DETECCIÓN DE ACORDES EN MÁSTIL
   // --------------------------------------------------------------------------
@@ -569,7 +583,7 @@ export default function FretboardScalesPage() {
     if (chordQuality === "dom" && chordStructure === "triad" && !chordExt7) {
       setChordQuality("maj");
     }
-  }, [chordQuality, chordStructure, chordExt7]);
+  }, [chordQuality, chordStructure, chordExt7]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!isDropForm(chordForm)) return;
@@ -583,12 +597,12 @@ export default function FretboardScalesPage() {
     })) return;
     setChordForm(chordPositionForm || "closed");
     setChordInversion("root");
-  }, [chordForm, chordPositionForm, chordStructure, chordExt7, chordExt6, chordExt9, chordExt11, chordExt13]);
+  }, [chordForm, chordPositionForm, chordStructure, chordExt7, chordExt6, chordExt9, chordExt11, chordExt13]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Cuatriada: inicializa 7ª=true al entrar en tetrad.
   useEffect(() => {
     if (chordStructure === "tetrad") setChordExt7(true);
-  }, [chordStructure]);
+  }, [chordStructure]); // eslint-disable-line react-hooks/exhaustive-deps
 
 
 
@@ -602,14 +616,6 @@ export default function FretboardScalesPage() {
   const [chordDbStatus, setChordDbStatus] = useState("idle");
   const [chordDbError, setChordDbError] = useState(null);
   const [, setChordDbLastUrl] = useState(null);
-  const [chordVoicingIdx, setChordVoicingIdx] = useState(0);
-  const [chordSelectedFrets, setChordSelectedFrets] = useState(null);
-  const [chordMaxDist, setChordMaxDist] = useState(4);
-  const [chordAllowOpenStrings, setChordAllowOpenStrings] = useState(false);
-  const lastChordVoicingRef = useRef(null);
-  const skipChordVoicingRefSyncRef = useRef(false);
-  const pendingChordRestoreRef = useRef({ active: false, frets: null });
-  const pendingChordCopyResolutionRef = useRef(null);
   const lastNearVoicingsRef = useRef([null, null, null, null]);
   const skipNearVoicingRefSyncRef = useRef([false, false, false, false]);
   const pendingNearRestoreRef = useRef([
@@ -1317,7 +1323,7 @@ export default function FretboardScalesPage() {
     if (!chordCopyNotice) return;
     const t = window.setTimeout(() => setChordCopyNotice(null), 3500);
     return () => window.clearTimeout(t);
-  }, [chordCopyNotice]);
+  }, [chordCopyNotice]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function queueReloadNotice(type, text) {
     try {
@@ -1495,7 +1501,7 @@ export default function FretboardScalesPage() {
 
     setChordQuartalVoicingIdx(0);
     setChordQuartalSelectedFrets(chordQuartalVoicings[0].frets);
-  }, [chordQuartalVoicings, chordQuartalSelectedFrets]);
+  }, [chordQuartalVoicings, chordQuartalSelectedFrets]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const activeQuartalVoicingRaw = chordQuartalVoicings[chordQuartalVoicingIdx] || null;
 
@@ -1647,7 +1653,7 @@ export default function FretboardScalesPage() {
       setGuideToneVoicingIdx(idx);
     }
     if (nextFrets !== guideToneSelectedFrets) setGuideToneSelectedFrets(nextFrets);
-  }, [guideToneVoicingIdx, guideToneVoicings, guideToneVoicingsSig, guideToneSelectedFrets]);
+  }, [guideToneVoicingIdx, guideToneVoicings, guideToneVoicingsSig, guideToneSelectedFrets]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const current = guideToneVoicings[guideToneVoicingIdx] || guideToneVoicings[0] || null;
@@ -1664,7 +1670,7 @@ export default function FretboardScalesPage() {
     }
 
     if (current) lastGuideToneVoicingRef.current = current;
-  }, [guideToneVoicingIdx, guideToneVoicings, guideToneVoicingsSig, guideToneSelectedFrets]);
+  }, [guideToneVoicingIdx, guideToneVoicings, guideToneVoicingsSig, guideToneSelectedFrets]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const activeGuideToneVoicing = guideToneVoicings[guideToneVoicingIdx] || guideToneVoicings[0] || null;
 
@@ -1760,7 +1766,7 @@ export default function FretboardScalesPage() {
     if (!chordInversionOptions.some((o) => o.value === chordInversion)) {
       setChordInversion("all");
     }
-  }, [chordInversionOptions, chordInversion]);
+  }, [chordInversionOptions, chordInversion]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const chordBassInt = useMemo(
     () =>
@@ -2309,7 +2315,7 @@ export default function FretboardScalesPage() {
     const idx = selectClosestPhysicalVoicingIndex(ref, list, { fallbackIndex: normalizedCurrentIdx });
     const voicing = list[idx] || list[0] || null;
     return { idx, voicing, frets: voicing?.frets ?? null, waitingPending: false };
-  }, [chordVoicingsDisplay, chordVoicingIdx, chordSelectedFrets, chordRootPc, maxFret]);
+  }, [chordVoicingsDisplay, chordVoicingIdx, chordSelectedFrets, chordRootPc, maxFret]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!storageHydrated) return;
@@ -2331,7 +2337,7 @@ export default function FretboardScalesPage() {
     if ((chordResolvedSelection.frets ?? null) !== (chordSelectedFrets ?? null)) {
       setChordSelectedFrets(chordResolvedSelection.frets ?? null);
     }
-  }, [storageHydrated, chordVoicingsDisplay.length, chordVoicingIdx, chordSelectedFrets, chordResolvedSelection]);
+  }, [storageHydrated, chordVoicingsDisplay.length, chordVoicingIdx, chordSelectedFrets, chordResolvedSelection]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!storageHydrated) return;
@@ -2348,7 +2354,7 @@ export default function FretboardScalesPage() {
 
     if (needsStructure) setChordStructure(pending.structure);
     if (needsOpenStrings) setChordAllowOpenStrings(true);
-  }, [storageHydrated, chordSelectedFrets, chordStructure, chordAllowOpenStrings]);
+  }, [storageHydrated, chordSelectedFrets, chordStructure, chordAllowOpenStrings]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!storageHydrated) return;
@@ -2390,7 +2396,7 @@ export default function FretboardScalesPage() {
     return () => {
       alive = false;
     };
-  }, [
+  }, [ // eslint-disable-line react-hooks/exhaustive-deps
     storageHydrated,
     chordCopyNotice,
     chordSelectedFrets,
@@ -2419,7 +2425,7 @@ export default function FretboardScalesPage() {
       return;
     }
     if (current) lastChordVoicingRef.current = current;
-  }, [storageHydrated, chordResolvedSelection]);
+  }, [storageHydrated, chordResolvedSelection]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const activeChordVoicing = chordResolvedSelection.voicing;
 
