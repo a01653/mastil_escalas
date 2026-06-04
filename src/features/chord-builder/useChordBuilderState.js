@@ -146,6 +146,41 @@ export function useChordBuilderTertianVoicingRefSync({
   }, [storageHydrated, chordResolvedSelection]); // eslint-disable-line react-hooks/exhaustive-deps
 }
 
+export function useChordBuilderPendingCopyResolutionSync({
+  storageHydrated,
+  chordSelectedFrets,
+  chordStructure,
+  setChordStructure,
+  chordAllowOpenStrings,
+  setChordAllowOpenStrings,
+  pendingChordCopyResolutionRef,
+}) {
+  useEffect(() => {
+    if (!storageHydrated) return;
+    const pending = pendingChordCopyResolutionRef.current;
+    if (!pending?.frets) return;
+    if (chordSelectedFrets !== pending.frets) return;
+
+    const needsStructure = !!pending.structure && chordStructure !== pending.structure;
+    const needsOpenStrings = !!pending.allowOpenStrings && !chordAllowOpenStrings;
+    if (!needsStructure && !needsOpenStrings) {
+      pendingChordCopyResolutionRef.current = null;
+      return;
+    }
+
+    if (needsStructure) setChordStructure(pending.structure);
+    if (needsOpenStrings) setChordAllowOpenStrings(true);
+  }, [
+    storageHydrated,
+    chordSelectedFrets,
+    chordStructure,
+    setChordStructure,
+    chordAllowOpenStrings,
+    setChordAllowOpenStrings,
+    pendingChordCopyResolutionRef,
+  ]);
+}
+
 export function useChordBuilderState({ maxFret } = {}) {
   // -- Tertian -----------------------------------------------------------
   const [chordRootPc, setChordRootPc] = useState(5); // F

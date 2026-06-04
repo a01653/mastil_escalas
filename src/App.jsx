@@ -40,6 +40,7 @@ import { useHarmonyFeature } from "./features/harmony/useHarmonyFeature.js";
 import { useChordDetectionFeature } from "./features/chord-detection/useChordDetectionFeature.js";
 import {
   useChordBuilderState,
+  useChordBuilderPendingCopyResolutionSync,
   useChordBuilderTertianSelectionBlock,
   useChordBuilderTertianVoicingRefSync,
 } from "./features/chord-builder/useChordBuilderState.js";
@@ -279,7 +280,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "6.0.10";
+const APP_VERSION = "6.0.11";
 
 function chordDbUrl(keyName, suffix) {
   // Ruta RELATIVA dentro de /public (sin base) => chords-db/...
@@ -1991,22 +1992,15 @@ export default function FretboardScalesPage() {
     pendingChordRestoreRef,
   });
 
-  useEffect(() => {
-    if (!storageHydrated) return;
-    const pending = pendingChordCopyResolutionRef.current;
-    if (!pending?.frets) return;
-    if (chordSelectedFrets !== pending.frets) return;
-
-    const needsStructure = !!pending.structure && chordStructure !== pending.structure;
-    const needsOpenStrings = !!pending.allowOpenStrings && !chordAllowOpenStrings;
-    if (!needsStructure && !needsOpenStrings) {
-      pendingChordCopyResolutionRef.current = null;
-      return;
-    }
-
-    if (needsStructure) setChordStructure(pending.structure);
-    if (needsOpenStrings) setChordAllowOpenStrings(true);
-  }, [storageHydrated, chordSelectedFrets, chordStructure, chordAllowOpenStrings]); // eslint-disable-line react-hooks/exhaustive-deps
+  useChordBuilderPendingCopyResolutionSync({
+    storageHydrated,
+    chordSelectedFrets,
+    chordStructure,
+    setChordStructure,
+    chordAllowOpenStrings,
+    setChordAllowOpenStrings,
+    pendingChordCopyResolutionRef,
+  });
 
   useEffect(() => {
     if (!storageHydrated) return;
