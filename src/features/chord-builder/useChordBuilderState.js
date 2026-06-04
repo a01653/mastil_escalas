@@ -5,27 +5,37 @@ import * as AppVoicingStudyCore from "../../music/appVoicingStudyCore.js";
 const {
   preferSharpsFromMajorTonicPc,
   fnBuildQuartalPitchSets,
+  fnGenerateQuartalVoicings,
   guideToneDefinitionFromQuality,
+  guideToneBassIntervalsForSelection,
   chordSuffixFromUI,
   buildChordIntervals,
   buildChordDegreeLabelsFromUi,
   spellChordNotes,
   chordBassInterval,
+  CHORD_QUARTAL_TYPES,
   pcToName,
   mod12,
+  voicingHasOpenStrings,
 } = AppMusicBasics;
 const {
   isDropForm,
   isStrictFourNoteDropEligible,
   chordThirdOffsetFromUI,
   chordFifthOffsetFromUI,
+  augmentExactVoicingsWithOpenSubstitutions,
   buildChordEnginePlan,
   buildChordCopyFingerprint,
   computeInversionSelectorOptions,
+  dedupeAndSortVoicings,
+  filterVoicingsByForm,
+  generateExactIntervalChordVoicings,
   normalizeChordFormToInversion,
+  normalizeGeneratedVoicingForDisplay,
+  selectClosestPhysicalVoicingIndex,
 } = AppVoicingStudyCore;
 
-export function useChordBuilderState() {
+export function useChordBuilderState({ maxFret } = {}) {
   // -- Tertian -----------------------------------------------------------
   const [chordRootPc, setChordRootPc] = useState(5); // F
   const [chordSpellPreferSharps, setChordSpellPreferSharps] = useState(() => preferSharpsFromMajorTonicPc(5));
@@ -73,6 +83,7 @@ export function useChordBuilderState() {
   const pendingChordRestoreRef = useRef({ active: false, frets: null });
   const pendingChordCopyResolutionRef = useRef(null);
   const lastGuideToneVoicingRef = useRef(null);
+  const skipGuideToneVoicingRefSyncRef = useRef(false);
 
   // -- Coherencia interna ------------------------------------------------
   // E1, E2, E3 llaman setState síncronamente para normalizar estado tras un cambio
@@ -129,7 +140,7 @@ export function useChordBuilderState() {
   }, [chordCopyNotice]);
 
   // -- Derivados Ola 1 ---------------------------------------------------
-  // Solo dependen del estado declarado en este hook. Sin dependencias externas.
+  // Derivados base del builder; algunos dependen del parámetro externo maxFret.
 
   const chordPreferSharps = chordSpellPreferSharps;
 
@@ -143,6 +154,20 @@ export function useChordBuilderState() {
     }),
     [chordRootPc, chordQuartalVoices, chordQuartalType, chordQuartalReference, chordQuartalScaleName]
   );
+
+  const chordQuartalVoicings = useMemo(() => {
+    const all = fnGenerateQuartalVoicings({
+      pitchSets: chordQuartalPitchSets,
+      maxDist: chordMaxDist,
+      allowOpenStrings: chordAllowOpenStrings,
+      maxFret,
+    });
+
+    return all.filter((v) => {
+      const kind = v?.quartalSpreadKind || "closed";
+      return chordQuartalSpread === "open" ? kind === "open" : kind === "closed";
+    });
+  }, [chordQuartalPitchSets, chordMaxDist, chordAllowOpenStrings, chordQuartalSpread, maxFret]);
 
   const guideToneDef = useMemo(
     () => guideToneDefinitionFromQuality(guideToneQuality),
@@ -229,10 +254,96 @@ export function useChordBuilderState() {
   // -- Derivados Ola 2 ---------------------------------------------------
   // Dependen de derivados de Ola 1 o requieren imports de nivel medio.
 
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    if (!chordQuartalVoicings.length) {
+      setChordQuartalVoicingIdx(0);
+      setChordQuartalSelectedFrets(null);
+      return;
+    }
+
+    if (chordQuartalSelectedFrets) {
+      const idx = chordQuartalVoicings.findIndex((v) => v.frets === chordQuartalSelectedFrets);
+      if (idx >= 0) {
+        setChordQuartalVoicingIdx(idx);
+        return;
+      }
+    }
+
+    setChordQuartalVoicingIdx(0);
+    setChordQuartalSelectedFrets(chordQuartalVoicings[0].frets);
+  }, [chordQuartalVoicings, chordQuartalSelectedFrets]);
+  /* eslint-enable react-hooks/set-state-in-effect */
+
+  const activeQuartalVoicingRaw = chordQuartalVoicings[chordQuartalVoicingIdx] || null;
+
+  const activeQuartalVoicing = useMemo(() => {
+    if (!activeQuartalVoicingRaw) return null;
+    if (Array.isArray(activeQuartalVoicingRaw.notes)) return activeQuartalVoicingRaw;
+    return { ...activeQuartalVoicingRaw, notes: [] };
+  }, [activeQuartalVoicingRaw]);
+
+  const chordQuartalCurrentRootPc = useMemo(() => {
+    const pcs = Array.isArray(activeQuartalVoicing?.quartalOrderedPcs) && activeQuartalVoicing.quartalOrderedPcs.length
+      ? activeQuartalVoicing.quartalOrderedPcs
+      : Array.isArray(chordQuartalPitchSets?.[0]?.pcs) && chordQuartalPitchSets[0].pcs.length
+        ? chordQuartalPitchSets[0].pcs
+        : null;
+
+    return pcs ? mod12(pcs[0]) : chordRootPc;
+  }, [activeQuartalVoicing, chordQuartalPitchSets, chordRootPc]);
+
+  const chordQuartalDisplayName = useMemo(() => {
+    const rootName = pcToName(chordQuartalCurrentRootPc, chordPreferSharps);
+    const typeLabel = CHORD_QUARTAL_TYPES.find((x) => x.value === chordQuartalType)?.label || "Cuartal puro";
+    return `${rootName} ${typeLabel}`;
+  }, [chordQuartalCurrentRootPc, chordPreferSharps, chordQuartalType]);
+
   const guideToneDisplayName = useMemo(() => {
     const rootName = pcToName(chordRootPc, chordPreferSharps);
     return `${rootName}${guideToneDef.suffix}`;
   }, [chordRootPc, chordPreferSharps, guideToneDef]);
+
+  const guideToneVoicings = useMemo(() => {
+    const bassIntervals = guideToneBassIntervalsForSelection(guideToneDef, guideToneInversion);
+    const baseList = bassIntervals.flatMap((bassInterval) =>
+      generateExactIntervalChordVoicings({
+        rootPc: chordRootPc,
+        intervals: guideToneDef.intervals,
+        bassInterval,
+        maxFret,
+        maxSpan: chordMaxDist,
+      }).map((v) => normalizeGeneratedVoicingForDisplay(v, chordRootPc, chordRootPc))
+    );
+
+    const allowedIntervals = new Set(guideToneDef.intervals.map(mod12));
+    const requiredIntervals = new Set(guideToneDef.intervals.map(mod12));
+    let list = dedupeAndSortVoicings(baseList);
+
+    if (!chordAllowOpenStrings) {
+      list = list.filter((v) => !voicingHasOpenStrings(v));
+    }
+
+    if (chordAllowOpenStrings) {
+      list = augmentExactVoicingsWithOpenSubstitutions({
+        voicings: list,
+        rootPc: chordRootPc,
+        allowedIntervals,
+        requiredIntervals,
+        allowedBassIntervals: bassIntervals,
+        nearFrom: 0,
+        nearTo: maxFret,
+        maxFret,
+        maxSpan: chordMaxDist,
+        exactNoteCount: 3,
+      });
+    }
+
+    list = filterVoicingsByForm(dedupeAndSortVoicings(list), guideToneForm);
+    return list.slice(0, 60);
+  }, [guideToneDef, guideToneInversion, chordRootPc, maxFret, chordMaxDist, chordAllowOpenStrings, guideToneForm]);
+
+  const guideToneVoicingsSig = useMemo(() => guideToneVoicings.map((v) => v.frets).join("|"), [guideToneVoicings]);
 
   const chordDegreeLabels = useMemo(
     () => buildChordDegreeLabelsFromUi({
@@ -288,6 +399,54 @@ export function useChordBuilderState() {
 
   const chordBassPc = useMemo(() => mod12(chordRootPc + chordBassInt), [chordRootPc, chordBassInt]);
 
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    if (!guideToneVoicings.length) {
+      lastGuideToneVoicingRef.current = null;
+      if (guideToneVoicingIdx !== 0) setGuideToneVoicingIdx(0);
+      if (guideToneSelectedFrets !== null) setGuideToneSelectedFrets(null);
+      return;
+    }
+
+    const keepIdx = guideToneSelectedFrets ? guideToneVoicings.findIndex((v) => v.frets === guideToneSelectedFrets) : -1;
+    if (keepIdx >= 0) {
+      if (keepIdx !== guideToneVoicingIdx) {
+        skipGuideToneVoicingRefSyncRef.current = true;
+        setGuideToneVoicingIdx(keepIdx);
+      }
+      return;
+    }
+
+    const ref = lastGuideToneVoicingRef.current;
+    const idx = selectClosestPhysicalVoicingIndex(ref, guideToneVoicings);
+    const nextFrets = guideToneVoicings[idx]?.frets ?? guideToneVoicings[0]?.frets ?? null;
+    if (idx !== guideToneVoicingIdx) {
+      skipGuideToneVoicingRefSyncRef.current = true;
+      setGuideToneVoicingIdx(idx);
+    }
+    if (nextFrets !== guideToneSelectedFrets) setGuideToneSelectedFrets(nextFrets);
+  }, [guideToneVoicingIdx, guideToneVoicings, guideToneVoicingsSig, guideToneSelectedFrets]);
+
+  useEffect(() => {
+    const current = guideToneVoicings[guideToneVoicingIdx] || guideToneVoicings[0] || null;
+
+    if (skipGuideToneVoicingRefSyncRef.current) {
+      skipGuideToneVoicingRefSyncRef.current = false;
+      return;
+    }
+
+    const selectedStillExists = !!guideToneSelectedFrets && guideToneVoicings.some((v) => v.frets === guideToneSelectedFrets);
+    if (!selectedStillExists) {
+      const nextFrets = current?.frets ?? null;
+      if (nextFrets !== (guideToneSelectedFrets ?? null)) setGuideToneSelectedFrets(nextFrets);
+    }
+
+    if (current) lastGuideToneVoicingRef.current = current;
+  }, [guideToneVoicingIdx, guideToneVoicings, guideToneVoicingsSig, guideToneSelectedFrets]);
+  /* eslint-enable react-hooks/set-state-in-effect */
+
+  const activeGuideToneVoicing = guideToneVoicings[guideToneVoicingIdx] || guideToneVoicings[0] || null;
+
   return {
     state: {
       chordRootPc, setChordRootPc,
@@ -326,7 +485,13 @@ export function useChordBuilderState() {
       // Derivados Ola 1
       chordPreferSharps,
       chordQuartalPitchSets,
+      chordQuartalVoicings,
+      activeQuartalVoicing,
+      chordQuartalCurrentRootPc,
+      chordQuartalDisplayName,
       guideToneDef,
+      guideToneVoicings,
+      activeGuideToneVoicing,
       chordIntervals,
       chordSuffix,
       chordThirdOffset,

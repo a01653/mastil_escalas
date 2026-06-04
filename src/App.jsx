@@ -275,7 +275,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "6.0.5";
+const APP_VERSION = "6.0.8";
 
 function chordDbUrl(keyName, suffix) {
   // Ruta RELATIVA dentro de /public (sin base) => chords-db/...
@@ -407,7 +407,7 @@ export default function FretboardScalesPage() {
   // ------------------------
   // Acordes (panel opcional) — estado en useChordBuilderState
   // ------------------------
-  const { state: chordBuilderState, refs: chordBuilderRefs } = useChordBuilderState();
+  const { state: chordBuilderState, refs: chordBuilderRefs } = useChordBuilderState({ maxFret });
   const {
     chordRootPc, setChordRootPc,
     chordSpellPreferSharps, setChordSpellPreferSharps,
@@ -445,7 +445,13 @@ export default function FretboardScalesPage() {
     // Derivados Ola 1
     chordPreferSharps,
     chordQuartalPitchSets,
+    chordQuartalVoicings,
+    activeQuartalVoicing,
+    chordQuartalCurrentRootPc,
+    chordQuartalDisplayName,
     guideToneDef,
+    guideToneVoicings,
+    activeGuideToneVoicing,
     chordIntervals,
     chordSuffix,
     chordThirdOffset,
@@ -466,7 +472,6 @@ export default function FretboardScalesPage() {
     pendingChordCopyResolutionRef,
     lastGuideToneVoicingRef,
   } = chordBuilderRefs;
-  const skipGuideToneVoicingRefSyncRef = useRef(false);
   // --------------------------------------------------------------------------
   // ESTADO: DETECCIÓN DE ACORDES EN MÁSTIL
   // --------------------------------------------------------------------------
@@ -1425,67 +1430,10 @@ export default function FretboardScalesPage() {
     return list.map((n, i) => ({ label: n, pc: i }));
   }, [chordPreferSharps]);
 
-  const chordQuartalVoicings = useMemo(() => {
-    const all = fnGenerateQuartalVoicings({
-      pitchSets: chordQuartalPitchSets,
-      maxDist: chordMaxDist,
-      allowOpenStrings: chordAllowOpenStrings,
-      maxFret,
-    });
-
-    return all.filter((v) => {
-      const kind = v?.quartalSpreadKind || "closed";
-      return chordQuartalSpread === "open" ? kind === "open" : kind === "closed";
-    });
-  }, [chordQuartalPitchSets, chordMaxDist, chordAllowOpenStrings, chordQuartalSpread, maxFret]);
-
-  useEffect(() => {
-    if (!chordQuartalVoicings.length) {
-      setChordQuartalVoicingIdx(0);
-      setChordQuartalSelectedFrets(null);
-      return;
-    }
-
-    if (chordQuartalSelectedFrets) {
-      const idx = chordQuartalVoicings.findIndex((v) => v.frets === chordQuartalSelectedFrets);
-      if (idx >= 0) {
-        setChordQuartalVoicingIdx(idx);
-        return;
-      }
-    }
-
-    setChordQuartalVoicingIdx(0);
-    setChordQuartalSelectedFrets(chordQuartalVoicings[0].frets);
-  }, [chordQuartalVoicings, chordQuartalSelectedFrets]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const activeQuartalVoicingRaw = chordQuartalVoicings[chordQuartalVoicingIdx] || null;
-
-  const activeQuartalVoicing = useMemo(() => {
-    if (!activeQuartalVoicingRaw) return null;
-    if (Array.isArray(activeQuartalVoicingRaw.notes)) return activeQuartalVoicingRaw;
-    return { ...activeQuartalVoicingRaw, notes: [] };
-  }, [activeQuartalVoicingRaw]);
-
-  const chordQuartalCurrentRootPc = useMemo(() => {
-    const pcs = Array.isArray(activeQuartalVoicing?.quartalOrderedPcs) && activeQuartalVoicing.quartalOrderedPcs.length
-      ? activeQuartalVoicing.quartalOrderedPcs
-      : Array.isArray(chordQuartalPitchSets?.[0]?.pcs) && chordQuartalPitchSets[0].pcs.length
-        ? chordQuartalPitchSets[0].pcs
-        : null;
-
-    return pcs ? mod12(pcs[0]) : chordRootPc;
-  }, [activeQuartalVoicing, chordQuartalPitchSets, chordRootPc]);
-
   const chordQuartalDegreeText = useMemo(() => {
     if (chordQuartalReference !== "scale") return "";
     return fnBuildQuartalDegreeLabel(activeQuartalVoicing?.quartalDegree);
   }, [chordQuartalReference, activeQuartalVoicing]);
-
-  const chordQuartalDisplayName = useMemo(() => {
-    const rootName = pcToName(chordQuartalCurrentRootPc, chordPreferSharps);
-    const typeLabel = CHORD_QUARTAL_TYPES.find((x) => x.value === chordQuartalType)?.label || "Cuartal puro";
-    return `${rootName} ${typeLabel}`;
-  }, [chordQuartalCurrentRootPc, chordPreferSharps, chordQuartalType]);
 
   const chordQuartalUiText = useMemo(() => {
     const voicesLabel = CHORD_QUARTAL_VOICES.find((x) => x.value === chordQuartalVoices)?.label || "4 voces";
@@ -1535,92 +1483,6 @@ export default function FretboardScalesPage() {
       };
     });
   }, [guideToneDef, chordRootPc, chordPreferSharps]);
-
-  const guideToneVoicings = useMemo(() => {
-    const baseList = guideToneBassIntervalsForSelection(guideToneDef, guideToneInversion).flatMap((bassInterval) =>
-      generateExactIntervalChordVoicings({
-        rootPc: chordRootPc,
-        intervals: guideToneDef.intervals,
-        bassInterval,
-        maxFret,
-        maxSpan: chordMaxDist,
-      }).map((v) => normalizeGeneratedVoicingForDisplay(v, chordRootPc, chordRootPc))
-    );
-
-    const allowedIntervals = new Set(guideToneDef.intervals.map(mod12));
-    const requiredIntervals = new Set(guideToneDef.intervals.map(mod12));
-    let list = dedupeAndSortVoicings(baseList);
-
-    if (!chordAllowOpenStrings) {
-      list = list.filter((v) => !voicingHasOpenStrings(v));
-    }
-
-    if (chordAllowOpenStrings) {
-      list = augmentExactVoicingsWithOpenSubstitutions({
-        voicings: list,
-        rootPc: chordRootPc,
-        allowedIntervals,
-        requiredIntervals,
-        allowedBassIntervals: guideToneBassIntervalsForSelection(guideToneDef, guideToneInversion),
-        nearFrom: 0,
-        nearTo: maxFret,
-        maxFret,
-        maxSpan: chordMaxDist,
-        exactNoteCount: 3,
-      });
-    }
-
-    list = filterVoicingsByForm(dedupeAndSortVoicings(list), guideToneForm);
-    return list.slice(0, 60);
-  }, [guideToneDef, guideToneInversion, chordRootPc, maxFret, chordMaxDist, chordAllowOpenStrings, guideToneForm]);
-
-  const guideToneVoicingsSig = useMemo(() => guideToneVoicings.map((v) => v.frets).join("|"), [guideToneVoicings]);
-
-  useEffect(() => {
-    if (!guideToneVoicings.length) {
-      lastGuideToneVoicingRef.current = null;
-      if (guideToneVoicingIdx !== 0) setGuideToneVoicingIdx(0);
-      if (guideToneSelectedFrets !== null) setGuideToneSelectedFrets(null);
-      return;
-    }
-
-    const keepIdx = guideToneSelectedFrets ? guideToneVoicings.findIndex((v) => v.frets === guideToneSelectedFrets) : -1;
-    if (keepIdx >= 0) {
-      if (keepIdx !== guideToneVoicingIdx) {
-        skipGuideToneVoicingRefSyncRef.current = true;
-        setGuideToneVoicingIdx(keepIdx);
-      }
-      return;
-    }
-
-    const ref = lastGuideToneVoicingRef.current;
-    const idx = selectClosestPhysicalVoicingIndex(ref, guideToneVoicings);
-    const nextFrets = guideToneVoicings[idx]?.frets ?? guideToneVoicings[0]?.frets ?? null;
-    if (idx !== guideToneVoicingIdx) {
-      skipGuideToneVoicingRefSyncRef.current = true;
-      setGuideToneVoicingIdx(idx);
-    }
-    if (nextFrets !== guideToneSelectedFrets) setGuideToneSelectedFrets(nextFrets);
-  }, [guideToneVoicingIdx, guideToneVoicings, guideToneVoicingsSig, guideToneSelectedFrets]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    const current = guideToneVoicings[guideToneVoicingIdx] || guideToneVoicings[0] || null;
-
-    if (skipGuideToneVoicingRefSyncRef.current) {
-      skipGuideToneVoicingRefSyncRef.current = false;
-      return;
-    }
-
-    const selectedStillExists = !!guideToneSelectedFrets && guideToneVoicings.some((v) => v.frets === guideToneSelectedFrets);
-    if (!selectedStillExists) {
-      const nextFrets = current?.frets ?? null;
-      if (nextFrets !== (guideToneSelectedFrets ?? null)) setGuideToneSelectedFrets(nextFrets);
-    }
-
-    if (current) lastGuideToneVoicingRef.current = current;
-  }, [guideToneVoicingIdx, guideToneVoicings, guideToneVoicingsSig, guideToneSelectedFrets]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const activeGuideToneVoicing = guideToneVoicings[guideToneVoicingIdx] || guideToneVoicings[0] || null;
 
   const guideToneBassNote = useMemo(() => {
     if (activeGuideToneVoicing?.bassPc != null) {
@@ -6234,4 +6096,3 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
     </div>
   );
 }
-
