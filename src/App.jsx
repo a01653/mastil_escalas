@@ -282,7 +282,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "6.0.0";
+const APP_VERSION = "6.0.1";
 
 function chordDbUrl(keyName, suffix) {
   // Ruta RELATIVA dentro de /public (sin base) => chords-db/...
@@ -563,46 +563,8 @@ export default function FretboardScalesPage() {
   }, [maxFret, setChordDetectWindowStart]);
 
   // --------------------------------------------------------------------------
-  // REGLAS DE COHERENCIA DE UI (sin cambiar sonido ni funcionalidad)
+  // REGLAS DE COHERENCIA DE UI — movidas a useChordBuilderState (E1, E2, E3)
   // --------------------------------------------------------------------------
-
-  useEffect(() => {
-    // Dominante en Acorde siempre implica 7ª (sin ella es mayor, no dominante).
-    if (chordQuality === "dom" && chordStructure === "chord" && !chordExt7) {
-      setChordExt7(true);
-    }
-    // m7b5 en Acorde siempre implica 7ª (la "7" forma parte del nombre).
-    if (chordQuality === "hdim" && chordStructure === "chord" && !chordExt7) {
-      setChordExt7(true);
-    }
-    // m7(b5) sin 7ª no existe como triada: se degrada a disminuido.
-    if (chordQuality === "hdim" && chordStructure === "triad" && !chordExt7) {
-      setChordQuality("dim");
-    }
-    // Dominante sin 7ª no es dominante: se degrada a mayor.
-    if (chordQuality === "dom" && chordStructure === "triad" && !chordExt7) {
-      setChordQuality("maj");
-    }
-  }, [chordQuality, chordStructure, chordExt7]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    if (!isDropForm(chordForm)) return;
-    if (isStrictFourNoteDropEligible({
-      structure: chordStructure,
-      ext7: chordExt7,
-      ext6: chordExt6,
-      ext9: chordExt9,
-      ext11: chordExt11,
-      ext13: chordExt13,
-    })) return;
-    setChordForm(chordPositionForm || "closed");
-    setChordInversion("root");
-  }, [chordForm, chordPositionForm, chordStructure, chordExt7, chordExt6, chordExt9, chordExt11, chordExt13]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Cuatriada: inicializa 7ª=true al entrar en tetrad.
-  useEffect(() => {
-    if (chordStructure === "tetrad") setChordExt7(true);
-  }, [chordStructure]); // eslint-disable-line react-hooks/exhaustive-deps
 
 
 
@@ -1318,12 +1280,6 @@ export default function FretboardScalesPage() {
     const t = window.setTimeout(() => setConfigNotice(null), 3500);
     return () => window.clearTimeout(t);
   }, [configNotice]);
-
-  useEffect(() => {
-    if (!chordCopyNotice) return;
-    const t = window.setTimeout(() => setChordCopyNotice(null), 3500);
-    return () => window.clearTimeout(t);
-  }, [chordCopyNotice]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function queueReloadNotice(type, text) {
     try {

@@ -1,7 +1,9 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import * as AppMusicBasics from "../../music/appMusicBasics.js";
+import * as AppVoicingStudyCore from "../../music/appVoicingStudyCore.js";
 
 const { preferSharpsFromMajorTonicPc } = AppMusicBasics;
+const { isDropForm, isStrictFourNoteDropEligible } = AppVoicingStudyCore;
 
 export function useChordBuilderState() {
   // -- Tertian -----------------------------------------------------------
@@ -51,6 +53,60 @@ export function useChordBuilderState() {
   const pendingChordRestoreRef = useRef({ active: false, frets: null });
   const pendingChordCopyResolutionRef = useRef(null);
   const lastGuideToneVoicingRef = useRef(null);
+
+  // -- Coherencia interna ------------------------------------------------
+  // E1, E2, E3 llaman setState síncronamente para normalizar estado tras un cambio
+  // del usuario (anti-patrón en React Compiler, pero comportamiento correcto en React
+  // estándar pre-compiler). El bloque disable/enable suprime la advertencia del linter
+  // solo en esta sección específica.
+  /* eslint-disable react-hooks/set-state-in-effect */
+
+  // E1: Dominante en Acorde siempre implica 7ª (sin ella es mayor, no dominante).
+  // m7b5 también la implica. Degrada hdim→dim y dom→maj en triada sin 7ª.
+  useEffect(() => {
+    if (chordQuality === "dom" && chordStructure === "chord" && !chordExt7) {
+      setChordExt7(true);
+    }
+    if (chordQuality === "hdim" && chordStructure === "chord" && !chordExt7) {
+      setChordExt7(true);
+    }
+    if (chordQuality === "hdim" && chordStructure === "triad" && !chordExt7) {
+      setChordQuality("dim");
+    }
+    if (chordQuality === "dom" && chordStructure === "triad" && !chordExt7) {
+      setChordQuality("maj");
+    }
+  }, [chordQuality, chordStructure, chordExt7]);
+
+  // E2: Si la forma drop ya no es elegible por la combinación estructura+extensiones,
+  // se revierte a positionForm (o "closed") y se fuerza la inversión a raíz.
+  useEffect(() => {
+    if (!isDropForm(chordForm)) return;
+    if (isStrictFourNoteDropEligible({
+      structure: chordStructure,
+      ext7: chordExt7,
+      ext6: chordExt6,
+      ext9: chordExt9,
+      ext11: chordExt11,
+      ext13: chordExt13,
+    })) return;
+    setChordForm(chordPositionForm || "closed");
+    setChordInversion("root");
+  }, [chordForm, chordPositionForm, chordStructure, chordExt7, chordExt6, chordExt9, chordExt11, chordExt13]);
+
+  // E3: Cuatriada: inicializa 7ª=true al entrar en tetrad.
+  useEffect(() => {
+    if (chordStructure === "tetrad") setChordExt7(true);
+  }, [chordStructure]);
+
+  /* eslint-enable react-hooks/set-state-in-effect */
+
+  // E5: Limpia el aviso de copia tras 3,5 s.
+  useEffect(() => {
+    if (!chordCopyNotice) return;
+    const t = window.setTimeout(() => setChordCopyNotice(null), 3500);
+    return () => window.clearTimeout(t);
+  }, [chordCopyNotice]);
 
   return {
     state: {
