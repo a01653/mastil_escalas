@@ -1,9 +1,22 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import * as AppMusicBasics from "../../music/appMusicBasics.js";
 import * as AppVoicingStudyCore from "../../music/appVoicingStudyCore.js";
 
-const { preferSharpsFromMajorTonicPc } = AppMusicBasics;
-const { isDropForm, isStrictFourNoteDropEligible } = AppVoicingStudyCore;
+const {
+  preferSharpsFromMajorTonicPc,
+  fnBuildQuartalPitchSets,
+  guideToneDefinitionFromQuality,
+  chordSuffixFromUI,
+  buildChordIntervals,
+} = AppMusicBasics;
+const {
+  isDropForm,
+  isStrictFourNoteDropEligible,
+  chordThirdOffsetFromUI,
+  chordFifthOffsetFromUI,
+  buildChordEnginePlan,
+  buildChordCopyFingerprint,
+} = AppVoicingStudyCore;
 
 export function useChordBuilderState() {
   // -- Tertian -----------------------------------------------------------
@@ -108,6 +121,104 @@ export function useChordBuilderState() {
     return () => window.clearTimeout(t);
   }, [chordCopyNotice]);
 
+  // -- Derivados Ola 1 ---------------------------------------------------
+  // Solo dependen del estado declarado en este hook. Sin dependencias externas.
+
+  const chordPreferSharps = chordSpellPreferSharps;
+
+  const chordQuartalPitchSets = useMemo(() =>
+    fnBuildQuartalPitchSets({
+      rootPc: chordRootPc,
+      voices: chordQuartalVoices,
+      type: chordQuartalType,
+      reference: chordQuartalReference,
+      scaleName: chordQuartalScaleName,
+    }),
+    [chordRootPc, chordQuartalVoices, chordQuartalType, chordQuartalReference, chordQuartalScaleName]
+  );
+
+  const guideToneDef = useMemo(
+    () => guideToneDefinitionFromQuality(guideToneQuality),
+    [guideToneQuality]
+  );
+
+  const chordIntervals = useMemo(
+    () => buildChordIntervals({
+      quality: chordQuality,
+      suspension: chordSuspension,
+      structure: chordStructure,
+      ext7: chordExt7,
+      ext6: chordExt6,
+      ext9: chordExt9,
+      ext11: chordExt11,
+      ext13: chordExt13,
+      omit: chordOmit,
+    }),
+    [chordQuality, chordSuspension, chordStructure, chordExt7, chordExt6, chordExt9, chordExt11, chordExt13, chordOmit]
+  );
+
+  const chordSuffix = useMemo(
+    () => chordSuffixFromUI({
+      quality: chordQuality,
+      suspension: chordSuspension,
+      structure: chordStructure,
+      ext7: chordExt7,
+      ext6: chordExt6,
+      ext9: chordExt9,
+      ext11: chordExt11,
+      ext13: chordExt13,
+    }),
+    [chordQuality, chordSuspension, chordStructure, chordExt7, chordExt6, chordExt9, chordExt11, chordExt13]
+  );
+
+  const chordThirdOffset = useMemo(
+    () => chordThirdOffsetFromUI(chordQuality, chordSuspension),
+    [chordQuality, chordSuspension]
+  );
+
+  const chordFifthOffset = useMemo(
+    () => chordFifthOffsetFromUI(chordQuality, chordSuspension),
+    [chordQuality, chordSuspension]
+  );
+
+  const chordEnginePlan = useMemo(
+    () => buildChordEnginePlan({
+      rootPc: chordRootPc,
+      quality: chordQuality,
+      suspension: chordSuspension,
+      structure: chordStructure,
+      inversion: chordInversion,
+      form: chordForm,
+      ext7: chordExt7,
+      ext6: chordExt6,
+      ext9: chordExt9,
+      ext11: chordExt11,
+      ext13: chordExt13,
+      omit: chordOmit,
+    }),
+    [chordRootPc, chordQuality, chordSuspension, chordStructure, chordInversion, chordForm, chordExt7, chordExt6, chordExt9, chordExt11, chordExt13, chordOmit]
+  );
+
+  const currentChordCopyFingerprint = useMemo(
+    () => buildChordCopyFingerprint({
+      rootPc: chordRootPc,
+      quality: chordQuality,
+      suspension: chordSuspension,
+      structure: chordStructure,
+      ext7: chordExt7,
+      ext6: chordExt6,
+      ext9: chordExt9,
+      ext11: chordExt11,
+      ext13: chordExt13,
+      omit: chordOmit,
+      inversion: chordInversion,
+      form: chordForm,
+      maxDist: chordMaxDist,
+      allowOpenStrings: chordAllowOpenStrings,
+    }),
+    [chordRootPc, chordQuality, chordSuspension, chordStructure, chordExt7, chordExt6, chordExt9, chordExt11, chordExt13, chordOmit, chordInversion, chordForm, chordMaxDist, chordAllowOpenStrings]
+  );
+
   return {
     state: {
       chordRootPc, setChordRootPc,
@@ -143,6 +254,16 @@ export function useChordBuilderState() {
       chordSelectedFrets, setChordSelectedFrets,
       chordMaxDist, setChordMaxDist,
       chordAllowOpenStrings, setChordAllowOpenStrings,
+      // Derivados Ola 1
+      chordPreferSharps,
+      chordQuartalPitchSets,
+      guideToneDef,
+      chordIntervals,
+      chordSuffix,
+      chordThirdOffset,
+      chordFifthOffset,
+      chordEnginePlan,
+      currentChordCopyFingerprint,
     },
     refs: {
       lastChordVoicingRef,

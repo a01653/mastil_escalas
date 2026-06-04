@@ -187,15 +187,12 @@ const {
   normalizeGeneratedVoicingForDisplay,
   isStrictFourNoteDropEligible,
   hasEffectiveSeventh,
-  chordThirdOffsetFromUI,
-  chordFifthOffsetFromUI,
   buildChordUiRestrictions,
   buildChordEnginePlan,
   actualInversionLabelFromVoicing,
   computeInversionSelectorOptions,
   selectClosestPhysicalVoicingIndex,
   deriveDetectedCandidateCopyInversion,
-  buildChordCopyFingerprint,
 } = AppVoicingStudyCore;
 
 import * as AppPatternRouteStaffCore from "./music/appPatternRouteStaffCore.jsx";
@@ -282,7 +279,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "6.0.3";
+const APP_VERSION = "6.0.4";
 
 function chordDbUrl(keyName, suffix) {
   // Ruta RELATIVA dentro de /public (sin base) => chords-db/...
@@ -449,6 +446,16 @@ export default function FretboardScalesPage() {
     chordSelectedFrets, setChordSelectedFrets,
     chordMaxDist, setChordMaxDist,
     chordAllowOpenStrings, setChordAllowOpenStrings,
+    // Derivados Ola 1
+    chordPreferSharps,
+    chordQuartalPitchSets,
+    guideToneDef,
+    chordIntervals,
+    chordSuffix,
+    chordThirdOffset,
+    chordFifthOffset,
+    chordEnginePlan,
+    currentChordCopyFingerprint,
   } = chordBuilderState;
   const {
     lastChordVoicingRef,
@@ -1411,23 +1418,10 @@ export default function FretboardScalesPage() {
   // CÁLCULOS DERIVADOS: ACORDE PRINCIPAL
   // --------------------------------------------------------------------------
 
-  // Acordes: ortografía del nombre (C# vs Db). No depende de la notación global.
-  const chordPreferSharps = chordSpellPreferSharps;
-
   const _chordNoteOptions = useMemo(() => {
     const list = chordPreferSharps ? NOTES_SHARP : NOTES_FLAT;
     return list.map((n, i) => ({ label: n, pc: i }));
   }, [chordPreferSharps]);
-
-  const chordQuartalPitchSets = useMemo(() => {
-    return fnBuildQuartalPitchSets({
-      rootPc: chordRootPc,
-      voices: chordQuartalVoices,
-      type: chordQuartalType,
-      reference: chordQuartalReference,
-      scaleName: chordQuartalScaleName,
-    });
-  }, [chordRootPc, chordQuartalVoices, chordQuartalType, chordQuartalReference, chordQuartalScaleName]);
 
   const chordQuartalVoicings = useMemo(() => {
     const all = fnGenerateQuartalVoicings({
@@ -1528,8 +1522,6 @@ export default function FretboardScalesPage() {
     const interval = mod12(activeQuartalVoicing.bassPc - chordQuartalCurrentRootPc);
     return spellNoteFromChordInterval(chordQuartalCurrentRootPc, interval, chordPreferSharps);
   }, [activeQuartalVoicing, chordQuartalCurrentRootPc, chordPreferSharps]);
-
-  const guideToneDef = useMemo(() => guideToneDefinitionFromQuality(guideToneQuality), [guideToneQuality]);
 
   const guideToneDisplayName = useMemo(() => {
     const rootName = pcToName(chordRootPc, chordPreferSharps);
@@ -1642,21 +1634,6 @@ export default function FretboardScalesPage() {
   }, [activeGuideToneVoicing, chordRootPc, chordPreferSharps, guideToneDef, guideToneInversion]);
 
 
-  const chordIntervals = useMemo(
-    () =>
-      buildChordIntervals({
-        quality: chordQuality,
-        suspension: chordSuspension,
-        structure: chordStructure,
-        ext7: chordExt7,
-        ext6: chordExt6,
-        ext9: chordExt9,
-        ext11: chordExt11,
-        ext13: chordExt13,
-        omit: chordOmit,
-      }),
-    [chordQuality, chordSuspension, chordStructure, chordExt7, chordExt6, chordExt9, chordExt11, chordExt13, chordOmit]
-  );
   const chordDegreeLabels = useMemo(
     () => buildChordDegreeLabelsFromUi({
       quality: chordQuality,
@@ -1680,42 +1657,6 @@ export default function FretboardScalesPage() {
     const idx = chordIntervals.findIndex((x) => mod12(x) === interval);
     return idx >= 0 ? chordSpelledNotes[idx] : pcToName(pc, chordPreferSharps);
   }, [chordRootPc, chordIntervals, chordSpelledNotes, chordPreferSharps]);
-
-  const chordSuffix = useMemo(
-    () =>
-      chordSuffixFromUI({
-        quality: chordQuality,
-        suspension: chordSuspension,
-        structure: chordStructure,
-        ext7: chordExt7,
-        ext6: chordExt6,
-        ext9: chordExt9,
-        ext11: chordExt11,
-        ext13: chordExt13,
-      }),
-    [chordQuality, chordSuspension, chordStructure, chordExt7, chordExt6, chordExt9, chordExt11, chordExt13]
-  );
-
-  // Necesarios antes de filtrar voicings (evita TDZ)
-  const chordThirdOffset = useMemo(() => chordThirdOffsetFromUI(chordQuality, chordSuspension), [chordQuality, chordSuspension]);
-  const chordFifthOffset = useMemo(() => chordFifthOffsetFromUI(chordQuality, chordSuspension), [chordQuality, chordSuspension]);
-  const chordEnginePlan = useMemo(
-    () => buildChordEnginePlan({
-      rootPc: chordRootPc,
-      quality: chordQuality,
-      suspension: chordSuspension,
-      structure: chordStructure,
-      inversion: chordInversion,
-      form: chordForm,
-      ext7: chordExt7,
-      ext6: chordExt6,
-      ext9: chordExt9,
-      ext11: chordExt11,
-      ext13: chordExt13,
-      omit: chordOmit,
-    }),
-    [chordRootPc, chordQuality, chordSuspension, chordStructure, chordInversion, chordForm, chordExt7, chordExt6, chordExt9, chordExt11, chordExt13, chordOmit]
-  );
 
   const chordInversionOptions = useMemo(() => computeInversionSelectorOptions(chordEnginePlan, chordPreferSharps), [chordEnginePlan, chordPreferSharps]);
 
@@ -2212,23 +2153,6 @@ export default function FretboardScalesPage() {
 
     return [];
   }, [chordEnginePlan, chordDb, chordMaxDist, chordAllowOpenStrings, maxFret]);
-
-  const currentChordCopyFingerprint = useMemo(() => buildChordCopyFingerprint({
-    rootPc: chordRootPc,
-    quality: chordQuality,
-    suspension: chordSuspension,
-    structure: chordStructure,
-    ext7: chordExt7,
-    ext6: chordExt6,
-    ext9: chordExt9,
-    ext11: chordExt11,
-    ext13: chordExt13,
-    omit: chordOmit,
-    inversion: chordInversion,
-    form: chordForm,
-    maxDist: chordMaxDist,
-    allowOpenStrings: chordAllowOpenStrings,
-  }), [chordRootPc, chordQuality, chordSuspension, chordStructure, chordExt7, chordExt6, chordExt9, chordExt11, chordExt13, chordOmit, chordInversion, chordForm, chordMaxDist, chordAllowOpenStrings]);
 
   // Amplía chordVoicings con el patrón físico copiado cuando el cálculo visible
   // no lo incluye, manteniéndolo ligado al fingerprint del estado que lo generó.
