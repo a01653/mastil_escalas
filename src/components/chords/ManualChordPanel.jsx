@@ -60,6 +60,7 @@ export default function ManualChordPanel({ layout, reading, actions, reference, 
     showNotesLabel,
     labelForCellAt,
     maxFret,
+    chordDetectSpanNotice,
   } = fretboard;
   const {
     InfoTitle: InfoTitleView,
@@ -550,6 +551,11 @@ export default function ManualChordPanel({ layout, reading, actions, reference, 
             ? "Pulsa de nuevo sobre una nota para quitarla."
             : "Pulsa en el mástil para seleccionar notas."}
         </div>
+        {chordDetectSpanNotice && (
+          <div className="mt-1.5 rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-xs text-amber-800">
+            No puedes seleccionar esa nota: la selección manual no puede superar 6 trastes sin contar cuerdas al aire.
+          </div>
+        )}
       </div>
 
       {/* ══════════════════════════════════════════════════════════════════

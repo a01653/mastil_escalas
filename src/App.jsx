@@ -282,7 +282,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "6.0.1";
+const APP_VERSION = "6.0.2";
 
 function chordDbUrl(keyName, suffix) {
   // Ruta RELATIVA dentro de /public (sin base) => chords-db/...
@@ -512,6 +512,9 @@ export default function FretboardScalesPage() {
     compact: false,
     initialized: false,
   });
+
+  // Aviso local de límite de trastes en selección manual (no usa configNotice global)
+  const [chordDetectSpanNotice, setChordDetectSpanNotice] = useState(false);
 
   useEffect(() => {
     if (!isMobileLayout) {
@@ -2406,6 +2409,12 @@ export default function FretboardScalesPage() {
     return () => window.clearTimeout(timer);
   }, [chordDetectClearMinHeight, setChordDetectClearMinHeight]);
 
+  useEffect(() => {
+    if (!chordDetectSpanNotice) return;
+    const timer = window.setTimeout(() => setChordDetectSpanNotice(false), 2500);
+    return () => window.clearTimeout(timer);
+  }, [chordDetectSpanNotice]);
+
   // --------------------------------------------------------------------------
   // HELPERS LOCALES: DETECCIÓN DE ACORDES (audio y selección)
   // --------------------------------------------------------------------------
@@ -2557,7 +2566,7 @@ export default function FretboardScalesPage() {
       windowSize: MOBILE_CHORD_INVESTIGATION_WINDOW_SIZE,
     });
     if (result.rejected && result.reason === "span_limit") {
-      setConfigNotice({ type: "info", text: "La selección manual no puede superar 6 trastes sin contar cuerdas al aire." });
+      setChordDetectSpanNotice(true);
     }
   }
 
@@ -4033,6 +4042,7 @@ export default function FretboardScalesPage() {
           showNotesLabel,
           labelForCellAt,
           maxFret,
+          chordDetectSpanNotice,
         }}
         candidates={{
           InfoTitle,
