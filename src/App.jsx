@@ -38,7 +38,11 @@ import { useTonalityFeature } from "./features/tonality/useTonalityFeature.js";
 import { useMobileLayoutFeature } from "./features/layout/useMobileLayoutFeature.js";
 import { useHarmonyFeature } from "./features/harmony/useHarmonyFeature.js";
 import { useChordDetectionFeature } from "./features/chord-detection/useChordDetectionFeature.js";
-import { useChordBuilderState } from "./features/chord-builder/useChordBuilderState.js";
+import {
+  useChordBuilderState,
+  useChordBuilderTertianSelectionBlock,
+  useChordBuilderTertianVoicingRefSync,
+} from "./features/chord-builder/useChordBuilderState.js";
 import {
   buildChordDetectSelectedCandidateBadgeItems,
   buildChordDetectSelectedCandidateBassNote,
@@ -275,7 +279,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "6.0.8";
+const APP_VERSION = "6.0.10";
 
 function chordDbUrl(keyName, suffix) {
   // Ruta RELATIVA dentro de /public (sin base) => chords-db/...
@@ -1967,73 +1971,25 @@ export default function FretboardScalesPage() {
     return [];
   }, [chordEnginePlan, chordDb, chordMaxDist, chordAllowOpenStrings, maxFret]);
 
-  // Amplía chordVoicings con el patrón físico copiado cuando el cálculo visible
-  // no lo incluye, manteniéndolo ligado al fingerprint del estado que lo generó.
-  const chordVoicingsDisplay = useMemo(() => {
-    if (!chordCopiedEntry?.voicing?.frets) return chordVoicings;
-    if (chordCopiedEntry.fingerprint !== currentChordCopyFingerprint) return chordVoicings;
-    if (chordVoicings.some((v) => v.frets === chordCopiedEntry.voicing.frets)) return chordVoicings;
-    return [{ ...chordCopiedEntry.voicing, isCopied: true }, ...chordVoicings];
-  }, [chordVoicings, chordCopiedEntry, currentChordCopyFingerprint]);
-
-  const chordResolvedSelection = useMemo(() => {
-    const list = chordVoicingsDisplay;
-    if (!list.length) return { idx: 0, voicing: null, frets: null, waitingPending: false };
-
-    const normalizedCurrentIdx = Math.max(0, Math.min(chordVoicingIdx, list.length - 1));
-    const currentVoicing = list[normalizedCurrentIdx] || list[0] || null;
-    const currentFrets = currentVoicing?.frets ?? null;
-
-    if (pendingChordRestoreRef.current.active) {
-      const wanted = pendingChordRestoreRef.current.frets;
-      if (wanted == null) {
-        return { idx: normalizedCurrentIdx, voicing: currentVoicing, frets: currentFrets, waitingPending: false };
-      }
-      const restoredIdx = list.findIndex((v) => v.frets === wanted);
-      if (restoredIdx >= 0) {
-        return { idx: restoredIdx, voicing: list[restoredIdx] || null, frets: wanted, waitingPending: false };
-      }
-      return { idx: normalizedCurrentIdx, voicing: currentVoicing, frets: currentFrets, waitingPending: true };
-    }
-
-    const keepIdx = chordSelectedFrets ? list.findIndex((v) => v.frets === chordSelectedFrets) : -1;
-    if (keepIdx >= 0) {
-      return { idx: keepIdx, voicing: list[keepIdx] || null, frets: chordSelectedFrets, waitingPending: false };
-    }
-
-    const ref = chordSelectedFrets
-      ? buildVoicingFromFretsLH({
-          fretsLH: parseChordDbFretsString(chordSelectedFrets),
-          rootPc: chordRootPc,
-          maxFret,
-        })
-      : lastChordVoicingRef.current;
-    const idx = selectClosestPhysicalVoicingIndex(ref, list, { fallbackIndex: normalizedCurrentIdx });
-    const voicing = list[idx] || list[0] || null;
-    return { idx, voicing, frets: voicing?.frets ?? null, waitingPending: false };
-  }, [chordVoicingsDisplay, chordVoicingIdx, chordSelectedFrets, chordRootPc, maxFret]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    if (!storageHydrated) return;
-    if (!chordVoicingsDisplay.length) {
-      if (!pendingChordRestoreRef.current.active && chordVoicingIdx !== 0) setChordVoicingIdx(0);
-      return;
-    }
-
-    if (chordResolvedSelection.waitingPending) return;
-
-    if (pendingChordRestoreRef.current.active) {
-      pendingChordRestoreRef.current = { active: false, frets: null };
-    }
-
-    if (chordResolvedSelection.idx !== chordVoicingIdx) {
-      skipChordVoicingRefSyncRef.current = true;
-      setChordVoicingIdx(chordResolvedSelection.idx);
-    }
-    if ((chordResolvedSelection.frets ?? null) !== (chordSelectedFrets ?? null)) {
-      setChordSelectedFrets(chordResolvedSelection.frets ?? null);
-    }
-  }, [storageHydrated, chordVoicingsDisplay.length, chordVoicingIdx, chordSelectedFrets, chordResolvedSelection]); // eslint-disable-line react-hooks/exhaustive-deps
+  const {
+    chordVoicingsDisplay,
+    chordResolvedSelection,
+    activeChordVoicing,
+  } = useChordBuilderTertianSelectionBlock({
+    chordVoicings,
+    chordCopiedEntry,
+    currentChordCopyFingerprint,
+    chordVoicingIdx,
+    setChordVoicingIdx,
+    chordSelectedFrets,
+    setChordSelectedFrets,
+    chordRootPc,
+    maxFret,
+    storageHydrated,
+    lastChordVoicingRef,
+    skipChordVoicingRefSyncRef,
+    pendingChordRestoreRef,
+  });
 
   useEffect(() => {
     if (!storageHydrated) return;
@@ -2112,18 +2068,12 @@ export default function FretboardScalesPage() {
     ensureChordDbCatalogVoicings,
   ]);
 
-  useEffect(() => {
-    if (!storageHydrated) return;
-    const current = chordResolvedSelection.voicing;
-
-    if (skipChordVoicingRefSyncRef.current) {
-      skipChordVoicingRefSyncRef.current = false;
-      return;
-    }
-    if (current) lastChordVoicingRef.current = current;
-  }, [storageHydrated, chordResolvedSelection]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const activeChordVoicing = chordResolvedSelection.voicing;
+  useChordBuilderTertianVoicingRefSync({
+    storageHydrated,
+    chordResolvedSelection,
+    lastChordVoicingRef,
+    skipChordVoicingRefSyncRef,
+  });
 
   // --------------------------------------------------------------------------
   // CÁLCULOS DERIVADOS: DETECCIÓN DE ACORDES EN MÁSTIL
