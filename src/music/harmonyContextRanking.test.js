@@ -326,3 +326,107 @@ describe("candidato contextual dom7 — condiciones de rechazo", () => {
     expect(ranked.length).toBe(readings.length);
   });
 });
+
+// ─── buildContextualMaj7RootlessCandidate ─────────────────────────────────────
+
+describe("rankReadingsWithHarmonyContext — candidato maj7 rootless (a999ax, D F# B E A, ref G maj7)", () => {
+  // Patrón a999ax: D F# B E A — no contiene G (raíz de la referencia)
+  // Desde G: D=5ª(7), F#=7M(11), B=3M(4), E=13ª(9), A=9ª(2)
+  const notesNoRoot = ["D", "F#", "B", "E", "A"];
+  const bass = "D";
+  const selectedNotes = buildSyntheticSelectedNotes(notesNoRoot, bass);
+  const readings = readingsFor(notesNoRoot, bass);
+  const gmaj7Context = { enabled: true, rootPc: 7, quality: "maj7", selectedNotes };
+
+  it("1) genera candidato contextual rootless con raíz G y missingLabels=['1']", () => {
+    const ranked = rankReadingsWithHarmonyContext(readings, gmaj7Context);
+    const contextual = ranked.find((r) => r.contextual === true && r.rootPc === 7);
+    expect(contextual, "debe existir candidato contextual rootless con rootPc=7").toBeTruthy();
+    expect(contextual.missingLabels).toContain("1");
+    expect(contextual.contextual).toBe(true);
+  });
+
+  it("1b) el candidato contextual encabeza la lista y tiene el nombre esperado", () => {
+    const ranked = rankReadingsWithHarmonyContext(readings, gmaj7Context);
+    expect(ranked[0].contextual).toBe(true);
+    expect(ranked[0].rootPc).toBe(7);
+    // Con tensiones 9 y 13 presentes, y raíz ausente: Gmaj7(9,13,no1)
+    expect(ranked[0].name).toBe("Gmaj7(9,13,no1)");
+  });
+
+  it("2) no genera candidato si la raíz G ya está presente en la selección", () => {
+    const notesWithRoot = ["G", "D", "F#", "B", "E", "A"];
+    const readingsWithRoot = readingsFor(notesWithRoot, "G");
+    const selectedWithRoot = buildSyntheticSelectedNotes(notesWithRoot, "G");
+    const ranked = rankReadingsWithHarmonyContext(readingsWithRoot, {
+      ...gmaj7Context, selectedNotes: selectedWithRoot,
+    });
+    // El motor genera lecturas G mayor → hasCompatibleReading devuelve true → sin rootless
+    const contextual = ranked.find((r) => r.contextual === true && r.rootPc === 7);
+    expect(contextual).toBeFalsy();
+  });
+
+  it("3a) no genera candidato si falta la 3ª mayor (B)", () => {
+    // Sin B: D F# A E → sin 3M de G
+    const noThird = ["D", "F#", "A", "E"];
+    const ranked = rankReadingsWithHarmonyContext(
+      readingsFor(noThird, "D"),
+      { ...gmaj7Context, selectedNotes: buildSyntheticSelectedNotes(noThird, "D") },
+    );
+    expect(ranked.find((r) => r.contextual === true && r.rootPc === 7)).toBeFalsy();
+  });
+
+  it("3b) no genera candidato si falta la 7ª mayor (F#)", () => {
+    // Sin F#: D B A E → sin 7M de G
+    const noSeventh = ["D", "B", "A", "E"];
+    const ranked = rankReadingsWithHarmonyContext(
+      readingsFor(noSeventh, "D"),
+      { ...gmaj7Context, selectedNotes: buildSyntheticSelectedNotes(noSeventh, "D") },
+    );
+    expect(ranked.find((r) => r.contextual === true && r.rootPc === 7)).toBeFalsy();
+  });
+
+  it("4) no genera candidato si hay notas incompatibles con maj7 (F natural = b7 de G)", () => {
+    // F natural desde G = b7 (intervalo 10) → incompatible con maj7
+    const incompatible = ["D", "F", "B", "E", "A"];
+    const ranked = rankReadingsWithHarmonyContext(
+      readingsFor(incompatible, "D"),
+      { ...gmaj7Context, selectedNotes: buildSyntheticSelectedNotes(incompatible, "D") },
+    );
+    expect(ranked.find((r) => r.contextual === true && r.rootPc === 7)).toBeFalsy();
+  });
+
+  it("5) no genera candidato si la referencia está desactivada", () => {
+    const ranked = rankReadingsWithHarmonyContext(readings, { ...gmaj7Context, enabled: false });
+    expect(ranked.find((r) => r.contextual === true && r.rootPc === 7)).toBeFalsy();
+    // El orden tampoco cambia
+    expect(ranked.map((r) => r.name)).toEqual(readings.map((r) => r.name));
+  });
+
+  it("6) no genera candidato si quality no es 'maj7'", () => {
+    const ranked = rankReadingsWithHarmonyContext(readings, { ...gmaj7Context, quality: "menor" });
+    expect(ranked.find((r) => r.contextual === true && r.rootPc === 7)).toBeFalsy();
+  });
+
+  it("7) no genera candidato si selectedNotes está ausente en el contexto", () => {
+    const ranked = rankReadingsWithHarmonyContext(readings, {
+      enabled: true, rootPc: 7, quality: "maj7",
+      // selectedNotes ausente a propósito
+    });
+    expect(ranked.find((r) => r.contextual === true && r.rootPc === 7)).toBeFalsy();
+  });
+
+  it("8) el candidato rootless aparece solo con las tensiones realmente presentes", () => {
+    // Solo 3M y 7M — sin extensiones (B y F#)
+    const minimal = ["B", "F#"];
+    const ranked = rankReadingsWithHarmonyContext(
+      readingsFor(minimal, "B"),
+      { ...gmaj7Context, selectedNotes: buildSyntheticSelectedNotes(minimal, "B") },
+    );
+    const contextual = ranked.find((r) => r.contextual === true && r.rootPc === 7);
+    expect(contextual, "debe generarse con solo 3M y 7M").toBeTruthy();
+    // Sin tensiones: missingLabels incluye "1" y "5", nombre sin (9,13)
+    expect(contextual.missingLabels).toContain("1");
+    expect(contextual.name).toContain("no1");
+  });
+});

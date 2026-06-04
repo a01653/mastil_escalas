@@ -10,6 +10,10 @@
  * Candidato contextual dom7: cuando la referencia es un dominante 7 y no existe
  * ninguna lectura con esa raíz y calidad dominante, se genera un candidato
  * sintético que explica las notas seleccionadas como tensiones del acorde.
+ *
+ * Candidato contextual maj7 rootless: cuando la referencia es maj7 y la raíz
+ * no está presente físicamente, se genera un candidato sintético con no1 que
+ * explica las notas como 3ª, 5ª, 7M y extensiones del acorde de referencia.
  */
 
 import { mod12, pcToName, preferSharpsFromMajorTonicPc, spellChordNotes } from "./chordDetectionEngine.js";
@@ -36,6 +40,17 @@ const DOM7_TENSION_DATA = {
   tensionSet:     new Set([1, 2, 3, 6, 8, 9]),
   tensionLabels:  { 1: "b9", 2: "9", 3: "#9", 6: "#11", 8: "b13", 9: "13" },
   baseSuffix:     "7",
+};
+
+// Intervalos válidos para maj7 rootless (la raíz 0 está ausente por definición)
+const MAJ7_ROOTLESS_DATA = {
+  coreIntervals:  [0, 4, 7, 11],           // 1, 3, 5, 7M (0 siempre faltará)
+  coreLabels:     { 0: "1", 4: "3", 7: "5", 11: "7" },
+  requiredCore:   new Set([4, 11]),         // 3ª mayor y 7M son obligatorias
+  tensionSet:     new Set([2, 5, 9]),       // 9, 11, 13
+  tensionLabels:  { 2: "9", 5: "11", 9: "13" },
+  allValid:       new Set([2, 4, 5, 7, 9, 11]), // intervalos permitidos (sin raíz)
+  baseSuffix:     "maj7",
 };
 
 function contextMatchScore(reading, rootPc, quality) {
@@ -180,6 +195,114 @@ function buildContextualDom7Candidate(harmonyContext, readings) {
 }
 
 /**
+ * Intenta generar un candidato contextual rootless para referencia maj7.
+ * Solo se crea si:
+ *   - quality === "maj7"
+ *   - selectedNotes no vacío
+ *   - la raíz de referencia NO está físicamente en la selección
+ *   - la 3ª mayor (4) y la 7M (11) están presentes
+ *   - todas las notas son intervalos válidos de maj7 extendido (sin raíz)
+ *   - NO existe ya una lectura con esa raíz y calidad mayor
+ *
+ * Devuelve null si alguna condición no se cumple.
+ */
+function buildContextualMaj7RootlessCandidate(harmonyContext, readings) {
+  const { rootPc: rootPcRaw, selectedNotes } = harmonyContext;
+  if (!Array.isArray(selectedNotes) || selectedNotes.length === 0) return null;
+
+  const rootPc = mod12(rootPcRaw);
+
+  // Si ya existe lectura mayor con esa raíz, el motor ya lo cubre
+  if (hasCompatibleReading(readings, rootPc, "maj7")) return null;
+
+  const data = MAJ7_ROOTLESS_DATA;
+  const uniquePcs = Array.from(new Set(selectedNotes.map((n) => mod12(n.pc))));
+  const selectedIntervals = uniquePcs.map((pc) => mod12(pc - rootPc));
+  const selectedIntervalSet = new Set(selectedIntervals);
+
+  // La raíz debe estar ausente (condición rootless)
+  if (selectedIntervalSet.has(0)) return null;
+
+  // Todas las notas deben ser intervalos válidos del maj7 extendido (sin raíz)
+  for (const intv of selectedIntervals) {
+    if (!data.allValid.has(intv)) return null;
+  }
+
+  // 3ª mayor y 7M son obligatorias para establecer la calidad maj7
+  for (const req of data.requiredCore) {
+    if (!selectedIntervalSet.has(req)) return null;
+  }
+
+  const corePresent     = data.coreIntervals.filter((i) =>  selectedIntervalSet.has(i));
+  const coreMissing     = data.coreIntervals.filter((i) => !selectedIntervalSet.has(i));
+  const tensionsPresent = [...data.tensionSet]
+    .filter((i) => selectedIntervalSet.has(i))
+    .sort((a, b) => a - b);
+
+  const missingLabels       = coreMissing.map((i) => data.coreLabels[i]);
+  const tensionLabelStrings = tensionsPresent.map((i) => data.tensionLabels[i]);
+
+  // Orden en nombre e intervalPairsText: core presente (orden fórmula) → tensiones asc
+  const pairsData = [
+    ...corePresent.map((i) => ({ intv: i, label: data.coreLabels[i] })),
+    ...tensionsPresent.map((i) => ({ intv: i, label: data.tensionLabels[i] })),
+  ];
+
+  const preferSharps = preferSharpsFromMajorTonicPc(rootPc);
+  const rootName     = pcToName(rootPc, preferSharps);
+  const suffix       = buildContextualSuffix(data.baseSuffix, tensionLabelStrings, missingLabels);
+  const name         = `${rootName}${suffix}`;
+
+  const noteNames = spellChordNotes({
+    rootPc,
+    chordIntervals: pairsData.map((p) => p.intv),
+    preferSharps,
+    degreeLabels:   pairsData.map((p) => p.label),
+  });
+
+  const intervalPairsText = pairsData
+    .map(({ label }, idx) => `${label}=${noteNames[idx]}`)
+    .join(", ");
+
+  const syntheticFormula = {
+    id:           "contextual_maj7_rootless",
+    intervals:    pairsData.map((p) => p.intv),
+    degreeLabels: pairsData.map((p) => p.label),
+    quartal:      false,
+    ui:           null,
+    suffix,
+  };
+
+  // El bajo es la nota más grave de la selección (no la raíz, que está ausente)
+  const bassPc              = mod12(selectedNotes[0].pc);
+  const externalBassInterval = mod12(bassPc - rootPc); // siempre ≠ 0 porque raíz ausente
+
+  // Penalty ligero por raíz ausente; extra si también falta la 5ª
+  const missingFifth = coreMissing.includes(7);
+  const rankScoreNum = Number((-8 + (missingFifth ? 3 : 0)).toFixed(2));
+
+  return {
+    id:                   `contextual|${rootPc}|maj7_rootless|${uniquePcs.slice().sort((a, b) => a - b).join(",")}`,
+    name,
+    rootPc,
+    bassPc,
+    preferSharps,
+    formula:              syntheticFormula,
+    exact:                false,   // siempre false: falta la raíz
+    score:                0,
+    probabilityScore:     rankScoreNum,
+    rankScore:            String(rankScoreNum),
+    uiPatch:              null,    // no se puede copiar al constructor de acordes
+    intervalPairsText,
+    visibleNotes:         noteNames,
+    visibleIntervals:     pairsData.map((p) => p.intv),
+    missingLabels,
+    externalBassInterval,
+    contextual:           true,    // bandera para la etiqueta visual
+  };
+}
+
+/**
  * Reordena readings según un acorde de referencia armónico.
  *
  * @param {object[]} readings  Lista de readings del motor (inmutables).
@@ -193,10 +316,12 @@ export function rankReadingsWithHarmonyContext(readings, harmonyContext) {
 
   const { rootPc, quality } = harmonyContext;
 
-  // Intentar generar candidato contextual (solo dom7 por ahora)
+  // Intentar generar candidato contextual (dom7 o maj7 rootless)
   const contextualCandidate = quality === "7"
     ? buildContextualDom7Candidate(harmonyContext, readings)
-    : null;
+    : quality === "maj7"
+      ? buildContextualMaj7RootlessCandidate(harmonyContext, readings)
+      : null;
 
   const scored = readings.map((r) => ({
     reading: r,
