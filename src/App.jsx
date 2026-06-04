@@ -39,6 +39,7 @@ import { useMobileLayoutFeature } from "./features/layout/useMobileLayoutFeature
 import { useHarmonyFeature } from "./features/harmony/useHarmonyFeature.js";
 import { useChordDetectionFeature } from "./features/chord-detection/useChordDetectionFeature.js";
 import {
+  useChordBuilderAsyncCopyFallbackSync,
   useChordBuilderState,
   useChordBuilderPendingCopyResolutionSync,
   useChordBuilderTertianSelectionBlock,
@@ -280,7 +281,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "6.0.12";
+const APP_VERSION = "6.0.13";
 
 function chordDbUrl(keyName, suffix) {
   // Ruta RELATIVA dentro de /public (sin base) => chords-db/...
@@ -2002,52 +2003,14 @@ export default function FretboardScalesPage() {
     pendingChordCopyResolutionRef,
   });
 
-  useEffect(() => {
-    if (!storageHydrated) return;
-    if (!chordCopyNotice?.startsWith("Copiado en Acorde")) return;
-    if (!chordSelectedFrets) return;
-    if (chordStructure === "chord" && chordAllowOpenStrings) return;
-    const selectedVoicing = buildVoicingFromFretsLH({
-      fretsLH: parseChordDbFretsString(chordSelectedFrets),
-      rootPc: chordRootPc,
-      maxFret,
-    });
-    const selectedBassPc = selectedVoicing?.bassPc ?? chordBassPc;
-
-    let alive = true;
-    (async () => {
-      const catalogVoicings = await ensureChordDbCatalogVoicings({
-        rootPc: chordRootPc,
-        quality: chordQuality,
-        suspension: chordSuspension,
-        ext7: chordExt7,
-        ext6: chordExt6,
-        ext9: chordExt9,
-        ext11: chordExt11,
-        ext13: chordExt13,
-        omit: chordOmit,
-        bassPc: selectedBassPc,
-        preferredFrets: chordSelectedFrets,
-      });
-      if (!alive || !catalogVoicings.length) return;
-
-      const selected = String(chordSelectedFrets || "").trim().toLowerCase();
-      const existsInChordCatalog = catalogVoicings.some((candidate) => String(candidate?.frets || "").trim().toLowerCase() === selected);
-      if (!existsInChordCatalog) return;
-
-      if (chordStructure !== "chord") setChordStructure("chord");
-      if (!chordAllowOpenStrings) setChordAllowOpenStrings(true);
-    })();
-
-    return () => {
-      alive = false;
-    };
-  }, [ // eslint-disable-line react-hooks/exhaustive-deps
+  useChordBuilderAsyncCopyFallbackSync({
     storageHydrated,
     chordCopyNotice,
     chordSelectedFrets,
     chordStructure,
+    setChordStructure,
     chordAllowOpenStrings,
+    setChordAllowOpenStrings,
     chordRootPc,
     chordQuality,
     chordSuspension,
@@ -2060,7 +2023,7 @@ export default function FretboardScalesPage() {
     chordBassPc,
     maxFret,
     ensureChordDbCatalogVoicings,
-  ]);
+  });
 
   useChordBuilderTertianVoicingRefSync({
     storageHydrated,

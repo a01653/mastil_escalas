@@ -181,6 +181,90 @@ export function useChordBuilderPendingCopyResolutionSync({
   ]);
 }
 
+export function useChordBuilderAsyncCopyFallbackSync({
+  storageHydrated,
+  chordCopyNotice,
+  chordSelectedFrets,
+  chordStructure,
+  setChordStructure,
+  chordAllowOpenStrings,
+  setChordAllowOpenStrings,
+  chordRootPc,
+  chordQuality,
+  chordSuspension,
+  chordExt7,
+  chordExt6,
+  chordExt9,
+  chordExt11,
+  chordExt13,
+  chordOmit,
+  chordBassPc,
+  maxFret,
+  ensureChordDbCatalogVoicings,
+}) {
+  useEffect(() => {
+    if (!storageHydrated) return;
+    if (!chordCopyNotice?.startsWith("Copiado en Acorde")) return;
+    if (!chordSelectedFrets) return;
+    if (chordStructure === "chord" && chordAllowOpenStrings) return;
+    const selectedVoicing = buildVoicingFromFretsLH({
+      fretsLH: parseChordDbFretsString(chordSelectedFrets),
+      rootPc: chordRootPc,
+      maxFret,
+    });
+    const selectedBassPc = selectedVoicing?.bassPc ?? chordBassPc;
+
+    let alive = true;
+    (async () => {
+      const catalogVoicings = await ensureChordDbCatalogVoicings({
+        rootPc: chordRootPc,
+        quality: chordQuality,
+        suspension: chordSuspension,
+        ext7: chordExt7,
+        ext6: chordExt6,
+        ext9: chordExt9,
+        ext11: chordExt11,
+        ext13: chordExt13,
+        omit: chordOmit,
+        bassPc: selectedBassPc,
+        preferredFrets: chordSelectedFrets,
+      });
+      if (!alive || !catalogVoicings.length) return;
+
+      const selected = String(chordSelectedFrets || "").trim().toLowerCase();
+      const existsInChordCatalog = catalogVoicings.some((candidate) => String(candidate?.frets || "").trim().toLowerCase() === selected);
+      if (!existsInChordCatalog) return;
+
+      if (chordStructure !== "chord") setChordStructure("chord");
+      if (!chordAllowOpenStrings) setChordAllowOpenStrings(true);
+    })();
+
+    return () => {
+      alive = false;
+    };
+  }, [
+    storageHydrated,
+    chordCopyNotice,
+    chordSelectedFrets,
+    chordStructure,
+    setChordStructure,
+    chordAllowOpenStrings,
+    setChordAllowOpenStrings,
+    chordRootPc,
+    chordQuality,
+    chordSuspension,
+    chordExt7,
+    chordExt6,
+    chordExt9,
+    chordExt11,
+    chordExt13,
+    chordOmit,
+    chordBassPc,
+    maxFret,
+    ensureChordDbCatalogVoicings,
+  ]);
+}
+
 export function useChordBuilderState({ maxFret } = {}) {
   // -- Tertian -----------------------------------------------------------
   const [chordRootPc, setChordRootPc] = useState(5); // F
