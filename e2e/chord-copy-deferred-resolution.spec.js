@@ -115,3 +115,72 @@ test("80. Copia tertian diferida: si el catálogo no resuelve, no fuerza structu
   await expect(page.getByTestId("toggle-allow-open-strings")).not.toBeChecked();
   await expect(page.getByTestId("active-voicing-pattern")).toHaveText("x57565");
 });
+
+test("81. Copia tertian diferida: la respuesta vieja del fallback async no pisa un voicing nuevo", async ({ page }) => {
+  let requestCount = 0;
+  const delayedRequestUrls = [];
+  let releaseDelayedRequests;
+  const delayedRequestsBarrier = new Promise((resolve) => {
+    releaseDelayedRequests = resolve;
+  });
+
+  await page.route("**/chords-db/**", async (route) => {
+    requestCount += 1;
+    if (requestCount <= 4) {
+      await route.fulfill({
+        status: 404,
+        contentType: "text/plain",
+        body: "blocked for deferred-race test",
+      });
+      return;
+    }
+    delayedRequestUrls.push(route.request().url());
+    await delayedRequestsBarrier;
+    await route.continue();
+  });
+
+  await goToChords(page);
+  await expect(page.getByTestId("toggle-allow-open-strings")).not.toBeChecked();
+  await enableManualMode(page);
+  await applyManualPattern(page, "x57565");
+  await copyDetectedReading(page, /^Dm7$/);
+
+  await expect(page.getByTestId("select-structure")).toHaveValue("tetrad");
+  await expect(page.getByTestId("chord-copy-notice")).toBeVisible();
+  await expect.poll(() => delayedRequestUrls.length).toBeGreaterThan(0);
+
+  const voicingSelect = page.getByTestId("voicing-select");
+  await voicingSelect.selectOption("x5756x");
+  await expect(voicingSelect).toHaveValue("x5756x");
+  await expect(page.getByTestId("active-voicing-pattern")).toHaveText("x5756x");
+
+  releaseDelayedRequests();
+
+  await waitForCopyNoticeToDisappear(page);
+  await page.waitForTimeout(900);
+
+  await expect(page.getByTestId("select-structure")).toHaveValue("tetrad");
+  await expect(page.getByTestId("toggle-allow-open-strings")).not.toBeChecked();
+  await expect(voicingSelect).toHaveValue("x5756x");
+  await expect(page.getByTestId("active-voicing-pattern")).toHaveText("x5756x");
+});
+
+test("82. Copia tertian diferida: la consulta de catálogo conserva el bajo real con sufijo _bass", async ({ page }) => {
+  const seenCatalogUrls = [];
+  await page.route("**/chords-db/**", async (route) => {
+    seenCatalogUrls.push(route.request().url());
+    await route.continue();
+  });
+
+  await goToChords(page);
+  await enableManualMode(page);
+  await applyManualPattern(page, "x0x232");
+  await copyDetectedReading(page, /^D\/A$/);
+
+  await expect(page.getByTestId("select-structure")).toHaveValue("chord");
+  await expect(page.getByTestId("toggle-allow-open-strings")).toBeChecked();
+  await expect(page.getByTestId("active-voicing-pattern")).toHaveText("x0x232");
+  await expect
+    .poll(() => seenCatalogUrls.some((url) => url.includes("/chords-db/D/major_a.json")))
+    .toBe(true);
+});
