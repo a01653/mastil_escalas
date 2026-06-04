@@ -684,6 +684,98 @@ describe("chordDetectionEngine", () => {
     })?.name).toBe("G7(add13,no5)/F");
   });
 
+  test("mantiene continuidad por desplazamiento de raíz: Gmaj7(add13,no5)/F# → xx4454 → lectura con raíz G#", () => {
+    const previousCandidate = detectedReadingsFromPositions([
+      { sIdx: 3, fret: 4 },
+      { sIdx: 2, fret: 4 },
+      { sIdx: 1, fret: 5 },
+      { sIdx: 0, fret: 3 },
+    ]).find((candidate) => candidate.name === "Gmaj7(add13,no5)/F#");
+    const finalCandidates = detectedReadingsFromPositions([
+      { sIdx: 3, fret: 4 },
+      { sIdx: 2, fret: 4 },
+      { sIdx: 1, fret: 5 },
+      { sIdx: 0, fret: 4 }, // G → G# (la fundamental se desplaza 1 semítono)
+    ]);
+
+    expect(previousCandidate?.name).toBe("Gmaj7(add13,no5)/F#");
+    expect(finalCandidates[0]?.rootPc).not.toBe(8); // El top por ranking no tiene raíz G#/Ab (pc=8)
+    expect(pickDefaultChordCandidate({
+      candidates: finalCandidates,
+      previousCandidate,
+      prioritizeContext: false,
+    })?.name).toBe(finalCandidates[0]?.name); // Sin contexto: primer candidato
+    const result = resolveDetectedCandidateFromContext({
+      candidates: finalCandidates,
+      currentCandidateId: previousCandidate?.id || null,
+      pendingCandidate: previousCandidate,
+      lastCandidate: previousCandidate,
+      prioritizeContext: true,
+    });
+    expect(result?.rootPc).toBe(8); // Con contexto: raíz desplazada a G#/Ab (pc=8)
+    expect(result?.name).not.toBe(finalCandidates[0]?.name);
+  });
+
+  test("mantiene continuidad por raíz desplazada: Eb(b5,add9)/F → xx3253 → Em(add11,no5)/F", () => {
+    const previousCandidate = detectedReadingsFromPositions([
+      { sIdx: 3, fret: 3 },
+      { sIdx: 2, fret: 2 },
+      { sIdx: 1, fret: 4 },
+      { sIdx: 0, fret: 3 },
+    ]).find((candidate) => candidate.name === "Eb(b5,add9)/F");
+    const finalCandidates = detectedReadingsFromPositions([
+      { sIdx: 3, fret: 3 },
+      { sIdx: 2, fret: 2 },
+      { sIdx: 1, fret: 5 }, // Eb → E (la raíz sube 1 semítono)
+      { sIdx: 0, fret: 3 },
+    ]);
+
+    expect(previousCandidate?.name).toBe("Eb(b5,add9)/F");
+    expect(finalCandidates[0]?.name).toBe("Fmaj7(add9,no5)"); // Top por ranking
+    expect(pickDefaultChordCandidate({
+      candidates: finalCandidates,
+      previousCandidate,
+      prioritizeContext: false,
+    })?.name).toBe("Fmaj7(add9,no5)"); // Sin contexto: primer candidato
+    expect(resolveDetectedCandidateFromContext({
+      candidates: finalCandidates,
+      currentCandidateId: previousCandidate?.id || null,
+      pendingCandidate: previousCandidate,
+      lastCandidate: previousCandidate,
+      prioritizeContext: true,
+    })?.name).toBe("Em(add11,no5)/F"); // Con contexto: continuidad por raíz desplazada
+  });
+
+  test("mantiene continuidad estructural al desplazar una extensión un semítono: Gmaj7(add13,no5)/F# → Gmaj7#5/F#", () => {
+    const previousCandidate = detectedReadingsFromPositions([
+      { sIdx: 3, fret: 4 },
+      { sIdx: 2, fret: 4 },
+      { sIdx: 1, fret: 5 },
+      { sIdx: 0, fret: 3 },
+    ]).find((candidate) => candidate.name === "Gmaj7(add13,no5)/F#");
+    const finalCandidates = detectedReadingsFromPositions([
+      { sIdx: 3, fret: 4 },
+      { sIdx: 2, fret: 4 },
+      { sIdx: 1, fret: 4 }, // E → D# (la 13ª se convierte en #5, 1 semítono abajo)
+      { sIdx: 0, fret: 3 },
+    ]);
+
+    expect(previousCandidate?.name).toBe("Gmaj7(add13,no5)/F#");
+    expect(finalCandidates[0]?.name).toBe("Baddb6/F#"); // Top por ranking
+    expect(pickDefaultChordCandidate({
+      candidates: finalCandidates,
+      previousCandidate,
+      prioritizeContext: false,
+    })?.name).toBe("Baddb6/F#"); // Sin contexto: primer candidato
+    expect(resolveDetectedCandidateFromContext({
+      candidates: finalCandidates,
+      currentCandidateId: previousCandidate?.id || null,
+      pendingCandidate: previousCandidate,
+      lastCandidate: previousCandidate,
+      prioritizeContext: true,
+    })?.name).toBe("Gmaj7#5/F#"); // Con contexto: continuidad por pitch class shift
+  });
+
   test("si no existe continuidad estructural clara, mantiene la caída al primer candidato rankeado", () => {
     const previousCandidate = detectedReadingsFromPositions([
       { sIdx: 4, fret: 5 },

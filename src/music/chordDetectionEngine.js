@@ -1384,6 +1384,26 @@ function candidateContextIntervalSet(candidate) {
   return set;
 }
 
+function candidateActualPitchClassSet(candidate) {
+  if (!candidate) return new Set();
+  const root = candidate.rootPc;
+  const pcs = new Set((candidate.visibleIntervals || []).map((interval) => mod12(root + interval)));
+  pcs.add(candidate.bassPc);
+  return pcs;
+}
+
+function candidateNonRootPitchClassSet(candidate) {
+  if (!candidate) return new Set();
+  const root = candidate.rootPc;
+  const pcs = new Set(
+    (candidate.visibleIntervals || [])
+      .filter((interval) => mod12(interval) !== 0)
+      .map((interval) => mod12(root + interval))
+  );
+  pcs.add(candidate.bassPc);
+  return pcs;
+}
+
 function candidateContextUiShape(candidate) {
   const ui = candidate?.uiPatch || candidate?.formula?.ui || null;
   if (!ui) return null;
@@ -1480,6 +1500,56 @@ function candidateStructuralContinuityDistance(previousCandidate, candidate) {
   return score;
 }
 
+function candidatePitchLevelContinuityScore(previousCandidate, candidate) {
+  if (!previousCandidate || !candidate) return 999;
+  if (candidate.rootPc !== previousCandidate.rootPc) return 999;
+  const previousGroup = candidateStructuralContinuityGroup(previousCandidate);
+  const nextGroup = candidateStructuralContinuityGroup(candidate);
+  if (!previousGroup || previousGroup !== nextGroup) return 999;
+
+  const prevPcs = candidateActualPitchClassSet(previousCandidate);
+  const nextPcs = candidateActualPitchClassSet(candidate);
+  const prevOnly = [...prevPcs].filter((pc) => !nextPcs.has(pc));
+  const nextOnly = [...nextPcs].filter((pc) => !prevPcs.has(pc));
+
+  if (prevOnly.length === 0 && nextOnly.length === 0) return 0;
+  if (prevOnly.length !== nextOnly.length) return 999;
+  if (prevOnly.length > 2) return 999;
+
+  if (prevOnly.length === 1) {
+    return Math.min(mod12(nextOnly[0] - prevOnly[0]), mod12(prevOnly[0] - nextOnly[0]));
+  }
+  const [a, b] = prevOnly;
+  const [x, y] = nextOnly;
+  const cost1 = Math.min(mod12(x - a), mod12(a - x)) + Math.min(mod12(y - b), mod12(b - y));
+  const cost2 = Math.min(mod12(y - a), mod12(a - y)) + Math.min(mod12(x - b), mod12(b - x));
+  return Math.min(cost1, cost2);
+}
+
+function candidateRootDisplacedContinuityScore(previousCandidate, candidate) {
+  if (!previousCandidate || !candidate) return 999;
+  if (candidate.rootPc === previousCandidate.rootPc) return 999;
+  if (candidate.bassPc !== previousCandidate.bassPc) return 999;
+  const previousGroup = candidateStructuralContinuityGroup(previousCandidate);
+  const nextGroup = candidateStructuralContinuityGroup(candidate);
+  if (!previousGroup || previousGroup !== nextGroup) return 999;
+
+  const rootShift = Math.min(
+    mod12(candidate.rootPc - previousCandidate.rootPc),
+    mod12(previousCandidate.rootPc - candidate.rootPc)
+  );
+  if (rootShift > 2) return 999;
+
+  const prevNonRoot = candidateNonRootPitchClassSet(previousCandidate);
+  const nextNonRoot = candidateNonRootPitchClassSet(candidate);
+  const prevOnly = [...prevNonRoot].filter((pc) => !nextNonRoot.has(pc));
+  const nextOnly = [...nextNonRoot].filter((pc) => !prevNonRoot.has(pc));
+  const nonRootChanges = prevOnly.length + nextOnly.length;
+  if (nonRootChanges > 2) return 999;
+
+  return rootShift * 3 + nonRootChanges;
+}
+
 function candidateContextDistance(previousCandidate, candidate) {
   if (!previousCandidate || !candidate) return 999;
   if (candidate.rootPc !== previousCandidate.rootPc) return 999;
@@ -1532,6 +1602,19 @@ export function pickDefaultChordCandidate({ candidates, previousCandidate = null
     })[0]?.candidate || null;
   if (structuralContinuity) return structuralContinuity;
 
+  // Tier 1.5: misma raíz, desplazamiento cromático de pitch classes ≤ 2 semítonos.
+  // Cubre cambios donde una nota se mueve 1–2 semitonos pero la etiqueta de grado
+  // cambia de familia (p.ej. 13→#5) y el scoring por etiquetas supera el umbral de Tier 1.
+  const pitchLevelContinuity = list
+    .map((candidate) => ({ candidate, distance: candidatePitchLevelContinuityScore(previousCandidate, candidate) }))
+    .filter((entry) => entry.distance <= 2)
+    .sort((a, b) => {
+      if (a.distance !== b.distance) return a.distance - b.distance;
+      if ((a.candidate.rankScore ?? 999) !== (b.candidate.rankScore ?? 999)) return (a.candidate.rankScore ?? 999) - (b.candidate.rankScore ?? 999);
+      return (a.candidate.score ?? 999) - (b.candidate.score ?? 999);
+    })[0]?.candidate || null;
+  if (pitchLevelContinuity) return pitchLevelContinuity;
+
   // Tier 2: mismo root + misma familia + bajo diferente + ≤ 2 cambios de intervalos.
   // Diseñado para descensos cromáticos del bajo con raíz funcional preservada:
   //   Am(maj7)/G# → Am7/G → Am6/F#
@@ -1563,6 +1646,19 @@ export function pickDefaultChordCandidate({ candidates, previousCandidate = null
       if ((a.candidate.rankScore ?? 999) !== (b.candidate.rankScore ?? 999)) return (a.candidate.rankScore ?? 999) - (b.candidate.rankScore ?? 999);
       return (a.candidate.score ?? 999) - (b.candidate.score ?? 999);
     })[0]?.candidate || null;
+
+  // Tier 5: raíz desplazada cromáticamente (≤ 2 semítonos), bajo preservado.
+  // Cubre el caso en que la nota que funciona como raíz es la que se edita;
+  // la nueva lectura puede tener una raíz distinta si las notas no-raíz se conservan.
+  const rootDisplaced = list
+    .map((candidate) => ({ candidate, distance: candidateRootDisplacedContinuityScore(previousCandidate, candidate) }))
+    .filter((entry) => entry.distance < 999)
+    .sort((a, b) => {
+      if (a.distance !== b.distance) return a.distance - b.distance;
+      if ((a.candidate.rankScore ?? 999) !== (b.candidate.rankScore ?? 999)) return (a.candidate.rankScore ?? 999) - (b.candidate.rankScore ?? 999);
+      return (a.candidate.score ?? 999) - (b.candidate.score ?? 999);
+    })[0]?.candidate || null;
+  if (rootDisplaced) return rootDisplaced;
 
   return contextual || list[0] || null;
 }

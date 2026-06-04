@@ -245,6 +245,75 @@ describe("política React de autoselección de detección manual", () => {
     expect(latestHarness.selectedCandidateName).not.toBe("Em(addb2)/F");
   });
 
+  it("mantiene continuidad por desplazamiento de raíz cuando se edita la nota fundamental", async () => {
+    await act(async () => {
+      latestHarness.applyPattern("xx4453");
+    });
+
+    const manualCandidate = findCandidate(/^Gmaj7\(add13,no5\)\/F#$/);
+
+    await act(async () => {
+      latestHarness.selectCandidate(manualCandidate);
+    });
+
+    expect(latestHarness.selectedCandidateName).toBe("Gmaj7(add13,no5)/F#");
+
+    await act(async () => {
+      latestHarness.toggleCell(0, 4); // cuerda 1 (high E): fret 3 → 4, G → G#
+      expect(latestHarness.getLivePendingCandidateId()).toBe(manualCandidate.id);
+    });
+
+    // La raíz se desplazó a G#/Ab (pc=8). Se acepta cualquier grafía.
+    expect(latestHarness.selectedCandidateName).toMatch(/^(G#|Ab)/);
+    expect(latestHarness.selectedCandidateName).not.toBe(latestHarness.firstCandidateName);
+  });
+
+  it("mantiene continuidad por raíz desplazada: Eb(b5,add9)/F → xx3253 → Em(add11,no5)/F", async () => {
+    await act(async () => {
+      latestHarness.applyPattern("xx3243");
+    });
+
+    const manualCandidate = findCandidate(/^Eb\(b5,add9\)\/F$/);
+
+    await act(async () => {
+      latestHarness.selectCandidate(manualCandidate);
+    });
+
+    expect(latestHarness.selectedCandidateName).toBe("Eb(b5,add9)/F");
+
+    await act(async () => {
+      latestHarness.toggleCell(1, 5); // cuerda 2 (B): fret 4 → 5, Eb → E
+      expect(latestHarness.getLivePendingCandidateId()).toBe(manualCandidate.id);
+    });
+
+    expect(latestHarness.firstCandidateName).toBe("Fmaj7(add9,no5)");
+    expect(latestHarness.selectedCandidateName).toBe("Em(add11,no5)/F");
+    expect(latestHarness.selectedCandidateName).not.toBe("Fmaj7(add9,no5)");
+  });
+
+  it("mantiene continuidad estructural cuando una extensión se desplaza un semítono (13 → #5)", async () => {
+    await act(async () => {
+      latestHarness.applyPattern("xx4453");
+    });
+
+    const manualCandidate = findCandidate(/^Gmaj7\(add13,no5\)\/F#$/);
+
+    await act(async () => {
+      latestHarness.selectCandidate(manualCandidate);
+    });
+
+    expect(latestHarness.selectedCandidateName).toBe("Gmaj7(add13,no5)/F#");
+
+    await act(async () => {
+      latestHarness.toggleCell(1, 4); // cuerda 2 (B): fret 5 → 4, E → D#
+      expect(latestHarness.getLivePendingCandidateId()).toBe(manualCandidate.id);
+    });
+
+    expect(latestHarness.firstCandidateName).toBe("Baddb6/F#");
+    expect(latestHarness.selectedCandidateName).toBe("Gmaj7#5/F#");
+    expect(latestHarness.selectedCandidateName).not.toBe("Baddb6/F#");
+  });
+
   it("al vaciar la selección física limpia candidateId y refs de continuidad", async () => {
     await act(async () => {
       latestHarness.applyPattern("x5555x");
