@@ -8,6 +8,11 @@ const {
   guideToneDefinitionFromQuality,
   chordSuffixFromUI,
   buildChordIntervals,
+  buildChordDegreeLabelsFromUi,
+  spellChordNotes,
+  chordBassInterval,
+  pcToName,
+  mod12,
 } = AppMusicBasics;
 const {
   isDropForm,
@@ -16,6 +21,8 @@ const {
   chordFifthOffsetFromUI,
   buildChordEnginePlan,
   buildChordCopyFingerprint,
+  computeInversionSelectorOptions,
+  normalizeChordFormToInversion,
 } = AppVoicingStudyCore;
 
 export function useChordBuilderState() {
@@ -219,6 +226,68 @@ export function useChordBuilderState() {
     [chordRootPc, chordQuality, chordSuspension, chordStructure, chordExt7, chordExt6, chordExt9, chordExt11, chordExt13, chordOmit, chordInversion, chordForm, chordMaxDist, chordAllowOpenStrings]
   );
 
+  // -- Derivados Ola 2 ---------------------------------------------------
+  // Dependen de derivados de Ola 1 o requieren imports de nivel medio.
+
+  const guideToneDisplayName = useMemo(() => {
+    const rootName = pcToName(chordRootPc, chordPreferSharps);
+    return `${rootName}${guideToneDef.suffix}`;
+  }, [chordRootPc, chordPreferSharps, guideToneDef]);
+
+  const chordDegreeLabels = useMemo(
+    () => buildChordDegreeLabelsFromUi({
+      quality: chordQuality,
+      suspension: chordSuspension,
+      structure: chordStructure,
+      ext7: chordExt7,
+      ext6: chordExt6,
+      ext9: chordExt9,
+      ext11: chordExt11,
+      ext13: chordExt13,
+      chordIntervals,
+    }),
+    [chordQuality, chordSuspension, chordStructure, chordExt7, chordExt6, chordExt9, chordExt11, chordExt13, chordIntervals]
+  );
+
+  const chordSpelledNotes = useMemo(
+    () => spellChordNotes({ rootPc: chordRootPc, chordIntervals, preferSharps: chordPreferSharps }),
+    [chordRootPc, chordIntervals, chordPreferSharps]
+  );
+
+  const chordInversionOptions = useMemo(
+    () => computeInversionSelectorOptions(chordEnginePlan, chordPreferSharps),
+    [chordEnginePlan, chordPreferSharps]
+  );
+
+  /* eslint-disable react-hooks/set-state-in-effect */
+  // E4: Sanitiza la inversión cuando la opción seleccionada deja de existir (ej. omit activa
+  // reduce los grados efectivos y "3ª inversión" ya no es una posición válida).
+  useEffect(() => {
+    if (!chordInversionOptions.some((o) => o.value === chordInversion)) {
+      setChordInversion("all");
+    }
+  }, [chordInversionOptions, chordInversion]);
+  /* eslint-enable react-hooks/set-state-in-effect */
+
+  const chordBassInt = useMemo(
+    () =>
+      chordBassInterval({
+        quality: chordQuality,
+        suspension: chordSuspension,
+        structure: chordStructure,
+        inversion: normalizeChordFormToInversion(chordInversion),
+        chordIntervals,
+        ext7: chordExt7,
+        ext6: chordExt6,
+        ext9: chordExt9,
+        ext11: chordExt11,
+        ext13: chordExt13,
+      }),
+    [chordQuality, chordSuspension, chordStructure, chordInversion, chordIntervals, chordExt7, chordExt6, chordExt9, chordExt11, chordExt13]
+  );
+
+  const chordBassPc = useMemo(() => mod12(chordRootPc + chordBassInt), [chordRootPc, chordBassInt]);
+
   return {
     state: {
       chordRootPc, setChordRootPc,
@@ -264,6 +333,13 @@ export function useChordBuilderState() {
       chordFifthOffset,
       chordEnginePlan,
       currentChordCopyFingerprint,
+      // Derivados Ola 2
+      guideToneDisplayName,
+      chordDegreeLabels,
+      chordSpelledNotes,
+      chordInversionOptions,
+      chordBassInt,
+      chordBassPc,
     },
     refs: {
       lastChordVoicingRef,

@@ -149,9 +149,7 @@ const {
   buildChordIntervals,
   chordCanUseJsonCatalog,
   seventhOffsetForQuality,
-  chordBassInterval,
   intervalToChordToken,
-  buildChordDegreeLabelsFromUi,
   spellChordNotes,
   normalizeScaleName,
   scaleOptionLabel,
@@ -177,7 +175,6 @@ const {
   isDropForm,
   filterVoicingsByForm,
   positionFormFromEffectiveForm,
-  normalizeChordFormToInversion,
   concreteInversionsForSelection,
   buildChordHeaderSummary,
   bassIntervalsForSelection,
@@ -190,7 +187,6 @@ const {
   buildChordUiRestrictions,
   buildChordEnginePlan,
   actualInversionLabelFromVoicing,
-  computeInversionSelectorOptions,
   selectClosestPhysicalVoicingIndex,
   deriveDetectedCandidateCopyInversion,
 } = AppVoicingStudyCore;
@@ -279,7 +275,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "6.0.4";
+const APP_VERSION = "6.0.5";
 
 function chordDbUrl(keyName, suffix) {
   // Ruta RELATIVA dentro de /public (sin base) => chords-db/...
@@ -456,6 +452,12 @@ export default function FretboardScalesPage() {
     chordFifthOffset,
     chordEnginePlan,
     currentChordCopyFingerprint,
+    // Derivados Ola 2
+    guideToneDisplayName,
+    chordDegreeLabels,
+    chordSpelledNotes,
+    chordInversionOptions,
+    chordBassPc,
   } = chordBuilderState;
   const {
     lastChordVoicingRef,
@@ -1523,11 +1525,6 @@ export default function FretboardScalesPage() {
     return spellNoteFromChordInterval(chordQuartalCurrentRootPc, interval, chordPreferSharps);
   }, [activeQuartalVoicing, chordQuartalCurrentRootPc, chordPreferSharps]);
 
-  const guideToneDisplayName = useMemo(() => {
-    const rootName = pcToName(chordRootPc, chordPreferSharps);
-    return `${rootName}${guideToneDef.suffix}`;
-  }, [chordRootPc, chordPreferSharps, guideToneDef]);
-
   const guideToneBadgeItems = useMemo(() => {
     return guideToneDef.intervals.map((interval, idx) => {
       const degreeRaw = guideToneDef.degreeLabels[idx] || intervalToSimpleChordDegreeToken(interval);
@@ -1634,57 +1631,11 @@ export default function FretboardScalesPage() {
   }, [activeGuideToneVoicing, chordRootPc, chordPreferSharps, guideToneDef, guideToneInversion]);
 
 
-  const chordDegreeLabels = useMemo(
-    () => buildChordDegreeLabelsFromUi({
-      quality: chordQuality,
-      suspension: chordSuspension,
-      structure: chordStructure,
-      ext7: chordExt7,
-      ext6: chordExt6,
-      ext9: chordExt9,
-      ext11: chordExt11,
-      ext13: chordExt13,
-      chordIntervals,
-    }),
-    [chordQuality, chordSuspension, chordStructure, chordExt7, chordExt6, chordExt9, chordExt11, chordExt13, chordIntervals]
-  );
-  const chordSpelledNotes = useMemo(
-    () => spellChordNotes({ rootPc: chordRootPc, chordIntervals, preferSharps: chordPreferSharps }),
-    [chordRootPc, chordIntervals, chordPreferSharps]
-  );
   const chordPcToSpelledName = useCallback((pc) => {
     const interval = mod12(pc - chordRootPc);
     const idx = chordIntervals.findIndex((x) => mod12(x) === interval);
     return idx >= 0 ? chordSpelledNotes[idx] : pcToName(pc, chordPreferSharps);
   }, [chordRootPc, chordIntervals, chordSpelledNotes, chordPreferSharps]);
-
-  const chordInversionOptions = useMemo(() => computeInversionSelectorOptions(chordEnginePlan, chordPreferSharps), [chordEnginePlan, chordPreferSharps]);
-
-  // Sanitiza la inversión cuando la opción seleccionada deja de existir (ej. omit activa
-  // reduce los grados efectivos y "3ª inversión" ya no es una posición válida).
-  useEffect(() => {
-    if (!chordInversionOptions.some((o) => o.value === chordInversion)) {
-      setChordInversion("all");
-    }
-  }, [chordInversionOptions, chordInversion]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const chordBassInt = useMemo(
-    () =>
-      chordBassInterval({
-        quality: chordQuality,
-        suspension: chordSuspension,
-        structure: chordStructure,
-        inversion: normalizeChordFormToInversion(chordInversion),
-        chordIntervals,
-        ext7: chordExt7,
-        ext6: chordExt6,
-        ext9: chordExt9,
-        ext11: chordExt11,
-        ext13: chordExt13,
-      }),
-    [chordQuality, chordSuspension, chordStructure, chordInversion, chordIntervals, chordExt7, chordExt6, chordExt9, chordExt11, chordExt13]
-  );
-  const chordBassPc = useMemo(() => mod12(chordRootPc + chordBassInt), [chordRootPc, chordBassInt]);
 
   const _chordPcs = useMemo(() => new Set(chordIntervals.map((i) => mod12(chordRootPc + i))), [chordIntervals, chordRootPc]);
 
