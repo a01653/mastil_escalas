@@ -51,6 +51,7 @@ export function useChordBuilderTertianSelectionBlock({
   lastChordVoicingRef,
   skipChordVoicingRefSyncRef,
   pendingChordRestoreRef,
+  chordKeepZone,
 }) {
   /* eslint-disable react-hooks/refs */
   const chordVoicingsDisplay = useMemo(() => {
@@ -85,17 +86,22 @@ export function useChordBuilderTertianSelectionBlock({
       return { idx: keepIdx, voicing: list[keepIdx] || null, frets: chordSelectedFrets, waitingPending: false };
     }
 
-    const ref = chordSelectedFrets
-      ? buildVoicingFromFretsLH({
-          fretsLH: parseChordDbFretsString(chordSelectedFrets),
-          rootPc: chordRootPc,
-          maxFret,
-        })
-      : lastChordVoicingRef.current;
-    const idx = selectClosestPhysicalVoicingIndex(ref, list, { fallbackIndex: normalizedCurrentIdx });
+    let idx;
+    if (chordKeepZone !== false) {
+      const ref = chordSelectedFrets
+        ? buildVoicingFromFretsLH({
+            fretsLH: parseChordDbFretsString(chordSelectedFrets),
+            rootPc: chordRootPc,
+            maxFret,
+          })
+        : lastChordVoicingRef.current;
+      idx = selectClosestPhysicalVoicingIndex(ref, list, { fallbackIndex: normalizedCurrentIdx });
+    } else {
+      idx = 0;
+    }
     const voicing = list[idx] || list[0] || null;
     return { idx, voicing, frets: voicing?.frets ?? null, waitingPending: false };
-  }, [chordVoicingsDisplay, chordVoicingIdx, chordSelectedFrets, chordRootPc, maxFret]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [chordVoicingsDisplay, chordVoicingIdx, chordSelectedFrets, chordRootPc, maxFret, chordKeepZone]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!storageHydrated) return;
@@ -306,6 +312,7 @@ export function useChordBuilderState({ maxFret } = {}) {
   const [chordSelectedFrets, setChordSelectedFrets] = useState(null);
   const [chordMaxDist, setChordMaxDist] = useState(4);
   const [chordAllowOpenStrings, setChordAllowOpenStrings] = useState(false);
+  const [chordKeepZone, setChordKeepZone] = useState(true);
 
   // -- Refs --------------------------------------------------------------
   const lastChordVoicingRef = useRef(null);
@@ -712,6 +719,7 @@ export function useChordBuilderState({ maxFret } = {}) {
       chordSelectedFrets, setChordSelectedFrets,
       chordMaxDist, setChordMaxDist,
       chordAllowOpenStrings, setChordAllowOpenStrings,
+      chordKeepZone, setChordKeepZone,
       // Derivados Ola 1
       chordPreferSharps,
       chordQuartalPitchSets,

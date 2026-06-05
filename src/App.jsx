@@ -279,7 +279,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "6.0.20";
+const APP_VERSION = "6.0.21";
 
 
 // ─── Acorde de referencia (bloque "Investigar en mástil") ────────────────────
@@ -416,6 +416,7 @@ export default function FretboardScalesPage() {
     chordSelectedFrets, setChordSelectedFrets,
     chordMaxDist, setChordMaxDist,
     chordAllowOpenStrings, setChordAllowOpenStrings,
+    chordKeepZone, setChordKeepZone,
     // Derivados Ola 1
     chordPreferSharps,
     chordQuartalPitchSets,
@@ -914,6 +915,7 @@ export default function FretboardScalesPage() {
     chordSelectedFrets,
     chordMaxDist,
     chordAllowOpenStrings,
+    chordKeepZone,
     chordDetectWindowStart,
     chordDetectPrioritizeContext,
     chordDetectPrioritizeContextTouched,
@@ -1002,6 +1004,7 @@ export default function FretboardScalesPage() {
     chordSelectedFrets,
     chordMaxDist,
     chordAllowOpenStrings,
+    chordKeepZone,
     chordDetectWindowStart,
     chordDetectPrioritizeContext,
     chordDetectPrioritizeContextTouched,
@@ -1162,6 +1165,7 @@ export default function FretboardScalesPage() {
       }
       if ("chordMaxDist" in saved) setChordMaxDist(sanitizeOneOf(Number(saved.chordMaxDist), [4, 5, 6], 4));
       if ("chordAllowOpenStrings" in saved) setChordAllowOpenStrings(sanitizeBoolValue(saved.chordAllowOpenStrings, false));
+      if ("chordKeepZone" in saved) setChordKeepZone(sanitizeBoolValue(saved.chordKeepZone, true));
       if ("chordDetectWindowStart" in saved) setChordDetectWindowStart(sanitizeNumberValue(saved.chordDetectWindowStart, 1, 1, 24));
       if ("chordDetectPrioritizeContextTouched" in saved) {
         const restoredTouched = sanitizeBoolValue(saved.chordDetectPrioritizeContextTouched, false);
@@ -1855,6 +1859,7 @@ export default function FretboardScalesPage() {
     lastChordVoicingRef,
     skipChordVoicingRefSyncRef,
     pendingChordRestoreRef,
+    chordKeepZone,
   });
 
   useChordBuilderPendingCopyResolutionSync({
@@ -3401,6 +3406,33 @@ export default function FretboardScalesPage() {
   // --------------------------------------------------------------------------
   // COMPONENTES UI INTERNOS: ACORDES Y DETECCIÓN
   // --------------------------------------------------------------------------
+
+  function renderChordKeepZoneToggle(className = "") {
+    if (chordFamily !== "tertian") return null;
+    return (
+      <label
+        className={`inline-flex items-center gap-2 text-xs font-semibold text-slate-700 ${className}`.trim()}
+        title="Si está activado, al cambiar acorde la app elige el voicing físicamente más cercano al anterior (continuidad de posición). Si está desactivado, elige el mejor voicing según el ranking natural."
+      >
+        <span className="relative flex h-4 w-4 flex-shrink-0 items-center justify-center">
+          <input
+            type="checkbox"
+            data-testid="toggle-keep-zone"
+            checked={chordKeepZone}
+            onChange={(e) => setChordKeepZone(e.target.checked)}
+            className="absolute inset-0 h-4 w-4 cursor-pointer opacity-0"
+          />
+          <span
+            aria-hidden="true"
+            className={`pointer-events-none flex h-4 w-4 items-center justify-center rounded-[6px] border text-[10px] font-bold shadow-sm ${chordKeepZone ? "border-sky-600 bg-sky-600 text-white" : "border-slate-300 bg-white text-transparent"}`}
+          >
+            ✓
+          </span>
+        </span>
+        <span>Mantener zona anterior</span>
+      </label>
+    );
+  }
 
   function renderChordAllowOpenStringsToggle(className = "") {
     return (
@@ -5232,10 +5264,11 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
             {renderMainChordVoicingPicker()}
             {renderMainChordDistControl("shrink-0")}
           </div>
-          {/* Permitir cuerdas al aire con Estudiar en el bloque */}
+          {/* Permitir cuerdas al aire + Mantener zona anterior + Estudiar */}
           <div className="mt-2 rounded-xl border border-slate-200 px-3 py-2">
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
               {renderChordAllowOpenStringsToggle()}
+              {renderChordKeepZoneToggle()}
               <button
                 type="button"
                 className={`${UI_BTN_SM} ml-auto inline-flex items-center justify-center`}
@@ -5459,6 +5492,7 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
               renderMobileChordSummaryCard,
               renderChordInvestigationFretboard,
               renderChordAllowOpenStringsToggle,
+              renderChordKeepZoneToggle,
               openMainChordStudy,
               InfoTitle,
               ChordFretboard,
