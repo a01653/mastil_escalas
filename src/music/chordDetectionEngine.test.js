@@ -1333,6 +1333,25 @@ describe("chordDetectionEngine", () => {
     expect(names).not.toContain("Cm7(add3,addb6)");
   });
 
+  test("75887x prioriza Bmaj7(#9) y mantiene Ebm(maj7,addb6)/Cb como alternativa", () => {
+    const result = analyzeSelectedNotes(["B", "D", "A#", "D#", "F#"], "B");
+
+    expect(result.primary?.name).toBe("Bmaj7(#9)");
+    expect(readingNames(result)).toContain("Ebm(maj7,addb6)/Cb");
+    expect(legendDegrees(result.primary)).toContain("#9");
+  });
+
+  test("7x887x mantiene Bmaj7 como lectura principal", () => {
+    const readings = detectedReadingsFromPositions([
+      { sIdx: 5, fret: 7 }, // B
+      { sIdx: 3, fret: 8 }, // Bb
+      { sIdx: 2, fret: 8 }, // Eb
+      { sIdx: 1, fret: 7 }, // Gb
+    ]);
+
+    expect(readings[0]?.name).toBe("Bmaj7");
+  });
+
   test("Cm7 normal (C,Eb,G,Bb) no se ve afectado por la heurística alterada", () => {
     const result = analyzeSelectedNotes(["C", "Eb", "G", "Bb"], "C");
     const names = readingNames(result);

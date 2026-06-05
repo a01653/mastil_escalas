@@ -151,6 +151,7 @@ export const CHORD_DETECT_FORMULAS = [
   { id: "maj7add13omit5", intervals: [0, 4, 9, 11], degreeLabels: ["1", "3", "13", "7"], suffix: "maj7(add13,no5)", ui: { quality: "maj", suspension: "none", structure: "chord", inversion: "all", form: "open", positionForm: "open", ext7: true, ext6: false, ext9: false, ext11: false, ext13: true }, manualOnly: true },
   { id: "maj13", intervals: [0, 2, 4, 7, 9, 11], degreeLabels: ["1", "9", "3", "5", "13", "7"], suffix: "maj13", ui: { quality: "maj", suspension: "none", structure: "chord", inversion: "all", form: "open", positionForm: "open", ext7: true, ext6: false, ext9: true, ext11: false, ext13: true } },
   { id: "maj13omit5", intervals: [0, 2, 4, 9, 11], degreeLabels: ["1", "9", "3", "13", "7"], suffix: "maj13(no5)", ui: { quality: "maj", suspension: "none", structure: "chord", inversion: "all", form: "open", positionForm: "open", ext7: true, ext6: false, ext9: true, ext11: false, ext13: true }, manualOnly: true },
+  { id: "maj7sharp9", intervals: [0, 3, 4, 7, 11], degreeLabels: ["1", "#9", "3", "5", "7"], suffix: "maj7(#9)", ui: null, manualOnly: true },
   { id: "9", intervals: [0, 2, 4, 7, 10], degreeLabels: ["1", "9", "3", "5", "b7"], suffix: "9", ui: { quality: "dom", suspension: "none", structure: "chord", inversion: "all", form: "open", positionForm: "open", ext7: true, ext6: false, ext9: true, ext11: false, ext13: false } },
   { id: "7sharp9", intervals: [0, 3, 4, 7, 10], degreeLabels: ["1", "#9", "3", "5", "b7"], suffix: "7(#9)", ui: null, manualOnly: true },
   { id: "m9", intervals: [0, 2, 3, 7, 10], degreeLabels: ["1", "9", "b3", "5", "b7"], suffix: "m9", ui: { quality: "min", suspension: "none", structure: "chord", inversion: "all", form: "open", positionForm: "open", ext7: true, ext6: false, ext9: true, ext11: false, ext13: false } },
@@ -397,7 +398,7 @@ function candidateFormulaComplexityPenalty(candidate) {
   if (["maj7sus4add9sharp11", "dom7add11add13no5"].includes(id)) return 10;
   if (["m6add11"].includes(id)) return 5;
   if (["maj7", "7", "m7", "m7b5", "dim7", "m7no5", "dom7no5"].includes(id)) return 4;
-  if (["maj9", "9", "m9", "7sharp9", "7sharp9no5", "mmaj9"].includes(id)) return 6;
+  if (["maj9", "9", "m9", "7sharp9", "7sharp9no5", "mmaj9", "maj7sharp9"].includes(id)) return 6;
   if (["dom13sharp11"].includes(id)) return 8;
   if (["m7flat13", "m7no5addb13"].includes(id)) return 8;
   if (["maj7add13", "maj7add13omit5", "maj13", "maj13omit5"].includes(id)) return 8;
@@ -785,6 +786,8 @@ function buildHeuristicTertianCandidates(selectedNotes) {
     const bassInterval = mod12(bass.pc - rootPc);
     // When major 3rd + b7 coexist, the chord is dominant: b3 = #9 enharmonic, b6 = b13
     const isAlteredDominant = hasMajThird && hasMinSeventh && hasMinThird && !hasFlatFifth;
+    // With major 3rd + maj7, an added minor 3rd is clearer as #9 than as m(maj7,add3).
+    const isMajorSharpNineColor = hasMajThird && hasMajSeventh && hasMinThird && !hasFlatFifth;
 
     let quality = "maj";
     let baseSuffix = "";
@@ -809,6 +812,12 @@ function buildHeuristicTertianCandidates(selectedNotes) {
       coreIntervals.push(4, 10);
       if (hasPerfectFifth) coreIntervals.push(7);
       baseSuffix = "7";
+    } else if (isMajorSharpNineColor) {
+      quality = "maj";
+      coreIntervals.push(4);
+      if (hasPerfectFifth) coreIntervals.push(7);
+      coreIntervals.push(11);
+      baseSuffix = "maj7";
     } else if (hasMinThird) {
       quality = hasMajSeventh ? "minmaj7" : "min";
       coreIntervals.push(3);
@@ -864,6 +873,7 @@ function buildHeuristicTertianCandidates(selectedNotes) {
           if (s === 3) return "#9";
           if (s === 8) return "b13";
         }
+        if (isMajorSharpNineColor && s === 3) return "#9";
         if (quality === "dom" && s === 8) return "b13";
         if (s === 2) return hasMajThird || hasMinThird || hasHeuristicSeventh ? "9" : "2";
         if (s === 5) return useEleventhLabel ? "11" : "4";
@@ -900,6 +910,7 @@ function buildHeuristicTertianCandidates(selectedNotes) {
         if (s === 3) return "#9";
         if (s === 8) return "b13";
       }
+      if (isMajorSharpNineColor && s === 3) return "#9";
       if (quality === "dom" && s === 8) return "b13";
       return intervalToChordToken(intv, { ext6: useSixthLabel, ext9: has9, ext11: useEleventhLabel, ext13: useThirteenthLabel });
     });
