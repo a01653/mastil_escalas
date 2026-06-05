@@ -31,9 +31,8 @@ import {
   chordDbUrl,
   chordDbUrlLocal,
   buildChordDbCacheKey,
-  buildChordDbBassSuffix,
-  buildChordDbSuffixes,
   fetchChordDbJsonWithFallback,
+  lookupChordCatalogVoicings,
 } from "./features/chord-catalog/chordCatalogCore.js";
 
 import { buildNearSlotsFromChordSymbols } from "./music/standardsCatalog.js";
@@ -281,7 +280,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "6.0.18";
+const APP_VERSION = "6.0.19";
 
 
 // ─── Acorde de referencia (bloque "Investigar en mástil") ────────────────────
@@ -1549,72 +1548,16 @@ export default function FretboardScalesPage() {
   // mensaje vacío hasta que la carga termine. Solo "ready" y "error" son estados resueltos.
   const chordVoicingsResolving = chordEnginePlan.generator === "json" && chordDbStatus !== "ready" && chordDbStatus !== "error";
 
-  const ensureChordDbCatalogVoicings = useCallback(async ({
-    rootPc,
-    quality,
-    suspension,
-    ext7,
-    ext6,
-    ext9,
-    ext11,
-    ext13,
-    omit,
-    bassPc = null,
-    preferredFrets = null,
-  }) => {
-    if (!chordCanUseJsonCatalog({
-      quality,
-      structure: "chord",
-      ext7: !!ext7,
-      ext6: !!ext6,
-      ext9: !!ext9,
-      ext11: !!ext11,
-      ext13: !!ext13,
-    })) return [];
-
-    const suffixBase = chordSuffixFromUI({
-      quality,
-      suspension: suspension || "none",
-      structure: "chord",
-      ext7: !!ext7,
-      ext6: !!ext6,
-      ext9: !!ext9,
-      ext11: !!ext11,
-      ext13: !!ext13,
-      omit: omit || "none",
-    });
-    if (!suffixBase) return [];
-
-    const bassSuffix = buildChordDbBassSuffix(suffixBase, bassPc, chordPreferSharps);
-    const suffixes = buildChordDbSuffixes(suffixBase, bassSuffix);
-
-    const keyName = chordDbKeyNameFromPc(rootPc);
-    for (const suffix of suffixes) {
-      const cacheKey = buildChordDbCacheKey(keyName, suffix);
-      const cached = chordDbCache[cacheKey];
-      if (cached?.positions?.length) return cached.positions;
-
-      const cachedErr = chordDbCacheErr[cacheKey];
-      if (cachedErr) continue;
-
-      const urlRel = chordDbUrl(keyName, suffix);
-
-      try {
-        const { json } = await fetchChordDbJsonWithFallback(urlRel);
-        setChordDbCache((prev) => ({ ...prev, [cacheKey]: json }));
-        const positions = json?.positions?.length ? json.positions : [];
-        if (!preferredFrets) return positions;
-        const wanted = String(preferredFrets || "").trim().toLowerCase();
-        if (!wanted) return positions;
-        if (positions.some((pos) => String(pos?.frets || "").trim().toLowerCase() === wanted)) {
-          return positions;
-        }
-      } catch {
-        continue;
-      }
-    }
-    return [];
-  }, [chordDbCache, chordDbCacheErr, chordPreferSharps, setChordDbCache]);
+  const ensureChordDbCatalogVoicings = useCallback(
+    (params) => lookupChordCatalogVoicings({
+      ...params,
+      preferSharps: chordPreferSharps,
+      cache: chordDbCache,
+      cacheErr: chordDbCacheErr,
+      onCacheSet: (key, json) => setChordDbCache((prev) => ({ ...prev, [key]: json })),
+    }),
+    [chordDbCache, chordDbCacheErr, chordPreferSharps, setChordDbCache]
+  );
 
   // Si se cierra el panel, limpia el último URL mostrado
   useEffect(() => {

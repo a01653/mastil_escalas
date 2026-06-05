@@ -1,11 +1,15 @@
 /**
- * chordCatalogCore.js — Helpers puros de construcción, validación y fetch para el catálogo JSON.
+ * chordCatalogCore.js — Helpers puros de construcción, validación, fetch y lookup para
+ * el catálogo JSON de acordes.
  *
- * Sin estado React. Expone lógica de construcción de clave, sufijo, URLs, sufijo _bass,
- * validación de respuestas JSON y el fetch con fallback local → GitHub Pages.
+ * Sin estado React. Expone: construcción de clave/sufijo/URL, sufijo _bass, validación de
+ * respuestas JSON, fetch con fallback local → GitHub Pages, y la función pura de lookup
+ * de voicings (lookupChordCatalogVoicings) que ensureChordDbCatalogVoicings envuelve
+ * inyectando el estado React.
  */
 
-import { pcToName } from "../../music/appMusicBasics.js";
+import { pcToName, chordCanUseJsonCatalog, chordSuffixFromUI } from "../../music/appMusicBasics.js";
+import { chordDbKeyNameFromPc } from "../../music/chordDbCatalog.js";
 
 // Base del sitio (Vite) para que fetch a /public funcione en localhost y GitHub Pages.
 // En producción (Pages) suele ser "/mastil_escalas/" y en dev "/".
@@ -135,6 +139,105 @@ export async function fetchChordDbJsonWithFallback(urlRel) {
 
   const json = await parseJsonResponseStrict(res, res.url || urlFallbackAbs);
   return { json, usedUrl: res.url || urlFallbackAbs };
+}
+
+/**
+ * Lógica pura de búsqueda de voicings en el catálogo JSON.
+ * No depende de estado React; recibe el estado como parámetros.
+ *
+ * Flujo para cada sufijo (sufijo base + sufijo _bass si difieren):
+ *   1. Cache hit  → devuelve posiciones inmediatamente.
+ *   2. Cache error → `continue` (no escribe en cacheErr).
+ *   3. Fetch      → llama `onCacheSet(cacheKey, json)` si ok; `continue` si falla.
+ *   4. preferredFrets → si el fret buscado no está en las posiciones, `continue` al siguiente sufijo.
+ *
+ * @param {object}   params
+ * @param {number}   params.rootPc
+ * @param {string}   params.quality
+ * @param {string}   [params.suspension]
+ * @param {boolean}  [params.ext7]
+ * @param {boolean}  [params.ext6]
+ * @param {boolean}  [params.ext9]
+ * @param {boolean}  [params.ext11]
+ * @param {boolean}  [params.ext13]
+ * @param {string}   [params.omit]
+ * @param {number|null} [params.bassPc]
+ * @param {string|null} [params.preferredFrets]
+ * @param {boolean}  params.preferSharps   - Ortografía de nota del bajo
+ * @param {object}   params.cache          - Snapshot de chordDbCache
+ * @param {object}   params.cacheErr       - Snapshot de chordDbCacheErr
+ * @param {function} params.onCacheSet     - (cacheKey, json) => void — actualiza chordDbCache
+ * @returns {Promise<Array>} Posiciones del catálogo, o [] si no hay resolución
+ */
+export async function lookupChordCatalogVoicings({
+  rootPc,
+  quality,
+  suspension,
+  ext7,
+  ext6,
+  ext9,
+  ext11,
+  ext13,
+  omit,
+  bassPc = null,
+  preferredFrets = null,
+  preferSharps,
+  cache,
+  cacheErr,
+  onCacheSet,
+}) {
+  if (!chordCanUseJsonCatalog({
+    quality,
+    structure: "chord",
+    ext7: !!ext7,
+    ext6: !!ext6,
+    ext9: !!ext9,
+    ext11: !!ext11,
+    ext13: !!ext13,
+  })) return [];
+
+  const suffixBase = chordSuffixFromUI({
+    quality,
+    suspension: suspension || "none",
+    structure: "chord",
+    ext7: !!ext7,
+    ext6: !!ext6,
+    ext9: !!ext9,
+    ext11: !!ext11,
+    ext13: !!ext13,
+    omit: omit || "none",
+  });
+  if (!suffixBase) return [];
+
+  const bassSuffix = buildChordDbBassSuffix(suffixBase, bassPc, preferSharps);
+  const suffixes = buildChordDbSuffixes(suffixBase, bassSuffix);
+
+  const keyName = chordDbKeyNameFromPc(rootPc);
+  for (const suffix of suffixes) {
+    const cacheKey = buildChordDbCacheKey(keyName, suffix);
+
+    const cached = cache[cacheKey];
+    if (cached?.positions?.length) return cached.positions;
+
+    if (cacheErr[cacheKey]) continue;
+
+    const urlRel = chordDbUrl(keyName, suffix);
+
+    try {
+      const { json } = await fetchChordDbJsonWithFallback(urlRel);
+      onCacheSet(cacheKey, json);
+      const positions = json?.positions?.length ? json.positions : [];
+      if (!preferredFrets) return positions;
+      const wanted = String(preferredFrets || "").trim().toLowerCase();
+      if (!wanted) return positions;
+      if (positions.some((pos) => String(pos?.frets || "").trim().toLowerCase() === wanted)) {
+        return positions;
+      }
+    } catch {
+      continue;
+    }
+  }
+  return [];
 }
 
 export async function parseJsonResponseStrict(res, urlForError) {

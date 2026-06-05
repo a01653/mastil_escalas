@@ -9,6 +9,7 @@ import {
   buildChordDbSuffixes,
   parseJsonResponseStrict,
   fetchChordDbJsonWithFallback,
+  lookupChordCatalogVoicings,
   CHORD_DB_PAGES_BASE,
 } from "./chordCatalogCore.js";
 
@@ -323,5 +324,201 @@ describe("fetchChordDbJsonWithFallback", () => {
     await expect(
       fetchChordDbJsonWithFallback("chords-db/C/major.json")
     ).rejects.toThrow();
+  });
+});
+
+// ── lookupChordCatalogVoicings ────────────────────────────────────────────────
+
+// Helpers para construir params base y cache plano
+const BASE_PARAMS = {
+  rootPc: 2,       // D
+  quality: "maj",
+  suspension: "none",
+  ext7: false, ext6: false, ext9: false, ext11: false, ext13: false,
+  omit: "none",
+  bassPc: null,
+  preferredFrets: null,
+  preferSharps: false,
+};
+
+function makePositions(...frets) {
+  return frets.map((f) => ({ frets: f }));
+}
+
+function makeJson(positions) {
+  return { key: "D", suffix: "major", positions };
+}
+
+function makeFetch2(respsByUrl) {
+  return vi.fn(async (url) => {
+    const entry = Object.entries(respsByUrl).find(([k]) => url.includes(k));
+    if (!entry) return { ok: false, status: 404, url };
+    const { ok = true, ct = "application/json", body } = entry[1];
+    if (!ok) return { ok: false, status: 404, url };
+    return {
+      ok: true, url,
+      headers: { get: (n) => n === "content-type" ? ct : null },
+      text: async () => JSON.stringify(body),
+      json: async () => body,
+    };
+  });
+}
+
+describe("lookupChordCatalogVoicings", () => {
+  afterEach(() => { vi.unstubAllGlobals(); });
+
+  // ── 1: chordCanUseJsonCatalog false → [] ────────────────────────────────────
+  test("chordCanUseJsonCatalog false (quality=minmaj7): devuelve []", async () => {
+    const result = await lookupChordCatalogVoicings({
+      ...BASE_PARAMS,
+      quality: "minmaj7",  // chordCanUseJsonCatalog siempre false para minmaj7
+      cache: {}, cacheErr: {}, onCacheSet: vi.fn(),
+    });
+    expect(result).toEqual([]);
+  });
+
+  // ── 2: chordCanUseJsonCatalog false (add sin 7) → [] ───────────────────────
+  test("chordCanUseJsonCatalog false (ext9 sin ext7): devuelve []", async () => {
+    const result = await lookupChordCatalogVoicings({
+      ...BASE_PARAMS,
+      ext9: true, ext7: false,
+      cache: {}, cacheErr: {}, onCacheSet: vi.fn(),
+    });
+    expect(result).toEqual([]);
+  });
+
+  // ── Nota: el guard `!suffixBase` es defensivo — chordSuffixFromUI siempre
+  //    devuelve string no vacío. Se documenta aquí; la rama muerta queda cubierta
+  //    estructuralmente por tests de extracción unitaria futura. ─────────────────
+
+  // ── 3: cache hit → posiciones sin fetch ─────────────────────────────────────
+  test("cache hit en primer sufijo: devuelve posiciones sin hacer fetch", async () => {
+    const onCacheSet = vi.fn();
+    vi.stubGlobal("fetch", vi.fn());  // no debe llamarse
+
+    const positions = makePositions("xx0232", "x54030");
+    const result = await lookupChordCatalogVoicings({
+      ...BASE_PARAMS,
+      cache: { "D/major": makeJson(positions) },
+      cacheErr: {},
+      onCacheSet,
+    });
+
+    expect(result).toEqual(positions);
+    expect(fetch).not.toHaveBeenCalled();
+    expect(onCacheSet).not.toHaveBeenCalled();
+  });
+
+  // ── 4: cacheErr primer sufijo → salta; cache hit en segundo ─────────────────
+  test("cacheErr en primer sufijo: salta al segundo; cache hit en segundo devuelve positions", async () => {
+    vi.stubGlobal("fetch", vi.fn());  // no debe llamarse
+
+    const positions = makePositions("x0x232");
+    const result = await lookupChordCatalogVoicings({
+      ...BASE_PARAMS,
+      bassPc: 9,  // A → suffixes = ["major", "major_a"]
+      cache: { "D/major_a": makeJson(positions) },
+      cacheErr: { "D/major": "fetch fallido" },
+      onCacheSet: vi.fn(),
+    });
+
+    expect(result).toEqual(positions);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  // ── 5: cache miss + fetch OK → llama onCacheSet y devuelve posiciones ────────
+  test("cache miss y fetch OK: llama onCacheSet(cacheKey, json) y devuelve posiciones", async () => {
+    const json = makeJson(makePositions("xx0232"));
+    vi.stubGlobal("fetch", makeFetch2({ "major.json": { body: json } }));
+    const onCacheSet = vi.fn();
+
+    const result = await lookupChordCatalogVoicings({
+      ...BASE_PARAMS,
+      cache: {}, cacheErr: {}, onCacheSet,
+    });
+
+    expect(result).toEqual(json.positions);
+    expect(onCacheSet).toHaveBeenCalledOnce();
+    expect(onCacheSet).toHaveBeenCalledWith("D/major", json);
+  });
+
+  // ── 6: fetch falla en primer sufijo → continue; segundo succeeds ─────────────
+  test("fetch falla en primer sufijo: continúa al segundo y devuelve posiciones del segundo", async () => {
+    const json2 = makeJson(makePositions("x0x232"));
+    vi.stubGlobal("fetch", makeFetch2({
+      "major.json": { ok: false },      // primer sufijo: 404
+      "major_a.json": { body: json2 }, // segundo sufijo: ok
+    }));
+    const onCacheSet = vi.fn();
+
+    const result = await lookupChordCatalogVoicings({
+      ...BASE_PARAMS,
+      bassPc: 9,  // A → ["major", "major_a"]
+      cache: {}, cacheErr: {}, onCacheSet,
+    });
+
+    expect(result).toEqual(json2.positions);
+    expect(onCacheSet).toHaveBeenCalledWith("D/major_a", json2);
+  });
+
+  // ── 7: preferredFrets encontrado en primer sufijo → no fetches segundo ───────
+  test("preferredFrets hallado en primer sufijo: no llega a fetchear el sufijo _bass", async () => {
+    const json1 = makeJson(makePositions("xx0232", "x54030"));
+    const fetchMock = makeFetch2({ "major.json": { body: json1 } });
+    vi.stubGlobal("fetch", fetchMock);
+    const onCacheSet = vi.fn();
+
+    const result = await lookupChordCatalogVoicings({
+      ...BASE_PARAMS,
+      bassPc: 2,            // D → ["major", "major_d"]
+      preferredFrets: "xx0232",  // está en json1
+      cache: {}, cacheErr: {}, onCacheSet,
+    });
+
+    expect(result).toEqual(json1.positions);
+    // Solo debe haberse fetched "major.json", nunca "major_d.json"
+    const urls = fetchMock.mock.calls.map(([u]) => u);
+    expect(urls.some((u) => u.includes("major_d.json"))).toBe(false);
+    expect(urls.some((u) => u.includes("major.json"))).toBe(true);
+  });
+
+  // ── 8: preferredFrets no encontrado en primer sufijo → prueba sufijo _bass ───
+  test("preferredFrets no en primer sufijo: prueba el sufijo _bass y devuelve sus posiciones", async () => {
+    const json1 = makeJson(makePositions("x54030"));       // no tiene "x0x232"
+    const json2 = makeJson(makePositions("x0x232", "x9b0x0")); // sí tiene "x0x232"
+    const fetchMock = makeFetch2({
+      "major.json":   { body: json1 },
+      "major_a.json": { body: json2 },
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const onCacheSet = vi.fn();
+
+    const result = await lookupChordCatalogVoicings({
+      ...BASE_PARAMS,
+      bassPc: 9,             // A → ["major", "major_a"]
+      preferredFrets: "x0x232",
+      cache: {}, cacheErr: {}, onCacheSet,
+    });
+
+    expect(result).toEqual(json2.positions);
+    const urls = fetchMock.mock.calls.map(([u]) => u);
+    expect(urls.some((u) => u.includes("major_a.json"))).toBe(true);
+  });
+
+  // ── 9: nunca escribe en error-cache ──────────────────────────────────────────
+  test("fetch falla en todos los sufijos: cacheErr no se muta y onCacheSet no se llama", async () => {
+    vi.stubGlobal("fetch", makeFetch2({}));  // 404 para todo
+    const cacheErr = {};
+    const onCacheSet = vi.fn();
+
+    const result = await lookupChordCatalogVoicings({
+      ...BASE_PARAMS,
+      bassPc: 9,  // dos sufijos: major, major_a
+      cache: {}, cacheErr, onCacheSet,
+    });
+
+    expect(result).toEqual([]);
+    expect(Object.keys(cacheErr)).toHaveLength(0);  // no mutado
+    expect(onCacheSet).not.toHaveBeenCalled();
   });
 });
