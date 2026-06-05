@@ -29,7 +29,6 @@ import {
 import { chordDbKeyNameFromPc } from "./music/chordDbCatalog.js";
 import {
   chordDbUrl,
-  chordDbUrlLocal,
   buildChordDbCacheKey,
   fetchChordDbJsonWithFallback,
   lookupChordCatalogVoicings,
@@ -280,7 +279,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "6.0.19";
+const APP_VERSION = "6.0.20";
 
 
 // ─── Acorde de referencia (bloque "Investigar en mástil") ────────────────────
@@ -569,7 +568,6 @@ export default function FretboardScalesPage() {
   const [chordDb, setChordDb] = useState(null);
   const [chordDbStatus, setChordDbStatus] = useState("idle");
   const [chordDbError, setChordDbError] = useState(null);
-  const [, setChordDbLastUrl] = useState(null);
   const lastNearVoicingsRef = useRef([null, null, null, null]);
   const skipNearVoicingRefSyncRef = useRef([false, false, false, false]);
   const pendingNearRestoreRef = useRef([
@@ -1485,7 +1483,6 @@ export default function FretboardScalesPage() {
       setChordDb(null);
       setChordDbStatus("skipped");
       setChordDbError(null);
-      setChordDbLastUrl(null);
       return;
     }
 
@@ -1501,7 +1498,6 @@ export default function FretboardScalesPage() {
       setChordDb(null);
       setChordDbStatus("skipped");
       setChordDbError(null);
-      setChordDbLastUrl(null);
       return;
     }
 
@@ -1516,18 +1512,14 @@ export default function FretboardScalesPage() {
     let alive = true;
     const keyName = chordDbKeyNameFromPc(chordRootPc);
     const urlRel = chordDbUrl(keyName, suffix);
-    const urlLocalAbs = new URL(chordDbUrlLocal(keyName, suffix), window.location.href).href;
-
-    setChordDbLastUrl(urlLocalAbs);
 
     (async () => {
       try {
         setChordDbStatus("loading");
         setChordDbError(null);
 
-        const { json, usedUrl } = await fetchChordDbJsonWithFallback(urlRel);
+        const { json } = await fetchChordDbJsonWithFallback(urlRel);
         if (!alive) return;
-        setChordDbLastUrl(usedUrl);
         setChordDb(json);
         setChordDbStatus("ready");
       } catch (e) {
@@ -1558,11 +1550,6 @@ export default function FretboardScalesPage() {
     }),
     [chordDbCache, chordDbCacheErr, chordPreferSharps, setChordDbCache]
   );
-
-  // Si se cierra el panel, limpia el último URL mostrado
-  useEffect(() => {
-    if (!showBoards.chords) setChordDbLastUrl(null);
-  }, [showBoards.chords]);
 
   // Pre-carga de JSON para Acordes (2) cuando algún slot está en modo "Acorde"
   useEffect(() => {
