@@ -35,6 +35,7 @@ const {
   parseChordDbFretsString,
   buildVoicingFromFretsLH,
   selectClosestPhysicalVoicingIndex,
+  selectNaturalGuitarVoicingIndex,
 } = AppVoicingStudyCore;
 
 export function useChordBuilderTertianSelectionBlock({
@@ -97,7 +98,7 @@ export function useChordBuilderTertianSelectionBlock({
         : lastChordVoicingRef.current;
       idx = selectClosestPhysicalVoicingIndex(ref, list, { fallbackIndex: normalizedCurrentIdx });
     } else {
-      idx = 0;
+      idx = selectNaturalGuitarVoicingIndex(list, { rootPc: chordRootPc });
     }
     const voicing = list[idx] || list[0] || null;
     return { idx, voicing, frets: voicing?.frets ?? null, waitingPending: false };

@@ -2,12 +2,13 @@
  * E2E — chordKeepZone: "Mantener zona anterior"
  *
  * Verifica que el toggle controla si la selección automática de voicing
- * usa continuidad física (true) o ranking natural — índice 0 — (false).
+ * usa continuidad física (true) o ranking guitarístico canónico (false).
  *
  * KZ-1 — Regresión: valor por defecto true, toggle visible y marcado
- * KZ-2 — D abierto: con keepZone=false y open strings, D usa xx0232 (idx 0)
+ * KZ-2 — D abierto: con keepZone=false, D usa xx0232 (bajo raíz preferido)
  * KZ-3 — Persistencia: el valor false sobrevive a recarga de página
- * KZ-4 — F sin cuerdas al aire: keepZone=false muestra 133211 (primera del catálogo)
+ * KZ-4 — F sin cuerdas al aire: keepZone=false muestra 133211 (más cuerdas sonando)
+ * KZ-5 — keepZone=true: conserva continuidad física, no salta a voicing canónico
  */
 
 import { test, expect } from "@playwright/test";
@@ -49,11 +50,10 @@ test("KZ-1. chordKeepZone: el toggle 'Mantener zona anterior' aparece marcado po
 });
 
 // ── KZ-2 ─────────────────────────────────────────────────────────────────────
-test("KZ-2. chordKeepZone=false: D mayor con cuerdas al aire usa ranking natural en vez de zona anterior", async ({ page }) => {
-  // El ranking natural ordena por minFret→span→maxFret→alfabético.
-  // "2002x2" (span=2) precede a "xx0232" (span=3) porque tiene menor amplitud.
-  // Con keepZone=false se usa índice 0 del ranking, NO el voicing físicamente
-  // más cercano al acorde anterior. Ranking CAGED aún no implementado.
+test("KZ-2. chordKeepZone=false: D mayor con cuerdas al aire selecciona xx0232 (bajo raíz)", async ({ page }) => {
+  // El selector guitarístico prefiere bajo raíz antes que bajo tercera.
+  // xx0232 tiene bajo D (raíz), 2002x2 tiene bajo F# (tercera).
+  // Con keepZone=false se usa el selector guitarístico, NO el físicamente más cercano.
   await goToChords(page);
 
   // C mayor chord + cuerdas al aire ON
@@ -75,12 +75,10 @@ test("KZ-2. chordKeepZone=false: D mayor con cuerdas al aire usa ranking natural
   await waitForVoicings(page);
   await page.waitForTimeout(300);
 
-  // Con keepZone=false: primer voicing del ranking natural (2002x2, D/F# span=2)
-  // Es diferente al voicing de zona alta de C
+  // Con keepZone=false el selector guitarístico elige xx0232 (bajo raíz)
   const dVoicing = await page.getByTestId("active-voicing-pattern").textContent();
   expect(dVoicing).not.toBe(highFretVoicing);
-  // Verificar que es el índice 0 del ranking: 2002x2 (menor span para D con open strings)
-  await expect(page.getByTestId("active-voicing-pattern")).toHaveText("2002x2");
+  await expect(page.getByTestId("active-voicing-pattern")).toHaveText("xx0232");
 });
 
 // ── KZ-3 ─────────────────────────────────────────────────────────────────────
@@ -106,27 +104,69 @@ test("KZ-3. chordKeepZone persiste: el valor false sobrevive a recarga de págin
 });
 
 // ── KZ-4 ─────────────────────────────────────────────────────────────────────
-test("KZ-4. chordKeepZone=false sin cuerdas al aire: F mayor usa el índice 0 del ranking natural", async ({ page }) => {
-  // El ranking natural ordena por minFret→span→maxFret→alfabético.
-  // El primer voicing de F mayor sin cuerdas al aire es "13x2xx" (3 cuerdas, span=2),
-  // NO "133211" (barre, span=2, pero alfabéticamente posterior a "13x2xx"... o el mismo span).
-  // NOTA: El ranking CAGED (preferir 133211 antes de 13x2xx) aún no está implementado.
-  // Este test documenta el comportamiento actual del ranking natural para F.
+test("KZ-4. chordKeepZone=false sin cuerdas al aire: F mayor usa 133211 (más cuerdas sonando)", async ({ page }) => {
+  // El selector guitarístico prefiere más cuerdas sonando.
+  // 133211 (barre, 6 cuerdas) gana sobre 13x2xx (3 cuerdas).
+  // Ambos tienen bajo raíz (F en cuerda 6, traste 1), empatan en minFret/span,
+  // pero 133211 tiene más cuerdas sonando → gana en criterio 4.
   await goToChords(page);
 
   // Asegurar cuerdas al aire desactivadas
   await setCheckbox(page, "toggle-allow-open-strings", false);
+  await setChordStructure(page, "C", "maj", "chord");
+  await waitForVoicings(page);
+  await expect
+    .poll(async () => {
+      const options = await page.getByTestId("voicing-select").locator("option").allTextContents();
+      return options.some((text) => text.includes("13x2xx")) ? "stale-f" : "c-ready";
+    }, { timeout: 8000 })
+    .toBe("c-ready");
 
-  // F mayor, estructura Acorde, sin Mantener zona anterior
+  const cCount = await page.getByTestId("voicing-select").locator("option").count();
+  await page.getByTestId("voicing-select").selectOption({ index: cCount - 1 });
+  await page.waitForTimeout(200);
+
+  // Desactivar Mantener zona anterior antes de cambiar de acorde para probar la rama 3.
+  await setCheckbox(page, "toggle-keep-zone", false);
+  await expect(page.getByTestId("toggle-keep-zone")).not.toBeChecked();
+
+  // F mayor, estructura Acorde
   await page.getByTestId("select-tone").selectOption("F");
   await page.getByTestId("select-quality").selectOption("maj");
   await page.getByTestId("select-structure").selectOption("chord");
-  await setCheckbox(page, "toggle-keep-zone", false);
 
   await waitForVoicings(page);
   await page.waitForTimeout(300);
 
-  // Con keepZone=false se usa índice 0: el ranking actual da "13x2xx" antes de "133211"
-  // (mismo span=2 y maxFret=3; la razón exacta del orden requiere investigar el ranking CAGED)
-  await expect(page.getByTestId("active-voicing-pattern")).toHaveText("13x2xx");
+  // El selector guitarístico elige 133211 (barre completo, más cuerdas)
+  await expect(page.getByTestId("active-voicing-pattern")).toHaveText("133211");
+});
+
+// ── KZ-5 ─────────────────────────────────────────────────────────────────────
+test("KZ-5. chordKeepZone=true: conserva continuidad física, no salta al voicing canónico", async ({ page }) => {
+  // Con keepZone=true, al cambiar de acorde se busca el voicing físicamente más cercano,
+  // NO el canónico. Si estamos en zona alta de C mayor y pasamos a D mayor,
+  // el resultado NO debe ser xx0232 (el canónico abierto de D).
+  await goToChords(page);
+
+  // C mayor chord + cuerdas al aire ON + keepZone=true (valor por defecto)
+  await setChordStructure(page, "C", "maj", "chord");
+  await setCheckbox(page, "toggle-allow-open-strings", true);
+  await waitForVoicings(page);
+
+  // Seleccionar el último voicing (zona alta)
+  const count = await page.getByTestId("voicing-select").locator("option").count();
+  await page.getByTestId("voicing-select").selectOption({ index: count - 1 });
+  await page.waitForTimeout(200);
+
+  // NO cambiar keepZone (queda en true por defecto)
+  await expect(page.getByTestId("toggle-keep-zone")).toBeChecked();
+
+  // Cambiar a D mayor
+  await page.getByTestId("select-tone").selectOption("D");
+  await waitForVoicings(page);
+  await page.waitForTimeout(300);
+
+  // Con keepZone=true NO debe saltar al canónico abierto xx0232
+  await expect(page.getByTestId("active-voicing-pattern")).not.toHaveText("xx0232");
 });

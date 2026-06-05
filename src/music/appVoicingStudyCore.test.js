@@ -12,6 +12,7 @@ import {
   physicalVoicingDistance,
   resolveCopiedVoicingAcrossStructures,
   selectClosestPhysicalVoicingIndex,
+  selectNaturalGuitarVoicingIndex,
 } from "./appVoicingStudyCore.js";
 import { chordBassInterval, chordDisplayNameFromUI } from "./appMusicBasics.js";
 
@@ -1204,6 +1205,59 @@ describe("continuidad física de voicings", () => {
     ];
 
     expect(selectClosestPhysicalVoicingIndex(previousVoicing, candidates, { reasonableDistance: 5 })).toBe(0);
+  });
+});
+
+// ============================================================================
+// selectNaturalGuitarVoicingIndex
+// ============================================================================
+describe("selectNaturalGuitarVoicingIndex — ranking guitarístico canónico", () => {
+  // D mayor (rootPc=2): xx0232 gana a bajo tercera, reducción parcial y bajo raíz desplazado.
+  test("D mayor: xx0232 gana a alternativas menos canónicas", () => {
+    const dPlan = { rootPc: 2 }; // D
+    const v_2002x2 = { ...buildVoicingFromFretsLH({ fretsLH: [2, 0, 0, 2, null, 2], rootPc: 2, maxFret: 15 }), _extra: 0 };
+    const v_xx02x2 = { ...buildVoicingFromFretsLH({ fretsLH: [null, null, 0, 2, null, 2], rootPc: 2, maxFret: 15 }), _extra: 0 };
+    const v_x50232 = { ...buildVoicingFromFretsLH({ fretsLH: [null, 5, 0, 2, 3, 2], rootPc: 2, maxFret: 15 }), _extra: 0 };
+    const v_xx0232 = { ...buildVoicingFromFretsLH({ fretsLH: [null, null, 0, 2, 3, 2], rootPc: 2, maxFret: 15 }), _extra: 0 };
+
+    const list = [v_2002x2, v_xx02x2, v_x50232, v_xx0232];
+    expect(selectNaturalGuitarVoicingIndex(list, dPlan)).toBe(3); // xx0232 en índice 3
+  });
+
+  // F mayor (rootPc=5): 133211 tiene 6 cuerdas sonando, 13x2xx solo 3
+  test("F mayor: 133211 gana a 13x2xx porque tiene más cuerdas sonando", () => {
+    const fPlan = { rootPc: 5 }; // F
+    const v_13x2xx = { ...buildVoicingFromFretsLH({ fretsLH: [1, 3, null, 2, null, null], rootPc: 5, maxFret: 15 }), _extra: 0 };
+    const full_133211 = buildVoicingFromFretsLH({ fretsLH: [1, 3, 3, 2, 1, 1], rootPc: 5, maxFret: 15 });
+    const v_133211 = { ...full_133211, notes: full_133211.notes.slice(0, 3), _extra: 0 };
+
+    // 13x2xx primero (índice 0 del ranking actual)
+    const list = [v_13x2xx, v_133211];
+    expect(selectNaturalGuitarVoicingIndex(list, fPlan)).toBe(1); // 133211 en índice 1
+  });
+
+  // Empate en todos los criterios naturales: gana menor _catalogIdx
+  test("empate en criterios naturales: gana menor _catalogIdx sobre orden lexicográfico", () => {
+    const plan = { rootPc: 2 }; // D
+    const base = buildVoicingFromFretsLH({ fretsLH: [null, null, 0, 2, 3, 2], rootPc: 2, maxFret: 15 });
+    // Mismo voicing base (igual en todos los criterios): solo difieren en _catalogIdx y frets string
+    // frets="aaaaaa" viene antes lexicográficamente que "zzzzzz", pero tiene _catalogIdx mayor
+    const v_lex_first = { ...base, _extra: 0, frets: "aaaaaa", _catalogIdx: 5 };
+    const v_cat_first = { ...base, _extra: 0, frets: "zzzzzz", _catalogIdx: 0 };
+
+    const list = [v_lex_first, v_cat_first];
+    expect(selectNaturalGuitarVoicingIndex(list, plan)).toBe(1); // _catalogIdx=0 gana sobre lex
+  });
+
+  // Lista vacía devuelve 0
+  test("lista vacía devuelve 0", () => {
+    expect(selectNaturalGuitarVoicingIndex([], { rootPc: 0 })).toBe(0);
+  });
+
+  // Lista de un elemento devuelve 0
+  test("lista de un elemento devuelve 0", () => {
+    const v = buildVoicingFromFretsLH({ fretsLH: [null, null, 0, 2, 3, 2], rootPc: 2, maxFret: 15 });
+    expect(selectNaturalGuitarVoicingIndex([{ ...v, _extra: 0 }], { rootPc: 2 })).toBe(0);
   });
 });
 

@@ -1165,6 +1165,76 @@ export function selectClosestPhysicalVoicingIndex(reference, options, { fallback
   return bestScore <= reasonableDistance ? bestIdx : Math.max(0, Math.min(fallbackIndex, list.length - 1));
 }
 
+function _voicingRelIntervalsForNaturalScore(v, rootPc) {
+  if (v?.relIntervals instanceof Set) return v.relIntervals;
+  return new Set((v?.notes || []).map((note) => mod12(note.pc - rootPc)));
+}
+
+function _voicingBassForNaturalScore(v) {
+  if (!Array.isArray(v?.notes) || !v.notes.length) return null;
+  return v.notes.reduce((best, note) => {
+    if (!best) return note;
+    return pitchAt(note.sIdx, note.fret) < pitchAt(best.sIdx, best.fret) ? note : best;
+  }, null);
+}
+
+function _voicingSoundingStringCountForNaturalScore(v) {
+  const frets = String(v?.frets || "").trim();
+  if (frets.length === 6) return [...frets].filter((ch) => ch.toLowerCase() !== "x").length;
+  return v?.notes?.length ?? 0;
+}
+
+// Scores a voicing for natural/canonical guitar selection (chordKeepZone=false).
+// Returns a tuple used for lexicographic comparison: lower is better.
+function _naturalGuitarVoicingScore(v, rootPc) {
+  const extra = v._extra ?? 0;
+
+  const bass = _voicingBassForNaturalScore(v);
+  const bassPc = v.bassPc ?? bass?.pc ?? -1;
+  const relIntervals = _voicingRelIntervalsForNaturalScore(v, rootPc);
+  let bassScore;
+  if (rootPc >= 0 && bassPc === rootPc) {
+    bassScore = 0;
+  } else if (rootPc >= 0 && relIntervals.has(mod12(bassPc - rootPc))) {
+    bassScore = 1;
+  } else {
+    bassScore = 2;
+  }
+
+  const bassFret = bass?.fret ?? Number.MAX_SAFE_INTEGER;
+  const minFret = v.minFret ?? 0;
+  const soundingNeg = -_voicingSoundingStringCountForNaturalScore(v); // negate: more strings = better
+  const span = v.span ?? 0;
+  const maxFret = v.maxFret ?? 0;
+  const catalogIdx = v._catalogIdx ?? Number.MAX_SAFE_INTEGER;
+  const fretsStr = v.frets ?? "";
+
+  // bassFret resolves root-bass ties where minFret ignores an open/shifted bass (xx0232 over x50232).
+  return [extra, bassScore, bassFret, minFret, soundingNeg, span, maxFret, catalogIdx, fretsStr];
+}
+
+export function selectNaturalGuitarVoicingIndex(list, plan) {
+  if (!list?.length) return 0;
+  const rootPc = plan?.rootPc ?? -1;
+
+  let bestIdx = 0;
+  let bestScore = _naturalGuitarVoicingScore(list[0], rootPc);
+
+  for (let i = 1; i < list.length; i++) {
+    const s = _naturalGuitarVoicingScore(list[i], rootPc);
+    for (let k = 0; k < s.length; k++) {
+      if (s[k] < bestScore[k]) {
+        bestIdx = i;
+        bestScore = s;
+        break;
+      }
+      if (s[k] > bestScore[k]) break;
+    }
+  }
+
+  return bestIdx;
+}
+
 function finalizeSearchVoicingsForPlan({ plan, voicings, maxFret, maxSpan, allowOpenStrings = false }) {
   const base = dedupeAndSortVoicings(voicings);
   if (!allowOpenStrings) return base.filter((voicing) => !voicingHasOpenStrings(voicing));

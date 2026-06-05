@@ -279,7 +279,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "6.0.21";
+const APP_VERSION = "6.0.22";
 
 
 // ─── Acorde de referencia (bloque "Investigar en mástil") ────────────────────
@@ -567,6 +567,7 @@ export default function FretboardScalesPage() {
 
   // Voicings de acordes (digitaciones tocables) desde dataset externo
   const [chordDb, setChordDb] = useState(null);
+  const [chordDbKey, setChordDbKey] = useState(null);
   const [chordDbStatus, setChordDbStatus] = useState("idle");
   const [chordDbError, setChordDbError] = useState(null);
   const lastNearVoicingsRef = useRef([null, null, null, null]);
@@ -1477,6 +1478,10 @@ export default function FretboardScalesPage() {
   }, [chordRootPc, chordIntervals, chordSpelledNotes, chordPreferSharps]);
 
   const _chordPcs = useMemo(() => new Set(chordIntervals.map((i) => mod12(chordRootPc + i))), [chordIntervals, chordRootPc]);
+  const chordDbExpectedKey = useMemo(() => {
+    if (chordStructure !== "chord" || !chordSuffix) return null;
+    return buildChordDbCacheKey(chordDbKeyNameFromPc(chordRootPc), chordSuffix);
+  }, [chordRootPc, chordStructure, chordSuffix]);
 
   // Carga de digitaciones tocables (voicings)
   // Solo se necesita JSON cuando la estructura es "Acorde" (voicings completos).
@@ -1485,6 +1490,7 @@ export default function FretboardScalesPage() {
 
     if (chordStructure !== "chord") {
       setChordDb(null);
+      setChordDbKey(null);
       setChordDbStatus("skipped");
       setChordDbError(null);
       return;
@@ -1500,6 +1506,7 @@ export default function FretboardScalesPage() {
       ext13: chordExt13,
     })) {
       setChordDb(null);
+      setChordDbKey(null);
       setChordDbStatus("skipped");
       setChordDbError(null);
       return;
@@ -1508,6 +1515,7 @@ export default function FretboardScalesPage() {
     const suffix = chordSuffix;
     if (!suffix) {
       setChordDb(null);
+      setChordDbKey(null);
       setChordDbStatus("error");
       setChordDbError("No hay digitaciones para esta combinación (p.ej. menor add9 sin 7).");
       return;
@@ -1520,15 +1528,19 @@ export default function FretboardScalesPage() {
     (async () => {
       try {
         setChordDbStatus("loading");
+        setChordDb(null);
+        setChordDbKey(null);
         setChordDbError(null);
 
         const { json } = await fetchChordDbJsonWithFallback(urlRel);
         if (!alive) return;
         setChordDb(json);
+        setChordDbKey(chordDbExpectedKey);
         setChordDbStatus("ready");
       } catch (e) {
         if (!alive) return;
         setChordDb(null);
+        setChordDbKey(null);
         setChordDbStatus("error");
         setChordDbError(String(e?.message || e));
       }
@@ -1537,12 +1549,13 @@ export default function FretboardScalesPage() {
     return () => {
       alive = false;
     };
-  }, [showBoards.chords, chordRootPc, chordQuality, chordSuffix, chordStructure, chordExt7, chordExt6, chordExt9, chordExt11, chordExt13]);
+  }, [showBoards.chords, chordRootPc, chordQuality, chordSuffix, chordStructure, chordExt7, chordExt6, chordExt9, chordExt11, chordExt13, chordDbExpectedKey]);
 
   // "skipped" ocurre cuando el acorde anterior no usaba catálogo JSON (ej. m(maj7) -> menor/dim).
   // En ese render chordDb=null pero el nuevo plan ya exige json, por lo que hay que inhibir el
   // mensaje vacío hasta que la carga termine. Solo "ready" y "error" son estados resueltos.
-  const chordVoicingsResolving = chordEnginePlan.generator === "json" && chordDbStatus !== "ready" && chordDbStatus !== "error";
+  const chordVoicingsResolving = chordEnginePlan.generator === "json"
+    && ((chordDbStatus !== "ready" && chordDbStatus !== "error") || (chordDbStatus === "ready" && chordDbKey !== chordDbExpectedKey));
 
   const ensureChordDbCatalogVoicings = useCallback(
     (params) => lookupChordCatalogVoicings({
@@ -1741,6 +1754,7 @@ export default function FretboardScalesPage() {
     }
 
     if (plan.generator === "json") {
+      if (chordDbKey !== chordDbExpectedKey) return [];
       if (!chordDb?.positions?.length) return [];
 
       const allowed = new Set(plan.intervals.map(mod12));
@@ -1839,7 +1853,7 @@ export default function FretboardScalesPage() {
     }
 
     return [];
-  }, [chordEnginePlan, chordDb, chordMaxDist, chordAllowOpenStrings, maxFret]);
+  }, [chordEnginePlan, chordDb, chordDbKey, chordDbExpectedKey, chordMaxDist, chordAllowOpenStrings, maxFret]);
 
   const {
     chordVoicingsDisplay,
