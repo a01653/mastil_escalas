@@ -27,6 +27,15 @@ import {
   formatChordName as formatChordNamePure,
 } from "./music/chordDetectionEngine.js";
 import { chordDbKeyNameFromPc } from "./music/chordDbCatalog.js";
+import {
+  chordDbUrl,
+  chordDbUrlLocal,
+  publicRelToLocal,
+  buildChordDbFallbackUrl,
+  buildChordDbCacheKey,
+  buildChordDbBassSuffix,
+  buildChordDbSuffixes,
+} from "./features/chord-catalog/chordCatalogCore.js";
 
 import { buildNearSlotsFromChordSymbols } from "./music/standardsCatalog.js";
 import { useStandardsFeature } from "./features/standards/useStandardsFeature.js";
@@ -268,41 +277,12 @@ const MOBILE_BOTTOM_NAV_OPTIONS = [
 // ============================================================================
 // MÁSTIL, AFINACIÓN E INLAYS
 
-// Base del sitio (Vite) para que fetch a /public funcione en localhost y GitHub Pages.
-// En producción (Pages) suele ser "/mastil_pruebas/" y en dev "/".
-// OJO: nunca accedas a import.meta.env.BASE_URL sin optional chaining.
-// En Vite existe import.meta.env.BASE_URL ("/" en dev, "/<repo>/" en GitHub Pages).
-// Evitamos sintaxis TS "as any" porque puede romper el parser en algunos entornos.
-const APP_BASE = (import.meta && import.meta.env && import.meta.env.BASE_URL) ? import.meta.env.BASE_URL : "/";
-// Fallback (cuando se ejecuta fuera del repo, p.ej. sandbox): GitHub Pages del proyecto
-const PAGES_BASE = "https://a01653.github.io/mastil_pruebas/";
 const UI_STORAGE_KEY = "mastil_interactivo_guitarra_config_v1";
 const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "6.0.14";
-
-function chordDbUrl(keyName, suffix) {
-  // Ruta RELATIVA dentro de /public (sin base) => chords-db/...
-  const folder = encodeURIComponent(keyName); // A# => A%23
-  const file = encodeURIComponent(`${suffix}.json`);
-  return `chords-db/${folder}/${file}`;
-}
-
-function chordDbUrlLocal(keyName, suffix) {
-  // Ruta para fetch respetando base (Pages)
-  const base = String(APP_BASE || "/");
-  const b = base.endsWith("/") ? base : base + "/";
-  return `${b}${chordDbUrl(keyName, suffix)}`;
-}
-
-function publicRelToLocal(rel) {
-  const base = String(APP_BASE || "/");
-  const b = base.endsWith("/") ? base : base + "/";
-  const r = String(rel || "").replace(/^\/+/, "");
-  return `${b}${r}`;
-}
+const APP_VERSION = "6.0.15";
 
 async function parseJsonResponseStrict(res, urlForError) {
   const contentType = String(res.headers?.get?.("content-type") || "").toLowerCase();
@@ -1549,7 +1529,7 @@ export default function FretboardScalesPage() {
     const urlRel = chordDbUrl(keyName, suffix);
     const urlLocal = chordDbUrlLocal(keyName, suffix);
     const urlLocalAbs = new URL(urlLocal, window.location.href).href;
-    const urlFallbackAbs = `${PAGES_BASE}${urlRel}`;
+    const urlFallbackAbs = buildChordDbFallbackUrl(urlRel);
 
     setChordDbLastUrl(urlLocalAbs);
 
@@ -1632,12 +1612,12 @@ export default function FretboardScalesPage() {
     });
     if (!suffixBase) return [];
 
-    const bassSuffix = bassPc == null ? null : `${suffixBase}_${pcToName(bassPc, chordPreferSharps).toLowerCase()}`;
-    const suffixes = bassSuffix && bassSuffix !== suffixBase ? [suffixBase, bassSuffix] : [suffixBase];
+    const bassSuffix = buildChordDbBassSuffix(suffixBase, bassPc, chordPreferSharps);
+    const suffixes = buildChordDbSuffixes(suffixBase, bassSuffix);
 
     const keyName = chordDbKeyNameFromPc(rootPc);
     for (const suffix of suffixes) {
-      const cacheKey = `${keyName}/${suffix}`;
+      const cacheKey = buildChordDbCacheKey(keyName, suffix);
       const cached = chordDbCache[cacheKey];
       if (cached?.positions?.length) return cached.positions;
 
@@ -1646,7 +1626,7 @@ export default function FretboardScalesPage() {
 
       const urlRel = chordDbUrl(keyName, suffix);
       const urlLocal = publicRelToLocal(urlRel);
-      const urlFallbackAbs = `${PAGES_BASE}${urlRel}`;
+      const urlFallbackAbs = buildChordDbFallbackUrl(urlRel);
 
       try {
         let res = await fetch(urlLocal, { cache: "no-store" });
@@ -1710,7 +1690,7 @@ export default function FretboardScalesPage() {
       if (!suffix) continue;
       const keyName = chordDbKeyNameFromPc(s.rootPc);
       const urlRel = chordDbUrl(keyName, suffix);
-      const cacheKey = `${keyName}/${suffix}`;
+      const cacheKey = buildChordDbCacheKey(keyName, suffix);
       if (chordDbCache[cacheKey] || chordDbCacheErr[cacheKey]) continue;
       needed.push({ cacheKey, urlRel });
     }
@@ -1723,7 +1703,7 @@ export default function FretboardScalesPage() {
         try {
           const urlLocal = publicRelToLocal(it.urlRel);
           const urlLocalAbs = new URL(urlLocal, window.location.href).href;
-          const urlFallbackAbs = `${PAGES_BASE}${it.urlRel}`;
+          const urlFallbackAbs = buildChordDbFallbackUrl(it.urlRel);
 
           let res = await fetch(urlLocal, { cache: "no-store" });
           if (!res.ok) {
