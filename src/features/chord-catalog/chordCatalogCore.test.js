@@ -7,6 +7,7 @@ import {
   buildChordDbCacheKey,
   buildChordDbBassSuffix,
   buildChordDbSuffixes,
+  parseJsonResponseStrict,
   CHORD_DB_PAGES_BASE,
 } from "./chordCatalogCore.js";
 
@@ -151,5 +152,92 @@ describe("buildChordDbSuffixes", () => {
 
   test("sufijo 7 con bajo bb: ['7', '7_bb']", () => {
     expect(buildChordDbSuffixes("7", "7_bb")).toEqual(["7", "7_bb"]);
+  });
+});
+
+// ── parseJsonResponseStrict ───────────────────────────────────────────────────
+
+function makeResponse({ contentType, body = "{}", jsonParseThrows = false }) {
+  return {
+    headers: { get: (name) => (name === "content-type" ? contentType : null) },
+    text: async () => body,
+    json: jsonParseThrows
+      ? async () => { throw new SyntaxError("Unexpected token"); }
+      : async () => JSON.parse(body),
+  };
+}
+
+describe("parseJsonResponseStrict", () => {
+  test("content-type application/json: parsea y devuelve el objeto JSON", async () => {
+    const res = makeResponse({
+      contentType: "application/json",
+      body: '{"positions":[{"frets":"x32010"}]}',
+    });
+    const result = await parseJsonResponseStrict(res, "http://example.com/C/major.json");
+    expect(result).toEqual({ positions: [{ frets: "x32010" }] });
+  });
+
+  test("content-type con charset (application/json; charset=utf-8): parsea correctamente", async () => {
+    const res = makeResponse({
+      contentType: "application/json; charset=utf-8",
+      body: '{"key":"G"}',
+    });
+    const result = await parseJsonResponseStrict(res, "http://example.com/G/major.json");
+    expect(result).toEqual({ key: "G" });
+  });
+
+  test("content-type text/html: lanza error que incluye el tipo y una muestra del cuerpo", async () => {
+    const res = makeResponse({
+      contentType: "text/html",
+      body: "<html><body>Not found</body></html>",
+    });
+    await expect(
+      parseJsonResponseStrict(res, "http://example.com/missing.json")
+    ).rejects.toThrow("text/html");
+    // Nueva instancia porque text() ya fue consumida en la primera llamada
+    const res2 = makeResponse({ contentType: "text/html", body: "<html>Not found</html>" });
+    await expect(
+      parseJsonResponseStrict(res2, "http://example.com/missing.json")
+    ).rejects.toThrow("Not found");
+  });
+
+  test("content-type text/html: el mensaje de error menciona la URL recibida", async () => {
+    const res = makeResponse({ contentType: "text/html", body: "" });
+    await expect(
+      parseJsonResponseStrict(res, "http://example.com/chord.json")
+    ).rejects.toThrow("http://example.com/chord.json");
+  });
+
+  test("sin header content-type (null): lanza error con 'sin content-type'", async () => {
+    const res = makeResponse({ contentType: null, body: "" });
+    await expect(
+      parseJsonResponseStrict(res, "http://example.com/chord.json")
+    ).rejects.toThrow("sin content-type");
+  });
+
+  test("sin header content-type (undefined): lanza error con 'sin content-type'", async () => {
+    const res = makeResponse({ contentType: undefined, body: "" });
+    await expect(
+      parseJsonResponseStrict(res, "http://example.com/chord.json")
+    ).rejects.toThrow("sin content-type");
+  });
+
+  test("content-type application/json con cuerpo JSON inválido: propaga el error de parseo", async () => {
+    const res = makeResponse({
+      contentType: "application/json",
+      jsonParseThrows: true,
+    });
+    await expect(
+      parseJsonResponseStrict(res, "http://example.com/chord.json")
+    ).rejects.toThrow();
+  });
+
+  test("content-type vnd.api+json (contiene 'json'): acepta y parsea", async () => {
+    const res = makeResponse({
+      contentType: "application/vnd.api+json",
+      body: '{"data":null}',
+    });
+    const result = await parseJsonResponseStrict(res, "http://example.com/chord.json");
+    expect(result).toEqual({ data: null });
   });
 });

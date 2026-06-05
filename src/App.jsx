@@ -35,6 +35,7 @@ import {
   buildChordDbCacheKey,
   buildChordDbBassSuffix,
   buildChordDbSuffixes,
+  parseJsonResponseStrict,
 } from "./features/chord-catalog/chordCatalogCore.js";
 
 import { buildNearSlotsFromChordSymbols } from "./music/standardsCatalog.js";
@@ -282,16 +283,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "6.0.15";
-
-async function parseJsonResponseStrict(res, urlForError) {
-  const contentType = String(res.headers?.get?.("content-type") || "").toLowerCase();
-  if (!contentType.includes("json")) {
-    const sample = (await res.text()).slice(0, 80).replace(/\s+/g, " ").trim();
-    throw new Error(`Respuesta no JSON en ${urlForError}: ${contentType || "sin content-type"}${sample ? ` · ${sample}` : ""}`);
-  }
-  return res.json();
-}
+const APP_VERSION = "6.0.16";
 
 
 // ─── Acorde de referencia (bloque "Investigar en mástil") ────────────────────

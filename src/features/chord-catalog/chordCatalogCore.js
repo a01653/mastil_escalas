@@ -1,8 +1,9 @@
 /**
- * chordCatalogCore.js — Helpers puros de construcción para el catálogo JSON de acordes.
+ * chordCatalogCore.js — Helpers puros de construcción y validación para el catálogo JSON de acordes.
  *
  * Sin estado React, sin fetch, sin efectos secundarios.
- * Expone únicamente lógica de construcción de clave, sufijo, URLs y sufijo _bass.
+ * Expone lógica de construcción de clave, sufijo, URLs, sufijo _bass
+ * y validación de respuestas JSON.
  */
 
 import { pcToName } from "../../music/appMusicBasics.js";
@@ -95,4 +96,24 @@ export function buildChordDbSuffixes(suffixBase, bassSuffix) {
   return bassSuffix && bassSuffix !== suffixBase
     ? [suffixBase, bassSuffix]
     : [suffixBase];
+}
+
+/**
+ * Valida que la respuesta HTTP tiene Content-Type JSON y devuelve el cuerpo parseado.
+ * Lanza Error si el Content-Type no incluye "json" (adjuntando una muestra del cuerpo
+ * para facilitar el diagnóstico). Si el cuerpo es JSON inválido, el error de parseo
+ * de res.json() se propaga al caller sin modificar.
+ *
+ * @param {Response} res          - Respuesta fetch ya confirmada como ok
+ * @param {string}   urlForError  - URL usada en el mensaje de error para diagnóstico
+ */
+export async function parseJsonResponseStrict(res, urlForError) {
+  const contentType = String(res.headers?.get?.("content-type") || "").toLowerCase();
+  if (!contentType.includes("json")) {
+    const sample = (await res.text()).slice(0, 80).replace(/\s+/g, " ").trim();
+    throw new Error(
+      `Respuesta no JSON en ${urlForError}: ${contentType || "sin content-type"}${sample ? ` · ${sample}` : ""}`
+    );
+  }
+  return res.json();
 }
