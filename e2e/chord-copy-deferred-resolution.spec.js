@@ -184,3 +184,23 @@ test("82. Copia tertian diferida: la consulta de catálogo conserva el bajo real
     .poll(() => seenCatalogUrls.some((url) => url.includes("/chords-db/D/major_a.json")))
     .toBe(true);
 });
+
+test("88. Copia tertian: G/B consulta /chords-db/G/major_b.json con sufijo _bass correcto", async ({ page }) => {
+  // x20033 = notas G B D, bajo B → G/B (primary reading verificado con analyzeFrets)
+  const seenCatalogUrls = [];
+  await page.route("**/chords-db/**", async (route) => {
+    seenCatalogUrls.push(route.request().url());
+    await route.continue();
+  });
+
+  await goToChords(page);
+  await enableManualMode(page);
+  await applyManualPattern(page, "x20033");
+  await copyDetectedReading(page, /^G\/B$/);
+
+  await expect(page.getByTestId("select-structure")).toHaveValue("chord");
+  await expect(page.getByTestId("active-voicing-pattern")).toHaveText("x20033");
+  await expect
+    .poll(() => seenCatalogUrls.some((url) => url.includes("/chords-db/G/major_b.json")))
+    .toBe(true);
+});
