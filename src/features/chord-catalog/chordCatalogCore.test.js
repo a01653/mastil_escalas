@@ -1,4 +1,4 @@
-import { describe, test, expect } from "vitest";
+import { describe, test, expect, vi, afterEach } from "vitest";
 import {
   chordDbUrl,
   chordDbUrlLocal,
@@ -8,6 +8,7 @@ import {
   buildChordDbBassSuffix,
   buildChordDbSuffixes,
   parseJsonResponseStrict,
+  fetchChordDbJsonWithFallback,
   CHORD_DB_PAGES_BASE,
 } from "./chordCatalogCore.js";
 
@@ -239,5 +240,88 @@ describe("parseJsonResponseStrict", () => {
     });
     const result = await parseJsonResponseStrict(res, "http://example.com/chord.json");
     expect(result).toEqual({ data: null });
+  });
+});
+
+// ── fetchChordDbJsonWithFallback ──────────────────────────────────────────────
+
+function makeFetchMock({ localOk, localCt = "application/json", localBody = '{"positions":[]}',
+                         fallbackOk, fallbackCt = "application/json", fallbackBody = '{"positions":[{"frets":"320003"}]}' }) {
+  return vi.fn(async (url) => {
+    const isLocal = !String(url).includes("github.io");
+    if (isLocal) {
+      if (!localOk) return { ok: false, status: 404, url };
+      return {
+        ok: true, url,
+        headers: { get: (n) => n === "content-type" ? localCt : null },
+        text: async () => localBody,
+        json: async () => JSON.parse(localBody),
+      };
+    }
+    // Fallback
+    if (!fallbackOk) return { ok: false, status: 404, url };
+    return {
+      ok: true, url,
+      headers: { get: (n) => n === "content-type" ? fallbackCt : null },
+      text: async () => fallbackBody,
+      json: async () => JSON.parse(fallbackBody),
+    };
+  });
+}
+
+describe("fetchChordDbJsonWithFallback", () => {
+  afterEach(() => { vi.unstubAllGlobals(); });
+
+  test("local OK: devuelve json correcto y no llama al fallback", async () => {
+    const mockFetch = makeFetchMock({ localOk: true, fallbackOk: false });
+    vi.stubGlobal("fetch", mockFetch);
+
+    const { json, usedUrl } = await fetchChordDbJsonWithFallback("chords-db/C/major.json");
+
+    expect(json).toEqual({ positions: [] });
+    expect(usedUrl).toBeTruthy();
+    // Solo debería haberse llamado una vez (URL local)
+    const urls = mockFetch.mock.calls.map(([u]) => u);
+    expect(urls.some((u) => u.includes("github.io"))).toBe(false);
+  });
+
+  test("local 404 + fallback OK: devuelve json del fallback", async () => {
+    const mockFetch = makeFetchMock({ localOk: false, fallbackOk: true });
+    vi.stubGlobal("fetch", mockFetch);
+
+    const { json } = await fetchChordDbJsonWithFallback("chords-db/C/major.json");
+
+    expect(json.positions).toHaveLength(1);
+    expect(json.positions[0].frets).toBe("320003");
+    // Debe haberse llamado con la URL del fallback
+    const urls = mockFetch.mock.calls.map(([u]) => u);
+    expect(urls.some((u) => u.includes("github.io"))).toBe(true);
+  });
+
+  test("local 404 + fallback 404: lanza error", async () => {
+    vi.stubGlobal("fetch", makeFetchMock({ localOk: false, fallbackOk: false }));
+
+    await expect(
+      fetchChordDbJsonWithFallback("chords-db/C/major.json")
+    ).rejects.toThrow();
+  });
+
+  test("local OK pero content-type incorrecto: lanza error de parseJsonResponseStrict", async () => {
+    vi.stubGlobal("fetch", makeFetchMock({ localOk: true, localCt: "text/html", localBody: "<html/>",
+                                           fallbackOk: false }));
+
+    await expect(
+      fetchChordDbJsonWithFallback("chords-db/C/major.json")
+    ).rejects.toThrow("text/html");
+  });
+
+  test("local 404 + fallback OK pero content-type incorrecto: lanza error", async () => {
+    vi.stubGlobal("fetch", makeFetchMock({ localOk: false,
+                                           fallbackOk: true, fallbackCt: "text/plain",
+                                           fallbackBody: "plain text" }));
+
+    await expect(
+      fetchChordDbJsonWithFallback("chords-db/C/major.json")
+    ).rejects.toThrow();
   });
 });

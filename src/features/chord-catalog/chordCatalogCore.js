@@ -1,9 +1,8 @@
 /**
- * chordCatalogCore.js — Helpers puros de construcción y validación para el catálogo JSON de acordes.
+ * chordCatalogCore.js — Helpers puros de construcción, validación y fetch para el catálogo JSON.
  *
- * Sin estado React, sin fetch, sin efectos secundarios.
- * Expone lógica de construcción de clave, sufijo, URLs, sufijo _bass
- * y validación de respuestas JSON.
+ * Sin estado React. Expone lógica de construcción de clave, sufijo, URLs, sufijo _bass,
+ * validación de respuestas JSON y el fetch con fallback local → GitHub Pages.
  */
 
 import { pcToName } from "../../music/appMusicBasics.js";
@@ -107,6 +106,37 @@ export function buildChordDbSuffixes(suffixBase, bassSuffix) {
  * @param {Response} res          - Respuesta fetch ya confirmada como ok
  * @param {string}   urlForError  - URL usada en el mensaje de error para diagnóstico
  */
+/**
+ * Intenta fetch de `urlRel` con URL local primero; si falla, intenta el fallback en GitHub Pages.
+ * Valida el Content-Type con parseJsonResponseStrict.
+ *
+ * @param {string} urlRel - Ruta relativa dentro de /public, p. ej. "chords-db/G/major.json"
+ * @returns {{ json: object, usedUrl: string }} JSON parseado y URL que devolvió la respuesta
+ * @throws {Error} Si ambas URLs devuelven error HTTP o la respuesta no es JSON válido
+ */
+export async function fetchChordDbJsonWithFallback(urlRel) {
+  const urlLocal = publicRelToLocal(urlRel);
+  const urlFallbackAbs = buildChordDbFallbackUrl(urlRel);
+
+  let res = await fetch(urlLocal, { cache: "no-store" });
+  if (res.ok) {
+    const json = await parseJsonResponseStrict(res, res.url || urlLocal);
+    return { json, usedUrl: res.url || urlLocal };
+  }
+
+  const localStatus = res.status;
+  const localUrl = res.url || urlLocal;
+  res = await fetch(urlFallbackAbs, { cache: "no-store" });
+  if (!res.ok) {
+    throw new Error(
+      `local ${localUrl} (${localStatus}) | fallback ${urlFallbackAbs} (${res.status})`
+    );
+  }
+
+  const json = await parseJsonResponseStrict(res, res.url || urlFallbackAbs);
+  return { json, usedUrl: res.url || urlFallbackAbs };
+}
+
 export async function parseJsonResponseStrict(res, urlForError) {
   const contentType = String(res.headers?.get?.("content-type") || "").toLowerCase();
   if (!contentType.includes("json")) {

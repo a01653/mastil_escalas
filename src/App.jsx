@@ -30,12 +30,10 @@ import { chordDbKeyNameFromPc } from "./music/chordDbCatalog.js";
 import {
   chordDbUrl,
   chordDbUrlLocal,
-  publicRelToLocal,
-  buildChordDbFallbackUrl,
   buildChordDbCacheKey,
   buildChordDbBassSuffix,
   buildChordDbSuffixes,
-  parseJsonResponseStrict,
+  fetchChordDbJsonWithFallback,
 } from "./features/chord-catalog/chordCatalogCore.js";
 
 import { buildNearSlotsFromChordSymbols } from "./music/standardsCatalog.js";
@@ -283,7 +281,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "6.0.16";
+const APP_VERSION = "6.0.17";
 
 
 // ─── Acorde de referencia (bloque "Investigar en mástil") ────────────────────
@@ -1519,9 +1517,7 @@ export default function FretboardScalesPage() {
     let alive = true;
     const keyName = chordDbKeyNameFromPc(chordRootPc);
     const urlRel = chordDbUrl(keyName, suffix);
-    const urlLocal = chordDbUrlLocal(keyName, suffix);
-    const urlLocalAbs = new URL(urlLocal, window.location.href).href;
-    const urlFallbackAbs = buildChordDbFallbackUrl(urlRel);
+    const urlLocalAbs = new URL(chordDbUrlLocal(keyName, suffix), window.location.href).href;
 
     setChordDbLastUrl(urlLocalAbs);
 
@@ -1530,24 +1526,9 @@ export default function FretboardScalesPage() {
         setChordDbStatus("loading");
         setChordDbError(null);
 
-        let res = await fetch(urlLocal, { cache: "no-store" });
-        if (res.ok) {
-          const json = await parseJsonResponseStrict(res, urlLocalAbs);
-          if (!alive) return;
-          setChordDbLastUrl(urlLocalAbs);
-          setChordDb(json);
-          setChordDbStatus("ready");
-          return;
-        }
-
-        const localStatus = res.status;
-        res = await fetch(urlFallbackAbs, { cache: "no-store" });
-        const fbStatus = res.status;
-        if (!res.ok) throw new Error(`No pude cargar digitaciones: local ${urlLocalAbs} (${localStatus}) | fallback ${urlFallbackAbs} (${fbStatus})`);
-
-        const json = await parseJsonResponseStrict(res, urlFallbackAbs);
+        const { json, usedUrl } = await fetchChordDbJsonWithFallback(urlRel);
         if (!alive) return;
-        setChordDbLastUrl(urlFallbackAbs);
+        setChordDbLastUrl(usedUrl);
         setChordDb(json);
         setChordDbStatus("ready");
       } catch (e) {
@@ -1617,17 +1598,9 @@ export default function FretboardScalesPage() {
       if (cachedErr) continue;
 
       const urlRel = chordDbUrl(keyName, suffix);
-      const urlLocal = publicRelToLocal(urlRel);
-      const urlFallbackAbs = buildChordDbFallbackUrl(urlRel);
 
       try {
-        let res = await fetch(urlLocal, { cache: "no-store" });
-        if (!res.ok) {
-          res = await fetch(urlFallbackAbs, { cache: "no-store" });
-        }
-        if (!res.ok) continue;
-
-        const json = await parseJsonResponseStrict(res, res.url || urlFallbackAbs);
+        const { json } = await fetchChordDbJsonWithFallback(urlRel);
         setChordDbCache((prev) => ({ ...prev, [cacheKey]: json }));
         const positions = json?.positions?.length ? json.positions : [];
         if (!preferredFrets) return positions;
@@ -1693,18 +1666,7 @@ export default function FretboardScalesPage() {
     (async () => {
       for (const it of needed) {
         try {
-          const urlLocal = publicRelToLocal(it.urlRel);
-          const urlLocalAbs = new URL(urlLocal, window.location.href).href;
-          const urlFallbackAbs = buildChordDbFallbackUrl(it.urlRel);
-
-          let res = await fetch(urlLocal, { cache: "no-store" });
-          if (!res.ok) {
-            const stLocal = res.status;
-            res = await fetch(urlFallbackAbs, { cache: "no-store" });
-            if (!res.ok) throw new Error(`${urlLocalAbs} (${stLocal}) | ${urlFallbackAbs} (${res.status})`);
-          }
-
-          const json = await parseJsonResponseStrict(res, res.url || urlFallbackAbs);
+          const { json } = await fetchChordDbJsonWithFallback(it.urlRel);
           if (!alive) return;
           setChordDbCache((prev) => ({ ...prev, [it.cacheKey]: json }));
         } catch (e) {
