@@ -195,6 +195,96 @@ function buildContextualDom7Candidate(harmonyContext, readings) {
 }
 
 /**
+ * Genera un candidato fragmento de dominante cuando la b7 está ausente.
+ * Solo cuando quality==="7", raíz presente, b7 ausente, todas las notas en
+ * el ámbito dom7+tensiones y hay al menos una tensión reconocible.
+ * Se añade siempre al FINAL del ranking y nunca sustituye lecturas literales.
+ */
+function buildContextualDom7FragmentCandidate(harmonyContext, readings) {
+  const { rootPc: rootPcRaw, selectedNotes } = harmonyContext;
+  if (!Array.isArray(selectedNotes) || selectedNotes.length === 0) return null;
+
+  const rootPc = mod12(rootPcRaw);
+
+  if (hasCompatibleReading(readings, rootPc, "7")) return null;
+
+  const data = DOM7_TENSION_DATA;
+  const allValid = new Set([...data.coreIntervals, ...data.tensionSet]);
+  const uniquePcs = Array.from(new Set(selectedNotes.map((n) => mod12(n.pc))));
+  const selectedIntervals = uniquePcs.map((pc) => mod12(pc - rootPc));
+  const selectedIntervalSet = new Set(selectedIntervals);
+
+  if (!selectedIntervalSet.has(0)) return null;
+  if (selectedIntervalSet.has(10)) return null; // b7 presente → buildContextualDom7Candidate lo cubre
+
+  for (const intv of selectedIntervals) {
+    if (!allValid.has(intv)) return null;
+  }
+
+  const tensionsPresent = [...data.tensionSet]
+    .filter((i) => selectedIntervalSet.has(i))
+    .sort((a, b) => a - b);
+  if (tensionsPresent.length === 0) return null;
+
+  const corePresent     = data.coreIntervals.filter((i) =>  selectedIntervalSet.has(i));
+  const coreMissing     = data.coreIntervals.filter((i) => !selectedIntervalSet.has(i));
+  const missingLabels   = coreMissing.map((i) => data.coreLabels[i]);
+  const tensionLabelStrings = tensionsPresent.map((i) => data.tensionLabels[i]);
+
+  const pairsData = [
+    ...corePresent.map((i) => ({ intv: i, label: data.coreLabels[i] })),
+    ...tensionsPresent.map((i) => ({ intv: i, label: data.tensionLabels[i] })),
+  ];
+
+  const preferSharps = preferSharpsFromMajorTonicPc(rootPc);
+  const rootName     = pcToName(rootPc, preferSharps);
+  const suffix       = buildContextualSuffix(data.baseSuffix, tensionLabelStrings, missingLabels);
+  const name         = `${rootName}${suffix}`;
+
+  const noteNames = spellChordNotes({
+    rootPc,
+    chordIntervals: pairsData.map((p) => p.intv),
+    preferSharps,
+    degreeLabels:   pairsData.map((p) => p.label),
+  });
+
+  const intervalPairsText =
+    pairsData.map(({ label }, idx) => `${label}=${noteNames[idx]}`).join(", ") +
+    " · sin b7";
+
+  const syntheticFormula = {
+    id:           "contextual_dom7_fragment",
+    intervals:    pairsData.map((p) => p.intv),
+    degreeLabels: pairsData.map((p) => p.label),
+    quartal:      false,
+    ui:           null,
+    suffix,
+  };
+
+  return {
+    id:                   `contextual_frag|${rootPc}|7|${uniquePcs.slice().sort((a, b) => a - b).join(",")}`,
+    name,
+    rootPc,
+    bassPc:               rootPc,
+    preferSharps,
+    formula:              syntheticFormula,
+    exact:                false,
+    score:                0,
+    probabilityScore:     999,
+    rankScore:            "999",
+    uiPatch:              null,
+    intervalPairsText,
+    visibleNotes:         noteNames,
+    visibleIntervals:     pairsData.map((p) => p.intv),
+    missingLabels,
+    externalBassInterval: null,
+    contextual:           true,
+    fragment:             true,
+    missingThird:         coreMissing.includes(4),
+  };
+}
+
+/**
  * Intenta generar un candidato contextual rootless para referencia maj7.
  * Solo se crea si:
  *   - quality === "maj7"
@@ -323,6 +413,11 @@ export function rankReadingsWithHarmonyContext(readings, harmonyContext) {
       ? buildContextualMaj7RootlessCandidate(harmonyContext, readings)
       : null;
 
+  // Fragmento dominante: solo cuando falta b7 y el candidato principal no se generó
+  const fragmentCandidate = quality === "7" && !contextualCandidate
+    ? buildContextualDom7FragmentCandidate(harmonyContext, readings)
+    : null;
+
   const scored = readings.map((r) => ({
     reading: r,
     match:   contextMatchScore(r, rootPc, quality),
@@ -348,8 +443,11 @@ export function rankReadingsWithHarmonyContext(readings, harmonyContext) {
   // El candidato ganador cambió por efecto de la referencia: marcarlo como promovido.
   if (sorted[0] && sorted[0] !== readings[0]) {
     const promotedWinner = { ...sorted[0], referencePromoted: true };
-    return [promotedWinner, ...sorted.slice(1)];
+    const result = [promotedWinner, ...sorted.slice(1)];
+    if (fragmentCandidate) result.push(fragmentCandidate);
+    return result;
   }
 
+  if (fragmentCandidate) return [...sorted, fragmentCandidate];
   return sorted;
 }

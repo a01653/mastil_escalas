@@ -305,15 +305,17 @@ describe("candidato contextual dom7 — condiciones de rechazo", () => {
     expect(ranked.length).toBe(readings.length);
   });
 
-  it("5) si falta el b7, no crea candidato contextual", () => {
+  it("5) si falta el b7, no crea candidato contextual completo (solo puede aparecer fragmento)", () => {
     // Eb, G, F, A → Eb=raíz, G=3ª, F=9, A=#11; falta Db(b7)
     const readings = readingsFor(["Eb", "G", "F", "A"], "Eb");
     const selectedNotes = buildSyntheticSelectedNotes(["Eb", "G", "F", "A"], "Eb");
     const ranked = rankReadingsWithHarmonyContext(readings, {
       enabled: true, rootPc: 3, quality: "7", selectedNotes,
     });
-    expect(ranked.every((r) => !r.contextual)).toBe(true);
-    expect(ranked.length).toBe(readings.length);
+    // Ningún candidato contextual COMPLETO (sin b7 no se crea buildContextualDom7Candidate)
+    expect(ranked.every((r) => !r.contextual || r.fragment)).toBe(true);
+    // Las lecturas literales están todas presentes (el fragmento añade uno más como máximo)
+    expect(ranked.filter((r) => !r.fragment).length).toBe(readings.length);
   });
 
   it("6) sin selectedNotes en el contexto, nunca crea candidato contextual", () => {
@@ -428,5 +430,171 @@ describe("rankReadingsWithHarmonyContext — candidato maj7 rootless (a999ax, D 
     // Sin tensiones: missingLabels incluye "1" y "5", nombre sin (9,13)
     expect(contextual.missingLabels).toContain("1");
     expect(contextual.name).toContain("no1");
+  });
+});
+
+describe("rankReadingsWithHarmonyContext — fragmento dominante sin b7", () => {
+  // Voicing 3xx446: G, B, Bb(A#), Eb(D#)
+  // Intervalos respecto a G: 0(raíz), 4(3M), 3(#9), 8(b13) → falta b7(F)
+  const NOTES_GBBbEb = ["G", "B", "A#", "D#"];
+  const G7_CTX = { enabled: true, rootPc: 7, quality: "7" };
+
+  function rankedForGBBbEb() {
+    const readings = readingsFor(NOTES_GBBbEb, "G");
+    const selectedNotes = buildSyntheticSelectedNotes(NOTES_GBBbEb, "G");
+    return rankReadingsWithHarmonyContext(readings, { ...G7_CTX, selectedNotes });
+  }
+
+  it("genera un candidato fragmento con flag fragment=true", () => {
+    const ranked = rankedForGBBbEb();
+    const frag = ranked.find((r) => r.fragment === true);
+    expect(frag).toBeTruthy();
+  });
+
+  it("el fragmento tiene rootPc=7 (G) y contextual=true", () => {
+    const ranked = rankedForGBBbEb();
+    const frag = ranked.find((r) => r.fragment === true);
+    expect(frag.rootPc).toBe(7);
+    expect(frag.contextual).toBe(true);
+  });
+
+  it("el fragmento menciona sin b7 en intervalPairsText", () => {
+    const ranked = rankedForGBBbEb();
+    const frag = ranked.find((r) => r.fragment === true);
+    expect(frag.intervalPairsText).toContain("sin b7");
+  });
+
+  it("el fragmento incluye las tensiones #9 y b13 en el nombre", () => {
+    const ranked = rankedForGBBbEb();
+    const frag = ranked.find((r) => r.fragment === true);
+    expect(frag.name).toContain("#9");
+    expect(frag.name).toContain("b13");
+  });
+
+  it("el fragmento es siempre el último candidato", () => {
+    const ranked = rankedForGBBbEb();
+    const frag = ranked.find((r) => r.fragment === true);
+    expect(ranked[ranked.length - 1]).toBe(frag);
+  });
+
+  it("la lectura literal Ebaddb6/G sigue presente y precede al fragmento", () => {
+    const ranked = rankedForGBBbEb();
+    const fragIdx = ranked.findIndex((r) => r.fragment === true);
+    const literalIdx = ranked.findIndex((r) => r.name === "Ebaddb6/G");
+    expect(literalIdx).toBeGreaterThanOrEqual(0);
+    expect(literalIdx).toBeLessThan(fragIdx);
+  });
+
+  it("NO genera fragmento cuando b7 está presente (buildContextualDom7Candidate lo cubre)", () => {
+    // G, B, F, Bb = G7(#9,no5) → b7(F) presente, no debe aparecer fragment
+    const notes = ["G", "B", "F", "A#"];
+    const readings = readingsFor(notes, "G");
+    const selectedNotes = buildSyntheticSelectedNotes(notes, "G");
+    const ranked = rankReadingsWithHarmonyContext(readings, { ...G7_CTX, selectedNotes });
+    const frag = ranked.find((r) => r.fragment === true);
+    expect(frag).toBeUndefined();
+  });
+
+  it("NO genera fragmento fuera de contexto dominante (quality=maj7)", () => {
+    const selectedNotes = buildSyntheticSelectedNotes(NOTES_GBBbEb, "G");
+    const readings = readingsFor(NOTES_GBBbEb, "G");
+    const ranked = rankReadingsWithHarmonyContext(readings, { enabled: true, rootPc: 7, quality: "maj7", selectedNotes });
+    const frag = ranked.find((r) => r.fragment === true);
+    expect(frag).toBeUndefined();
+  });
+});
+
+describe("rankReadingsWithHarmonyContext — fragmento dominante: voicing 3xx445 (G,B,Eb,A)", () => {
+  // Voicing 3xx445: G, B, Eb, A
+  // Intervalos respecto a G: 0(raíz), 4(3M), 8(b13), 2(9) → falta b7(F) y 5(D)
+  const NOTES_GBEbA = ["G", "B", "Eb", "A"];
+  const G7_CTX = { enabled: true, rootPc: 7, quality: "7" };
+
+  function rankedFor3xx445() {
+    const readings = readingsFor(NOTES_GBEbA, "G");
+    const selectedNotes = buildSyntheticSelectedNotes(NOTES_GBEbA, "G");
+    return rankReadingsWithHarmonyContext(readings, { ...G7_CTX, selectedNotes });
+  }
+
+  it("genera un candidato fragmento con flag fragment=true", () => {
+    const ranked = rankedFor3xx445();
+    expect(ranked.find((r) => r.fragment === true)).toBeTruthy();
+  });
+
+  it("el fragmento tiene rootPc=7 y contextual=true", () => {
+    const ranked = rankedFor3xx445();
+    const frag = ranked.find((r) => r.fragment === true);
+    expect(frag.rootPc).toBe(7);
+    expect(frag.contextual).toBe(true);
+  });
+
+  it("el fragmento incluye las tensiones 9 y b13 en el nombre", () => {
+    const ranked = rankedFor3xx445();
+    const frag = ranked.find((r) => r.fragment === true);
+    expect(frag.name).toContain("9");
+    expect(frag.name).toContain("b13");
+  });
+
+  it("el fragmento menciona sin b7 en intervalPairsText", () => {
+    const ranked = rankedFor3xx445();
+    const frag = ranked.find((r) => r.fragment === true);
+    expect(frag.intervalPairsText).toContain("sin b7");
+  });
+
+  it("el fragmento es siempre el último candidato", () => {
+    const ranked = rankedFor3xx445();
+    const frag = ranked.find((r) => r.fragment === true);
+    expect(ranked[ranked.length - 1]).toBe(frag);
+  });
+});
+
+describe("rankReadingsWithHarmonyContext — fragmento: fronteras de calidad dominante", () => {
+  // El fragmento solo se genera con quality==="7".
+  // En la UI actual, CHORD_REF_QUALITIES = [..., "7", ..., "7sus4"]
+  // → "7sus4" no genera fragmento dom7 (es una familia diferente aunque mapee a "dom")
+  // → "Mayor", "menor", "m7", etc. tampoco generan fragmento
+  // Variantes hipotéticas ("7alt", "7b9", "9", "13") no existen en la UI y
+  // tampoco generarían fragmento porque la condición es estrictamente quality==="7"
+  const NOTES_GBEbA = ["G", "B", "Eb", "A"];
+
+  function rankedWithQuality(quality) {
+    const readings = readingsFor(NOTES_GBEbA, "G");
+    const selectedNotes = buildSyntheticSelectedNotes(NOTES_GBEbA, "G");
+    return rankReadingsWithHarmonyContext(readings, { enabled: true, rootPc: 7, quality, selectedNotes });
+  }
+
+  it("quality='7sus4' → NO genera fragmento dom7 (familia diferente)", () => {
+    const frag = rankedWithQuality("7sus4").find((r) => r.fragment === true);
+    expect(frag).toBeUndefined();
+  });
+
+  it("quality='Mayor' → NO genera fragmento", () => {
+    const frag = rankedWithQuality("Mayor").find((r) => r.fragment === true);
+    expect(frag).toBeUndefined();
+  });
+
+  it("quality='m7' → NO genera fragmento", () => {
+    const frag = rankedWithQuality("m7").find((r) => r.fragment === true);
+    expect(frag).toBeUndefined();
+  });
+
+  it("quality='maj7' → NO genera fragmento", () => {
+    const frag = rankedWithQuality("maj7").find((r) => r.fragment === true);
+    expect(frag).toBeUndefined();
+  });
+
+  it("quality hipotético '7alt' (no existe en UI) → NO genera fragmento", () => {
+    const frag = rankedWithQuality("7alt").find((r) => r.fragment === true);
+    expect(frag).toBeUndefined();
+  });
+
+  it("quality hipotético '9' (no existe en UI) → NO genera fragmento", () => {
+    const frag = rankedWithQuality("9").find((r) => r.fragment === true);
+    expect(frag).toBeUndefined();
+  });
+
+  it("quality hipotético '7b9' (no existe en UI) → NO genera fragmento", () => {
+    const frag = rankedWithQuality("7b9").find((r) => r.fragment === true);
+    expect(frag).toBeUndefined();
   });
 });

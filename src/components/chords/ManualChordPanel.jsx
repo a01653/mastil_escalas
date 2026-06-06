@@ -576,7 +576,7 @@ export default function ManualChordPanel({ layout, reading, actions, reference, 
 			  <div className="px-3 pb-3 pt-2">
           <div className="space-y-2" data-testid="detected-chord-list">
             {chordDetectCandidatesRanked.length ? chordDetectCandidatesRanked.map((cand) => (
-              <div key={cand.id} data-testid={`detected-chord-${cand.id}`} className={`flex items-start gap-3 rounded-xl border px-3 py-2 text-xs text-slate-700 ${cand.contextual || cand.referencePromoted ? "border-amber-200 bg-amber-50" : "border-slate-200 bg-sky-50"}`}>
+              <div key={cand.id} data-testid={`detected-chord-${cand.id}`} className={`flex items-start gap-3 rounded-xl border px-3 py-2 text-xs text-slate-700 ${cand.fragment ? "border-amber-100 bg-amber-50/50" : cand.contextual || cand.referencePromoted ? "border-amber-200 bg-amber-50" : "border-slate-200 bg-sky-50"}`}>
                 <label className="flex min-w-0 flex-1 items-start gap-3">
                   <input
                     type="radio"
@@ -586,7 +586,12 @@ export default function ManualChordPanel({ layout, reading, actions, reference, 
                     className="mt-0.5 h-4 w-4"
                   />
                   <div className="min-w-0">
-                    {(cand.contextual || cand.referencePromoted) && (
+                    {cand.fragment && (
+                      <div className="mb-0.5">
+                        <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">fragmento</span>
+                      </div>
+                    )}
+                    {!cand.fragment && (cand.contextual || cand.referencePromoted) && (
                       <div className="mb-0.5">
                         <span className="rounded bg-amber-200 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800">por referencia</span>
                       </div>
