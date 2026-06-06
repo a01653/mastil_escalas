@@ -3194,6 +3194,128 @@ export function buildStudySubstitutionGuide({ chordRootPc, chordName, plan, pref
 }
 
 // ============================================================================
+// GUITARISTIC VOICING FILTER
+// Pure functions. Do NOT modify dedupeAndSortVoicings, chordVoicings,
+// selectNaturalGuitarVoicingIndex, or any existing ranking / UI logic.
+// ============================================================================
+
+// Score thresholds for each tier.
+const GUITARISTIC_HABITUAL_MIN_SCORE  = 8;
+const GUITARISTIC_ESSENTIAL_MIN_SCORE = 13;
+
+/**
+ * Derives the physical components needed for the guitaristic score from a
+ * voicing object. Returns null for malformed input.
+ *
+ * @param {object} voicing
+ * @returns {{ score: number, internalMutes: number, soundingCount: number }|null}
+ */
+function _guitaristicComponents(voicing) {
+  if (!voicing?.frets) return null;
+  const decoded = parseChordDbFretsString(voicing.frets);
+  if (!decoded) return null;
+
+  const soundingCount = decoded.filter((f) => f != null).length;
+  const openCount     = decoded.filter((f) => f === 0).length;
+
+  // Internal mutes: null slots between the first and last sounding string.
+  const first   = decoded.findIndex((f) => f != null);
+  const lastRev = [...decoded].reverse().findIndex((f) => f != null);
+  const last    = lastRev >= 0 ? 5 - lastRev : -1;
+  let internalMutes = 0;
+  if (first >= 0 && last > first) {
+    for (let i = first + 1; i < last; i++) {
+      if (decoded[i] == null) internalMutes++;
+    }
+  }
+
+  // Barre: minimum non-zero fret value appears on ≥ 2 strings.
+  const fretted = decoded.filter((f) => f != null && f > 0);
+  let hasBarre = false;
+  if (fretted.length >= 2) {
+    const minFretVal = Math.min(...fretted);
+    hasBarre = fretted.filter((f) => f === minFretVal).length >= 2;
+  }
+  const cleanBarre = hasBarre && internalMutes === 0;
+
+  const minFret = voicing.minFret ?? 0;
+  const span    = voicing.span    ?? 0;
+
+  const score =
+    soundingCount * 2 +
+    openCount * 3 +
+    (cleanBarre ? 4 : 0) -
+    internalMutes * 4 -
+    Math.max(0, minFret - 7) -
+    Math.max(0, span - 3) * 2;
+
+  return { score, internalMutes, soundingCount };
+}
+
+/**
+ * Computes a guitaristic playability score for a voicing.  Higher = more
+ * typical / guitarist-friendly.
+ *
+ * Rewards  : more sounding strings (+2/string), open strings (+3/string),
+ *            clean barre (+4), low position, small span.
+ * Penalizes: internal mutes (−4/mute), position above fret 7 (−1/fret),
+ *            span > 3 (−2/extra fret).
+ */
+export function computeGuitaristicScore(voicing) {
+  return _guitaristicComponents(voicing)?.score ?? -99;
+}
+
+/**
+ * Filters a voicing list by guitaristic tier.
+ *
+ * Levels:
+ *   "all"       — full list, input order preserved.
+ *   "habitual"  — keeps voicings with score ≥ 8; falls back to "all".
+ *   "essential" — keeps voicings with score ≥ 13 AND 0 internal mutes;
+ *                 falls back to "habitual" then "all".
+ *
+ * Within each tier the output is sorted by score descending; ties broken by
+ * _catalogIdx ascending (lower index = earlier in human-curated catalog),
+ * then by original list position.
+ *
+ * Never returns an empty array when the input is non-empty.
+ */
+export function filterGuitaristicVoicings(level, voicings) {
+  if (!Array.isArray(voicings) || voicings.length === 0) return voicings ?? [];
+  if (level === "all") return voicings;
+
+  const entries = voicings.map((v, origIdx) => {
+    const c = _guitaristicComponents(v);
+    return { v, score: c?.score ?? -99, internalMutes: c?.internalMutes ?? 99, origIdx };
+  });
+
+  const sortByScore = (arr) =>
+    [...arr].sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      const cA = a.v._catalogIdx ?? Number.MAX_SAFE_INTEGER;
+      const cB = b.v._catalogIdx ?? Number.MAX_SAFE_INTEGER;
+      if (cA !== cB) return cA - cB;
+      return a.origIdx - b.origIdx;
+    });
+
+  if (level === "essential") {
+    const essential = entries.filter(
+      (e) => e.score >= GUITARISTIC_ESSENTIAL_MIN_SCORE && e.internalMutes === 0
+    );
+    if (essential.length) return sortByScore(essential).map((e) => e.v);
+
+    const habitual = entries.filter((e) => e.score >= GUITARISTIC_HABITUAL_MIN_SCORE);
+    if (habitual.length) return sortByScore(habitual).map((e) => e.v);
+    return voicings;
+  }
+
+  // "habitual"
+  const habitual = entries.filter((e) => e.score >= GUITARISTIC_HABITUAL_MIN_SCORE);
+  if (habitual.length) return sortByScore(habitual).map((e) => e.v);
+  return voicings;
+}
+
+// ============================================================================
 // DETECCIÓN DE ACORDES DESDE NOTAS SELECCIONADAS
 // La lógica musical de detección, nombre, ranking y leyenda vive en
 // `src/music/chordDetectionEngine.js`.

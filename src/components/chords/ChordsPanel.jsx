@@ -739,9 +739,11 @@ const modeToggle = (
           </div>
 
           {!isMobileLayout && (
-            <div className="ml-auto self-start justify-self-end pt-[8px] flex flex-col gap-1">
-              {renderChordAllowOpenStringsToggle("h-9 rounded-xl border border-slate-200 bg-white px-3 shadow-sm")}
-              {renderChordKeepZoneToggle("h-9 rounded-xl border border-slate-200 bg-white px-3 shadow-sm")}
+            <div className="ml-auto self-start justify-self-end pt-[8px]">
+              <div className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm">
+                {renderChordAllowOpenStringsToggle()}
+                {renderChordKeepZoneToggle()}
+              </div>
             </div>
           )}
 
