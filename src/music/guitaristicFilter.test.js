@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 import {
   computeGuitaristicScore,
   filterGuitaristicVoicings,
+  guitaristicBreakdown,
   buildVoicingFromFretsLH,
   parseChordDbFretsString,
 } from "./appVoicingStudyCore.js";
@@ -241,6 +242,171 @@ describe("filterGuitaristicVoicings — ordering and _catalogIdx tie-break", () 
     expect(computeGuitaristicScore(v1)).toBe(computeGuitaristicScore(v2)); // both 16
     const result = filterGuitaristicVoicings("habitual", [v1, v2]);
     expect(result[0]).toBe(v1); // original order preserved for equal score
+  });
+});
+
+describe("filterGuitaristicVoicings — essential: catalog originals take priority (_catalogIdx)", () => {
+  test("catalog original (x02220) appears before higher-scoring augmented variant (002220)", () => {
+    // Simulates the A major bug: 002220 scores ~25 (augmented) > x02220 ~20 (catalog).
+    // Essential must prefer catalog order over score.
+    const canonical = mkv("x02220", { rootPc: 9, catalogIdx: 0 });
+    const augmented = mkv("002220", { rootPc: 9 });
+    const result = filterGuitaristicVoicings("essential", [augmented, canonical]);
+    expect(result[0].frets).toBe("x02220");
+    expect(result.some((v) => v.frets === "002220")).toBe(false);
+  });
+
+  test("catalog originals sorted by _catalogIdx ascending, not by score", () => {
+    // x35553 (catalogIdx=0, score~14) must appear before x32010 (catalogIdx=2, score~16).
+    const vFirst  = mkv("x35553", { catalogIdx: 0 });
+    const vSecond = mkv("x32010", { catalogIdx: 2 });
+    const result = filterGuitaristicVoicings("essential", [vSecond, vFirst]);
+    expect(result[0].frets).toBe("x35553");
+    expect(result[1].frets).toBe("x32010");
+  });
+
+  test("augmented variants (no _catalogIdx) excluded when catalog originals exist", () => {
+    const catalog    = mkv("133211", { rootPc: 5, catalogIdx: 0 });
+    const augmented1 = mkv("x33211", { rootPc: 5 });
+    const augmented2 = mkv("133213", { rootPc: 5 });
+    const result = filterGuitaristicVoicings("essential", [augmented1, augmented2, catalog]);
+    expect(result.every((v) => v._catalogIdx !== undefined)).toBe(true);
+    expect(result[0].frets).toBe("133211");
+  });
+
+  test("dedupes same-position variants, keeping the lowest _catalogIdx (not the top score)", () => {
+    // F major regression: 133211 (catalogIdx 0, score 16) and 10321x (catalogIdx 2,
+    // score 17) are both at fret 1. The catalog order wins: 133211 must survive
+    // even though 10321x scores higher.
+    const canonical = mkv("133211", { rootPc: 5, catalogIdx: 0 }); // score 16, minFret 1
+    const higher    = mkv("10321x", { rootPc: 5, catalogIdx: 2 }); // score 17, minFret 1
+    expect(computeGuitaristicScore(higher)).toBeGreaterThan(computeGuitaristicScore(canonical));
+    const frets = filterGuitaristicVoicings("essential", [higher, canonical]).map((v) => v.frets);
+    expect(frets[0]).toBe("133211");
+    expect(frets).not.toContain("10321x");
+  });
+
+  test("dedupes same-position C-shape variants (x32010 over x32013)", () => {
+    // Both C-shape at fret 1; lowest catalogIdx (x32010) survives.
+    const a = mkv("x32010", { catalogIdx: 0 }); // minFret 1
+    const b = mkv("x32013", { catalogIdx: 2 }); // minFret 1
+    const frets = filterGuitaristicVoicings("essential", [b, a]).map((v) => v.frets);
+    expect(frets).toContain("x32010");
+    expect(frets).not.toContain("x32013");
+  });
+
+  test("never exceeds the essential cap (12)", () => {
+    // Distinct positions so dedupe-by-position does not collapse the list.
+    const voicings = [
+      mkv("x32010", { catalogIdx: 0 }), mkv("x35553", { catalogIdx: 1 }),
+      mkv("8aa988", { catalogIdx: 3 }), mkv("875558", { catalogIdx: 4 }),
+      mkv("xxacdc", { catalogIdx: 13 }), mkv("xfecdc", { catalogIdx: 10 }),
+    ];
+    const result = filterGuitaristicVoicings("essential", voicings);
+    expect(result.length).toBeLessThanOrEqual(12);
+    expect(result.length).toBeGreaterThan(0);
+  });
+
+  test("keeps the low-scoring 4-string D-shape (xxacdc) — catalog vouches for it", () => {
+    // xxacdc: score ~5 (4 strings, fret 10), but it's a clean catalog CAGED form.
+    // Must survive essential even though it would never pass a pure score gate.
+    const cShape = mkv("x32010", { catalogIdx: 0 });   // score 16, minFret 1
+    const dShape = mkv("xxacdc", { catalogIdx: 13 });  // score 5,  minFret 10, mut 0
+    expect(computeGuitaristicScore(dShape)).toBeLessThan(8); // below habitual gate
+    const result = filterGuitaristicVoicings("essential", [cShape, dShape]);
+    const fretsSet = new Set(result.map((v) => v.frets));
+    expect(fretsSet.has("xxacdc")).toBe(true);
+    expect(result[0].frets).toBe("x32010"); // catalogIdx 0 still leads
+  });
+
+  test("excludes high-neck octave-duplicates (minFret > 12) from essential", () => {
+    // xfhhhf (fret 15) and kmmlkk (fret 20) are octave-duplicates of lower shapes.
+    const cShape = mkv("x32010", { catalogIdx: 0 });   // minFret 1
+    const highA  = mkv("xfhhhf", { catalogIdx: 11 });  // minFret 15, clean barre
+    const highE  = mkv("kmmlkk", { catalogIdx: 12 });  // minFret 20, clean barre
+    const result = filterGuitaristicVoicings("essential", [cShape, highA, highE]);
+    const fretsSet = new Set(result.map((v) => v.frets));
+    expect(fretsSet.has("x32010")).toBe(true);
+    expect(fretsSet.has("xfhhhf")).toBe(false);
+    expect(fretsSet.has("kmmlkk")).toBe(false);
+  });
+
+  test("relaxes minFret cap when every catalog form is high on the neck", () => {
+    // Only high-neck clean forms exist → fall back to them rather than empty.
+    const highA = mkv("xfhhhf", { catalogIdx: 0 });  // minFret 15
+    const highE = mkv("kmmlkk", { catalogIdx: 1 });  // minFret 20
+    const result = filterGuitaristicVoicings("essential", [highA, highE]);
+    expect(result.length).toBeGreaterThan(0);
+    expect(result[0].frets).toBe("xfhhhf"); // catalogIdx 0
+  });
+});
+
+describe("filterGuitaristicVoicings — habitual: catalog-only, no augmented flood", () => {
+  test("excludes augmented variants when catalog originals exist", () => {
+    // Reproduces the C major bug: augmented forms (035053, 075550) scored ≥ 8 and
+    // flooded habitual. They have no _catalogIdx and must be dropped.
+    const catalog    = mkv("x32010", { rootPc: 0, catalogIdx: 0 });
+    const augmented1 = mkv("035053", { rootPc: 0 }); // clean barre, score ~22
+    const augmented2 = mkv("075550", { rootPc: 0 });
+    const result = filterGuitaristicVoicings("habitual", [augmented1, augmented2, catalog]);
+    expect(result.every((v) => v._catalogIdx !== undefined)).toBe(true);
+    expect(result.map((v) => v.frets)).toContain("x32010");
+    expect(result.some((v) => v.frets === "035053")).toBe(false);
+  });
+
+  test("excludes internal-mute fragments from catalog (x32x53)", () => {
+    const clean    = mkv("x32010", { catalogIdx: 0 });
+    const fragment = mkv("x32x53", { catalogIdx: 7 }); // internal mute
+    const result = filterGuitaristicVoicings("habitual", [clean, fragment]);
+    const fretsSet = new Set(result.map((v) => v.frets));
+    expect(fretsSet.has("x32010")).toBe(true);
+    expect(fretsSet.has("x32x53")).toBe(false);
+  });
+
+  test("habitual is a superset of essential (same catalog input)", () => {
+    const vs = [
+      mkv("x32010", { catalogIdx: 0 }),   // essential + habitual
+      mkv("x35553", { catalogIdx: 1 }),   // essential + habitual
+      mkv("xxacdc", { catalogIdx: 13 }),  // essential + habitual (D-shape)
+      mkv("xfhhhf", { catalogIdx: 11 }),  // habitual only (fret 15)
+      mkv("kmmlkk", { catalogIdx: 12 }),  // habitual only (fret 20)
+    ];
+    const habitual  = filterGuitaristicVoicings("habitual", vs).map((v) => v.frets);
+    const essential = filterGuitaristicVoicings("essential", vs).map((v) => v.frets);
+    expect(essential.every((f) => habitual.includes(f))).toBe(true);
+    expect(habitual.length).toBeGreaterThan(essential.length);
+  });
+
+  test("caps habitual at 40 voicings", () => {
+    const voicings = Array.from({ length: 50 }, (_, i) =>
+      mkv("x32010", { catalogIdx: i })
+    );
+    const result = filterGuitaristicVoicings("habitual", voicings);
+    expect(result.length).toBeLessThanOrEqual(40);
+    expect(result.length).toBeGreaterThan(0);
+  });
+});
+
+describe("guitaristicBreakdown — debug provenance", () => {
+  test("marks catalog originals and augmented variants", () => {
+    const catalog   = guitaristicBreakdown(mkv("x32010", { catalogIdx: 4 }));
+    const augmented = guitaristicBreakdown(mkv("035053", { rootPc: 0 }));
+    expect(catalog.isCatalogOriginal).toBe(true);
+    expect(catalog.isAugmented).toBe(false);
+    expect(catalog.catalogIdx).toBe(4);
+    expect(augmented.isCatalogOriginal).toBe(false);
+    expect(augmented.isAugmented).toBe(true);
+    expect(augmented.catalogIdx).toBe(null);
+  });
+
+  test("reports physical components for the D-shape (xxacdc)", () => {
+    const b = guitaristicBreakdown(mkv("xxacdc", { catalogIdx: 13 }));
+    expect(b.frets).toBe("xxacdc");
+    expect(b.soundingCount).toBe(4);
+    expect(b.openCount).toBe(0);
+    expect(b.internalMutes).toBe(0);
+    expect(b.minFret).toBe(10);
+    expect(b.hasBarre).toBe(false);
   });
 });
 

@@ -3199,9 +3199,15 @@ export function buildStudySubstitutionGuide({ chordRootPc, chordName, plan, pref
 // selectNaturalGuitarVoicingIndex, or any existing ranking / UI logic.
 // ============================================================================
 
-// Score thresholds for each tier.
+// Score thresholds and limits for each tier.
 const GUITARISTIC_HABITUAL_MIN_SCORE  = 8;
 const GUITARISTIC_ESSENTIAL_MIN_SCORE = 13;
+// Max results per tier, to keep each list bounded and musically useful.
+const GUITARISTIC_ESSENTIAL_MAX_COUNT = 12;
+const GUITARISTIC_HABITUAL_MAX_COUNT  = 40;
+// Essential keeps each shape only at its primary position; forms whose lowest
+// fret is above the octave are octave-duplicates of a lower CAGED shape.
+const GUITARISTIC_ESSENTIAL_MAX_MIN_FRET = 12;
 
 /**
  * Derives the physical components needed for the guitaristic score from a
@@ -3249,7 +3255,31 @@ function _guitaristicComponents(voicing) {
     Math.max(0, minFret - 7) -
     Math.max(0, span - 3) * 2;
 
-  return { score, internalMutes, soundingCount };
+  return { score, internalMutes, soundingCount, openCount, minFret, span, hasBarre };
+}
+
+/**
+ * Full guitaristic breakdown for a single voicing, for debugging / inspection.
+ * Returns the physical components plus catalog provenance so the DEV tooling can
+ * explain why a voicing falls into a given tier.
+ */
+export function guitaristicBreakdown(voicing) {
+  const c = _guitaristicComponents(voicing);
+  const catalogIdx = voicing?._catalogIdx;
+  const isCatalogOriginal = catalogIdx !== undefined;
+  return {
+    frets: voicing?.frets ?? null,
+    score: c?.score ?? -99,
+    catalogIdx: isCatalogOriginal ? catalogIdx : null,
+    isCatalogOriginal,
+    isAugmented: !isCatalogOriginal,
+    soundingCount: c?.soundingCount ?? 0,
+    openCount: c?.openCount ?? 0,
+    internalMutes: c?.internalMutes ?? 0,
+    minFret: c?.minFret ?? (voicing?.minFret ?? 0),
+    span: c?.span ?? (voicing?.span ?? 0),
+    hasBarre: c?.hasBarre ?? false,
+  };
 }
 
 /**
@@ -3268,17 +3298,32 @@ export function computeGuitaristicScore(voicing) {
 /**
  * Filters a voicing list by guitaristic tier.
  *
+ * The list mixes two kinds of voicings:
+ *   - Catalog originals: human-curated chord-DB shapes, tagged with _catalogIdx.
+ *   - Augmented/generated variants (open substitutions, chord-tone duplicates,
+ *     algorithmic forms): NO _catalogIdx.
+ *
+ * When catalog originals are present, "habitual" and "essential" are built ONLY
+ * from them (the curated set already represents the playable forms), ordered by
+ * catalog index. Augmented variants only surface in "all", or as a fallback when
+ * no catalog original qualifies. When no catalog original exists at all (triads,
+ * tetrads, fully generated lists) both tiers fall back to score-based selection.
+ *
  * Levels:
  *   "all"       — full list, input order preserved.
- *   "habitual"  — keeps voicings with score ≥ 8; falls back to "all".
- *   "essential" — keeps voicings with score ≥ 13 AND 0 internal mutes;
- *                 falls back to "habitual" then "all".
+ *   "habitual"  — curated catalog forms without internal mutes (excludes
+ *                 fragments and augmented variants), catalog order, capped at 40.
+ *                 Score-based fallback (≥ 8) when no catalog present.
+ *   "essential" — short subset of "habitual": catalog forms without internal
+ *                 mutes AND within the first octave (minFret ≤ 12, so high-neck
+ *                 octave-duplicates of the same CAGED shape are dropped), catalog
+ *                 order, capped at 12. A clean 4-string form (e.g. the D-shape)
+ *                 IS kept even with a low score, because the catalog already
+ *                 vouches for it. Score-based fallback (≥ 13, 0 mutes) when no
+ *                 catalog present.
  *
- * Within each tier the output is sorted by score descending; ties broken by
- * _catalogIdx ascending (lower index = earlier in human-curated catalog),
- * then by original list position.
- *
- * Never returns an empty array when the input is non-empty.
+ * Never returns an empty array when the input is non-empty. The copied/manual
+ * voicing is preserved upstream (it is separated before this filter runs).
  */
 export function filterGuitaristicVoicings(level, voicings) {
   if (!Array.isArray(voicings) || voicings.length === 0) return voicings ?? [];
@@ -3286,7 +3331,14 @@ export function filterGuitaristicVoicings(level, voicings) {
 
   const entries = voicings.map((v, origIdx) => {
     const c = _guitaristicComponents(v);
-    return { v, score: c?.score ?? -99, internalMutes: c?.internalMutes ?? 99, origIdx };
+    return {
+      v,
+      score: c?.score ?? -99,
+      internalMutes: c?.internalMutes ?? 99,
+      minFret: v?.minFret ?? 0,
+      isCatalog: v?._catalogIdx !== undefined,
+      origIdx,
+    };
   });
 
   const sortByScore = (arr) =>
@@ -3298,20 +3350,81 @@ export function filterGuitaristicVoicings(level, voicings) {
       return a.origIdx - b.origIdx;
     });
 
+  // Curated catalog forms sort by their catalog index (canonical order), ties
+  // broken by score so the better physical instance wins.
+  const sortByCatalog = (arr) =>
+    [...arr].sort((a, b) => {
+      if (a.v._catalogIdx !== b.v._catalogIdx) return a.v._catalogIdx - b.v._catalogIdx;
+      return b.score - a.score;
+    });
+
+  // For "essential", keep a single representative per neck position (minFret):
+  // two voicings of the same chord at the same fret are redundant in the most
+  // canonical view. The catalog order is the source of truth, so the survivor
+  // is the one with the lowest _catalogIdx (the form the catalog lists first,
+  // e.g. F major's 133211 over the higher-scoring but later 10321x), NOT the
+  // highest score.
+  const dedupeByPosition = (arr) => {
+    const best = new Map();
+    for (const e of arr) {
+      const prev = best.get(e.minFret);
+      if (!prev || e.v._catalogIdx < prev.v._catalogIdx) {
+        best.set(e.minFret, e);
+      }
+    }
+    return Array.from(best.values());
+  };
+
+  const catalogEntries = entries.filter((e) => e.isCatalog);
+  const hasCatalog = catalogEntries.length > 0;
+
   if (level === "essential") {
+    if (hasCatalog) {
+      // Catalog shapes, no internal mutes, each at its primary position,
+      // deduplicated to one representative per neck position.
+      const primary = catalogEntries.filter(
+        (e) => e.internalMutes === 0 && e.minFret <= GUITARISTIC_ESSENTIAL_MAX_MIN_FRET
+      );
+      if (primary.length) {
+        return sortByCatalog(dedupeByPosition(primary)).slice(0, GUITARISTIC_ESSENTIAL_MAX_COUNT).map((e) => e.v);
+      }
+      // Relax 1: any clean catalog form (chord only voiced high on the neck).
+      const clean = catalogEntries.filter((e) => e.internalMutes === 0);
+      if (clean.length) {
+        return sortByCatalog(dedupeByPosition(clean)).slice(0, GUITARISTIC_ESSENTIAL_MAX_COUNT).map((e) => e.v);
+      }
+      // Relax 2: any catalog form at all.
+      return sortByCatalog(catalogEntries).slice(0, GUITARISTIC_ESSENTIAL_MAX_COUNT).map((e) => e.v);
+    }
+
+    // No catalog originals (triad, tetrad, generated): score-based with cap.
     const essential = entries.filter(
       (e) => e.score >= GUITARISTIC_ESSENTIAL_MIN_SCORE && e.internalMutes === 0
     );
-    if (essential.length) return sortByScore(essential).map((e) => e.v);
-
+    if (essential.length) {
+      return sortByScore(essential).slice(0, GUITARISTIC_ESSENTIAL_MAX_COUNT).map((e) => e.v);
+    }
     const habitual = entries.filter((e) => e.score >= GUITARISTIC_HABITUAL_MIN_SCORE);
-    if (habitual.length) return sortByScore(habitual).map((e) => e.v);
+    if (habitual.length) {
+      return sortByScore(habitual).slice(0, GUITARISTIC_ESSENTIAL_MAX_COUNT).map((e) => e.v);
+    }
     return voicings;
   }
 
   // "habitual"
+  if (hasCatalog) {
+    // Curated catalog forms without internal mutes (drops fragments and every
+    // augmented variant); catalog order; capped.
+    const clean = catalogEntries.filter((e) => e.internalMutes === 0);
+    if (clean.length) {
+      return sortByCatalog(clean).slice(0, GUITARISTIC_HABITUAL_MAX_COUNT).map((e) => e.v);
+    }
+    return sortByCatalog(catalogEntries).slice(0, GUITARISTIC_HABITUAL_MAX_COUNT).map((e) => e.v);
+  }
   const habitual = entries.filter((e) => e.score >= GUITARISTIC_HABITUAL_MIN_SCORE);
-  if (habitual.length) return sortByScore(habitual).map((e) => e.v);
+  if (habitual.length) {
+    return sortByScore(habitual).slice(0, GUITARISTIC_HABITUAL_MAX_COUNT).map((e) => e.v);
+  }
   return voicings;
 }
 

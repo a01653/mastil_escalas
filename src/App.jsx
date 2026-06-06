@@ -201,6 +201,7 @@ const {
   actualInversionLabelFromVoicing,
   selectClosestPhysicalVoicingIndex,
   deriveDetectedCandidateCopyInversion,
+  guitaristicBreakdown,
   MAX_VOICING_OPTIONS,
 } = AppVoicingStudyCore;
 
@@ -280,7 +281,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "6.0.26";
+const APP_VERSION = "6.0.27";
 
 
 // ─── Acorde de referencia (bloque "Investigar en mástil") ────────────────────
@@ -783,6 +784,8 @@ export default function FretboardScalesPage() {
   const [chordDbCache, setChordDbCache] = useState({}); // key => json
   const [chordDbCacheErr, setChordDbCacheErr] = useState({}); // key => string
 
+  const [chordVoicingFilterLevel, setChordVoicingFilterLevel] = useState("all");
+
   // --------------------------------------------------------------------------
   // ESTADO: RUTA MUSICAL
   // --------------------------------------------------------------------------
@@ -918,6 +921,7 @@ export default function FretboardScalesPage() {
     chordMaxDist,
     chordAllowOpenStrings,
     chordKeepZone,
+    chordVoicingFilterLevel,
     chordDetectWindowStart,
     chordDetectPrioritizeContext,
     chordDetectPrioritizeContextTouched,
@@ -1007,6 +1011,7 @@ export default function FretboardScalesPage() {
     chordMaxDist,
     chordAllowOpenStrings,
     chordKeepZone,
+    chordVoicingFilterLevel,
     chordDetectWindowStart,
     chordDetectPrioritizeContext,
     chordDetectPrioritizeContextTouched,
@@ -1168,6 +1173,7 @@ export default function FretboardScalesPage() {
       if ("chordMaxDist" in saved) setChordMaxDist(sanitizeOneOf(Number(saved.chordMaxDist), [4, 5, 6], 4));
       if ("chordAllowOpenStrings" in saved) setChordAllowOpenStrings(sanitizeBoolValue(saved.chordAllowOpenStrings, false));
       if ("chordKeepZone" in saved) setChordKeepZone(sanitizeBoolValue(saved.chordKeepZone, true));
+      if ("chordVoicingFilterLevel" in saved) setChordVoicingFilterLevel(sanitizeOneOf(saved.chordVoicingFilterLevel, ["all", "habitual", "essential"], "all"));
       if ("chordDetectWindowStart" in saved) setChordDetectWindowStart(sanitizeNumberValue(saved.chordDetectWindowStart, 1, 1, 24));
       if ("chordDetectPrioritizeContextTouched" in saved) {
         const restoredTouched = sanitizeBoolValue(saved.chordDetectPrioritizeContextTouched, false);
@@ -1765,7 +1771,9 @@ export default function FretboardScalesPage() {
       const outLoose = [];
       const seen = new Set();
 
-      for (const p of chordDb.positions || []) {
+      const _catPositions = chordDb.positions || [];
+      for (let _pi = 0; _pi < _catPositions.length; _pi++) {
+        const p = _catPositions[_pi];
         const fretsLH = parseChordDbFretsString(p?.frets);
         if (!fretsLH) continue;
         const v = buildVoicingFromFretsLH({ fretsLH, rootPc: plan.rootPc, maxFret });
@@ -1797,7 +1805,7 @@ export default function FretboardScalesPage() {
         if (seen.has(key)) continue;
         seen.add(key);
 
-        const item = { ...v, _extra: extraCount };
+        const item = { ...v, _extra: extraCount, _catalogIdx: _pi };
         if (selectedBassIntervals.includes(bi)) outStrict.push(item);
         else if (plan.inversion !== "all") outLoose.push(item);
       }
@@ -1858,6 +1866,7 @@ export default function FretboardScalesPage() {
 
   const {
     chordVoicingsDisplay,
+    chordVoicingsFiltered,
     chordResolvedSelection,
     activeChordVoicing,
   } = useChordBuilderTertianSelectionBlock({
@@ -1875,6 +1884,7 @@ export default function FretboardScalesPage() {
     skipChordVoicingRefSyncRef,
     pendingChordRestoreRef,
     chordKeepZone,
+    chordVoicingFilterLevel,
   });
 
   useChordBuilderPendingCopyResolutionSync({
@@ -3484,6 +3494,28 @@ export default function FretboardScalesPage() {
         </span>
         <span>Permitir cuerdas al aire</span>
       </label>
+    );
+  }
+
+  function renderChordVoicingFilterSelector(className = "") {
+    if (chordDetectMode || chordFamily !== "tertian") return null;
+    const filterSelectClass = isMobileLayout ? UI_SELECT_SM_COMPACT : UI_SELECT_SM_AUTO;
+    return (
+      <div className={className}>
+        <label className={UI_LABEL_SM} htmlFor="voicing-filter-select">Voicings</label>
+        <select
+          id="voicing-filter-select"
+          data-testid="voicing-filter-select"
+          className={filterSelectClass + " mt-1"}
+          title="Filtra los voicings mostrados: Todos, Habituales o solo los Esenciales."
+          value={chordVoicingFilterLevel}
+          onChange={(e) => setChordVoicingFilterLevel(e.target.value)}
+        >
+          <option value="all">Todos</option>
+          <option value="habitual">Habituales</option>
+          <option value="essential">Esenciales</option>
+        </select>
+      </div>
     );
   }
 
@@ -5098,7 +5130,7 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
     if (chordDetectMode) return null;
     const isQuartal = chordFamily === "quartal";
     const isGuideTones = chordFamily === "guide_tones";
-    const voicings = isQuartal ? chordQuartalVoicings : isGuideTones ? guideToneVoicings : chordVoicingsDisplay;
+    const voicings = isQuartal ? chordQuartalVoicings : isGuideTones ? guideToneVoicings : chordVoicingsFiltered;
     const currentIdx = isQuartal ? chordQuartalVoicingIdx : isGuideTones ? guideToneVoicingIdx : chordResolvedSelection.idx;
     const selectedFrets = isQuartal ? chordQuartalSelectedFrets : isGuideTones ? guideToneSelectedFrets : chordResolvedSelection.frets;
     const setIdx = isQuartal ? setChordQuartalVoicingIdx : isGuideTones ? setGuideToneVoicingIdx : setChordVoicingIdx;
@@ -5170,6 +5202,41 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
           </button>
         </div>
         {!isQuartal && !isGuideTones && chordDbError ? <div className="mt-1 text-[11px] font-semibold text-rose-600">{chordDbError}</div> : null}
+        {import.meta.env.DEV && !isQuartal && !isGuideTones && (
+          <button
+            type="button"
+            className="mt-1 text-[10px] text-slate-400 underline"
+            title="Copiar debug voicings (solo DEV)"
+            onClick={() => {
+              const seq = [];
+              let si = currentIdx;
+              for (let i = 0; i < 5; i++) {
+                si = (si + 1 + voicings.length) % voicings.length;
+                seq.push(voicings[si]?.frets ?? null);
+              }
+              const detail = (v) => ({ ...guitaristicBreakdown(v), isCopied: v.isCopied ?? false });
+              const dbg = {
+                filterLevel: chordVoicingFilterLevel,
+                keepZone: chordKeepZone,
+                allowOpenStrings: chordAllowOpenStrings,
+                chordVoicingIdx,
+                fullCount: chordVoicingsDisplay.length,
+                displayCount: chordVoicingsDisplay.length,
+                filteredCount: voicings.length,
+                activeFrets: selectedFrets,
+                fullListFirst20: chordVoicingsDisplay.slice(0, 20).map(detail),
+                filteredList: voicings.map(detail),
+                dropdownListFirst20: voicings.slice(0, 20).map(detail),
+                nextSequenceFromCurrent: seq,
+              };
+              const json = JSON.stringify(dbg, null, 2);
+              navigator.clipboard?.writeText(json).catch(() => {});
+              console.log("VoicingDebug:", json);
+            }}
+          >
+            dbg
+          </button>
+        )}
       </div>
     );
   }
@@ -5279,6 +5346,7 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
             >
               Editar
             </button>
+            {renderChordVoicingFilterSelector("shrink-0")}
             <CopyVoicingButton frets={activeFrets} />
             {renderMainChordVoicingPicker()}
             {renderMainChordDistControl("shrink-0")}
@@ -5512,6 +5580,7 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
               renderChordInvestigationFretboard,
               renderChordAllowOpenStringsToggle,
               renderChordKeepZoneToggle,
+              renderChordVoicingFilterSelector,
               openMainChordStudy,
               InfoTitle,
               ChordFretboard,

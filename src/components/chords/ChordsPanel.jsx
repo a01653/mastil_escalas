@@ -135,6 +135,7 @@ export default function ChordsPanel({
     renderChordInvestigationFretboard,
     renderChordAllowOpenStringsToggle,
     renderChordKeepZoneToggle,
+    renderChordVoicingFilterSelector,
     openMainChordStudy,
     InfoTitle,
     ChordFretboard,
@@ -800,6 +801,7 @@ const modeToggle = (
           </div>
         </div>
         <div className="flex shrink-0 items-end gap-2">
+          {renderChordVoicingFilterSelector("shrink-0")}
           <button
             type="button"
             className={`inline-flex items-center justify-center ${UI_BTN_SM} transition-colors${

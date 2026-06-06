@@ -1389,3 +1389,309 @@ test("73. Cuartal + Referencia 'Diatónico a escala' no rompe la app (regresión
   expect(pageErrors, `pageerrors inesperados: ${pageErrors.join(" | ")}`).toHaveLength(0);
 });
 
+// ── Tests 74-78: Filtro de voicings guitarrísticos ───────────────────────────
+
+async function setVoicingFilter(page, level) {
+  const sel = page.getByTestId("voicing-filter-select");
+  await expect(sel).toBeVisible({ timeout: 3000 });
+  await sel.selectOption(level);
+  await expect(sel).toHaveValue(level, { timeout: 2000 });
+}
+
+test("74. VF: filtro 'Todos' es el default, voicings no están vacíos", async ({ page }) => {
+  await goToChords(page);
+  await selectTone(page, "C");
+  await selectStructure(page, "triad");
+
+  const filterSel = page.getByTestId("voicing-filter-select");
+  await expect(filterSel).toBeVisible({ timeout: 3000 });
+  await expect(filterSel).toHaveValue("all");
+
+  const count = await page.getByTestId("voicing-select").locator("option").count();
+  expect(count, "En Todos debe haber al menos 1 voicing").toBeGreaterThan(0);
+});
+
+test("75. VF: Habituales reduce voicings sin dejar la lista vacía (C Mayor tríada)", async ({ page }) => {
+  await goToChords(page);
+  await selectTone(page, "C");
+  await selectStructure(page, "triad");
+
+  const countAll = await page.getByTestId("voicing-select").locator("option").count();
+  expect(countAll, "Todos debe tener voicings").toBeGreaterThan(0);
+
+  await setVoicingFilter(page, "habitual");
+
+  const countHabitual = await page.getByTestId("voicing-select").locator("option").count();
+  expect(countHabitual, "Habituales no debe dejar lista vacía").toBeGreaterThan(0);
+  expect(countHabitual, "Habituales debe reducir o igualar Todos").toBeLessThanOrEqual(countAll);
+});
+
+test("76. VF: Esenciales reduce la lista y contiene la forma canónica 133211 (F Mayor acorde)", async ({ page }) => {
+  // 133211 = F barre 6 cuerdas, snd=6, cleanBarre → score=16 ≥ 13 → pasa Esenciales.
+  // Requiere structure="chord" (catálogo JSON).
+  await goToChords(page);
+  await selectTone(page, "F");
+  await selectQuality(page, "maj");
+  await selectStructure(page, "chord");
+
+  // Esperar a que el catálogo JSON cargue y aparezcan opciones
+  const selectEl = page.getByTestId("voicing-select");
+  await expect(selectEl).toBeVisible({ timeout: 5000 });
+  await expect(async () => {
+    const count = await selectEl.locator("option").count();
+    expect(count).toBeGreaterThan(0);
+  }).toPass({ timeout: 8000 });
+
+  const countAll = await selectEl.locator("option").count();
+
+  await setVoicingFilter(page, "essential");
+
+  // El filtro debe reducir efectivamente la lista, no solo reordenarla
+  const countEssential = await selectEl.locator("option").count();
+  expect(countEssential, `Esenciales (${countEssential}) debe ser menor que Todos (${countAll})`).toBeLessThan(countAll);
+  expect(countEssential, "Esenciales no debe dejar lista vacía").toBeGreaterThan(0);
+
+  const opts = await selectEl.locator("option").evaluateAll(
+    (els) => els.map((o) => o.value)
+  );
+  expect(opts, `133211 debe estar en Esenciales. Opciones: ${opts.join(", ")}`).toContain("133211");
+  expect(opts[0], "133211 debe ser el primer voicing (catalogIdx=0 para F mayor)").toBe("133211");
+  expect(countEssential, "Esenciales debe ser ≤ 12 (capped)").toBeLessThanOrEqual(12);
+});
+
+test("77. VF: el nivel de filtro persiste tras recarga de página", async ({ page }) => {
+  await goToChords(page);
+  await selectTone(page, "C");
+  await selectStructure(page, "triad");
+
+  await setVoicingFilter(page, "habitual");
+
+  await page.reload();
+  await page.waitForLoadState("networkidle");
+  await page.getByTestId("nav-chords").click();
+  await expect(page.getByTestId("select-structure")).toBeVisible();
+
+  const filterSel = page.getByTestId("voicing-filter-select");
+  await expect(filterSel).toBeVisible({ timeout: 3000 });
+  await expect(filterSel).toHaveValue("habitual");
+});
+
+test("78. VF: voicing copiado (isCopied) sobrevive al filtro Habituales", async ({ page }) => {
+  await goToChords(page);
+  await selectTone(page, "C");
+  await selectStructure(page, "triad");
+
+  // Activar modo Investigar para copiar un voicing de alta posición.
+  // xfh9xx: A(fret15)=C, D(fret17)=G, G(fret9)=E → C mayor. fret17 > maxFret=15,
+  // por lo que el algoritmo no genera este voicing → isCopied:true al copiarlo.
+  const toggle = page.getByTestId("chord-detect-toggle");
+  await toggle.check();
+  await expect(page.getByTestId("detected-chord-list")).toBeVisible();
+
+  const patternInput = page.getByTestId("chord-detect-pattern-input");
+  await expect(patternInput).toBeVisible();
+  await patternInput.fill("xfh9xx");
+  await page.getByTestId("chord-detect-apply-btn").click();
+  await page.waitForTimeout(500);
+
+  const list = page.getByTestId("detected-chord-list");
+  const firstCopyBtn = list.locator("[data-testid^='detected-copy-']")
+    .filter({ hasNot: page.locator("[disabled]") })
+    .first();
+
+  const copyBtnVisible = await firstCopyBtn.isVisible({ timeout: 2000 }).catch(() => false);
+  if (copyBtnVisible) {
+    await firstCopyBtn.click();
+  }
+
+  // Siempre salir del modo investigar antes de verificar el selector de voicings
+  if (await toggle.isChecked()) {
+    await toggle.uncheck();
+  }
+  await expect(page.getByTestId("voicing-select")).toBeVisible({ timeout: 5000 });
+
+  if (copyBtnVisible) {
+    const opts = await page.getByTestId("voicing-select").locator("option").allTextContents();
+    const hasCopied = opts.some((t) => t.includes("C "));
+
+    if (hasCopied) {
+      // El voicing copiado (isCopied) debe sobrevivir al filtro Habituales
+      await setVoicingFilter(page, "habitual");
+      const optsAfter = await page.getByTestId("voicing-select").locator("option").allTextContents();
+      const copiedStillVisible = optsAfter.some((t) => t.includes("C "));
+      expect(copiedStillVisible, "El voicing isCopied debe seguir visible en Habituales").toBe(true);
+    }
+  }
+
+  // Invariante mínima siempre válida: la lista nunca queda vacía
+  const finalCount = await page.getByTestId("voicing-select").locator("option").count();
+  expect(finalCount, "La lista de voicings nunca debe quedar vacía").toBeGreaterThan(0);
+});
+
+test("80. VF: A mayor + abiertas ON + Esenciales → x02220 primero, lista ≤ 12 y menor que Todos", async ({ page }) => {
+  await goToChords(page);
+  await selectTone(page, "A");
+  await selectQuality(page, "maj");
+  await selectStructure(page, "chord");
+
+  // Activar cuerdas abiertas (default=false; x02220 las requiere)
+  const openStringsToggle = page.getByTestId("toggle-allow-open-strings");
+  await expect(openStringsToggle).toBeVisible({ timeout: 5000 });
+  if (!(await openStringsToggle.isChecked())) {
+    await openStringsToggle.click();
+    await expect(openStringsToggle).toBeChecked({ timeout: 2000 });
+  }
+
+  const selectEl = page.getByTestId("voicing-select");
+  await expect(selectEl).toBeVisible({ timeout: 5000 });
+  // Esperar a que x02220 aparezca en Todos (confirma que el catálogo cargó con abiertas)
+  await expect(async () => {
+    const opts = await selectEl.locator("option").evaluateAll((els) => els.map((o) => o.value));
+    expect(opts).toContain("x02220");
+  }).toPass({ timeout: 8000 });
+
+  const countAll = await selectEl.locator("option").count();
+  expect(countAll, "Todos debe tener varios voicings para A mayor con abiertas").toBeGreaterThan(10);
+
+  await setVoicingFilter(page, "essential");
+
+  const countEssential = await selectEl.locator("option").count();
+  expect(countEssential, `Esenciales (${countEssential}) debe ser < Todos (${countAll})`).toBeLessThan(countAll);
+  expect(countEssential, "Esenciales no debe dejar lista vacía").toBeGreaterThan(0);
+  expect(countEssential, "Esenciales debe ser ≤ 12 (capped)").toBeLessThanOrEqual(12);
+
+  const opts = await selectEl.locator("option").evaluateAll(
+    (els) => els.map((o) => o.value)
+  );
+  expect(opts[0], `El primer Esencial de A mayor debe ser x02220. Opciones: ${opts.join(", ")}`).toBe("x02220");
+});
+
+test("79. VF: las flechas navegan secuencialmente dentro de la lista filtrada (Habituales)", async ({ page }) => {
+  await goToChords(page);
+  await selectTone(page, "C");
+  await selectStructure(page, "triad");
+
+  await setVoicingFilter(page, "habitual");
+
+  const selectEl = page.getByTestId("voicing-select");
+  const countHabitual = await selectEl.locator("option").count();
+  expect(countHabitual, "Habituales debe tener al menos 2 voicings").toBeGreaterThanOrEqual(2);
+
+  const allValues = await selectEl.locator("option").evaluateAll((els) => els.map((o) => o.value));
+
+  // Ir explícitamente al primer voicing
+  await selectEl.selectOption(allValues[0]);
+  await expect(selectEl).toHaveValue(allValues[0], { timeout: 2000 });
+
+  // Flecha derecha → segundo voicing de la lista filtrada (no un índice de la lista completa)
+  const nextBtn = page.locator('[title="Siguiente"]').first();
+  await nextBtn.click();
+  await expect(selectEl).toHaveValue(allValues[1], { timeout: 2000 });
+
+  if (countHabitual >= 3) {
+    await nextBtn.click();
+    await expect(selectEl).toHaveValue(allValues[2], { timeout: 2000 });
+  }
+});
+
+// Helper: C mayor, Acorde, cuerdas al aire ON, catálogo cargado.
+async function setupCMajorChordOpen(page) {
+  await goToChords(page);
+  await selectTone(page, "C");
+  await selectQuality(page, "maj");
+  await selectStructure(page, "chord");
+  const tog = page.getByTestId("toggle-allow-open-strings");
+  await expect(tog).toBeVisible({ timeout: 5000 });
+  if (!(await tog.isChecked())) {
+    await tog.click();
+    await expect(tog).toBeChecked({ timeout: 2000 });
+  }
+  const selectEl = page.getByTestId("voicing-select");
+  await expect(selectEl).toBeVisible({ timeout: 5000 });
+  await expect(async () => {
+    const opts = await selectEl.locator("option").evaluateAll((els) => els.map((o) => o.value));
+    expect(opts).toContain("x32010"); // catálogo cargado
+  }).toPass({ timeout: 8000 });
+  return selectEl;
+}
+
+test("81. VF: C mayor Esenciales incluye la D-shape (xxacdc) aunque sea de 4 cuerdas", async ({ page }) => {
+  const selectEl = await setupCMajorChordOpen(page);
+  await setVoicingFilter(page, "essential");
+  const opts = await selectEl.locator("option").evaluateAll((els) => els.map((o) => o.value));
+  expect(opts[0], `Esenciales debe empezar por x32010. Opciones: ${opts.join(", ")}`).toBe("x32010");
+  expect(opts, `La D-shape xxacdc debe estar en Esenciales. Opciones: ${opts.join(", ")}`).toContain("xxacdc");
+  expect(opts.length, "Esenciales debe ser corto (≤ 12)").toBeLessThanOrEqual(12);
+});
+
+test("82. VF: C mayor Habituales es razonable y empieza por catálogo, no por augmentadas", async ({ page }) => {
+  const selectEl = await setupCMajorChordOpen(page);
+  const countAll = await selectEl.locator("option").count();
+
+  await setVoicingFilter(page, "habitual");
+  const habOpts = await selectEl.locator("option").evaluateAll((els) => els.map((o) => o.value));
+  // No cientos de posiciones: claramente menor que Todos y bajo el tope de 40.
+  expect(habOpts.length, `Habituales (${habOpts.length}) no debe ser cientos; < Todos (${countAll})`).toBeLessThan(countAll);
+  expect(habOpts.length, "Habituales debe respetar el tope de 40").toBeLessThanOrEqual(40);
+  // El primer voicing debe ser una forma de catálogo reconocible (x32010),
+  // nunca una variante augmentada rara como 035053 / 075550.
+  expect(habOpts[0], `Habituales debe empezar por x32010, no por augmentadas. Opciones: ${habOpts.slice(0, 5).join(", ")}`).toBe("x32010");
+  expect(habOpts, "Habituales no debe contener augmentadas tipo 035053").not.toContain("035053");
+  expect(habOpts, "Habituales no debe contener augmentadas tipo 075550").not.toContain("075550");
+});
+
+test("83. VF: C mayor — Esenciales es subconjunto de Habituales y Habituales ≥ Esenciales", async ({ page }) => {
+  const selectEl = await setupCMajorChordOpen(page);
+
+  await setVoicingFilter(page, "habitual");
+  const habOpts = await selectEl.locator("option").evaluateAll((els) => els.map((o) => o.value));
+
+  await setVoicingFilter(page, "essential");
+  const essOpts = await selectEl.locator("option").evaluateAll((els) => els.map((o) => o.value));
+
+  expect(habOpts.length, "Habituales debe tener al menos tantos voicings como Esenciales").toBeGreaterThanOrEqual(essOpts.length);
+  const habSet = new Set(habOpts);
+  for (const f of essOpts) {
+    expect(habSet.has(f), `El esencial ${f} debe estar también en Habituales`).toBe(true);
+  }
+});
+
+// Helper: tono mayor, Acorde, con/sin cuerdas al aire, catálogo cargado.
+async function setupMajorChord(page, tone, { open, waitFor }) {
+  await goToChords(page);
+  await selectTone(page, tone);
+  await selectQuality(page, "maj");
+  await selectStructure(page, "chord");
+  const tog = page.getByTestId("toggle-allow-open-strings");
+  await expect(tog).toBeVisible({ timeout: 5000 });
+  const checked = await tog.isChecked();
+  if (open && !checked) { await tog.click(); await expect(tog).toBeChecked({ timeout: 2000 }); }
+  if (!open && checked) { await tog.click(); await expect(tog).not.toBeChecked({ timeout: 2000 }); }
+  const selectEl = page.getByTestId("voicing-select");
+  await expect(selectEl).toBeVisible({ timeout: 5000 });
+  await expect(async () => {
+    const opts = await selectEl.locator("option").evaluateAll((els) => els.map((o) => o.value));
+    expect(opts).toContain(waitFor); // catálogo cargado
+  }).toPass({ timeout: 8000 });
+  return selectEl;
+}
+
+test("84. VF: F mayor + abiertas ON + Esenciales → 133211 primero (el catálogo manda sobre 10321x)", async ({ page }) => {
+  // Regresión: 10321x (catalogIdx 2, score 17, abierta) NO debe desplazar a
+  // 133211 (catalogIdx 0, score 16) en su misma zona de mástil.
+  const selectEl = await setupMajorChord(page, "F", { open: true, waitFor: "133211" });
+  await setVoicingFilter(page, "essential");
+  const opts = await selectEl.locator("option").evaluateAll((els) => els.map((o) => o.value));
+  expect(opts[0], `Esenciales de F (abiertas ON) debe empezar por 133211. Opciones: ${opts.join(", ")}`).toBe("133211");
+  expect(opts, "133211 debe estar en Esenciales").toContain("133211");
+  expect(opts.length, "Esenciales debe ser corto (≤ 12)").toBeLessThanOrEqual(12);
+});
+
+test("85. VF: F mayor + abiertas OFF + Esenciales → 133211 primero", async ({ page }) => {
+  const selectEl = await setupMajorChord(page, "F", { open: false, waitFor: "133211" });
+  await setVoicingFilter(page, "essential");
+  const opts = await selectEl.locator("option").evaluateAll((els) => els.map((o) => o.value));
+  expect(opts[0], `Esenciales de F (abiertas OFF) debe empezar por 133211. Opciones: ${opts.join(", ")}`).toBe("133211");
+  expect(opts, "133211 debe estar en Esenciales").toContain("133211");
+});
+

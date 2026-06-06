@@ -29,6 +29,7 @@ const {
   computeInversionSelectorOptions,
   dedupeAndSortVoicings,
   filterVoicingsByForm,
+  filterGuitaristicVoicings,
   generateExactIntervalChordVoicings,
   normalizeChordFormToInversion,
   normalizeGeneratedVoicingForDisplay,
@@ -54,6 +55,7 @@ export function useChordBuilderTertianSelectionBlock({
   skipChordVoicingRefSyncRef,
   pendingChordRestoreRef,
   chordKeepZone,
+  chordVoicingFilterLevel,
 }) {
   /* eslint-disable react-hooks/refs */
   const chordVoicingsDisplay = useMemo(() => {
@@ -63,8 +65,19 @@ export function useChordBuilderTertianSelectionBlock({
     return [{ ...chordCopiedEntry.voicing, isCopied: true }, ...chordVoicings];
   }, [chordVoicings, chordCopiedEntry, currentChordCopyFingerprint]);
 
+  // Lista efectiva tras aplicar el filtro guitarístico. Cuando el nivel es "all"
+  // devuelve chordVoicingsDisplay sin cambios. El voicing copiado (isCopied) siempre
+  // precede al resto y nunca es eliminado por el filtro.
+  const chordVoicingsFiltered = useMemo(() => {
+    if (!chordVoicingFilterLevel || chordVoicingFilterLevel === "all") return chordVoicingsDisplay;
+    const copied = chordVoicingsDisplay.filter((v) => v.isCopied);
+    const rest = chordVoicingsDisplay.filter((v) => !v.isCopied);
+    const filteredRest = filterGuitaristicVoicings(chordVoicingFilterLevel, rest);
+    return copied.length ? [...copied, ...filteredRest] : filteredRest;
+  }, [chordVoicingsDisplay, chordVoicingFilterLevel]);
+
   const chordResolvedSelection = useMemo(() => {
-    const list = chordVoicingsDisplay;
+    const list = chordVoicingsFiltered;
     if (!list.length) return { idx: 0, voicing: null, frets: null, waitingPending: false };
 
     const normalizedCurrentIdx = Math.max(0, Math.min(chordVoicingIdx, list.length - 1));
@@ -103,11 +116,11 @@ export function useChordBuilderTertianSelectionBlock({
     }
     const voicing = list[idx] || list[0] || null;
     return { idx, voicing, frets: voicing?.frets ?? null, waitingPending: false };
-  }, [chordVoicingsDisplay, chordVoicingIdx, chordSelectedFrets, chordRootPc, maxFret, chordKeepZone]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [chordVoicingsFiltered, chordVoicingIdx, chordSelectedFrets, chordRootPc, maxFret, chordKeepZone]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!storageHydrated) return;
-    if (!chordVoicingsDisplay.length) {
+    if (!chordVoicingsFiltered.length) {
       if (!pendingChordRestoreRef.current.active && chordVoicingIdx !== 0) setChordVoicingIdx(0);
       return;
     }
@@ -125,10 +138,11 @@ export function useChordBuilderTertianSelectionBlock({
     if ((chordResolvedSelection.frets ?? null) !== (chordSelectedFrets ?? null)) {
       setChordSelectedFrets(chordResolvedSelection.frets ?? null);
     }
-  }, [storageHydrated, chordVoicingsDisplay.length, chordVoicingIdx, chordSelectedFrets, chordResolvedSelection]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [storageHydrated, chordVoicingsFiltered.length, chordVoicingIdx, chordSelectedFrets, chordResolvedSelection]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const result = {
     chordVoicingsDisplay,
+    chordVoicingsFiltered,
     chordResolvedSelection,
     activeChordVoicing: chordResolvedSelection.voicing,
   };
