@@ -36,6 +36,7 @@ const {
   buildVoicingFromFretsLH,
   selectClosestPhysicalVoicingIndex,
   selectNaturalGuitarVoicingIndex,
+  MAX_VOICING_OPTIONS,
 } = AppVoicingStudyCore;
 
 export function useChordBuilderTertianSelectionBlock({
@@ -578,7 +579,8 @@ export function useChordBuilderState({ maxFret } = {}) {
     }
 
     list = filterVoicingsByForm(dedupeAndSortVoicings(list), guideToneForm);
-    return list.slice(0, 60);
+    // Safety cap only — applied after generate/dedupe/sort/filter, not as a musical filter.
+    return list.slice(0, MAX_VOICING_OPTIONS);
   }, [guideToneDef, guideToneInversion, chordRootPc, maxFret, chordMaxDist, chordAllowOpenStrings, guideToneForm]);
 
   const guideToneVoicingsSig = useMemo(() => guideToneVoicings.map((v) => v.frets).join("|"), [guideToneVoicings]);

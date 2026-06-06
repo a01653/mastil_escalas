@@ -26,6 +26,10 @@ const chordCanUseJsonCatalog = (...args) => AppMusicBasics.chordCanUseJsonCatalo
 const guideToneDefinitionFromQuality = (...args) => AppMusicBasics.guideToneDefinitionFromQuality(...args);
 const guideToneBassIntervalsForSelection = (...args) => AppMusicBasics.guideToneBassIntervalsForSelection(...args);
 
+// Safety cap only. Must be applied after generating, deduping and sorting,
+// so it does not hide valid high-position voicings due to early truncation.
+export const MAX_VOICING_OPTIONS = 1000;
+
 export function decodeChordDbFretChar(ch) {
   const c = String(ch || "").toLowerCase();
   if (!c) return null;
@@ -1273,7 +1277,7 @@ function finalizeSearchVoicingsForPlan({ plan, voicings, maxFret, maxSpan, allow
   });
 }
 
-function generateSearchVoicingsForPlan({ plan, maxFret, maxSpan, allowOpenStrings = false }) {
+export function generateSearchVoicingsForPlan({ plan, maxFret, maxSpan, allowOpenStrings = false }) {
   if (!plan || plan.generator === "none") return [];
 
   const inversionChoices = concreteInversionsForSelection(plan.inversion, plan.ui?.allowThirdInversion);
@@ -1293,7 +1297,7 @@ function generateSearchVoicingsForPlan({ plan, maxFret, maxSpan, allowOpenString
         }), plan.form).map((v) => normalizeGeneratedVoicingForDisplay(v, plan.rootPc, rootCandidate))
       )
     ));
-    return finalizeSearchVoicingsForPlan({ plan, voicings: tri, maxFret, maxSpan, allowOpenStrings }).slice(0, 60);
+    return finalizeSearchVoicingsForPlan({ plan, voicings: tri, maxFret, maxSpan, allowOpenStrings }).slice(0, MAX_VOICING_OPTIONS) /* safety cap only */;
   }
 
   if (plan.generator === "drop") {
@@ -1312,7 +1316,7 @@ function generateSearchVoicingsForPlan({ plan, maxFret, maxSpan, allowOpenString
         }).map((v) => normalizeGeneratedVoicingForDisplay(v, plan.rootPc, rootCandidate))
       )
     ));
-    return finalizeSearchVoicingsForPlan({ plan, voicings: tet, maxFret, maxSpan, allowOpenStrings }).slice(0, 60);
+    return finalizeSearchVoicingsForPlan({ plan, voicings: tet, maxFret, maxSpan, allowOpenStrings }).slice(0, MAX_VOICING_OPTIONS) /* safety cap only */;
   }
 
   if (plan.generator === "tetrad") {
@@ -1341,7 +1345,7 @@ function generateSearchVoicingsForPlan({ plan, maxFret, maxSpan, allowOpenString
             )
           ));
         })();
-    return finalizeSearchVoicingsForPlan({ plan, voicings: tet, maxFret, maxSpan, allowOpenStrings }).slice(0, 60);
+    return finalizeSearchVoicingsForPlan({ plan, voicings: tet, maxFret, maxSpan, allowOpenStrings }).slice(0, MAX_VOICING_OPTIONS) /* safety cap only */;
   }
 
   const exact = dedupeAndSortVoicings(selectedBassIntervals.flatMap((bassInterval) =>
@@ -1353,7 +1357,7 @@ function generateSearchVoicingsForPlan({ plan, maxFret, maxSpan, allowOpenString
       maxSpan,
     }).map((v) => normalizeGeneratedVoicingForDisplay(v, plan.rootPc, plan.rootPc))
   ));
-  return finalizeSearchVoicingsForPlan({ plan, voicings: exact, maxFret, maxSpan, allowOpenStrings }).slice(0, 60);
+  return finalizeSearchVoicingsForPlan({ plan, voicings: exact, maxFret, maxSpan, allowOpenStrings }).slice(0, MAX_VOICING_OPTIONS) /* safety cap only */;
 }
 
 export function analyzeChordVoicingForCopy({

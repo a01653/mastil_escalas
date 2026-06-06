@@ -201,6 +201,7 @@ const {
   actualInversionLabelFromVoicing,
   selectClosestPhysicalVoicingIndex,
   deriveDetectedCandidateCopyInversion,
+  MAX_VOICING_OPTIONS,
 } = AppVoicingStudyCore;
 
 import * as AppPatternRouteStaffCore from "./music/appPatternRouteStaffCore.jsx";
@@ -279,7 +280,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "6.0.23";
+const APP_VERSION = "6.0.24";
 
 
 // ─── Acorde de referencia (bloque "Investigar en mástil") ────────────────────
@@ -1632,7 +1633,7 @@ export default function FretboardScalesPage() {
   // CÁLCULOS DERIVADOS: VOICINGS DEL ACORDE PRINCIPAL
   // --------------------------------------------------------------------------
 
-  const chordVoicings = useMemo(() => {
+  const { chordVoicings, chordVoicingsTotalCount } = useMemo(() => {
     const plan = chordEnginePlan;
     const inversionChoices = concreteInversionsForSelection(plan.inversion, plan.ui?.allowThirdInversion);
     const selectedBassIntervals = bassIntervalsForSelection(plan);
@@ -1688,11 +1689,11 @@ export default function FretboardScalesPage() {
         )
       ));
       const finalTri = finalizeMainVoicings(tri);
-      return finalTri.slice(0, 60);
+      return { chordVoicings: finalTri.slice(0, MAX_VOICING_OPTIONS) /* safety cap only */, chordVoicingsTotalCount: finalTri.length };
     }
 
     if (plan.generator === "drop") {
-      if (plan.topVoiceOffset == null) return [];
+      if (plan.topVoiceOffset == null) return { chordVoicings: [], chordVoicingsTotalCount: 0 };
       const tet = dedupeAndSortVoicings(rootCandidates.flatMap((rootCandidate) =>
         inversionChoices.flatMap((inv) =>
           generateDropTetradVoicings({
@@ -1708,7 +1709,7 @@ export default function FretboardScalesPage() {
         )
       ));
       const finalTet = finalizeMainVoicings(tet);
-      return finalTet.slice(0, 60);
+      return { chordVoicings: finalTet.slice(0, MAX_VOICING_OPTIONS) /* safety cap only */, chordVoicingsTotalCount: finalTet.length };
     }
 
     if (plan.generator === "tetrad") {
@@ -1738,7 +1739,7 @@ export default function FretboardScalesPage() {
             ));
           })();
       const finalTet = finalizeMainVoicings(tet);
-      return finalTet.slice(0, 60);
+      return { chordVoicings: finalTet.slice(0, MAX_VOICING_OPTIONS) /* safety cap only */, chordVoicingsTotalCount: finalTet.length };
     }
 
     if (plan.generator === "exact") {
@@ -1750,12 +1751,12 @@ export default function FretboardScalesPage() {
         maxSpan: chordMaxDist,
       }).map((v) => normalizeGeneratedVoicingForDisplay(v, plan.rootPc, plan.rootPc))));
       const finalMulti = finalizeMainVoicings(multi);
-      return finalMulti.slice(0, 60);
+      return { chordVoicings: finalMulti.slice(0, MAX_VOICING_OPTIONS) /* safety cap only */, chordVoicingsTotalCount: finalMulti.length };
     }
 
     if (plan.generator === "json") {
-      if (chordDbKey !== chordDbExpectedKey) return [];
-      if (!chordDb?.positions?.length) return [];
+      if (chordDbKey !== chordDbExpectedKey) return { chordVoicings: [], chordVoicingsTotalCount: 0 };
+      if (!chordDb?.positions?.length) return { chordVoicings: [], chordVoicingsTotalCount: 0 };
 
       const allowed = new Set(plan.intervals.map(mod12));
       const required = new Set(plan.intervals.map(mod12));
@@ -1849,10 +1850,10 @@ export default function FretboardScalesPage() {
 
       list.sort((a, b) => ((a._extra ?? 0) - (b._extra ?? 0)) || (a.minFret - b.minFret) || (a.span - b.span) || (a.maxFret - b.maxFret));
       const finalJson = finalizeMainVoicings(list);
-      return finalJson.slice(0, 60);
+      return { chordVoicings: finalJson.slice(0, MAX_VOICING_OPTIONS) /* safety cap only */, chordVoicingsTotalCount: finalJson.length };
     }
 
-    return [];
+    return { chordVoicings: [], chordVoicingsTotalCount: 0 };
   }, [chordEnginePlan, chordDb, chordDbKey, chordDbExpectedKey, chordMaxDist, chordAllowOpenStrings, maxFret]);
 
   const {
@@ -5125,7 +5126,11 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
     return (
       <div className={className.trim()}>
         <span data-testid="active-voicing-pattern" aria-hidden="true" className="sr-only">{selectedFrets || voicings[currentIdx]?.frets || ""}</span>
-        <label className={UI_LABEL_SM}>Voicing ({voicings.length} opciones)</label>
+        <label className={UI_LABEL_SM}>
+          {!isQuartal && !isGuideTones && chordVoicingsTotalCount > MAX_VOICING_OPTIONS
+            ? `Voicing (${voicings.length} de ${chordVoicingsTotalCount} opciones)`
+            : `Voicing (${voicings.length} opciones)`}
+        </label>
         <div className="mt-1 flex items-center gap-1.5">
           <button
             type="button"

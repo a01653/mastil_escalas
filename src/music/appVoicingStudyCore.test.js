@@ -13,6 +13,7 @@ import {
   resolveCopiedVoicingAcrossStructures,
   selectClosestPhysicalVoicingIndex,
   selectNaturalGuitarVoicingIndex,
+  generateSearchVoicingsForPlan,
 } from "./appVoicingStudyCore.js";
 import { chordBassInterval, chordDisplayNameFromUI } from "./appMusicBasics.js";
 
@@ -1296,5 +1297,36 @@ describe("buildChordEnginePlan — generator en transiciones m(maj7) → menor/d
       ...base, rootPc: 5, quality: "minmaj7", structure: "chord", ext7: false,
     });
     expect(plan.generator).toBe("exact");
+  });
+});
+
+describe("generateSearchVoicingsForPlan — allowOpenStrings no elimina voicings de posición alta", () => {
+  const basePlan = {
+    rootPc: 0, quality: "major", suspension: "none", structure: "chord",
+    form: "any", inversion: "any", ext7: false, ext6: false,
+    ext9: false, ext11: false, ext13: false, omit: [], multiAdd: false,
+  };
+
+  test("C mayor triada: con allowOpenStrings=true sigue habiendo voicings con minFret > 9", () => {
+    const plan = buildChordEnginePlan(basePlan);
+    const withOpen = generateSearchVoicingsForPlan({ plan, maxFret: 15, maxSpan: 4, allowOpenStrings: true });
+    expect(withOpen.some((v) => v.minFret > 9)).toBe(true);
+  });
+
+  test("C mayor triada: con allowOpenStrings=true todos los voicings cerrados de allowOpenStrings=false están presentes", () => {
+    const plan = buildChordEnginePlan(basePlan);
+    const withoutOpen = generateSearchVoicingsForPlan({ plan, maxFret: 15, maxSpan: 4, allowOpenStrings: false });
+    const withOpen = generateSearchVoicingsForPlan({ plan, maxFret: 15, maxSpan: 4, allowOpenStrings: true });
+    const openFrets = new Set(withOpen.map((v) => v.frets));
+    for (const v of withoutOpen) {
+      expect(openFrets.has(v.frets), `voicing ${v.frets} (minFret=${v.minFret}) ausente con allowOpenStrings=true`).toBe(true);
+    }
+  });
+
+  test("C mayor triada: allowOpenStrings=true produce más voicings que allowOpenStrings=false", () => {
+    const plan = buildChordEnginePlan(basePlan);
+    const withoutOpen = generateSearchVoicingsForPlan({ plan, maxFret: 15, maxSpan: 4, allowOpenStrings: false });
+    const withOpen = generateSearchVoicingsForPlan({ plan, maxFret: 15, maxSpan: 4, allowOpenStrings: true });
+    expect(withOpen.length).toBeGreaterThan(withoutOpen.length);
   });
 });
