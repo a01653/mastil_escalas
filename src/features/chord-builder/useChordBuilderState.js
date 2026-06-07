@@ -337,6 +337,8 @@ export function useChordBuilderState({ maxFret } = {}) {
   const pendingChordCopyResolutionRef = useRef(null);
   const lastGuideToneVoicingRef = useRef(null);
   const skipGuideToneVoicingRefSyncRef = useRef(false);
+  const lastChordQuartalVoicingRef = useRef(null);
+  const skipChordQuartalVoicingRefSyncRef = useRef(false);
 
   // -- Coherencia interna ------------------------------------------------
   // E1, E2, E3 llaman setState síncronamente para normalizar estado tras un cambio
@@ -507,9 +509,15 @@ export function useChordBuilderState({ maxFret } = {}) {
   // -- Derivados Ola 2 ---------------------------------------------------
   // Dependen de derivados de Ola 1 o requieren imports de nivel medio.
 
+  const chordQuartalVoicingsSig = useMemo(
+    () => chordQuartalVoicings.map((v) => v.frets).join("|"),
+    [chordQuartalVoicings]
+  );
+
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!chordQuartalVoicings.length) {
+      lastChordQuartalVoicingRef.current = null;
       setChordQuartalVoicingIdx(0);
       setChordQuartalSelectedFrets(null);
       return;
@@ -523,9 +531,36 @@ export function useChordBuilderState({ maxFret } = {}) {
       }
     }
 
-    setChordQuartalVoicingIdx(0);
-    setChordQuartalSelectedFrets(chordQuartalVoicings[0].frets);
-  }, [chordQuartalVoicings, chordQuartalSelectedFrets]);
+    if (chordKeepZone !== false) {
+      const ref = lastChordQuartalVoicingRef.current;
+      const idx = selectClosestPhysicalVoicingIndex(ref, chordQuartalVoicings, { reasonableDistance: Infinity });
+      const nextFrets = chordQuartalVoicings[idx]?.frets ?? chordQuartalVoicings[0]?.frets ?? null;
+      if (idx !== chordQuartalVoicingIdx) {
+        skipChordQuartalVoicingRefSyncRef.current = true;
+        setChordQuartalVoicingIdx(idx);
+      }
+      if (nextFrets !== chordQuartalSelectedFrets) setChordQuartalSelectedFrets(nextFrets);
+    } else {
+      skipChordQuartalVoicingRefSyncRef.current = true;
+      setChordQuartalVoicingIdx(0);
+      setChordQuartalSelectedFrets(chordQuartalVoicings[0].frets);
+    }
+  }, [chordQuartalVoicingIdx, chordQuartalVoicings, chordQuartalVoicingsSig, chordQuartalSelectedFrets, chordKeepZone]);
+
+  useEffect(() => {
+    const current = chordQuartalVoicings[chordQuartalVoicingIdx] || chordQuartalVoicings[0] || null;
+    if (skipChordQuartalVoicingRefSyncRef.current) {
+      skipChordQuartalVoicingRefSyncRef.current = false;
+      return;
+    }
+    const selectedStillExists = !!chordQuartalSelectedFrets &&
+      chordQuartalVoicings.some((v) => v.frets === chordQuartalSelectedFrets);
+    if (!selectedStillExists) {
+      const nextFrets = current?.frets ?? null;
+      if (nextFrets !== (chordQuartalSelectedFrets ?? null)) setChordQuartalSelectedFrets(nextFrets);
+    }
+    if (current) lastChordQuartalVoicingRef.current = current;
+  }, [chordQuartalVoicingIdx, chordQuartalVoicings, chordQuartalVoicingsSig, chordQuartalSelectedFrets]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
   const activeQuartalVoicingRaw = chordQuartalVoicings[chordQuartalVoicingIdx] || null;
@@ -671,15 +706,24 @@ export function useChordBuilderState({ maxFret } = {}) {
       return;
     }
 
-    const ref = lastGuideToneVoicingRef.current;
-    const idx = selectClosestPhysicalVoicingIndex(ref, guideToneVoicings);
-    const nextFrets = guideToneVoicings[idx]?.frets ?? guideToneVoicings[0]?.frets ?? null;
-    if (idx !== guideToneVoicingIdx) {
+    if (chordKeepZone !== false) {
+      const ref = lastGuideToneVoicingRef.current;
+      const idx = selectClosestPhysicalVoicingIndex(ref, guideToneVoicings, { reasonableDistance: Infinity });
+      const nextFrets = guideToneVoicings[idx]?.frets ?? guideToneVoicings[0]?.frets ?? null;
+      if (idx !== guideToneVoicingIdx) {
+        skipGuideToneVoicingRefSyncRef.current = true;
+        setGuideToneVoicingIdx(idx);
+      }
+      if (nextFrets !== guideToneSelectedFrets) setGuideToneSelectedFrets(nextFrets);
+    } else {
       skipGuideToneVoicingRefSyncRef.current = true;
-      setGuideToneVoicingIdx(idx);
+      if (guideToneVoicingIdx !== 0) {
+        setGuideToneVoicingIdx(0);
+      }
+      const nextFrets = guideToneVoicings[0]?.frets ?? null;
+      if (nextFrets !== guideToneSelectedFrets) setGuideToneSelectedFrets(nextFrets);
     }
-    if (nextFrets !== guideToneSelectedFrets) setGuideToneSelectedFrets(nextFrets);
-  }, [guideToneVoicingIdx, guideToneVoicings, guideToneVoicingsSig, guideToneSelectedFrets]);
+  }, [guideToneVoicingIdx, guideToneVoicings, guideToneVoicingsSig, guideToneSelectedFrets, chordKeepZone]);
 
   useEffect(() => {
     const current = guideToneVoicings[guideToneVoicingIdx] || guideToneVoicings[0] || null;
@@ -767,6 +811,7 @@ export function useChordBuilderState({ maxFret } = {}) {
       pendingChordRestoreRef,
       pendingChordCopyResolutionRef,
       lastGuideToneVoicingRef,
+      lastChordQuartalVoicingRef,
     },
   };
 }

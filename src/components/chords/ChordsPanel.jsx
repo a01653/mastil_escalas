@@ -279,6 +279,7 @@ const modeToggle = (
             <div className="mt-1 flex items-center gap-1.5">
               <select
                 className={UI_SELECT_SM_TONE}
+                data-testid="select-tone"
                 style={isMobileLayout ? undefined : { width: "50px" }}
                 value={toneSelectValue}
                 onChange={(e) => handleToneChange(e.target.value)}
@@ -389,7 +390,10 @@ const modeToggle = (
 
           {!isMobileLayout && (
             <div className="ml-auto self-start justify-self-end pt-[8px]">
-              {renderChordAllowOpenStringsToggle("h-9 rounded-xl border border-slate-200 bg-white px-3 shadow-sm")}
+              <div className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm">
+                {renderChordAllowOpenStringsToggle()}
+                {renderChordKeepZoneToggle()}
+              </div>
             </div>
           )}
 
@@ -403,6 +407,7 @@ const modeToggle = (
             <div className="mt-1 flex items-center gap-1.5">
               <select
                 className={UI_SELECT_SM_TONE}
+                data-testid="select-tone"
                 style={isMobileLayout ? undefined : { width: "50px" }}
                 value={toneSelectValue}
                 onChange={(e) => handleToneChange(e.target.value)}
@@ -480,7 +485,10 @@ const modeToggle = (
 
           {!isMobileLayout && (
             <div className="ml-auto self-start justify-self-end pt-[8px]">
-              {renderChordAllowOpenStringsToggle("h-9 rounded-xl border border-slate-200 bg-white px-3 shadow-sm")}
+              <div className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm">
+                {renderChordAllowOpenStringsToggle()}
+                {renderChordKeepZoneToggle()}
+              </div>
             </div>
           )}
 

@@ -281,7 +281,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "6.0.27";
+const APP_VERSION = "6.0.28";
 
 
 // ─── Acorde de referencia (bloque "Investigar en mástil") ────────────────────
@@ -448,6 +448,7 @@ export default function FretboardScalesPage() {
     pendingChordRestoreRef,
     pendingChordCopyResolutionRef,
     lastGuideToneVoicingRef,
+    lastChordQuartalVoicingRef,
   } = chordBuilderRefs;
   // --------------------------------------------------------------------------
   // ESTADO: DETECCIÓN DE ACORDES EN MÁSTIL
@@ -3433,7 +3434,7 @@ export default function FretboardScalesPage() {
   // --------------------------------------------------------------------------
 
   function renderChordKeepZoneToggle(className = "") {
-    if (chordFamily !== "tertian") return null;
+    if (chordFamily !== "tertian" && chordFamily !== "quartal" && chordFamily !== "guide_tones") return null;
     return (
       <label
         className={`inline-flex items-center gap-2 text-xs font-semibold text-slate-700 ${className}`.trim()}
@@ -5148,7 +5149,9 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
       const nextVoicing = voicings[normalized] || null;
       if (isGuideTones) {
         lastGuideToneVoicingRef.current = nextVoicing;
-      } else if (!isQuartal) {
+      } else if (isQuartal) {
+        lastChordQuartalVoicingRef.current = nextVoicing;
+      } else {
         lastChordVoicingRef.current = nextVoicing;
       }
       setIdx(normalized);
