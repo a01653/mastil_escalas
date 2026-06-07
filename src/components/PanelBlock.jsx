@@ -10,6 +10,7 @@ const PanelBlock = React.forwardRef(function PanelBlock({
   titleTooltip = "",
   headerAside = null,
   disabledHeader = false,
+  collapsed = false,
   className = "",
   headerClassName = "",
   bodyClassName = "",
@@ -38,7 +39,7 @@ const PanelBlock = React.forwardRef(function PanelBlock({
         </div>
         {headerAside ? <div className="min-w-0 shrink-0">{headerAside}</div> : null}
       </div>
-      <div className={`bg-white p-3 ${bodyClassName}`.trim()}>{children}</div>
+      {!collapsed && <div className={`bg-white p-3 ${bodyClassName}`.trim()}>{children}</div>}
     </Tag>
   );
 });

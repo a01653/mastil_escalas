@@ -804,6 +804,7 @@ export function sanitizeNearSlotValue(value, fallback) {
     spellPreferSharps: sanitizeBoolValue(slot.spellPreferSharps, fallback.spellPreferSharps),
     maxDist: sanitizeOneOf(Number(slot.maxDist), [4, 5, 6], fallback.maxDist),
     allowOpenStrings: sanitizeBoolValue(slot.allowOpenStrings, fallback.allowOpenStrings),
+    omit: sanitizeOneOf(slot.omit, ["none", "1", "3", "5"], fallback.omit || "none"),
     selFrets: typeof slot.selFrets === "string" || slot.selFrets == null ? slot.selFrets : fallback.selFrets,
   };
 }

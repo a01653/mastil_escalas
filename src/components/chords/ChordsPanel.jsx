@@ -32,7 +32,7 @@ const { isDropForm } = AppVoicingStudyCore;
 const UI_BTN_SM = "h-7 w-7 rounded-xl border border-slate-200 bg-white text-xs font-semibold shadow-sm hover:bg-sky-50 disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed";
 
 // ── Botón copiar voicing (reutilizable) ─────────────────────────────────────
-export function CopyVoicingButton({ frets }) {
+export function CopyVoicingButton({ frets, ...props }) {
   const [copied, setCopied] = useState(false);
   const handleCopy = useCallback(() => {
     if (!frets) return;
@@ -51,6 +51,7 @@ export function CopyVoicingButton({ frets }) {
       onClick={handleCopy}
       disabled={!frets}
       aria-label="Copiar voicing al portapapeles"
+      {...props}
     >
       {copied ? <Check size={14} /> : <Copy size={14} />}
     </button>

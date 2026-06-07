@@ -281,7 +281,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "6.0.28";
+const APP_VERSION = "6.0.30";
 
 
 // ─── Acorde de referencia (bloque "Investigar en mástil") ────────────────────
@@ -2266,6 +2266,7 @@ export default function FretboardScalesPage() {
       spellPreferSharps: spellPreferSharpsValue,
       maxDist: 4,
       allowOpenStrings: false,
+      omit: "none",
       selFrets: null,
     };
   }
@@ -2358,6 +2359,7 @@ export default function FretboardScalesPage() {
       ext9: !!slot?.ext9,
       ext11: !!slot?.ext11,
       ext13: !!slot?.ext13,
+      omit: slot?.omit || "none",
     });
     const degreeLabels = intervals.map((interval) => intervalToChordToken(interval, {
       ext6: !!slot?.ext6,
@@ -2473,6 +2475,7 @@ export default function FretboardScalesPage() {
       ext9: slot?.ext9,
       ext11: slot?.ext11,
       ext13: slot?.ext13,
+      omit: slot?.omit || "none",
     });
 
     return {
@@ -2636,6 +2639,7 @@ export default function FretboardScalesPage() {
         ext9: !!slot.ext9,
         ext11: !!slot.ext11,
         ext13: !!slot.ext13,
+        omit: slot.omit || "none",
       });
       const selectedBassIntervals = bassIntervalsForSelection(plan);
       const rootCandidates = symmetricRootCandidatesForPlan(plan);
@@ -4328,7 +4332,7 @@ export default function FretboardScalesPage() {
   const UI_EXT_GRID = "mt-1 grid grid-cols-3 gap-x-3 gap-y-1 text-xs";
   const nearSlotDesktopEditorClass = "flex flex-wrap items-end gap-2";
   const nearSlotDesktopVoicingClass = "min-w-[260px] flex-[1_1_320px]";
-  const nearSlotDesktopVoicingCompactClass = "min-w-[190px] flex-[1_1_210px]";
+  const nearSlotDesktopVoicingCompactClass = "shrink-0";
 
   function renderNearSlotToneControl(slot, idx, disableAll, className = "min-w-0") {
     return (
@@ -4396,10 +4400,17 @@ export default function FretboardScalesPage() {
   function renderNearSlotVoicingPicker(slot, idx, disableAll, options, errMsg, className = "min-w-0 flex-1") {
     const family = nearSlotFamilyOf(slot);
     const voicingOptionLabels = options.map((v) => `${v.frets}${family === "quartal" && v.quartalDegree != null ? ` · ${fnBuildQuartalDegreeLabel(v.quartalDegree)}` : ""} (min ${v.minFret} · dist ${v.reach ?? (v.span + 1)})`);
-    const voicingSelectClass = isMobileLayout ? `${UI_SELECT_SM} min-w-0 flex-1 max-w-[172px]` : UI_SELECT_SM_AUTO;
+    const voicingSelectClass = isMobileLayout
+      ? `${UI_SELECT_SM} min-w-0 flex-1 max-w-[172px]`
+      : `${UI_SELECT_SM_AUTO} w-[90px]`;
+    const activeFrets = slot.selFrets || options[0]?.frets || null;
     return (
       <div className={className}>
-        <label className={UI_LABEL_SM}>Digitación en rango ({options.length} opciones)</label>
+        <label className={UI_LABEL_SM}>
+          {isMobileLayout
+            ? `Digitación en rango (${options.length} opciones)`
+            : `Voicing (${options.length})`}
+        </label>
         <div className="mt-1 flex items-center gap-1.5">
           <button
             type="button"
@@ -4419,6 +4430,7 @@ export default function FretboardScalesPage() {
           </button>
 
           <select
+            data-testid={`near-slot-${idx}-voicing-select`}
             className={voicingSelectClass}
             value={slot.selFrets || "(auto)"}
             onChange={(e) => {
@@ -4451,6 +4463,12 @@ export default function FretboardScalesPage() {
           >
             <ChevronRight className="h-4 w-4" />
           </button>
+
+          <CopyVoicingButton
+            frets={activeFrets}
+            data-testid={`near-slot-${idx}-copy-voicing`}
+            disabled={disableAll || !activeFrets}
+          />
         </div>
       </div>
     );
@@ -4744,19 +4762,33 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
             ) : null}
             {slotUi.ext.showNine ? (
               <label className="inline-flex items-center gap-2">
-                <input type="checkbox" checked={!!slot.ext9} onChange={(e) => updateNearSlot(idx, { ext9: e.target.checked, selFrets: null })} disabled={disableAll || !slotUi.ext.canToggleNine} /> 9
+                <input type="checkbox" data-testid={`near-slot-${idx}-ext9`} checked={!!slot.ext9} onChange={(e) => updateNearSlot(idx, { ext9: e.target.checked, selFrets: null })} disabled={disableAll || !slotUi.ext.canToggleNine} /> 9
               </label>
             ) : null}
             {slotUi.ext.showEleven ? (
               <label className="inline-flex items-center gap-2">
-                <input type="checkbox" checked={!!slot.ext11} onChange={(e) => updateNearSlot(idx, { ext11: e.target.checked, selFrets: null })} disabled={disableAll || !slotUi.ext.canToggleEleven} /> 11
+                <input type="checkbox" data-testid={`near-slot-${idx}-ext11`} checked={!!slot.ext11} onChange={(e) => updateNearSlot(idx, { ext11: e.target.checked, selFrets: null })} disabled={disableAll || !slotUi.ext.canToggleEleven} /> 11
               </label>
             ) : null}
             {slotUi.ext.showThirteen ? (
               <label className="inline-flex items-center gap-2">
-                <input type="checkbox" checked={!!slot.ext13} onChange={(e) => updateNearSlot(idx, { ext13: e.target.checked, selFrets: null })} disabled={disableAll || !slotUi.ext.canToggleThirteen} /> 13
+                <input type="checkbox" data-testid={`near-slot-${idx}-ext13`} checked={!!slot.ext13} onChange={(e) => updateNearSlot(idx, { ext13: e.target.checked, selFrets: null })} disabled={disableAll || !slotUi.ext.canToggleThirteen} /> 13
               </label>
             ) : null}
+          </div>
+        </div>
+        <div className={isMobileLayout ? "min-w-0 order-7 col-span-2" : "shrink-0"}>
+          <label className={UI_LABEL_SM}>Omitir</label>
+          <div className={UI_EXT_GRID}>
+            <label className="inline-flex items-center gap-2">
+              <input type="checkbox" data-testid={`near-slot-${idx}-omit-1`} checked={slot.omit === "1"} onChange={(e) => updateNearSlot(idx, { omit: e.target.checked ? "1" : "none", selFrets: null })} disabled={disableAll || (slot.omit === "1" && !slotUi.omit?.canToggleOff)} /> 1
+            </label>
+            <label className="inline-flex items-center gap-2">
+              <input type="checkbox" data-testid={`near-slot-${idx}-omit-3`} checked={slot.omit === "3"} onChange={(e) => updateNearSlot(idx, { omit: e.target.checked ? "3" : "none", selFrets: null })} disabled={disableAll || slot.suspension !== "none" || (slot.omit === "3" && !slotUi.omit?.canToggleOff)} /> 3
+            </label>
+            <label className="inline-flex items-center gap-2">
+              <input type="checkbox" data-testid={`near-slot-${idx}-omit-5`} checked={slot.omit === "5"} onChange={(e) => updateNearSlot(idx, { omit: e.target.checked ? "5" : "none", selFrets: null })} disabled={disableAll || (slot.omit === "5" && !slotUi.omit?.canToggleOff)} /> 5
+            </label>
           </div>
         </div>
         {isMobileLayout ? showMobileVoicing ? (
@@ -4798,6 +4830,7 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
       ext9: slot.ext9,
       ext11: slot.ext11,
       ext13: slot.ext13,
+      omit: slot.omit || "none",
     });
     const rankedOptions = r?.ranked || [];
     const options = [...rankedOptions]
@@ -4864,11 +4897,13 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
     return (
       <PanelBlock
         key={idx}
+        data-testid={`near-slot-${idx}`}
         as="div"
         level="subsection"
         title={slotLabel}
         description={null}
         disabledHeader={disableAll}
+        collapsed={!slot.enabled}
         bodyClassName="overflow-visible"
         headerAside={<div className="flex items-center gap-1.5">
             <button
@@ -5655,6 +5690,7 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
                     title={nearTitle}
                     description={description}
                     disabledHeader={disableAll}
+                    collapsed={!slot.enabled}
                     bodyClassName="overflow-visible"
                     headerAside={<div className="flex items-center gap-2">
                         {renderNearSlotOpenStringsToggle(slot, idx, disableAll)}
