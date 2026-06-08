@@ -4331,7 +4331,7 @@ export default function FretboardScalesPage() {
   const UI_HELP_SM = "text-[11px] text-slate-500";
   const UI_EXT_GRID = "mt-1 grid grid-cols-3 gap-x-3 gap-y-1 text-xs";
   const nearSlotDesktopEditorClass = "flex flex-wrap items-end gap-2";
-  const nearSlotDesktopVoicingClass = "min-w-[260px] flex-[1_1_320px]";
+  const nearSlotDesktopVoicingClass = "shrink-0";
   const nearSlotDesktopVoicingCompactClass = "shrink-0";
 
   function renderNearSlotToneControl(slot, idx, disableAll, className = "min-w-0") {
@@ -4399,10 +4399,13 @@ export default function FretboardScalesPage() {
 
   function renderNearSlotVoicingPicker(slot, idx, disableAll, options, errMsg, className = "min-w-0 flex-1") {
     const family = nearSlotFamilyOf(slot);
-    const voicingOptionLabels = options.map((v) => `${v.frets}${family === "quartal" && v.quartalDegree != null ? ` · ${fnBuildQuartalDegreeLabel(v.quartalDegree)}` : ""} (min ${v.minFret} · dist ${v.reach ?? (v.span + 1)})`);
+    const voicingOptionLabels = options.map((v) => v.frets);
+    const voicingOptionTitles = options.map((v) =>
+      `${v.frets}${family === "quartal" && v.quartalDegree != null ? ` · ${fnBuildQuartalDegreeLabel(v.quartalDegree)}` : ""} — min ${v.minFret} · dist ${v.reach ?? (v.span + 1)}`
+    );
     const voicingSelectClass = isMobileLayout
       ? `${UI_SELECT_SM} min-w-0 flex-1 max-w-[172px]`
-      : `${UI_SELECT_SM_AUTO} w-[90px]`;
+      : `${UI_SELECT_SM_AUTO} w-[68px] max-w-[68px]`;
     const activeFrets = slot.selFrets || options[0]?.frets || null;
     return (
       <div className={className}>
@@ -4441,7 +4444,7 @@ export default function FretboardScalesPage() {
           >
             <option value="(auto)">(auto)</option>
             {options.map((v, optionIdx) => (
-              <option key={v.frets} value={v.frets}>
+              <option key={v.frets} value={v.frets} title={voicingOptionTitles[optionIdx]}>
                 {voicingOptionLabels[optionIdx]}
               </option>
             ))}

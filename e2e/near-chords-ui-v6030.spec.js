@@ -24,7 +24,7 @@ async function ensureSlotEnabled(page, idx) {
 }
 
 // ── NC-UI-1: selector de voicing ────────────────────────────────────────────
-test("NC-UI-1: selector de voicing es visible, usable y mide ≤ 110px en desktop", async ({ page }) => {
+test("NC-UI-1: selector de voicing es visible, usable y mide ≤ 75px en desktop", async ({ page }) => {
   await goToNearChords(page);
   await ensureSlotEnabled(page, 0);
   await page.getByTestId("near-slot-0-tone").selectOption("C");
@@ -55,7 +55,7 @@ test("NC-UI-1: selector de voicing es visible, usable y mide ≤ 110px en deskto
   const viewport = page.viewportSize();
   if (viewport && viewport.width >= 768) {
     const selectWidth = await sel.evaluate((el) => el.getBoundingClientRect().width);
-    expect(selectWidth).toBeLessThanOrEqual(110);
+    expect(selectWidth).toBeLessThanOrEqual(75);
   }
 });
 
