@@ -277,7 +277,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "6.0.32";
+const APP_VERSION = "6.0.33";
 
 
 // ─── Acorde de referencia (bloque "Investigar en mástil") ────────────────────
@@ -671,10 +671,6 @@ export default function FretboardScalesPage() {
     () => nearSlots.map((s) => `${s?.family || "tertian"}|${s?.form}|${s?.structure}|${s?.ext7 ? 1 : 0}|${s?.ext6 ? 1 : 0}|${s?.ext9 ? 1 : 0}|${s?.ext11 ? 1 : 0}|${s?.ext13 ? 1 : 0}`).join(";"),
     [nearSlots]
   );
-  const nearSlotsExtensionSignature = useMemo(
-    () => nearSlots.map((s) => `${s?.family || "tertian"}|${s?.structure}|${s?.ext6 ? 1 : 0}|${s?.ext7 ? 1 : 0}|${s?.ext9 ? 1 : 0}|${s?.ext11 ? 1 : 0}|${s?.ext13 ? 1 : 0}`).join(";"),
-    [nearSlots]
-  );
   const nearSlotsQualitySignature = useMemo(
     () => nearSlots.map((s) => `${s?.family || "tertian"}|${s?.quality}|${s?.structure}|${s?.ext7 ? 1 : 0}`).join(";"),
     [nearSlots]
@@ -701,50 +697,6 @@ export default function FretboardScalesPage() {
       return changed ? next : prev;
     });
   }, [nearSlotsDropEligibilitySignature]);
-
-  useEffect(() => {
-    if (!storageHydrated) return;
-    setNearSlots((prev) => {
-      let changed = false;
-      const next = prev.map((slot) => {
-        if (!slot) return slot;
-        if (String(slot.family || "tertian") !== "tertian") return slot;
-        if (slot.structure !== "tetrad") return slot;
-
-        let ext6 = !!slot.ext6;
-        let ext9 = !!slot.ext9;
-        let ext11 = !!slot.ext11;
-        let ext13 = !!slot.ext13;
-
-        if (ext13) {
-          ext11 = false;
-          ext9 = false;
-          ext6 = false;
-        } else if (ext11) {
-          ext9 = false;
-          ext6 = false;
-        } else if (ext9) {
-          ext6 = false;
-        }
-
-        if (ext6) {
-          ext9 = false;
-          ext11 = false;
-          ext13 = false;
-        }
-
-        const addCount = (ext6 ? 1 : 0) + (ext9 ? 1 : 0) + (ext11 ? 1 : 0) + (ext13 ? 1 : 0);
-        const ext7 = addCount === 0;
-
-        if (ext6 !== !!slot.ext6 || ext9 !== !!slot.ext9 || ext11 !== !!slot.ext11 || ext13 !== !!slot.ext13 || ext7 !== !!slot.ext7) {
-          changed = true;
-          return { ...slot, ext6, ext7, ext9, ext11, ext13, selFrets: null };
-        }
-        return slot;
-      });
-      return changed ? next : prev;
-    });
-  }, [storageHydrated, nearSlotsExtensionSignature]);
 
   useEffect(() => {
     setNearSlots((prev) => {

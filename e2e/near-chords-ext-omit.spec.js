@@ -7,6 +7,8 @@
  * - omit=1 elimina el grado "1" del badge (NC-OMIT-1)
  * - omit=3 elimina el grado "3" del badge (NC-OMIT-3)
  * - Sin omit/ext activados, el badge muestra "1", "3", "5" (NC-REG)
+ * - Activar 9 en cuatriada con omit=5 mantiene la 7ª activa (NC-EXT7-KEEP,
+ *   regresión v6.0.33: la 7ª se apagaba y Fmaj7(add9,no5) pasaba a Fadd9(no5))
  */
 
 import { test, expect } from "@playwright/test";
@@ -52,7 +54,7 @@ test("NC-REG: C mayor tríada sin omit/ext muestra grados 1, 3, 5", async ({ pag
 
 // ── NC-EXT-1 ───────────────────────────────────────────────────────────────
 // Usa structure="chord" (sin límite de slots de extensión) para poder activar ext9 libremente.
-// Con structure="tetrad", el efecto de normalización activa ext7=true automáticamente
+// Con structure="tetrad" sin omit, entrar en cuatriada activa ext7=true
 // ocupando el único slot disponible, lo que deshabilita ext9.
 test("NC-EXT-1: C chord con ext9 activa muestra grado 9 en badge", async ({ page }) => {
   await goToNearChords(page);
@@ -117,6 +119,62 @@ test("NC-OMIT-3: omit=3 elimina la tercera del badge de notas", async ({ page })
   expect(degrees).not.toContain("3");
   expect(degrees).toContain("1");
   expect(degrees).toContain("5");
+});
+
+// ── NC-EXT7-KEEP ───────────────────────────────────────────────────────────
+// Regresión v6.0.33: en cuatriada con omit=5, activar 9 apagaba la 7ª y el
+// acorde pasaba de Fmaj7(add9,no5) a Fadd9(no5). La 7ª debe mantenerse activa,
+// igual que en la sección Acordes.
+test("NC-EXT7-KEEP: F cuatriada + omit5, activar 9 mantiene la 7ª → Fmaj7(add9,no5)", async ({ page }) => {
+  await goToNearChords(page);
+  await ensureSlotEnabled(page, 0);
+  await setSlot(page, 0, { tone: "F", quality: "maj", structure: "tetrad" });
+
+  // Al entrar en cuatriada, la 7ª queda activa automáticamente.
+  const ext7cb = page.getByTestId("near-slot-0-ext7");
+  await expect(ext7cb).toBeChecked();
+
+  await page.getByTestId("near-slot-0-omit-5").check();
+  const ext9cb = page.getByTestId("near-slot-0-ext9");
+  await expect(ext9cb).not.toBeDisabled();
+  await ext9cb.check();
+  await page.waitForTimeout(200);
+
+  // La 7ª sigue marcada; 9 y omit5 también.
+  await expect(ext7cb).toBeChecked();
+  await expect(ext9cb).toBeChecked();
+  await expect(page.getByTestId("near-slot-0-omit-5")).toBeChecked();
+
+  // El resumen es Fmaj7(add9,no5), no Fadd9(no5).
+  const slotText = await page.getByTestId("near-slot-0").textContent();
+  expect(slotText).toContain("Fmaj7(add9,no5)");
+  expect(slotText).not.toContain("Fadd9(no5)");
+
+  // Notas esperadas: F, A, E, G (1, 3, 7, 9 sin la 5ª).
+  const degrees = await getBadgeDegrees(page, 0);
+  expect(degrees).toContain("7");
+  expect(degrees).toContain("9");
+  expect(degrees).not.toContain("5");
+});
+
+// ── NC-EXT7-KEEP-11-13 ─────────────────────────────────────────────────────
+test("NC-EXT7-KEEP-11-13: en cuatriada con omit5, activar 11 o 13 tampoco apaga la 7ª", async ({ page }) => {
+  await goToNearChords(page);
+  await ensureSlotEnabled(page, 0);
+  await setSlot(page, 0, { tone: "F", quality: "maj", structure: "tetrad" });
+
+  const ext7cb = page.getByTestId("near-slot-0-ext7");
+  await expect(ext7cb).toBeChecked();
+  await page.getByTestId("near-slot-0-omit-5").check();
+
+  await page.getByTestId("near-slot-0-ext11").check();
+  await page.waitForTimeout(150);
+  await expect(ext7cb).toBeChecked();
+
+  await page.getByTestId("near-slot-0-ext11").uncheck();
+  await page.getByTestId("near-slot-0-ext13").check();
+  await page.waitForTimeout(150);
+  await expect(ext7cb).toBeChecked();
 });
 
 // ── NC-OMIT-TOGGLE ─────────────────────────────────────────────────────────

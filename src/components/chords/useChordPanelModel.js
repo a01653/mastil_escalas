@@ -5,7 +5,7 @@ import * as AppVoicingStudyCore from "../../music/appVoicingStudyCore.js";
 
 const { mod12, chordUiLetterFromPc } = AppMusicBasics;
 const { NATURAL_PC } = AppStaticData;
-const { isDropForm, hasEffectiveSeventh } = AppVoicingStudyCore;
+const { isDropForm, hasEffectiveSeventh, buildChordExtensionTogglePatch } = AppVoicingStudyCore;
 
 /**
  * Lógica de pantalla del editor de acordes.
@@ -73,43 +73,19 @@ export function useChordPanelModel({ chordCtrl }) {
   }, [setChordSuspension, chordQuality, setChordQuality, chordOmit, setChordOmit]);
 
   // ── Handlers de extensiones (reglas de exclusión mutua) ──────────────────────
-  const handleExt6Change = useCallback((v) => {
-    setChordExt6(v);
-    if (v) {
-      setChordExt13(false);
-      if (chordStructure === "tetrad" && chordOmit === "none") {
-        setChordExt9(false);
-        setChordExt11(false);
-      }
-    }
-  }, [setChordExt6, setChordExt13, chordStructure, chordOmit, setChordExt9, setChordExt11]);
+  // La regla vive en buildChordExtensionTogglePatch, compartida con Acordes cercanos.
+  const applyExtensionToggle = useCallback((ext, value) => {
+    const patch = buildChordExtensionTogglePatch({ structure: chordStructure, omit: chordOmit, ext, value });
+    if ("ext6" in patch) setChordExt6(patch.ext6);
+    if ("ext9" in patch) setChordExt9(patch.ext9);
+    if ("ext11" in patch) setChordExt11(patch.ext11);
+    if ("ext13" in patch) setChordExt13(patch.ext13);
+  }, [chordStructure, chordOmit, setChordExt6, setChordExt9, setChordExt11, setChordExt13]);
 
-  const handleExt9Change = useCallback((v) => {
-    setChordExt9(v);
-    if (v && chordStructure === "tetrad" && chordOmit === "none") {
-      setChordExt11(false);
-      setChordExt13(false);
-    }
-  }, [setChordExt9, chordStructure, chordOmit, setChordExt11, setChordExt13]);
-
-  const handleExt11Change = useCallback((v) => {
-    setChordExt11(v);
-    if (v && chordStructure === "tetrad" && chordOmit === "none") {
-      setChordExt9(false);
-      setChordExt13(false);
-    }
-  }, [setChordExt11, chordStructure, chordOmit, setChordExt9, setChordExt13]);
-
-  const handleExt13Change = useCallback((v) => {
-    setChordExt13(v);
-    if (v) {
-      setChordExt6(false);
-      if (chordStructure === "tetrad" && chordOmit === "none") {
-        setChordExt9(false);
-        setChordExt11(false);
-      }
-    }
-  }, [setChordExt13, setChordExt6, chordStructure, chordOmit, setChordExt9, setChordExt11]);
+  const handleExt6Change = useCallback((v) => applyExtensionToggle("6", v), [applyExtensionToggle]);
+  const handleExt9Change = useCallback((v) => applyExtensionToggle("9", v), [applyExtensionToggle]);
+  const handleExt11Change = useCallback((v) => applyExtensionToggle("11", v), [applyExtensionToggle]);
+  const handleExt13Change = useCallback((v) => applyExtensionToggle("13", v), [applyExtensionToggle]);
 
   // ── Handler de forma (sincroniza positionForm si no es drop) ─────────────────
   const handleFormChange = useCallback((v) => {

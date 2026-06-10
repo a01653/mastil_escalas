@@ -73,6 +73,31 @@ test("3. Bmaj7 omit5 + 13: chips muestran B, D#, A#, G# — no F#", async ({ pag
   expect(chips).not.toContain("F#"); // 5th is omitted
 });
 
+// ── Test 3b ────────────────────────────────────────────────────────────────
+// Regresión v6.0.33 (paridad con Acordes cercanos): en cuatriada con omit5,
+// activar 9 no debe apagar la 7ª.
+test("3b. Fmaj7 omit5 + 9: la 7ª sigue activa → F, A, E, G", async ({ page }) => {
+  await goToChords(page);
+  await selectTone(page, "F");
+  await selectQuality(page, "maj");
+  await selectStructure(page, "tetrad");
+
+  await expect(page.getByTestId("ext-7")).toBeChecked();
+  await page.getByTestId("omit-5").check();
+  await expect(page.getByTestId("ext-9")).not.toBeDisabled();
+  await page.getByTestId("ext-9").check();
+
+  await expect(page.getByTestId("ext-7")).toBeChecked();
+  await expect(page.getByTestId("ext-9")).toBeChecked();
+
+  const chips = await page.getByTestId("chord-chips").textContent();
+  expect(chips).toContain("F");
+  expect(chips).toContain("A");
+  expect(chips).toContain("E"); // maj7 se mantiene
+  expect(chips).toContain("G"); // add9
+  expect(chips).not.toContain("C"); // 5ª omitida
+});
+
 // ── Test 4 ─────────────────────────────────────────────────────────────────
 test("4. B6: desmarcar 7, marcar 6 → B, D#, F#, G#", async ({ page }) => {
   await goToChords(page);

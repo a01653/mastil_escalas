@@ -937,6 +937,51 @@ export function buildChordUiRestrictions({ structure, ext7, ext6, ext9, ext11, e
   };
 }
 
+// Reglas de exclusión al togglear extensiones add (6/9/11/13).
+// Única fuente de verdad para Acordes y Acordes cercanos:
+// - Activar una extensión add nunca apaga la 7ª (ext7 no aparece en el patch).
+// - 6 y 13 se excluyen siempre entre sí (misma clase de altura).
+// - En cuatriada sin omit, las adds son mutuamente excluyentes entre sí
+//   (con omit activo se libera un slot y pueden convivir hasta el límite,
+//   que ya controla buildChordUiRestrictions vía canToggle*).
+export function buildChordExtensionTogglePatch({ structure, omit = "none", ext, value }) {
+  const key = `ext${ext}`;
+  const patch = { [key]: !!value };
+  if (!value) return patch;
+  const exclusiveAdds = structure === "tetrad" && omit === "none";
+  if (ext === "6") {
+    patch.ext13 = false;
+    if (exclusiveAdds) { patch.ext9 = false; patch.ext11 = false; }
+  } else if (ext === "9") {
+    if (exclusiveAdds) { patch.ext11 = false; patch.ext13 = false; }
+  } else if (ext === "11") {
+    if (exclusiveAdds) { patch.ext9 = false; patch.ext13 = false; }
+  } else if (ext === "13") {
+    patch.ext6 = false;
+    if (exclusiveAdds) { patch.ext9 = false; patch.ext11 = false; }
+  }
+  return patch;
+}
+
+// Patch de extensiones al entrar en estructura cuatriada.
+// Replica la secuencia de Acordes (applyChordStructureSelection + efecto E3):
+// recorta las adds activas al presupuesto de slots contando la 7ª previa
+// y deja la 7ª activada al entrar.
+export function buildTetradEntryExtensionPatch({ ext7, ext6, ext9, ext11, ext13, omit = "none" }) {
+  const maxExtSlots = 1 + (omit !== "none" ? 1 : 0);
+  let slotsUsed = ext7 ? 1 : 0;
+  const patch = { ext7: true };
+  for (const [key, active] of [["ext6", ext6], ["ext9", ext9], ["ext11", ext11], ["ext13", ext13]]) {
+    if (active && slotsUsed < maxExtSlots) {
+      patch[key] = true;
+      slotsUsed++;
+    } else {
+      patch[key] = false;
+    }
+  }
+  return patch;
+}
+
 export function buildChordEnginePlan({
   rootPc,
   quality,

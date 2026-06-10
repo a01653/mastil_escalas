@@ -28,7 +28,7 @@ const {
 } = AppMusicBasics;
 
 import * as AppVoicingStudyCore from "../../music/appVoicingStudyCore.js";
-const { isDropForm, hasEffectiveSeventh } = AppVoicingStudyCore;
+const { isDropForm, hasEffectiveSeventh, buildChordExtensionTogglePatch, buildTetradEntryExtensionPatch } = AppVoicingStudyCore;
 
 import * as AppPatternRouteStaffCore from "../../music/appPatternRouteStaffCore.jsx";
 const { ChordNoteBadgeStrip } = AppPatternRouteStaffCore;
@@ -449,7 +449,7 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
                 ? { ext6: false, ext7: false, ext9: false, ext11: false, ext13: false }
                 : val === "chord"
                   ? {}
-                  : { ext9: false, ext11: false, ext13: false };
+                  : buildTetradEntryExtensionPatch(s);
               updateNearSlot(i, {
                 structure: val,
                 selFrets: null,
@@ -503,27 +503,27 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
           <div className={UI_EXT_GRID}>
             {ui.ext.showSeven ? (
               <label className="inline-flex items-center gap-2">
-                <input type="checkbox" checked={hasEffectiveSeventh({ structure: s.structure, ext7: s.ext7, ext6: s.ext6, ext9: s.ext9, ext11: s.ext11, ext13: s.ext13 })} onChange={(e) => updateNearSlot(i, { ext7: e.target.checked, selFrets: null })} disabled={dis || !ui.ext.canToggleSeven} /> 7
+                <input type="checkbox" data-testid={`near-slot-${i}-ext7`} checked={hasEffectiveSeventh({ structure: s.structure, ext7: s.ext7, ext6: s.ext6, ext9: s.ext9, ext11: s.ext11, ext13: s.ext13 })} onChange={(e) => updateNearSlot(i, { ext7: e.target.checked, selFrets: null })} disabled={dis || !ui.ext.canToggleSeven} /> 7
               </label>
             ) : null}
             {ui.ext.showSix ? (
               <label className="inline-flex items-center gap-2">
-                <input type="checkbox" checked={!!s.ext6} onChange={(e) => updateNearSlot(i, { ext6: e.target.checked, selFrets: null })} disabled={dis || !ui.ext.canToggleSix} /> 6
+                <input type="checkbox" data-testid={`near-slot-${i}-ext6`} checked={!!s.ext6} onChange={(e) => updateNearSlot(i, { ...buildChordExtensionTogglePatch({ structure: s.structure, omit: s.omit || "none", ext: "6", value: e.target.checked }), selFrets: null })} disabled={dis || !ui.ext.canToggleSix} /> 6
               </label>
             ) : null}
             {ui.ext.showNine ? (
               <label className="inline-flex items-center gap-2">
-                <input type="checkbox" data-testid={`near-slot-${i}-ext9`} checked={!!s.ext9} onChange={(e) => updateNearSlot(i, { ext9: e.target.checked, selFrets: null })} disabled={dis || !ui.ext.canToggleNine} /> 9
+                <input type="checkbox" data-testid={`near-slot-${i}-ext9`} checked={!!s.ext9} onChange={(e) => updateNearSlot(i, { ...buildChordExtensionTogglePatch({ structure: s.structure, omit: s.omit || "none", ext: "9", value: e.target.checked }), selFrets: null })} disabled={dis || !ui.ext.canToggleNine} /> 9
               </label>
             ) : null}
             {ui.ext.showEleven ? (
               <label className="inline-flex items-center gap-2">
-                <input type="checkbox" data-testid={`near-slot-${i}-ext11`} checked={!!s.ext11} onChange={(e) => updateNearSlot(i, { ext11: e.target.checked, selFrets: null })} disabled={dis || !ui.ext.canToggleEleven} /> 11
+                <input type="checkbox" data-testid={`near-slot-${i}-ext11`} checked={!!s.ext11} onChange={(e) => updateNearSlot(i, { ...buildChordExtensionTogglePatch({ structure: s.structure, omit: s.omit || "none", ext: "11", value: e.target.checked }), selFrets: null })} disabled={dis || !ui.ext.canToggleEleven} /> 11
               </label>
             ) : null}
             {ui.ext.showThirteen ? (
               <label className="inline-flex items-center gap-2">
-                <input type="checkbox" data-testid={`near-slot-${i}-ext13`} checked={!!s.ext13} onChange={(e) => updateNearSlot(i, { ext13: e.target.checked, selFrets: null })} disabled={dis || !ui.ext.canToggleThirteen} /> 13
+                <input type="checkbox" data-testid={`near-slot-${i}-ext13`} checked={!!s.ext13} onChange={(e) => updateNearSlot(i, { ...buildChordExtensionTogglePatch({ structure: s.structure, omit: s.omit || "none", ext: "13", value: e.target.checked }), selFrets: null })} disabled={dis || !ui.ext.canToggleThirteen} /> 13
               </label>
             ) : null}
           </div>
