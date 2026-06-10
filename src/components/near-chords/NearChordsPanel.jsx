@@ -123,7 +123,26 @@ export default function NearChordsPanel({
       role: chordBadgeRoleFromDegreeLabel(badgeMeta.degreeLabels?.[noteIdx] || "", badgeMeta.intervals?.[noteIdx] ?? 0),
     })) : [];
     const slotLabel = `Acorde ${idx + 1}`;
-    const titleText = `${slotLabel}${nearComputed.baseIdx === idx ? " (referencia)" : ""}`;
+    const isRef = nearComputed.baseIdx === idx;
+    const slotChordName = slotData?.chordName || null;
+    const titleText = slotChordName
+      ? `${slotChordName} · ${slotLabel}${isRef ? " (referencia)" : ""}`
+      : `${slotLabel}${isRef ? " (referencia)" : ""}`;
+    const titleJsx = (
+      <span data-testid={`near-slot-${idx}-title`}>
+        <span
+          data-testid={`near-slot-${idx}-title-chord`}
+          className={!disableAll && slotChordName ? "text-sky-700" : undefined}
+          style={disableAll && slotChordName ? { color: "oklch(0.75 0.05 233.17)" } : undefined}
+        >
+          {slotChordName || slotLabel}
+        </span>
+        {slotChordName
+          ? <span className={disableAll ? "text-slate-400" : undefined}>{` · ${slotLabel}`}</span>
+          : null}
+        {isRef ? <span className="font-normal text-slate-500"> (referencia)</span> : null}
+      </span>
+    );
 
     return {
       disableAll,
@@ -136,11 +155,13 @@ export default function NearChordsPanel({
       titleText,
       nearTitle: errMsg ? (
         <span className="inline-flex flex-wrap items-center gap-1">
-          <span>{`${titleText} - `}</span>
+          {titleJsx}{" - "}
           <span className="text-rose-400">{errMsg}</span>
         </span>
-      ) : titleText,
-      description: `${slotDisplayName} · Notas: ${notes}`,
+      ) : titleJsx,
+      description: disableAll
+        ? <span className="text-slate-400">{`${slotDisplayName} · Notas: ${notes}`}</span>
+        : `${slotDisplayName} · Notas: ${notes}`,
     };
   }
 

@@ -82,7 +82,6 @@ export default function NearChordSlot({
     slotData,
     slotUi,
     badgeStripItems,
-    slotLabel,
     titleText,
     nearTitle,
     description,
@@ -641,16 +640,13 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
 
   // ── Mobile layout ──────────────────────────────────────────────────────────
   if (isMobileLayout) {
-    const titleMeta = titleText.startsWith(slotLabel) ? titleText.slice(slotLabel.length).trim() : "";
-    const mobileDescription = titleMeta ? `${titleMeta} · ${description}` : description;
-
     return (
       <>
         <PanelBlock
           data-testid={`near-slot-${idx}`}
           as="div"
           level="subsection"
-          title={slotLabel}
+          title={nearTitle}
           description={null}
           disabledHeader={disableAll}
           collapsed={!slot.enabled}
@@ -690,7 +686,7 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
             </div>}
         >
           <div className="mb-3 text-[13px] font-semibold leading-5 text-slate-600">
-            {mobileDescription}
+            {description}
           </div>
           {errMsg ? (
             <div className="mb-3 text-xs font-semibold text-rose-400">
