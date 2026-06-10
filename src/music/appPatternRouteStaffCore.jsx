@@ -36,9 +36,6 @@ const {
 } = AppMusicBasics;
 
 import * as AppVoicingStudyCore from "./appVoicingStudyCore.js";
-const {
-  positionFormFromEffectiveForm,
-} = AppVoicingStudyCore;
 
 // --------------------------------------------------------------------------
 // BLOQUE: PATRONES Y FORMAS SOBRE EL MÁSTIL
@@ -786,8 +783,8 @@ export function sanitizeNearSlotValue(value, fallback) {
     suspension: sanitizeOneOf(slot.suspension, ["none", "sus2", "sus4"], fallback.suspension),
     structure: sanitizeOneOf(slot.structure, CHORD_STRUCTURES.map((s) => s.value), fallback.structure),
     inversion: sanitizeOneOf(slot.inversion, CHORD_INVERSIONS.map((x) => x.value), fallback.inversion),
-    form: sanitizeOneOf(slot.form, CHORD_FORMS.map((x) => x.value), fallback.form),
-    positionForm: sanitizeOneOf(slot.positionForm, ["closed", "open"], positionFormFromEffectiveForm(slot.form, fallback.positionForm || "open")),
+    form: "open",
+    positionForm: "open",
     ext7: sanitizeBoolValue(slot.ext7, fallback.ext7),
     ext6: sanitizeBoolValue(slot.ext6, fallback.ext6),
     ext9: sanitizeBoolValue(slot.ext9, fallback.ext9),

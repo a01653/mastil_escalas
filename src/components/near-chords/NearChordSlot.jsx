@@ -453,7 +453,9 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
               updateNearSlot(i, {
                 structure: val,
                 selFrets: null,
-                ...(val === "triad" || val === "tetrad" ? { inversion: "all", form: "open", positionForm: "open" } : {}),
+                inversion: "all",
+                form: "open",
+                positionForm: "open",
                 ...patch,
               });
             }}
