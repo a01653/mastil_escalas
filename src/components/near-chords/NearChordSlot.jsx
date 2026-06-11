@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { BookOpen, ChevronLeft, ChevronRight, X } from "lucide-react";
 import PanelBlock from "../PanelBlock.jsx";
 import { CopyVoicingButton } from "../chords/ChordsPanel.jsx";
+import ColorPickerPopover from "../ui/ColorPickerPopover.jsx";
 
 import * as AppStaticData from "../../music/appStaticData.js";
 const { NATURAL_PC, NATURAL_PCS, LETTERS } = AppStaticData;
@@ -613,14 +614,13 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
       >
         <div className="mb-3">
           <label className={UI_LABEL_SM}>Color del acorde</label>
-          <div className="mt-1 inline-flex h-8 items-center gap-2 rounded-xl border border-slate-200 bg-white px-2 shadow-sm">
-            <span className="text-xs font-semibold text-slate-700">Fondo</span>
-            <input
-              type="color"
+          <div className="mt-1">
+            <ColorPickerPopover
               value={nearBgColors[idx]}
-              onChange={(e) => setNearBgColor(idx, e.target.value)}
-              className="h-6 w-10 cursor-pointer rounded-md border border-slate-200 bg-white"
+              onChange={(v) => setNearBgColor(idx, v)}
+              label="Fondo"
               disabled={disableAll}
+              data-testid={`near-slot-${idx}-bg-color`}
             />
           </div>
         </div>
@@ -743,18 +743,12 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
             >
               Estudiar
             </button>
-            <span
-              className="text-xs font-semibold"
-              style={disableAll ? { color: "var(--control-disabled-text)" } : undefined}
-            >
-              Fondo
-            </span>
-            <input
-              type="color"
+            <ColorPickerPopover
               value={nearBgColors[idx]}
-              onChange={(e) => setNearBgColor(idx, e.target.value)}
-              className="h-6 w-10 cursor-pointer rounded-md border border-slate-200 bg-white"
+              onChange={(v) => setNearBgColor(idx, v)}
+              label="Fondo"
               disabled={disableAll}
+              data-testid={`near-slot-${idx}-bg-color`}
             />
             <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-700">
               <input

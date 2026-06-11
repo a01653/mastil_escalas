@@ -53,6 +53,14 @@ export const DETECTED_CHORDS_INFO_TEXT = [
   "El selector elige qué lectura queda activa.",
   "Copiar en Acorde pasa esa lectura al constructor superior cuando es compatible.",
 ].join("\n");
+/** Fixed bg/border color palette for each near-chord slot (Acorde 1–4). */
+export const NEAR_CHORD_SLOT_COLORS = [
+  { bg: "#A3CAFF", border: "#2F6FBF" }, // Acorde 1
+  { bg: "#FFEEAB", border: "#C88700" }, // Acorde 2
+  { bg: "#9CFECC", border: "#159A5B" }, // Acorde 3
+  { bg: "#FED2EB", border: "#C03A7A" }, // Acorde 4
+];
+
 export const PRIMARY_BOARD_SECTIONS = ["scale", "patterns", "route", "chords", "nearChords", "standards", "configuration"];
 export const TONAL_CONTEXT_TOOLTIP = "Afecta a Escala, Patrones, Ruta y al contexto armónico usado en análisis y acordes cercanos.";
 export const MOBILE_VERTICAL_STRING_ORDER = [5, 4, 3, 2, 1, 0];

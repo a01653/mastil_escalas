@@ -1,4 +1,5 @@
 import PanelBlock from "../PanelBlock.jsx";
+import ColorPickerPopover from "../ui/ColorPickerPopover.jsx";
 import { KING_BOX_DEFAULTS, LETTERS, NATURAL_PC, TONAL_CONTEXT_TOOLTIP } from "../../music/appStaticData.js";
 import { mod12 } from "../../music/appMusicBasics.js";
 
@@ -186,26 +187,18 @@ export function TonalContextFields({ root, notation, scale, harmony, extra, king
                 <option value="albert">Albert</option>
                 <option value="both">Ambas</option>
               </select>
-              <label className="inline-flex items-center gap-1" title={KING_BOX_DEFAULTS.bb.label}>
-                <span>BB</span>
-                <input
-                  type="color"
-                  value={kingBoxColors.bb}
-                  onChange={(e) => setKingBoxColors((prev) => ({ ...prev, bb: e.target.value }))}
-                  className="h-7 w-8 cursor-pointer rounded-md border border-slate-200 bg-white"
-                  title="Color del borde de B.B. King"
-                />
-              </label>
-              <label className="inline-flex items-center gap-1" title={KING_BOX_DEFAULTS.albert.label}>
-                <span>A</span>
-                <input
-                  type="color"
-                  value={kingBoxColors.albert}
-                  onChange={(e) => setKingBoxColors((prev) => ({ ...prev, albert: e.target.value }))}
-                  className="h-7 w-8 cursor-pointer rounded-md border border-slate-200 bg-white"
-                  title="Color del borde de Albert King"
-                />
-              </label>
+              <ColorPickerPopover
+                value={kingBoxColors.bb}
+                onChange={(v) => setKingBoxColors((prev) => ({ ...prev, bb: v }))}
+                label="BB"
+                swatchClass="h-7 w-8 cursor-pointer rounded-md border-2 border-slate-300 shadow-sm transition-colors hover:border-sky-400"
+              />
+              <ColorPickerPopover
+                value={kingBoxColors.albert}
+                onChange={(v) => setKingBoxColors((prev) => ({ ...prev, albert: v }))}
+                label="A"
+                swatchClass="h-7 w-8 cursor-pointer rounded-md border-2 border-slate-300 shadow-sm transition-colors hover:border-sky-400"
+              />
             </div>
           </div>
         ) : null}

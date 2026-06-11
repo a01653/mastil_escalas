@@ -10,6 +10,7 @@ import * as AppStaticData from "../../music/appStaticData.js";
 const {
   NEAR_CHORDS_INFO_TEXT,
   NEAR_AUTO_SCALE_INFO_TEXT,
+  NEAR_CHORD_SLOT_COLORS,
   STRINGS,
   FRET_CELL_BG,
   FRET_INLAY_BG,
@@ -240,11 +241,11 @@ export default function NearChordsPanel({
     return { left: "50%", top: "50%", transform: "translate(-50%, -50%)" };
   }
 
-  function Mini({ slotIdx, pc, role, size = "m" }) {
+  function Mini({ slotIdx, pc, size = "m" }) {
     const slot = nearSlots[slotIdx];
     const voicing = nearComputed.selected[slotIdx] || null;
-    const chordBg = nearBgColors[slotIdx] || "#94a3b8";
-    const ring = colors[role] || colors.other;
+    const chordBg = nearBgColors[slotIdx] || NEAR_CHORD_SLOT_COLORS[slotIdx]?.bg || "#94a3b8";
+    const ring = NEAR_CHORD_SLOT_COLORS[slotIdx]?.border || "#64748b";
     const dark = isDark(chordBg);
     const sizeClass = size === "cal"
       ? "h-[21px] w-[21px] text-[8px]"
@@ -281,7 +282,7 @@ export default function NearChordsPanel({
     const baseVoicing = baseSlotIdx >= 0 ? (nearComputed.selected[baseSlotIdx] || null) : null;
     const baseData = baseSlot ? buildNearSlotStudyEntry(baseSlot, basePlan, baseVoicing, baseSlotIdx) : null;
     const baseChordName = baseData?.chordName || null;
-    const nearFretboardInfoText = `${baseChordName ? `Acorde activo: ${baseChordName}. ` : ""}Compara las digitaciones activas dentro del mismo rango. Relleno = color del acorde · borde = función · texto = nota/intervalo.`;
+    const nearFretboardInfoText = `${baseChordName ? `Acorde activo: ${baseChordName}. ` : ""}Compara las digitaciones activas dentro del mismo rango. Relleno y borde = color del acorde · texto = nota/intervalo.`;
     const slotDataMaps = nearComputed.selected.map((v, idx) => {
       const notesMap = new Map();
       if (!nearSlots[idx]?.enabled || !v?.notes?.length) return { notesMap };
@@ -385,7 +386,7 @@ export default function NearChordsPanel({
                   ) : null}
                   {items.length === 1 ? (
                     <div className="pointer-events-none relative z-[5]">
-                      <Mini size={fret === 0 ? "s" : "m"} slotIdx={items[0].slotIdx} pc={items[0].pc} role={items[0].role} fret={fret} sIdx={sIdx} />
+                      <Mini size={fret === 0 ? "s" : "m"} slotIdx={items[0].slotIdx} pc={items[0].pc} fret={fret} sIdx={sIdx} />
                     </div>
                   ) : items.length ? (
                     <div className="absolute inset-0 z-[5] pointer-events-none">
@@ -399,7 +400,7 @@ export default function NearChordsPanel({
                           const miniSize = fret === 0 ? "s" : (items.length === 2 ? "pair" : calibratedPos ? "cal" : "s");
                           return (
                             <div key={`${it.slotIdx}-${it.role}-${i2}`} className="absolute" style={pos}>
-                              <Mini size={miniSize} slotIdx={it.slotIdx} pc={it.pc} role={it.role} fret={fret} sIdx={sIdx} />
+                              <Mini size={miniSize} slotIdx={it.slotIdx} pc={it.pc} fret={fret} sIdx={sIdx} />
                             </div>
                           );
                         })}
@@ -450,7 +451,7 @@ export default function NearChordsPanel({
                           ) : null}
                           {items.length === 1 ? (
                             <div className="pointer-events-none relative z-[5]">
-                              <Mini size="m" slotIdx={items[0].slotIdx} pc={items[0].pc} role={items[0].role} fret={fret} sIdx={sIdx} />
+                              <Mini size="m" slotIdx={items[0].slotIdx} pc={items[0].pc} fret={fret} sIdx={sIdx} />
                             </div>
                           ) : items.length ? (
                             <div className="absolute inset-0 z-[5] pointer-events-none">
@@ -464,7 +465,7 @@ export default function NearChordsPanel({
                                   const miniSize = items.length === 2 ? "pair" : calibratedPos ? "cal" : "s";
                                   return (
                                     <div key={`${it.slotIdx}-${it.role}-${i2}`} className="absolute" style={pos}>
-                                      <Mini size={miniSize} slotIdx={it.slotIdx} pc={it.pc} role={it.role} fret={fret} sIdx={sIdx} />
+                                      <Mini size={miniSize} slotIdx={it.slotIdx} pc={it.pc} fret={fret} sIdx={sIdx} />
                                     </div>
                                   );
                                 })}

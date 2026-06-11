@@ -1,4 +1,5 @@
 import PanelBlock from "../PanelBlock.jsx";
+import ColorPickerPopover from "../ui/ColorPickerPopover.jsx";
 
 export default function AppConfigPanel({ view, theme, colorState, presets, actions, layout, ui }) {
   const {
@@ -29,15 +30,15 @@ export default function AppConfigPanel({ view, theme, colorState, presets, actio
 
   const { exportUiConfig, resetUiConfig, importConfigInputRef } = actions;
 
-  const { effectiveBoards, patternsMode, scaleIntervals } = layout;
+  const { patternsMode, scaleIntervals } = layout;
 
   const { ToggleButton, UI_LABEL_SM, UI_SELECT_SM, UI_BTN_SM } = ui;
 
-  function renderColorPanels(boardVisibility, extraClassName = "") {
+  function renderColorPanels(extraClassName = "") {
     return (
       <div className={extraClassName.trim()}>
         <PanelBlock level="subsection" title="Colores (círculos)">
-          <div className="flex flex-wrap gap-1.5 xl:flex-nowrap">
+          <div className="flex flex-wrap gap-1.5">
             {[
               { k: "root", label: legend.root },
               { k: "third", label: legend.third },
@@ -47,66 +48,56 @@ export default function AppConfigPanel({ view, theme, colorState, presets, actio
               { k: "route", label: "Ruta" },
             ].map((it) => (
               <div key={it.k} className="inline-flex min-w-0 shrink-0 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-2 py-1" style={{ backgroundColor: "#ffffff" }}>
-                <div className="text-[11px] font-semibold text-slate-700" title={it.k === "route" ? "Ruta (fondo)" : it.label}>{it.label}</div>
-                <input
-                  type="color"
+                <ColorPickerPopover
                   value={colors[it.k]}
-                  onChange={(e) => setColor(it.k, e.target.value)}
-                  className="h-6 w-7 cursor-pointer rounded-md border border-slate-200 bg-white"
+                  onChange={(v) => setColor(it.k, v)}
+                  label={it.label}
+                  swatchClass="h-6 w-7 cursor-pointer rounded-md border-2 border-slate-300 shadow-sm transition-colors hover:border-sky-400"
                 />
               </div>
             ))}
           </div>
         </PanelBlock>
 
-        {boardVisibility.chords ? (
-          <PanelBlock level="subsection" title="Colores (acordes: 7/6/9/11/13)">
-            <div className="flex flex-wrap gap-1.5 xl:flex-nowrap">
-              {[
-                { k: "seventh", label: "7" },
-                { k: "sixth", label: "6" },
-                { k: "ninth", label: "9" },
-                { k: "eleventh", label: "11" },
-                { k: "thirteenth", label: "13" },
-              ].map((it) => (
-                <div key={it.k} className="inline-flex min-w-0 shrink-0 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-2 py-1" style={{ backgroundColor: "#ffffff" }}>
-                  <div className="text-[11px] font-semibold text-slate-700">{it.label}</div>
-                  <input
-                    type="color"
-                    value={colors[it.k]}
-                    onChange={(e) => setColor(it.k, e.target.value)}
-                    className="h-6 w-7 cursor-pointer rounded-md border border-slate-200 bg-white"
-                  />
-                </div>
-                ))}
+        <PanelBlock level="subsection" title="Colores (acordes: 7/6/9/11/13)">
+          <div className="flex flex-wrap gap-1.5">
+            {[
+              { k: "seventh", label: "7ª" },
+              { k: "sixth", label: "6ª" },
+              { k: "ninth", label: "9ª" },
+              { k: "eleventh", label: "11ª" },
+              { k: "thirteenth", label: "13ª" },
+            ].map((it) => (
+              <div key={it.k} className="inline-flex min-w-0 shrink-0 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-2 py-1" style={{ backgroundColor: "#ffffff" }}>
+                <ColorPickerPopover
+                  value={colors[it.k]}
+                  onChange={(v) => setColor(it.k, v)}
+                  label={it.label}
+                  swatchClass="h-6 w-7 cursor-pointer rounded-md border-2 border-slate-300 shadow-sm transition-colors hover:border-sky-400"
+                />
               </div>
-          </PanelBlock>
-        ) : null}
+            ))}
+          </div>
+        </PanelBlock>
 
-        {boardVisibility.patterns ? (
-          <PanelBlock
-            level="subsection"
-            title="Colores (patrones)"
-            description={`Patrones disponibles: ${patternsMode === "caged" ? "5 CAGED" : scaleIntervals.length === 5 ? "5 boxes" : scaleIntervals.length === 7 ? "7 3NPS" : "(sin patrones)"}.`}
-          >
-            <div className="flex flex-wrap gap-2">
-              {Array.from({ length: 7 }, (_, i) => i).map((i) => (
-                <div key={i} className="flex min-w-[120px] flex-1 items-center justify-between gap-2 rounded-xl border border-slate-200 bg-sky-50 px-2 py-1.5">
-                  <div>
-                    <div className="text-xs font-semibold text-slate-700">Patrón {i + 1}</div>
-                    <div className="mt-0.5 text-[10px] text-slate-500">{patternColors[i]}</div>
-                  </div>
-                  <input
-                    type="color"
-                    value={patternColors[i]}
-                    onChange={(e) => setPatternColor(i, e.target.value)}
-                    className="h-8 w-10 cursor-pointer rounded-md border border-slate-200 bg-white"
-                  />
-                </div>
-                ))}
+        <PanelBlock
+          level="subsection"
+          title="Colores (patrones)"
+          description={`Patrones disponibles: ${patternsMode === "caged" ? "5 CAGED" : scaleIntervals.length === 5 ? "5 boxes" : scaleIntervals.length === 7 ? "7 3NPS" : "(sin patrones)"}.`}
+        >
+          <div className="flex flex-wrap gap-2">
+            {Array.from({ length: 7 }, (_, i) => i).map((i) => (
+              <div key={i} className="flex min-w-[120px] flex-1 items-center justify-between gap-2 rounded-xl border border-slate-200 bg-sky-50 px-2 py-1.5">
+                <span className="text-xs font-semibold text-slate-700">Patrón {i + 1}</span>
+                <ColorPickerPopover
+                  value={patternColors[i]}
+                  onChange={(v) => setPatternColor(i, v)}
+                  label={`Patrón ${i + 1}`}
+                />
               </div>
-          </PanelBlock>
-        ) : null}
+            ))}
+          </div>
+        </PanelBlock>
       </div>
     );
   }
@@ -232,77 +223,42 @@ export default function AppConfigPanel({ view, theme, colorState, presets, actio
         <div className="mt-3 flex flex-wrap items-center gap-4">
           <div className="min-w-0">
             <label className={UI_LABEL_SM}>Fondo página</label>
-            <div className="mt-1 flex items-center gap-2">
-              <input
-                type="color"
-                value={themePageBg}
-                onChange={(e) => setThemePageBg(e.target.value)}
-                title={themePageBg}
-                className="h-8 w-10 cursor-pointer rounded-md border border-slate-200 bg-white"
-              />
-              <span className="text-xs font-semibold text-slate-600">{themePageBg}</span>
+            <div className="mt-1">
+              <ColorPickerPopover value={themePageBg} onChange={setThemePageBg} />
             </div>
           </div>
 
           <div className="min-w-0">
             <label className={UI_LABEL_SM}>Fondo objetos</label>
-            <div className="mt-1 flex items-center gap-2">
-              <input
-                type="color"
-                value={themeObjectBg}
-                onChange={(e) => setThemeObjectBg(e.target.value)}
-                title={themeObjectBg}
-                className="h-8 w-10 cursor-pointer rounded-md border border-slate-200 bg-white"
-              />
-              <span className="text-xs font-semibold text-slate-600">{themeObjectBg}</span>
+            <div className="mt-1">
+              <ColorPickerPopover value={themeObjectBg} onChange={setThemeObjectBg} />
             </div>
           </div>
 
           <div className="min-w-0">
             <label className={UI_LABEL_SM}>Cabecera secciones</label>
-            <div className="mt-1 flex items-center gap-2">
-              <input
-                type="color"
-                value={themeSectionHeaderBg}
-                onChange={(e) => setThemeSectionHeaderBg(e.target.value)}
-                title={themeSectionHeaderBg}
-                className="h-8 w-10 cursor-pointer rounded-md border border-slate-200 bg-white"
-              />
-              <span className="text-xs font-semibold text-slate-600">{themeSectionHeaderBg}</span>
+            <div className="mt-1">
+              <ColorPickerPopover value={themeSectionHeaderBg} onChange={setThemeSectionHeaderBg} />
             </div>
           </div>
 
           <div className="min-w-0">
             <label className={UI_LABEL_SM}>Elementos</label>
-            <div className="mt-1 flex items-center gap-2">
-              <input
-                type="color"
-                value={themeElementBg}
-                onChange={(e) => setThemeElementBg(e.target.value)}
-                title={themeElementBg}
-                className="h-8 w-10 cursor-pointer rounded-md border border-slate-200 bg-white"
-              />
-              <span className="text-xs font-semibold text-slate-600">{themeElementBg}</span>
+            <div className="mt-1">
+              <ColorPickerPopover value={themeElementBg} onChange={setThemeElementBg} />
             </div>
           </div>
 
           <div className="min-w-0">
             <label className={UI_LABEL_SM}>Controles deshabilitados</label>
-            <div className="mt-1 flex items-center gap-2">
-              <input
-                type="color"
-                value={themeDisabledControlBg}
-                onChange={(e) => setThemeDisabledControlBg(e.target.value)}
-                title={themeDisabledControlBg}
-                className="h-8 w-10 cursor-pointer rounded-md border border-slate-200 bg-white"
-              />
-              <span className="text-xs font-semibold text-slate-600">{themeDisabledControlBg}</span>
+            <div className="mt-1">
+              <ColorPickerPopover value={themeDisabledControlBg} onChange={setThemeDisabledControlBg} />
             </div>
           </div>
         </div>
       </PanelBlock>
 
-      {renderColorPanels(effectiveBoards, "grid gap-3")}
+      {renderColorPanels("grid gap-3")}
     </PanelBlock>
   );
 }

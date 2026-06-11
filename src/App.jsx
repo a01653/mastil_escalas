@@ -277,7 +277,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "6.0.36";
+const APP_VERSION = "6.0.41";
 
 
 // ─── Acorde de referencia (bloque "Investigar en mástil") ────────────────────
@@ -717,12 +717,9 @@ export default function FretboardScalesPage() {
     });
   }, [nearSlotsQualitySignature]);
 
-  const [nearBgColors, setNearBgColors] = useState([
-    "#8ACAF4", // Acorde 1 (base)  RGB(138,202,244)
-    "#8DE8AD", // Acorde 2        RGB(141,232,173)
-    "#FFF475", // Acorde 3        RGB(255,244,117)
-    "#F53845", // Acorde 4        RGB(245,56,69)
-  ]);
+  const [nearBgColors, setNearBgColors] = useState(
+    AppStaticData.NEAR_CHORD_SLOT_COLORS.map((c) => c.bg)
+  );
   const [clusterTestDots, setClusterTestDots] = useState([
     { x: 35, y: 6, size: 21, color: "#ef4444" },
     { x: 12, y: 14, size: 21, color: "#f59e0b" },
