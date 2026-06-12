@@ -257,6 +257,7 @@ export default function NearChordSlot({
         <div className={isMobileLayout ? "min-w-0" : "shrink-0"}>
           <label className={UI_LABEL_SM}>Familia</label>
           <select
+            data-testid={`near-slot-${i}-family`}
             className={UI_SELECT_SM + " mt-1"}
             style={nearSelectWidthStyle(CHORD_FAMILIES, 9)}
             value={nearSlotFamilyOf(s)}
@@ -311,7 +312,7 @@ Abierto: una o más voces se redistribuyen por octava y la cadena deja de quedar
         <div className={isMobileLayout ? "min-w-0" : "shrink-0"}>
           <label className={UI_LABEL_SM} title={`Puro: todas las cuartas son justas (4J).
 Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>Tipo cuartal</label>
-          <select className={UI_SELECT_SM + " mt-1"} style={nearSelectWidthStyle(CHORD_QUARTAL_TYPES, 10)} value={s.quartalType || "pure"} onChange={(e) => updateNearSlot(i, { quartalType: e.target.value, selFrets: null })} disabled={dis} title={`Puro: todas las cuartas son justas (4J).
+          <select data-testid={`near-slot-${i}-quartal-type`} className={UI_SELECT_SM + " mt-1"} style={nearSelectWidthStyle(CHORD_QUARTAL_TYPES, 10)} value={s.quartalType || "pure"} onChange={(e) => updateNearSlot(i, { quartalType: e.target.value, selFrets: null })} disabled={dis} title={`Puro: todas las cuartas son justas (4J).
 Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
             {CHORD_QUARTAL_TYPES.map((item) => (
               <option key={item.value} value={item.value}>{item.label}</option>
@@ -340,6 +341,7 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
         <div className={isMobileLayout ? "min-w-0" : "shrink-0"}>
           <label className={UI_LABEL_SM}>Familia</label>
           <select
+            data-testid={`near-slot-${i}-family`}
             className={UI_SELECT_SM + " mt-1"}
             style={nearSelectWidthStyle(CHORD_FAMILIES, 9)}
             value={nearSlotFamilyOf(s)}
@@ -397,6 +399,7 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
         <div className={isMobileLayout ? "min-w-0 order-1" : "shrink-0"}>
           <label className={UI_LABEL_SM}>Familia</label>
           <select
+            data-testid={`near-slot-${i}-family`}
             className={UI_SELECT_SM + " mt-1"}
             style={nearSelectWidthStyle(CHORD_FAMILIES, 9)}
             value={nearSlotFamilyOf(s)}
@@ -494,7 +497,7 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
         </div>
         <div className={isMobileLayout ? "min-w-0 order-3" : "shrink-0"}>
           <label className={UI_LABEL_SM}>Inversión</label>
-          <select data-testid={`near-slot-${i}-inversion`} className={UI_SELECT_SM_AUTO + " mt-1"} style={nearSelectWidthStyle(CHORD_INVERSIONS, 10)} value={s.inversion} onChange={(e) => updateNearSlot(i, { inversion: e.target.value, selFrets: null })} disabled={dis}>
+          <select data-testid={`near-slot-${i}-inversion`} className={UI_SELECT_SM_AUTO + " mt-1"} style={nearSelectWidthStyle(CHORD_INVERSIONS, 10)} value={s.slashBassPc != null ? (slotData?.effectiveInversionValue || "all") : s.inversion} onChange={(e) => updateNearSlot(i, { inversion: e.target.value, slashBassPc: null, selFrets: null })} disabled={dis}>
             {CHORD_INVERSIONS.map((inv) => (
               <option key={inv.value} value={inv.value} disabled={!ui.allowThirdInversion && inv.value === "3"}>{inv.label}</option>
             ))}
@@ -620,7 +623,6 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
               onChange={(v) => setNearBgColor(idx, v)}
               label="Fondo"
               disabled={disableAll}
-              data-testid={`near-slot-${idx}-bg-color`}
             />
           </div>
         </div>
@@ -702,8 +704,15 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
               />
             </div>
           ) : null}
-          <div className={badgeStripItems.length ? "mt-3" : ""}>
+          <div className={`flex flex-wrap items-center gap-2 ${badgeStripItems.length ? "mt-3" : ""}`}>
             {renderNearSlotOpenStringsToggle(slot, idx, disableAll)}
+            <ColorPickerPopover
+              value={nearBgColors[idx]}
+              onChange={(v) => setNearBgColor(idx, v)}
+              label="Fondo"
+              disabled={disableAll}
+              data-testid={`near-slot-${idx}-bg-color`}
+            />
           </div>
           <div className="mt-3 flex flex-wrap items-end gap-2">
             <div className="min-w-[210px] flex-1">

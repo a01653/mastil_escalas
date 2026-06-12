@@ -6,6 +6,7 @@ import { InfoTitle as InfoTitleImpl } from "../ui/AppUiPrimitives.jsx";
 import { MobileMainFretboard as MobileMainFretboardImpl } from "../fretboard/MobileMainFretboard.jsx";
 import { HoverCellNote as HoverCellNoteImpl } from "../fretboard/FretboardShared.jsx";
 
+import { calibratedClusterPos, cornerStyle, fret0ClusterPos, fret0ClusterPosMobile, computeMobileFret0TopPadding, FRET0_SPACING } from "../../features/near-chords/nearFretCellLayout.js";
 import * as AppStaticData from "../../music/appStaticData.js";
 const {
   NEAR_CHORDS_INFO_TEXT,
@@ -94,14 +95,12 @@ export default function NearChordsPanel({
 
   const MobileMainFretboard = (props) => <MobileMainFretboardImpl {...props} maxFret={maxFret} />;
 
-  const spellChordNotesForSlot = (slot) => buildNearSlotNoteMeta(slot).notes;
 
   function buildNearSlotRenderData(slot, idx) {
     const disableAll = !slot.enabled;
     const r = nearComputed.ranked[idx];
     const selectedVoicing = nearComputed.selected[idx] || null;
     const slotData = buildNearSlotStudyEntry(slot, r?.plan || null, selectedVoicing, idx);
-    const notes = (slotData?.notes || spellChordNotesForSlot(slot)).join(", ");
     const slotDisplayName = slotData?.summary || "";
     const slotUi = r?.plan?.ui || buildChordUiRestrictions({
       structure: slot.structure,
@@ -124,11 +123,10 @@ export default function NearChordsPanel({
       role: chordBadgeRoleFromDegreeLabel(badgeMeta.degreeLabels?.[noteIdx] || "", badgeMeta.intervals?.[noteIdx] ?? 0),
     })) : [];
     const slotLabel = `Acorde ${idx + 1}`;
-    const isRef = nearComputed.baseIdx === idx;
     const slotChordName = slotData?.chordName || null;
     const titleText = slotChordName
-      ? `${slotChordName} · ${slotLabel}${isRef ? " (referencia)" : ""}`
-      : `${slotLabel}${isRef ? " (referencia)" : ""}`;
+      ? `${slotChordName} · ${slotLabel}`
+      : slotLabel;
     const titleJsx = (
       <span data-testid={`near-slot-${idx}-title`}>
         <span
@@ -141,7 +139,6 @@ export default function NearChordsPanel({
         {slotChordName
           ? <span className={disableAll ? "text-slate-400" : undefined}>{` · ${slotLabel}`}</span>
           : null}
-        {isRef ? <span className="font-normal text-slate-500"> (referencia)</span> : null}
       </span>
     );
 
@@ -161,8 +158,8 @@ export default function NearChordsPanel({
         </span>
       ) : titleJsx,
       description: disableAll
-        ? <span className="text-slate-400">{`${slotDisplayName} · Notas: ${notes}`}</span>
-        : `${slotDisplayName} · Notas: ${notes}`,
+        ? <span className="text-slate-400">{slotDisplayName}</span>
+        : slotDisplayName,
     };
   }
 
@@ -201,44 +198,6 @@ export default function NearChordsPanel({
     if (showI && showN) return `${tok}-${note}`;
     if (showI) return tok;
     return note;
-  }
-
-  function calibratedClusterPos(n, idx) {
-    if (n === 2) {
-      const p = [
-        { x: 19, y: 16 },
-        { x: 52, y: 16 },
-      ][idx];
-      return p ? { left: `${p.x}px`, top: `${p.y}px`, transform: "translate(-50%, -50%)" } : null;
-    }
-    if (n === 4) {
-      const p = [
-        { x: 35, y: 6 },
-        { x: 12, y: 14 },
-        { x: 57, y: 14 },
-        { x: 34, y: 25 },
-      ][idx];
-      return p ? { left: `${p.x}px`, top: `${p.y}px`, transform: "translate(-50%, -50%)" } : null;
-    }
-    if (n === 3) {
-      const p = [
-        { x: 12, y: 14 },
-        { x: 34, y: 14 },
-        { x: 57, y: 14 },
-      ][idx];
-      return p ? { left: `${p.x}px`, top: `${p.y}px`, transform: "translate(-50%, -50%)" } : null;
-    }
-    return null;
-  }
-
-  function cornerStyle(n, idx) {
-    if (n <= 1) return { left: "50%", top: "50%", transform: "translate(-50%, -50%)" };
-    if (n === 2) {
-      return idx === 0
-        ? { left: 16, top: "50%", transform: "translateY(-50%)" }
-        : { right: 16, top: "50%", transform: "translateY(-50%)" };
-    }
-    return { left: "50%", top: "50%", transform: "translate(-50%, -50%)" };
   }
 
   function Mini({ slotIdx, pc, size = "m" }) {
@@ -316,6 +275,13 @@ export default function NearChordsPanel({
       return items;
     };
 
+    // Padding superior para el mástil móvil: espacio entre cabecera de cuerdas y
+    // traste 0 para que los marcadores que desbordan hacia arriba sean visibles.
+    const maxMobileFret0Cluster = (isNarrowBoardLayout && mobileVisibleFrets?.includes(0))
+      ? Math.max(0, ...STRINGS.map((_, sIdx) => getItemsForCell(sIdx, 0).length))
+      : 0;
+    const mobileFret0ExtraTopPx = computeMobileFret0TopPadding(maxMobileFret0Cluster);
+
     return (
       <PanelBlock
         level="subsection"
@@ -369,6 +335,7 @@ export default function NearChordsPanel({
         {isNarrowBoardLayout ? (
           <MobileMainFretboard
             frets={mobileVisibleFrets}
+            fret0TopPadding={mobileFret0ExtraTopPx}
             renderCell={({ sIdx, fret, cellClassName }) => {
               const items = getItemsForCell(sIdx, fret);
 
@@ -395,9 +362,10 @@ export default function NearChordsPanel({
                         .sort((a, b) => a.slotIdx - b.slotIdx)
                         .slice(0, 4)
                         .map((it, i2) => {
-                          const calibratedPos = calibratedClusterPos(items.length, i2);
-                          const pos = calibratedPos || cornerStyle(items.length, i2);
-                          const miniSize = fret === 0 ? "s" : (items.length === 2 ? "pair" : calibratedPos ? "cal" : "s");
+                          const pos = fret === 0
+                            ? fret0ClusterPosMobile(items.length, i2)
+                            : (calibratedClusterPos(items.length, i2) || cornerStyle(items.length, i2));
+                          const miniSize = fret === 0 ? "cal" : (items.length === 2 ? "pair" : calibratedClusterPos(items.length, i2) ? "cal" : "s");
                           return (
                             <div key={`${it.slotIdx}-${it.role}-${i2}`} className="absolute" style={pos}>
                               <Mini size={miniSize} slotIdx={it.slotIdx} pc={it.pc} fret={fret} sIdx={sIdx} />
@@ -437,6 +405,7 @@ export default function NearChordsPanel({
                       return (
                         <div
                           key={`${sIdx}-${fret}`}
+                          data-testid={`nc-fret-cell-${sIdx}-${fret}`}
                           className={`group relative isolate flex h-8 overflow-visible items-center justify-center rounded-lg border ${fret === 0 ? "border-slate-300" : "border-slate-200"} ${items.length ? "z-[4]" : "z-0"}`}
                           style={{ backgroundColor: FRET_CELL_BG }}
                         >
@@ -451,7 +420,7 @@ export default function NearChordsPanel({
                           ) : null}
                           {items.length === 1 ? (
                             <div className="pointer-events-none relative z-[5]">
-                              <Mini size="m" slotIdx={items[0].slotIdx} pc={items[0].pc} fret={fret} sIdx={sIdx} />
+                              <Mini size={fret === 0 ? "s" : "m"} slotIdx={items[0].slotIdx} pc={items[0].pc} fret={fret} sIdx={sIdx} />
                             </div>
                           ) : items.length ? (
                             <div className="absolute inset-0 z-[5] pointer-events-none">
@@ -460,9 +429,10 @@ export default function NearChordsPanel({
                                 .sort((a, b) => a.slotIdx - b.slotIdx)
                                 .slice(0, 4)
                                 .map((it, i2) => {
-                                  const calibratedPos = calibratedClusterPos(items.length, i2);
-                                  const pos = calibratedPos || cornerStyle(items.length, i2);
-                                  const miniSize = items.length === 2 ? "pair" : calibratedPos ? "cal" : "s";
+                                  const pos = fret === 0
+                                    ? fret0ClusterPos(items.length, i2)
+                                    : (calibratedClusterPos(items.length, i2) || cornerStyle(items.length, i2));
+                                  const miniSize = fret === 0 ? "cal" : (items.length === 2 ? "pair" : calibratedClusterPos(items.length, i2) ? "cal" : "s");
                                   return (
                                     <div key={`${it.slotIdx}-${it.role}-${i2}`} className="absolute" style={pos}>
                                       <Mini size={miniSize} slotIdx={it.slotIdx} pc={it.pc} fret={fret} sIdx={sIdx} />

@@ -20,7 +20,7 @@ const {
 
 const { FRET_INLAY_BG } = AppMusicBasics;
 
-export function MobileMainFretboard({ renderCell, frets = null, renderStringFooter = null, maxFret }) {
+export function MobileMainFretboard({ renderCell, frets = null, renderStringFooter = null, maxFret, fret0TopPadding = 0 }) {
   const visibleFrets = normalizeVisibleFrets(
     Array.isArray(frets) && frets.length
       ? frets
@@ -46,7 +46,7 @@ export function MobileMainFretboard({ renderCell, frets = null, renderStringFoot
         })}
       </div>
 
-      <div className="mt-2">
+      <div className="mt-2" style={fret0TopPadding > 0 ? { paddingTop: `${fret0TopPadding}px` } : undefined}>
         {visibleFrets.map((fret, fretIdx) => (
           <div
             key={fret}

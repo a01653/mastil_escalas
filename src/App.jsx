@@ -57,6 +57,7 @@ import {
   buildChordDetectStaffEvents,
 } from "./features/chord-detection/chordDetectionPresentationCore.js";
 import { buildChordBuilderPatchFromDetectedCandidate } from "./features/chord-detection/chordDetectionCopyCore.js";
+import { buildNearSlotPatchFromDetectedCandidate } from "./features/near-chords/copyToNearSlot.js";
 
 import * as AppStaticData from "./music/appStaticData.js";
 const {
@@ -277,7 +278,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "6.0.41";
+const APP_VERSION = "6.0.50";
 
 
 // ─── Acorde de referencia (bloque "Investigar en mástil") ────────────────────
@@ -2042,6 +2043,13 @@ export default function FretboardScalesPage() {
     setChordDetectMode(false);
   }
 
+  function copyDetectedCandidateToNearSlot(candidate, slotIdx) {
+    const patch = buildNearSlotPatchFromDetectedCandidate(candidate);
+    if (!patch) return;
+    setNearAutoScaleSync(false);
+    updateNearSlot(slotIdx, patch);
+  }
+
   function toggleChordDetectCell(sIdx, fret) {
     if (chordDetectClickAudio) playChordDetectNote(sIdx, fret);
     const result = toggleChordDetectCellSelection({
@@ -2212,6 +2220,7 @@ export default function FretboardScalesPage() {
       maxDist: 4,
       allowOpenStrings: false,
       omit: "none",
+      slashBassPc: null,
       selFrets: null,
     };
   }
@@ -2423,11 +2432,35 @@ export default function FretboardScalesPage() {
       omit: slot?.omit || "none",
     });
 
+    const slashBassName = slot?.slashBassPc != null
+      ? pcToName(slot.slashBassPc, noteMeta.preferSharps)
+      : null;
+    const displayChordName = slashBassName ? `${chordName}/${slashBassName}` : chordName;
+
+    // Cuando slashBassPc filtra los voicings a un bajo específico, derivar el valor
+    // de inversión efectivo desde el voicing real para mostrarlo en el selector.
+    let effectiveInversionValue = slot?.inversion || "root";
+    if (slot?.slashBassPc != null && voicing && plan) {
+      const invDerived = deriveDetectedCandidateCopyInversion({
+        rootPc: plan.rootPc,
+        bassPc: voicing.bassPc,
+        externalBassInterval: null,
+        uiPatch: {
+          quality: plan.quality,
+          suspension: plan.suspension || "none",
+          structure: plan.structure,
+          ext7: plan.ext7, ext6: plan.ext6,
+          ext9: plan.ext9, ext11: plan.ext11, ext13: plan.ext13,
+        },
+      });
+      if (invDerived != null) effectiveInversionValue = invDerived;
+    }
+
     return {
       rootPc: noteMeta.rootPc,
       preferSharps: noteMeta.preferSharps,
       title: `Acorde cercano ${idx + 1}`,
-      chordName,
+      chordName: displayChordName,
       notes: noteMeta.notes,
       intervals: noteMeta.degreeLabels,
       plan,
@@ -2436,13 +2469,18 @@ export default function FretboardScalesPage() {
       bassName: voicing
         ? spellNoteFromChordInterval(noteMeta.rootPc, mod12(voicing.bassPc - noteMeta.rootPc), noteMeta.preferSharps)
         : spellNoteFromChordInterval(noteMeta.rootPc, plan?.bassInterval || 0, noteMeta.preferSharps),
-      inversionLabel: CHORD_INVERSIONS.find((item) => item.value === (slot?.inversion || "root"))?.label || "Fundamental",
-        summary: buildChordHeaderSummary({
-          name: chordName,
-          plan,
-          voicing,
-          positionForm: slot?.positionForm,
-        }),
+      inversionLabel: (voicing && slot?.slashBassPc != null)
+        ? actualInversionLabelFromVoicing(plan, voicing)
+        : CHORD_INVERSIONS.find((item) => item.value === (slot?.inversion || "root"))?.label || "Fundamental",
+      effectiveInversionValue,
+      summary: buildChordHeaderSummary({
+        name: chordName,
+        plan,
+        voicing,
+        positionForm: slot?.positionForm,
+        showFrets: false,
+        preferSharps: noteMeta.preferSharps,
+      }),
     };
   }, [buildNearSlotNoteMeta, nearSlotFamilyOf]);
 
@@ -2625,6 +2663,13 @@ export default function FretboardScalesPage() {
         return dedupeWindowed(base);
       };
 
+      const applySlashBassFilter = (ranked) => {
+        if (slot.slashBassPc == null) return ranked;
+        const target = mod12(slot.slashBassPc);
+        const filtered = ranked.filter((v) => mod12(v.bassPc ?? 0) === target);
+        return filtered.length ? filtered : ranked;
+      };
+
       if (plan.generator === "triad") {
         const list = rootCandidates.flatMap((rootCandidate) =>
           concreteInversionsForSelection(plan.inversion, plan.ui?.allowThirdInversion).flatMap((inv) =>
@@ -2641,7 +2686,7 @@ export default function FretboardScalesPage() {
             ).map((v) => normalizeGeneratedVoicingForDisplay(v, plan.rootPc, rootCandidate))
           )
         );
-        return { plan, ranked: finalize(list), err: null };
+        return { plan, ranked: applySlashBassFilter(finalize(list)), err: null };
       }
 
       if (plan.generator === "drop") {
@@ -2660,7 +2705,7 @@ export default function FretboardScalesPage() {
             }).map((v) => normalizeGeneratedVoicingForDisplay(v, plan.rootPc, rootCandidate))
           )
         );
-        return { plan, ranked: finalize(list), err: null };
+        return { plan, ranked: applySlashBassFilter(finalize(list)), err: null };
       }
 
       if (plan.generator === "tetrad") {
@@ -2688,7 +2733,7 @@ export default function FretboardScalesPage() {
                 ).map((v) => normalizeGeneratedVoicingForDisplay(v, plan.rootPc, rootCandidate))
               )
             );
-        return { plan, ranked: finalize(list), err: null };
+        return { plan, ranked: applySlashBassFilter(finalize(list)), err: null };
       }
 
       if (plan.generator === "exact") {
@@ -2701,7 +2746,7 @@ export default function FretboardScalesPage() {
             maxSpan,
           }).map((v) => normalizeGeneratedVoicingForDisplay(v, plan.rootPc, plan.rootPc))
         );
-        return { plan, ranked: finalize(list), err: null };
+        return { plan, ranked: applySlashBassFilter(finalize(list)), err: null };
       }
 
       if (plan.generator === "json") {
@@ -2791,7 +2836,7 @@ export default function FretboardScalesPage() {
           }).map((v) => normalizeGeneratedVoicingForDisplay(v, plan.rootPc, plan.rootPc)));
         }
         list.sort((a, b) => ((a._extra ?? 0) - (b._extra ?? 0)) || (a.minFret - b.minFret) || (a.span - b.span) || (a.maxFret - b.maxFret));
-        return { plan, ranked: finalize(list), err: null };
+        return { plan, ranked: applySlashBassFilter(finalize(list)), err: null };
       }
 
       return { plan, ranked: [], err: "Sin voicings en este rango." };
@@ -3584,6 +3629,7 @@ export default function FretboardScalesPage() {
           selectDetectedCandidate,
           formatChordNamePure,
           applyDetectedCandidate,
+          copyDetectedCandidateToNearSlot,
         }}
         staff={{ chordDetectStaffEvents, chordDetectSelectionPositionsText }}
         ui={{ UI_BTN_SM }}

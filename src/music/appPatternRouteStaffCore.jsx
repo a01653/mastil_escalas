@@ -802,6 +802,9 @@ export function sanitizeNearSlotValue(value, fallback) {
     maxDist: sanitizeOneOf(Number(slot.maxDist), [4, 5, 6], fallback.maxDist),
     allowOpenStrings: sanitizeBoolValue(slot.allowOpenStrings, fallback.allowOpenStrings),
     omit: sanitizeOneOf(slot.omit, ["none", "1", "3", "5"], fallback.omit || "none"),
+    slashBassPc: (typeof slot.slashBassPc === "number" && Number.isInteger(slot.slashBassPc) && slot.slashBassPc >= 0 && slot.slashBassPc <= 11)
+      ? slot.slashBassPc
+      : (fallback.slashBassPc ?? null),
     selFrets: typeof slot.selFrets === "string" || slot.selFrets == null ? slot.selFrets : fallback.selFrets,
   };
 }

@@ -1,12 +1,12 @@
 /**
  * E2E — nearChords: cabecera de slot muestra nombre de acorde con color.
  *
- * Formato correcto (v6.0.36):
- *   Activo:   [Fmaj7 text-sky-700]        · Acorde 1 [(referencia) gris]
+ * Formato correcto (v6.0.45):
+ *   Activo:   [Fmaj7 text-sky-700]        · Acorde 1
  *   Inactivo: [Gm7 oklch(0.75 0.05 233)] · Acorde 2  (ambos apagados)
  *
  * Tests:
- *   NC-HDR-FORMAT      cabecera del slot 0 incluye "· Acorde 1 (referencia)"
+ *   NC-HDR-FORMAT      cabecera del slot 0 incluye "· Acorde 1"
  *   NC-HDR-BLUE        slot activo → nombre en text-sky-700
  *   NC-HDR-TONE        cambiar tono actualiza el nombre en la cabecera
  *   NC-HDR-COLLAPSED   slot inactivo → nombre sin text-sky-700 (color apagado)
@@ -26,9 +26,10 @@ async function clearAndGoToNearChords(page) {
 }
 
 // ── NC-HDR-FORMAT ─────────────────────────────────────────────────────────────
-test("NC-HDR-FORMAT: cabecera del slot 0 contiene '· Acorde 1 (referencia)'", async ({ page }) => {
+test("NC-HDR-FORMAT: cabecera del slot 0 contiene '· Acorde 1'", async ({ page }) => {
   await clearAndGoToNearChords(page);
-  await expect(page.getByTestId("near-slot-0-title")).toContainText("· Acorde 1 (referencia)");
+  await expect(page.getByTestId("near-slot-0-title")).toContainText("· Acorde 1");
+  await expect(page.getByTestId("near-slot-0-title")).not.toContainText("(referencia)");
 });
 
 // ── NC-HDR-BLUE ───────────────────────────────────────────────────────────────
@@ -51,7 +52,7 @@ test("NC-HDR-TONE: cambiar tono actualiza la cabecera y mantiene text-sky-700", 
   const chordSpan = page.getByTestId("near-slot-0-title-chord");
   await expect(chordSpan).toContainText("F");
   await expect(chordSpan).toHaveClass(/text-sky-700/);
-  await expect(page.getByTestId("near-slot-0-title")).toContainText("· Acorde 1 (referencia)");
+  await expect(page.getByTestId("near-slot-0-title")).toContainText("· Acorde 1");
 
   await page.getByTestId("near-slot-0-tone").selectOption("G");
   await page.waitForTimeout(150);

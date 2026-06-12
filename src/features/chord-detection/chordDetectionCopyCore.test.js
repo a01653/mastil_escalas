@@ -218,6 +218,45 @@ describe("ruta tertian — deriveDetectedCandidateCopyInversion", () => {
   });
 });
 
+// ── sus4 / sus2: cobertura para effectiveInversionValue en near chords ────────
+// Esus4/A y Asus2/E — el bajo es tono del acorde, externalBassInterval = null.
+// buildNearSlotStudyEntry llama a deriveDetectedCandidateCopyInversion con un
+// fake-candidate construido desde plan + voicing; estos tests fijan esa lógica.
+
+describe("deriveDetectedCandidateCopyInversion — sus4 y sus2", () => {
+  // Esus4 = E(4) + A(9) + B(11).  A es la sus4 (1ª inversión).
+  const esus4Cand = {
+    rootPc: 4,
+    bassPc: 9,
+    externalBassInterval: null,
+    uiPatch: { quality: "sus", suspension: "sus4", structure: "triad", ext7: false, ext6: false, ext9: false, ext11: false, ext13: false },
+  };
+
+  // Asus2 = A(9) + B(11) + E(4).  E es la 5ª (2ª inversión).
+  const asus2Cand = {
+    rootPc: 9,
+    bassPc: 4,
+    externalBassInterval: null,
+    uiPatch: { quality: "sus", suspension: "sus2", structure: "triad", ext7: false, ext6: false, ext9: false, ext11: false, ext13: false },
+  };
+
+  it("Esus4/A: bajo A (sus4 = 1ª inversión) → '1'", () => {
+    expect(deriveDetectedCandidateCopyInversion(esus4Cand)).toBe("1");
+  });
+
+  it("Asus2/E: bajo E (5ª = 2ª inversión) → '2'", () => {
+    expect(deriveDetectedCandidateCopyInversion(asus2Cand)).toBe("2");
+  });
+
+  it("Esus4 posición fundamental: bajo E → 'root'", () => {
+    expect(deriveDetectedCandidateCopyInversion({ ...esus4Cand, bassPc: 4 })).toBe("root");
+  });
+
+  it("bajo externo a Esus4: no devuelve inversión (null)", () => {
+    expect(deriveDetectedCandidateCopyInversion({ ...esus4Cand, externalBassInterval: 6 })).toBeNull();
+  });
+});
+
 // ── Ruta 2 (ensamblado de patch): buildGuideToneChordBuilderPatch ────────────
 // Fija el patch que el adaptador aplicará en la rama guide-tones, antes de cablearlo.
 describe("ruta guide tones — buildGuideToneChordBuilderPatch", () => {

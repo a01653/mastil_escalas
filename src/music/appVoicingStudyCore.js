@@ -665,7 +665,7 @@ export function formatBassLabelForTitle(label) {
   return label;
 }
 
-export function buildChordHeaderSummary({ name, plan, voicing, positionForm, preferSharps = false }) {
+export function buildChordHeaderSummary({ name, plan, voicing, positionForm, preferSharps = false, showFrets = true }) {
   if (!plan) return name || "";
 
   let chordName = name || "";
@@ -708,7 +708,7 @@ export function buildChordHeaderSummary({ name, plan, voicing, positionForm, pre
   if (shape.drop) parts.push(shape.drop);
   parts.push(formatBassLabelForTitle(invLabel));
   const summary = parts.filter(Boolean).join(" - ");
-  if (voicing?.frets) return `${summary} (${voicing.frets})`;
+  if (voicing?.frets && showFrets) return `${summary} (${voicing.frets})`;
   return summary;
 }
 

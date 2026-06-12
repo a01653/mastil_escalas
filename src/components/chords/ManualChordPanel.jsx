@@ -1,4 +1,5 @@
 import { BookOpen, ChevronLeft, ChevronRight, Eraser, Music, Play, Volume2, VolumeX } from "lucide-react";
+import { useNearCopyFeedback } from "./useNearCopyFeedback.js";
 import { CopyVoicingButton } from "./ChordsPanel.jsx";
 import { CHORD_FORMS, FRET_INLAY_BG, buildDetectedCandidateBackgroundLabelForPc, buildDetectedCandidateNoteNameForPc, mod12 } from "../../music/appMusicBasics.js";
 import { classifyManualVoicingShape, studyVoicingFormLabel, formatBassLabelForTitle } from "../../music/appVoicingStudyCore.js";
@@ -6,6 +7,13 @@ import { STRINGS, fretGridCols, hasInlayCell } from "../../music/appStaticData.j
 import { ChordNoteBadgeStrip, MusicStaff } from "../../music/appPatternRouteStaffCore.jsx";
 
 export default function ManualChordPanel({ layout, reading, actions, reference, patternInput, fretboard, candidates, staff, ui }) {
+  const { copyFeedback, trigger: triggerCopyFeedback } = useNearCopyFeedback();
+
+  function handleCopyToNearSlot(cand, slotIdx) {
+    copyDetectedCandidateToNearSlot(cand, slotIdx);
+    triggerCopyFeedback(cand.id, slotIdx, formatChordNamePure(cand));
+  }
+
   const { isCompactLayout, isMobileLayout, isNarrowBoardLayout } = layout;
   const {
     chordDetectSelectedNotes,
@@ -70,6 +78,7 @@ export default function ManualChordPanel({ layout, reading, actions, reference, 
     selectDetectedCandidate,
     formatChordNamePure,
     applyDetectedCandidate,
+    copyDetectedCandidateToNearSlot,
   } = candidates;
   const { chordDetectStaffEvents, chordDetectSelectionPositionsText } = staff;
   const { UI_BTN_SM } = ui;
@@ -600,16 +609,52 @@ export default function ManualChordPanel({ layout, reading, actions, reference, 
                     <div>{cand.intervalPairsText}</div>
                   </div>
                 </label>
-                <button
-                  type="button"
-                  data-testid={`detected-copy-${cand.id}`}
-                  className={UI_BTN_SM + " w-auto shrink-0 px-3"}
-                  onClick={() => applyDetectedCandidate(cand)}
-                  disabled={!cand.uiPatch}
-                  title={cand.uiPatch ? "Copiar esta lectura a la sección Acorde" : "Esta lectura no es compatible con el constructor superior"}
-                >
-                  Copiar en Acorde
-                </button>
+                <div className="flex shrink-0 flex-col items-end gap-1">
+                  <button
+                    type="button"
+                    data-testid={`detected-copy-${cand.id}`}
+                    className={UI_BTN_SM + " w-auto px-3"}
+                    onClick={() => applyDetectedCandidate(cand)}
+                    disabled={!cand.uiPatch}
+                    title={cand.uiPatch ? "Copiar esta lectura a la sección Acorde" : "Esta lectura no es compatible con el constructor superior"}
+                  >
+                    Copiar en Acorde
+                  </button>
+                  {cand.uiPatch && (
+                    <div className="flex flex-col items-end gap-0.5">
+                      <div className="flex items-center gap-1">
+                        <span className="shrink-0 text-[10px] text-slate-400">→ Cercano:</span>
+                        {[0, 1, 2, 3].map((i) => {
+                          const isActive = copyFeedback?.candId === cand.id && copyFeedback?.slotIdx === i;
+                          return (
+                            <button
+                              key={i}
+                              type="button"
+                              data-testid={`detected-copy-near-${cand.id}-${i}`}
+                              className={
+                                isActive
+                                  ? "inline-flex h-6 w-6 items-center justify-center rounded-lg border border-emerald-500 bg-emerald-100 px-0 text-[11px] font-semibold text-emerald-700 transition-colors"
+                                  : UI_BTN_SM + " w-6 px-0 text-[11px]"
+                              }
+                              onClick={() => handleCopyToNearSlot(cand, i)}
+                              title={`Copiar lectura a Acorde cercano ${i + 1}`}
+                            >
+                              {i + 1}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {copyFeedback?.candId === cand.id && (
+                        <div
+                          data-testid={`detected-copy-near-feedback-${cand.id}`}
+                          className="text-[10px] font-medium text-emerald-600"
+                        >
+                          Copiado a Cercano {copyFeedback.slotIdx + 1}: {copyFeedback.name}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             )) : (
               <div className="rounded-xl border border-dashed border-slate-300 bg-sky-50 px-3 py-3 text-xs text-slate-500">
