@@ -1490,6 +1490,7 @@ test("77. VF: el nivel de filtro persiste tras recarga de página", async ({ pag
   await selectStructure(page, "triad");
 
   await setVoicingFilter(page, "habitual");
+  await page.waitForTimeout(300);
 
   await page.reload();
   await page.waitForLoadState("networkidle");

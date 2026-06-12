@@ -58,6 +58,7 @@ import {
 } from "./features/chord-detection/chordDetectionPresentationCore.js";
 import { buildChordBuilderPatchFromDetectedCandidate } from "./features/chord-detection/chordDetectionCopyCore.js";
 import { buildNearSlotPatchFromDetectedCandidate } from "./features/near-chords/copyToNearSlot.js";
+import { compareAppVersions } from "./features/config/configVersionUtils.js";
 
 import * as AppStaticData from "./music/appStaticData.js";
 const {
@@ -278,7 +279,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "6.0.50";
+const APP_VERSION = "6.0.51";
 
 
 // ─── Acorde de referencia (bloque "Investigar en mástil") ────────────────────
@@ -1045,6 +1046,18 @@ export default function FretboardScalesPage() {
 
       const parsed = JSON.parse(raw);
       const payload = unwrapPersistedPayload(parsed);
+
+      // Si la versión de la app ha subido respecto a cuando se guardó la config,
+      // descartamos la config guardada y arrancamos con los valores por defecto.
+      // Leer appVersion de `parsed` (no de `payload`): unwrapPersistedPayload no transfiere ese campo.
+      const storedAppVersion = String(parsed.appVersion || "0.0.0");
+      if (compareAppVersions(APP_VERSION, storedAppVersion) > 0) {
+        window.localStorage.removeItem(UI_STORAGE_KEY);
+        setConfigNotice({ type: "info", text: `Actualizado a v${APP_VERSION}. Configuración restablecida.` });
+        setStorageHydrated(true);
+        return;
+      }
+
       const saved = payload.config || {};
       if (payload.version && payload.version !== UI_CONFIG_VERSION) {
         setConfigNotice({ type: "info", text: `Configuración antigua (v${payload.version}) cargada con saneado.` });

@@ -70,9 +70,20 @@ async function getVoicingOptionTexts(page) {
 }
 
 async function patchPersistedChordConfig(page, patch) {
+  // Esperar a que la app haya guardado config (con appVersion actual) antes de parchear.
+  // Sin esta espera, el fallback appVersion podría ser antigua y el invalidador la descartaría.
+  await page.waitForFunction(
+    (key) => {
+      const raw = window.localStorage.getItem(key);
+      if (!raw) return false;
+      try { return !!JSON.parse(raw).appVersion; } catch { return false; }
+    },
+    UI_STORAGE_KEY,
+    { timeout: 5000 }
+  );
   await page.evaluate(({ key, patchValue }) => {
     const raw = window.localStorage.getItem(key);
-    const parsed = raw ? JSON.parse(raw) : { version: 1, appVersion: "6.0.8", config: {} };
+    const parsed = raw ? JSON.parse(raw) : { version: 1, config: {} };
     parsed.config = { ...(parsed.config || {}), ...patchValue };
     window.localStorage.setItem(key, JSON.stringify(parsed));
   }, { key: UI_STORAGE_KEY, patchValue: patch });

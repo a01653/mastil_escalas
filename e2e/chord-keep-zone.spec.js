@@ -118,6 +118,7 @@ test("KZ-3. chordKeepZone persiste: el valor false sobrevive a recarga de págin
   await expect(toggle).toBeVisible({ timeout: 5000 });
   await setCheckbox(page, "toggle-keep-zone", false);
   await expect(toggle).not.toBeChecked();
+  await page.waitForTimeout(300);
 
   await page.reload();
   await page.waitForLoadState("networkidle");
@@ -427,6 +428,7 @@ test("KZ-P1. Persistencia: keepZone=false persiste al recargar y afecta las 3 fa
   await expect(toggleBefore).toBeVisible({ timeout: 5000 });
   await setCheckbox(page, "toggle-keep-zone", false);
   await expect(toggleBefore).not.toBeChecked();
+  await page.waitForTimeout(300);
 
   // Recargar
   await page.reload();

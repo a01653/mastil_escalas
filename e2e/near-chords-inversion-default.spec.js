@@ -52,6 +52,7 @@ test("NC-INV-PERSIST: '1ª inversión' se conserva tras reload", async ({ page }
 
   await page.getByTestId("near-slot-0-inversion").selectOption("1");
   await expect(page.getByTestId("near-slot-0-inversion")).toHaveValue("1");
+  await page.waitForTimeout(300);
 
   await page.reload();
   await page.waitForLoadState("networkidle");
@@ -69,6 +70,7 @@ test("NC-INV-PERSIST-ROOT: 'Fundamental' se conserva tras reload", async ({ page
 
   await page.getByTestId("near-slot-0-inversion").selectOption("root");
   await expect(page.getByTestId("near-slot-0-inversion")).toHaveValue("root");
+  await page.waitForTimeout(300);
 
   await page.reload();
   await page.waitForLoadState("networkidle");
@@ -92,6 +94,7 @@ test("NC-INV-ACORDES: la sección Acordes conserva la inversión elegida tras re
   await expect(page.getByTestId("select-inversion")).toBeVisible();
   await page.getByTestId("select-inversion").selectOption("1");
   await expect(page.getByTestId("select-inversion")).toHaveValue("1");
+  await page.waitForTimeout(300);
 
   await page.reload();
   await page.waitForLoadState("networkidle");
