@@ -172,6 +172,16 @@ export const CHORD_DETECT_FORMULAS = [
   { id: "7sharp9no5", intervals: [0, 3, 4, 10], degreeLabels: ["1", "#9", "3", "b7"], suffix: "7(#9)", ui: null },
   { id: "dom13sharp11", intervals: [0, 2, 4, 6, 9, 10], degreeLabels: ["1", "9", "3", "#11", "13", "b7"], suffix: "13(#11,9)", ui: null },
   { id: "mmaj9", intervals: [0, 2, 3, 7, 11], degreeLabels: ["1", "9", "b3", "5", "7"], suffix: "m(maj9)", ui: { quality: "minmaj7", suspension: "none", structure: "chord", inversion: "all", form: "open", positionForm: "open", ext7: true, ext6: false, ext9: true, ext11: false, ext13: false } },
+  // [0,2,6,7]: sus2 con #11 — dos framings del mismo voicing
+  { id: "sus2sharp11",    intervals: [0, 2, 6, 7], degreeLabels: ["1", "2",  "#11", "5"], suffix: "sus2(#11)",     ui: null },
+  { id: "add9sharp11no3", intervals: [0, 2, 6, 7], degreeLabels: ["1", "9",  "#11", "5"], suffix: "add9(#11,no3)", ui: null },
+  // [0,7,11]: maj7 sin 3ª — naming estándar vs framing power chord
+  { id: "maj7no3", intervals: [0, 7, 11], degreeLabels: ["1", "5", "7"], suffix: "maj7(no3)", ui: null },
+  { id: "5maj7",   intervals: [0, 7, 11], degreeLabels: ["1", "5", "7"], suffix: "5(maj7)",   ui: null },
+  // [0,4,5,10]: dom7 con 11ª, sin 5ª
+  { id: "dom7add11no5", intervals: [0, 4, 5, 10], degreeLabels: ["1", "3", "11", "b7"], suffix: "7(add11,no5)", ui: null },
+  // [0,3,7,8]: framing compacto de m(addb13)
+  { id: "mflat13", intervals: [0, 3, 7, 8], degreeLabels: ["1", "b3", "5", "b13"], suffix: "m(b13)", ui: null },
 ];
 
 function appendMissingDegreesToSuffix(baseSuffix, missingDegrees) {
@@ -314,11 +324,16 @@ function allowMissingThirdCandidate(candidate) {
   // If quality encodes the third in the chord name (m, dim, hdim), missing it produces
   // a contradictory label like "Gm6(nob3)" — block the candidate entirely
   const formulaQuality = String(candidate.formula?.ui?.quality || "");
-  if (["min", "dim", "hdim"].includes(formulaQuality)) return false;
+  if (["min", "dim", "hdim", "minmaj7"].includes(formulaQuality)) return false;
   const labels = candidateVisibleDegreeLabels(candidate);
   return candidate.visibleIntervals.includes(0)
     && labels.some(isFifthDegreeLabel)
     && labels.some((label) => isSeventhDegreeLabel(label) || isSixthDegreeLabel(label));
+}
+
+function formulaDeclaresSeventh(formula) {
+  const labels = Array.isArray(formula?.degreeLabels) ? formula.degreeLabels : [];
+  return labels.some(isSeventhDegreeLabel);
 }
 
 function shouldFilterContradictoryPartialCoreCandidate(candidate) {
@@ -326,6 +341,12 @@ function shouldFilterContradictoryPartialCoreCandidate(candidate) {
   const id = String(candidate.formula?.id || "");
   const missing = Array.isArray(candidate.missingLabels) ? candidate.missingLabels : [];
   if (!missing.length) return false;
+
+  // A formula whose name declares a seventh (dominant "7" writes the b7 simply as "7",
+  // also "maj7", "m7", "dim7", "9"…) but is missing that very seventh produces a
+  // contradictory label like "B7(add11,no5,nob7)": the seventh is the chord's defining
+  // tone. Drop it — a cleaner reading without the "7" (e.g. "Badd11(no5)") already covers it.
+  if (formulaDeclaresSeventh(candidate.formula) && missing.some(isSeventhDegreeLabel)) return true;
 
   if (["dim", "dim7", "m7b5"].includes(id)) {
     return missing.some((label) => isThirdDegreeLabel(label) || isFifthDegreeLabel(label) || isSeventhDegreeLabel(label));
@@ -386,7 +407,10 @@ function shouldFilterInexactCandidateShadowedByExact(candidate, exactCandidates)
   return exactCandidates.some((exact) => exact?.exact
     && exact.rootPc === candidate.rootPc
     && exact.bassPc === candidate.bassPc
-    && candidateHeardIntervalSignature(exact) === signature);
+    && candidateHeardIntervalSignature(exact) === signature
+    // Don't shadow when the exact uses an external bass but the inexact incorporates that
+    // same note as an internal interval — the inexact offers richer harmonic context.
+    && !(exact.externalBassInterval != null && candidate.externalBassInterval == null));
 }
 
 function candidateFormulaComplexityPenalty(candidate) {
@@ -405,7 +429,12 @@ function candidateFormulaComplexityPenalty(candidate) {
   if (["m11flat13", "m11flat13omit3"].includes(id)) return 10;
   if (["mmaj7"].includes(id)) return 8;
   if (["mmaj7add13"].includes(id)) return 5;
-  if (["maj7sharp5", "7sharp5", "7flat5", "maddb13"].includes(id)) return 12;
+  if (["maj7sharp5", "7sharp5", "7flat5", "maddb13", "mflat13"].includes(id)) return 12;
+  if (["sus2sharp11"].includes(id)) return 3;
+  if (["add9sharp11no3"].includes(id)) return 4;
+  if (["maj7no3"].includes(id)) return 4;
+  if (["5maj7"].includes(id)) return 6;
+  if (["dom7add11no5"].includes(id)) return 5;
   return 7;
 }
 
@@ -1125,6 +1154,62 @@ export function rankChordReadings(readings) {
   return list;
 }
 
+function enharmonicTwinKey(r) {
+  return [
+    r.rootPc,
+    r.bassPc,
+    (r.visibleIntervals || []).slice().sort((a, b) => a - b).join(","),
+    (r.missingLabels || []).slice().sort().join(","),
+    String(r.formula?.id || ""),
+  ].join("|");
+}
+
+// Collapse readings that are the same chord written two enharmonic ways (G#m vs Abm,
+// C#dim7 vs Dbdim7). Keep the spelling with fewer rare accidentals (Cb/Fb/E#/B#/double
+// flats) so the surviving name reads cleanly; break ties with the per-root canonical
+// spelling. Quartal readings are never collapsed. Different chord framings (e.g. the
+// addb13/b13 coexistence pair) keep distinct formula ids, so each collapses only against
+// its own enharmonic twin.
+function collapseEnharmonicTwins(readings) {
+  const groups = new Map();
+  for (const r of readings) {
+    if (r.formula?.quartal) continue;
+    const k = enharmonicTwinKey(r);
+    if (!groups.has(k)) groups.set(k, []);
+    groups.get(k).push(r);
+  }
+
+  const dropKeys = new Set();
+  for (const [, grp] of groups) {
+    if (grp.length < 2) continue;
+    if (new Set(grp.map((r) => !!r.preferSharps)).size < 2) continue; // not a sharp/flat twin
+    let best = null;
+    for (const r of grp) {
+      const rare = candidateRareEnharmonicPenalty(r);
+      const canonical = (!!r.preferSharps === preferSharpsFromMajorTonicPc(mod12(r.rootPc))) ? 0 : 1;
+      if (!best || rare < best.rare || (rare === best.rare && canonical < best.canonical)) {
+        best = { reading: r, rare, canonical };
+      }
+    }
+    // The surviving spelling inherits the best (lowest) ranking of the pair so it keeps
+    // the twin's position; otherwise the cleaner name could fall behind an unrelated
+    // reading (e.g. a relative "E6/C#") that the dropped canonical twin outranked.
+    const minRank = Math.min(...grp.map((r) => r.rankScore ?? r.probabilityScore ?? r.score ?? 999));
+    const minProb = Math.min(...grp.map((r) => r.probabilityScore ?? 999));
+    const minScore = Math.min(...grp.map((r) => r.score ?? 999));
+    best.reading.rankScore = minRank;
+    best.reading.probabilityScore = minProb;
+    best.reading.score = minScore;
+    for (const r of grp) {
+      if (r !== best.reading) dropKeys.add(`${enharmonicTwinKey(r)}|${r.preferSharps ? "s" : "f"}`);
+    }
+  }
+  if (!dropKeys.size) return readings;
+  return readings.filter((r) =>
+    r.formula?.quartal || !dropKeys.has(`${enharmonicTwinKey(r)}|${r.preferSharps ? "s" : "f"}`)
+  );
+}
+
 function dedupeRankedChordReadings(readings) {
   // Pass 1: deduplicate by name|intervalPairsText (existing logic)
   const seen = new Map();
@@ -1147,6 +1232,8 @@ function dedupeRankedChordReadings(readings) {
   // Pass 2: for non-quartal candidates with identical content (root/bass/intervals/missing),
   // prefer formula name over heuristic name while keeping the lower (better) probabilityScore.
   // This resolves conflicts like "m(addb6)" vs "m(addb13)", "7(#9,no5)" vs "7(#9)", etc.
+  // Exception: pairs in COEXISTENCE_PAIRS are allowed to coexist (both survive) because they
+  // represent intentional alternative framings of the same notes.
   const isHeuristicFormula = (r) => String(r?.formula?.id || "").startsWith("tertian_heuristic");
   const contentKey = (r) => [
     r.rootPc,
@@ -1156,17 +1243,35 @@ function dedupeRankedChordReadings(readings) {
     (r.missingLabels || []).slice().sort().join(","),
   ].join("|");
 
+  const COEXISTENCE_PAIRS = new Set([
+    ["sus2sharp11", "add9sharp11no3"].sort().join("|"),
+    ["maj7no3", "5maj7"].sort().join("|"),
+    ["maddb13", "mflat13"].sort().join("|"),
+  ]);
+
   const contentWinners = new Map();
+  // multiFormulaAllowedIds: contentKey → Set of formula IDs that are allowed to coexist
+  const multiFormulaAllowedIds = new Map();
   for (const r of list) {
     if (r.formula?.quartal) continue;
     const k = contentKey(r);
     const prev = contentWinners.get(k);
     if (!prev) { contentWinners.set(k, r); continue; }
+    const prevIsHeur = isHeuristicFormula(prev);
+    const currIsHeur = isHeuristicFormula(r);
+    const prevId = String(prev.formula?.id || "");
+    const currId = String(r.formula?.id || "");
+    const pairKey = [prevId, currId].sort().join("|");
+    if (!prevIsHeur && !currIsHeur && COEXISTENCE_PAIRS.has(pairKey)) {
+      // Intentional pair: both survive; record exactly which IDs are allowed
+      if (!multiFormulaAllowedIds.has(k)) {
+        multiFormulaAllowedIds.set(k, new Set([prevId, currId]));
+      }
+      continue;
+    }
     const prevScore = prev.probabilityScore ?? 999;
     const currScore = r.probabilityScore ?? 999;
     const minScore = Math.min(prevScore, currScore);
-    const prevIsHeur = isHeuristicFormula(prev);
-    const currIsHeur = isHeuristicFormula(r);
     let winner;
     if (prevIsHeur && !currIsHeur) winner = { ...r, probabilityScore: minScore };
     else if (!prevIsHeur && currIsHeur) winner = prevScore <= minScore ? prev : { ...prev, probabilityScore: minScore };
@@ -1179,11 +1284,16 @@ function dedupeRankedChordReadings(readings) {
   for (const r of list) {
     if (r.formula?.quartal) { result.push(r); continue; }
     const k = contentKey(r);
+    if (multiFormulaAllowedIds.has(k)) {
+      // Only the exact IDs in the coexistence pair pass; a third explicit candidate is blocked
+      if (multiFormulaAllowedIds.get(k).has(String(r.formula?.id || ""))) result.push(r);
+      continue;
+    }
     if (usedContentKeys.has(k)) continue;
     usedContentKeys.add(k);
     result.push(contentWinners.get(k) ?? r);
   }
-  return result;
+  return collapseEnharmonicTwins(result);
 }
 
 function filterRareBassReadings(readings) {
@@ -1307,7 +1417,18 @@ export function detectChordReadings(selectedNotes) {
   );
   filtered.forEach((candidate) => {
     let extraPenalty = 0;
-    if (hasCleanerExactCandidate && candidateIsMissingThirdSeventhLike(candidate)) extraPenalty += 18;
+    if (hasCleanerExactCandidate && candidateIsMissingThirdSeventhLike(candidate)) {
+      // Only penalize if there is an exact candidate from the same root+bass with at least as
+      // many visible intervals — i.e. a more complete reading already covers this material.
+      const candidateIntervalCount = (candidate.visibleIntervals || []).length;
+      const hasMoreCompleteExact = exactCandidates.some((e) =>
+        !String(e.formula?.id || "").startsWith("tertian_heuristic") &&
+        e.rootPc === candidate.rootPc &&
+        e.bassPc === candidate.bassPc &&
+        (e.visibleIntervals || []).length >= candidateIntervalCount
+      );
+      if (hasMoreCompleteExact) extraPenalty += 18;
+    }
     if (hasStrongBassRootFormula && candidate.bassPc !== candidate.rootPc && !candidate.formula?.quartal) {
       extraPenalty += 2.0;
     }

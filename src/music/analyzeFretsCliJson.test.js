@@ -70,6 +70,15 @@ describe("--json: salida es JSON válido", () => {
     expect(json.reference).toBeNull();
     expect(json.prioritizeReference).toBe(false);
   });
+
+  it("4x2440 --json → bass='G#' alineado con la grafía de la primaria (no 'Ab')", () => {
+    // Tras collapseEnharmonicTwins las lecturas usan G# (Emaj7/G#, G#m(addb13), …);
+    // el bajo del encabezado no debe contradecirlas mostrando la canónica 'Ab'.
+    const { json } = runJson("4x2440");
+    expect(json.bass).toBe("G#");
+    expect(json.primary?.name).toBe("Emaj7/G#");
+    expect(json.readings.map((r) => r.name)).not.toContain("Abm(b13)");
+  });
 });
 
 // ─── --json: primary sin referencia ──────────────────────────────────────────

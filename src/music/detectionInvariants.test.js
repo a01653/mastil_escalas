@@ -102,7 +102,13 @@ describe("detectionInvariants", () => {
 
   // Invariant 4: no hay dos lecturas tercianas con misma raíz/bajo/intervalos y distinto sufijo
   // (excluye duplicados enarmónicos: "Ab" vs "G#" son la misma tríada, sufijo idéntico "")
+  // Exception: pairs listed in COEXISTENCE_PAIRS are intentional alternative framings.
   test("no hay alias duplicados para misma raíz/bajo/intervalos (no quartal)", { timeout: 30_000 }, () => {
+    const COEXISTENCE_PAIRS = new Set([
+      ["sus2sharp11", "add9sharp11no3"].sort().join("|"),
+      ["maj7no3", "5maj7"].sort().join("|"),
+      ["maddb13", "mflat13"].sort().join("|"),
+    ]);
     // Strip root note name and bass note name; compare only the structural suffix
     const rootRe = /^[A-G][#b]{0,2}/;
     const bassRe = /\/[A-G][#b]{0,2}$/;
@@ -112,7 +118,7 @@ describe("detectionInvariants", () => {
 
     const violations = [];
     for (const { label, result } of RESULTS) {
-      const seen = new Map(); // key → { name, suffix }
+      const seen = new Map(); // key → { name, suffix, formulaId }
       for (const r of result.readings) {
         if (r.formula?.quartal) continue;
         const key = [
@@ -122,11 +128,15 @@ describe("detectionInvariants", () => {
           (r.missingLabels || []).slice().sort().join(","),
         ].join("|");
         const suffix = chordSuffix(r.name);
+        const formulaId = String(r?.formula?.id || "");
         const prev = seen.get(key);
         if (prev !== undefined && prev.suffix !== suffix) {
-          violations.push(`${label} alias duplicado: "${prev.name}" y "${r.name}" (sufijos: "${prev.suffix}" vs "${suffix}")`);
+          const pairKey = [prev.formulaId, formulaId].sort().join("|");
+          if (!COEXISTENCE_PAIRS.has(pairKey)) {
+            violations.push(`${label} alias duplicado: "${prev.name}" y "${r.name}" (sufijos: "${prev.suffix}" vs "${suffix}")`);
+          }
         } else if (prev === undefined) {
-          seen.set(key, { name: r.name, suffix });
+          seen.set(key, { name: r.name, suffix, formulaId });
         }
       }
     }

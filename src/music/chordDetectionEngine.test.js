@@ -93,9 +93,16 @@ function expectNamedReadingAcrossTranspositions({ notes, bass, expectedNameForRo
   for (let semitones = 0; semitones < 12; semitones += 1) {
     const transposedNotes = transposeNotes(notes, semitones, true);
     const transposedBass = pcToName(mod12(noteNameToPc(bass) + semitones), true);
-    const expectedName = expectedNameForRootPc(mod12(baseRootPc + semitones), transposedBass);
+    const rootPc = mod12(baseRootPc + semitones);
+    const expectedName = expectedNameForRootPc(rootPc, transposedBass);
     const result = analyzeSelectedNotes(transposedNotes, transposedBass);
-    const reading = getReading(result, expectedName);
+    // These tests verify the chord TYPE is detected in all 12 keys, not the exact
+    // enharmonic spelling (golden cases pin spelling). Since enharmonic twins collapse
+    // to the cleaner accidental (e.g. Abm→G#m), accept either spelling of the root.
+    const altRootName = pcToName(rootPc, !preferSharpsFromMajorTonicPc(rootPc));
+    const expectedAltName = expectedName.replace(preferredRootName(rootPc), altRootName);
+    const reading = result.readings.find((r) => r.name === expectedName || r.name === expectedAltName);
+    expect(reading, `No encuentro la lectura ${expectedName} ni ${expectedAltName}`).toBeTruthy();
 
     if (requiredDegrees?.length) {
       expectRequiredDegrees(reading, requiredDegrees);
@@ -189,8 +196,8 @@ describe("chordDetectionEngine", () => {
         "Cuartal mixto D",
         "Dm7(add11,13,no5)",
         "G7(add11)/D",
-        "Bdim(addb2,addb6)/D",
-        "Cuartal mixto G/D",
+        "Fsus2(#11)/D",
+        "Fadd9(#11,no3)/D",
       ]
     `);
   });
@@ -1404,17 +1411,20 @@ describe("deduplicación: condiciones de fusión", () => {
 
   // Mismo root/bajo/mismos intervalos visibles pero distinto missingLabels → no fusionar
 
-  test("Em7(b13,no5,nob7) y Em(addb13,no5) coexisten para {E,G,C} bajo=E — missingLabels distintos", () => {
+  test("Em(addb13,no5) y Em(b13,no5) coexisten para {E,G,C} bajo=E; la lectura contradictoria nob7 se descarta", () => {
     const result = analyzeSelectedNotes(["E", "G", "C"], "E");
     const eReadings = result.readings.filter((r) => r.rootPc === 4 && r.bassPc === 4);
     const names = eReadings.map((r) => r.name);
-    expect(names).toContain("Em7(b13,no5,nob7)");
+    // Una fórmula que declara séptima (m7) pero pierde la b7 produce un nombre contradictorio
+    // ("m7…,nob7") y debe filtrarse: la séptima es la nota definitoria del acorde.
+    expect(names).not.toContain("Em7(b13,no5,nob7)");
+    // Los dos encuadres válidos del mismo material (addb13 vs b13) sí coexisten.
     expect(names).toContain("Em(addb13,no5)");
-    // Confirmar que tienen missingLabels distintos (root de la no-fusión)
-    const withNob7 = eReadings.find((r) => r.name === "Em7(b13,no5,nob7)");
-    const withoutNob7 = eReadings.find((r) => r.name === "Em(addb13,no5)");
-    expect(withNob7.missingLabels).toContain("b7");
-    expect(withoutNob7.missingLabels).not.toContain("b7");
+    expect(names).toContain("Em(b13,no5)");
+    const addb13 = eReadings.find((r) => r.name === "Em(addb13,no5)");
+    const flat13 = eReadings.find((r) => r.name === "Em(b13,no5)");
+    expect(addb13.missingLabels).not.toContain("b7");
+    expect(flat13.missingLabels).not.toContain("b7");
   });
 
   test("Bbadd9/C no genera variante enharmónica A#add9/B# — grafía B# eliminada", () => {
@@ -1483,5 +1493,99 @@ describe("deduplicación: condiciones de fusión", () => {
     const preferSharps = preferSharpsFromMajorTonicPc(2); // D = 2 sostenidos → true
     const bassInterval = mod12(5 - 2); // b3 = 3
     expect(spellNoteFromChordInterval(2, bassInterval, preferSharps)).toBe("F");
+  });
+});
+
+// ─── Casos de prueba: voicings con sus2(#11), maj7(no3), m(b13) ───────────
+
+describe("Caso 1: x02440 = {A,E,B,D#} bajo=A", () => {
+  test("Asus2(#11) aparece", () => {
+    const result = analyzeSelectedNotes(["A", "E", "B", "D#"], "A");
+    expect(readingNames(result)).toContain("Asus2(#11)");
+  });
+
+  test("Aadd9(#11,no3) aparece", () => {
+    const result = analyzeSelectedNotes(["A", "E", "B", "D#"], "A");
+    expect(readingNames(result)).toContain("Aadd9(#11,no3)");
+  });
+
+  test("Emaj7(add11,no3)/A aparece", () => {
+    const result = analyzeSelectedNotes(["A", "E", "B", "D#"], "A");
+    expect(readingNames(result)).toContain("Emaj7(add11,no3)/A");
+  });
+
+  test("B7(add11,no5)/A aparece", () => {
+    const result = analyzeSelectedNotes(["A", "E", "B", "D#"], "A");
+    expect(readingNames(result)).toContain("B7(add11,no5)/A");
+  });
+
+  test("Asus2(#11) queda antes que B7(add11,no5)/A en el ranking", () => {
+    const result = analyzeSelectedNotes(["A", "E", "B", "D#"], "A");
+    const names = readingNames(result);
+    const idxSus2 = names.indexOf("Asus2(#11)");
+    const idxB7 = names.indexOf("B7(add11,no5)/A");
+    expect(idxSus2).toBeGreaterThanOrEqual(0);
+    expect(idxB7).toBeGreaterThanOrEqual(0);
+    expect(idxSus2).toBeLessThan(idxB7);
+  });
+});
+
+describe("Caso 2: 0x2440 = {E,B,D#} bajo=E", () => {
+  test("Emaj7(no3) aparece", () => {
+    const result = analyzeSelectedNotes(["E", "B", "D#"], "E");
+    expect(readingNames(result)).toContain("Emaj7(no3)");
+  });
+
+  test("E5(maj7) aparece", () => {
+    const result = analyzeSelectedNotes(["E", "B", "D#"], "E");
+    expect(readingNames(result)).toContain("E5(maj7)");
+  });
+
+  test("Badd11(no5)/E aparece", () => {
+    const result = analyzeSelectedNotes(["E", "B", "D#"], "E");
+    expect(readingNames(result)).toContain("Badd11(no5)/E");
+  });
+
+  test("Em(maj7,nob3) NO aparece", () => {
+    const result = analyzeSelectedNotes(["E", "B", "D#"], "E");
+    expect(readingNames(result)).not.toContain("Em(maj7,nob3)");
+  });
+
+  test("B7(add11,no5,nob7)/E NO aparece — séptima declarada pero ausente es contradictoria", () => {
+    const result = analyzeSelectedNotes(["E", "B", "D#"], "E");
+    expect(readingNames(result)).not.toContain("B7(add11,no5,nob7)/E");
+  });
+});
+
+describe("Caso 3: 4x2440 = {G#,E,B,D#} bajo=G#", () => {
+  test("G#m(b13) aparece", () => {
+    const result = analyzeSelectedNotes(["G#", "E", "B", "D#"], "G#");
+    expect(readingNames(result)).toContain("G#m(b13)");
+  });
+
+  test("G#m(addb13) aparece", () => {
+    const result = analyzeSelectedNotes(["G#", "E", "B", "D#"], "G#");
+    expect(readingNames(result)).toContain("G#m(addb13)");
+  });
+
+  test("Emaj7/G# aparece", () => {
+    const result = analyzeSelectedNotes(["G#", "E", "B", "D#"], "G#");
+    expect(readingNames(result)).toContain("Emaj7/G#");
+  });
+
+  test("B7(add11,no5,nob7)/G# y B7(add11,13,no5,nob7)/G# NO aparecen — séptima ausente", () => {
+    const result = analyzeSelectedNotes(["G#", "E", "B", "D#"], "G#");
+    const names = readingNames(result);
+    expect(names).not.toContain("B7(add11,no5,nob7)/G#");
+    expect(names).not.toContain("B7(add11,13,no5,nob7)/G#");
+  });
+
+  test("los gemelos enarmónicos Abm(b13)/Abm(addb13) NO aparecen — grafía con Cb/Fb se descarta", () => {
+    const result = analyzeSelectedNotes(["G#", "E", "B", "D#"], "G#");
+    const names = readingNames(result);
+    // Abm(b13)=Ab,Cb,Eb,Fb y Abm(addb13) duplican el mismo contenido con alteraciones
+    // raras; el colapso enarmónico conserva solo la grafía limpia G#m(...).
+    expect(names).not.toContain("Abm(b13)");
+    expect(names).not.toContain("Abm(addb13)");
   });
 });

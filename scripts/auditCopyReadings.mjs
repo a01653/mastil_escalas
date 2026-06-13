@@ -169,10 +169,10 @@ const CASES = [
 
   {
     id: "P9",
-    description: "x132xx — primary Fadd11(no5)/Bb: voicing copiado conserva x132xx, no sustituye por 11x2xx",
-    motivo: "El patrón físico del mástil debe viajar con la copia; si el generador no lo produce, se inyecta como opción (copiado) en el selector.",
+    description: "x132xx — candidato Fadd11(no5)/Bb: voicing copiado conserva x132xx, no sustituye por 11x2xx",
+    motivo: "Primary ahora es Bbmaj7(no3) (ui:null). Fadd11(no5)/Bb es candidato secundario copiable; el voicing físico x132xx debe conservarse y no normalizarse a 11x2xx.",
     fretsPattern: "x132xx",
-    expectPrimaryName: "Fadd11(no5)/Bb",
+    expectCandidateName: "Fadd11(no5)/Bb",
     expectUiPatch: true,
     expectStructure: "chord",
     expectExt7: false,
@@ -341,11 +341,11 @@ const CASES = [
   },
   {
     id: "N-F1",
-    description: "Notas F,A,Bb/Bb — primary Fadd11(no5)/Bb: structure=chord, ext11=true, omit=5",
-    motivo: "Bug fix: al copiar Fadd11(no5)/Bb, el omit=5 se perdía porque detectOmitFromCandidate no leía missingLabels en candidatos de catálogo",
+    description: "Notas F,A,Bb/Bb — candidato Fadd11(no5)/Bb: structure=chord, ext11=true, omit=5",
+    motivo: "Bug fix: al copiar Fadd11(no5)/Bb, el omit=5 se perdía. Primary ahora es Bbmaj7(no3) (ui:null); Fadd11(no5)/Bb es candidato secundario y debe preservar omit=5 al copiar.",
     notes: ["F", "A", "Bb"],
     bass: "Bb",
-    expectPrimaryName: "Fadd11(no5)/Bb",
+    expectCandidateName: "Fadd11(no5)/Bb",
     expectUiPatch: true,
     expectStructure: "chord",
     expectExt7: false,

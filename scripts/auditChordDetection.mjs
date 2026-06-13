@@ -215,20 +215,30 @@ function contentKey(r) {
   ].join("|");
 }
 
+const COEXISTENCE_PAIRS = new Set([
+  ["sus2sharp11", "add9sharp11no3"].sort().join("|"),
+  ["maj7no3", "5maj7"].sort().join("|"),
+  ["maddb13", "mflat13"].sort().join("|"),
+]);
+
 function checkDedup(readings, label, errors) {
   const groups = new Map();
   for (const r of readings) {
     if (r.formula?.quartal) continue;
     const k = contentKey(r);
     if (!groups.has(k)) groups.set(k, []);
-    groups.get(k).push(r.name);
+    groups.get(k).push({ name: r.name, formulaId: String(r?.formula?.id || "") });
   }
-  for (const [, names] of groups) {
-    if (names.length < 2) continue;
+  for (const [, entries] of groups) {
+    if (entries.length < 2) continue;
+    if (entries.length === 2) {
+      const pairKey = entries.map(e => e.formulaId).sort().join("|");
+      if (COEXISTENCE_PAIRS.has(pairKey)) continue;
+    }
     errors.push({
       rule: "dedup-failure", label,
-      name: names.join(" / "),
-      detail: `${names.length} lecturas con mismo root/bajo/intervalos/missing no deduplicadas`,
+      name: entries.map(e => e.name).join(" / "),
+      detail: `${entries.length} lecturas con mismo root/bajo/intervalos/missing no deduplicadas`,
     });
   }
 }

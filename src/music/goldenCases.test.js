@@ -11,6 +11,13 @@ function preferredRootName(pc) {
   return pcToName(pc, preferSharpsFromMajorTonicPc(pc));
 }
 
+// v6.0.52: enharmonic twins collapse to the spelling with fewer rare accidentals
+// (Cb/Fb/double-flats). For some chord qualities the canonical flat root spells chord
+// tones with rare accidentals, so the cleaner sharp spelling wins at those pitch classes.
+function rootNameAvoidingRare(pc, flipToSharpPcs) {
+  return flipToSharpPcs.has(mod12(pc)) ? pcToName(mod12(pc), true) : preferredRootName(pc);
+}
+
 function transposeNotes(noteNames, semitones) {
   return noteNames.map((n) => pcToName(mod12(noteNameToPc(n) + semitones), true));
 }
@@ -43,7 +50,8 @@ const GOLDEN_CASES = [
     description: "7sus4 (1,4,5,b7): gana sobre lecturas con bajo externo",
     notes: ["G", "C", "D", "F"],
     bass: "G",
-    expectedPrimary: (pc) => `${preferredRootName(pc)}7sus4`,
+    // Db7sus4 spells the b7 as Cb (rare) → C#7sus4 is the cleaner enharmonic.
+    expectedPrimary: (pc) => `${rootNameAvoidingRare(pc, new Set([1]))}7sus4`,
     mustNotWin: ["Dm7(add11,no5)/G"],
     transpose: true,
   },
@@ -61,7 +69,8 @@ const GOLDEN_CASES = [
     description: "m7 (1,b3,5,b7): detección básica en las 12 tonalidades",
     notes: ["A", "C", "E", "G"],
     bass: "A",
-    expectedPrimary: (pc) => `${preferredRootName(pc)}m7`,
+    // Dbm7 (Fb,Cb) and Abm7 (Cb) carry rare accidentals → C#m7 / G#m7 are cleaner.
+    expectedPrimary: (pc) => `${rootNameAvoidingRare(pc, new Set([1, 8]))}m7`,
     mustNotWin: [],
     transpose: true,
   },
@@ -70,7 +79,8 @@ const GOLDEN_CASES = [
     description: "m7(b5) (1,b3,b5,b7): detección básica en las 12 tonalidades",
     notes: ["B", "D", "F", "A"],
     bass: "B",
-    expectedPrimary: (pc) => `${preferredRootName(pc)}m7(b5)`,
+    // Db/Eb/Ab/Bb m7b5 spell rare tones (Cb/Fb/Abb/Bbb/Ebb) → sharp roots are cleaner.
+    expectedPrimary: (pc) => `${rootNameAvoidingRare(pc, new Set([1, 3, 8, 10]))}m7(b5)`,
     mustNotWin: [],
     transpose: true,
   },
@@ -79,7 +89,8 @@ const GOLDEN_CASES = [
     description: "dim7 (1,b3,b5,bb7): detección básica en las 12 tonalidades",
     notes: ["B", "D", "F", "Ab"],
     bass: "B",
-    expectedPrimary: (pc) => `${preferredRootName(pc)}dim7`,
+    // Db/Eb/Ab/Bb dim7 spell double-flats (Cbb/Abb/Ebb/Bbb) → sharp roots are cleaner.
+    expectedPrimary: (pc) => `${rootNameAvoidingRare(pc, new Set([1, 3, 8, 10]))}dim7`,
     mustNotWin: [],
     transpose: true,
   },
