@@ -29,3 +29,8 @@ __pycache__
 
 # Manual generado (PDF + capturas — binarios derivados, no commitear)
 manual/
+
+# Informes generados del oraculo de voicings (derivados y potencialmente grandes)
+reports/frets-oracle*.ndjson
+reports/frets-oracle*.json
+reports/frets-oracle*.md

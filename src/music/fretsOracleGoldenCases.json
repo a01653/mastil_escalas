@@ -1,0 +1,327 @@
+[
+  {
+    "id": "002200-open-esus4-asus2",
+    "golden": true,
+    "voicing": "002200",
+    "notes": ["E", "A", "E", "A", "B", "E"],
+    "bass": "E",
+    "mustIncludeAny": ["Esus4", "Asus2/E", "Aadd9/E"],
+    "mustNotInclude": ["E7sus4(no3)"],
+    "preferred": null
+  },
+  {
+    "id": "x02200-open-asus2",
+    "golden": true,
+    "voicing": "x02200",
+    "notes": ["A", "E", "A", "B", "E"],
+    "bass": "A",
+    "mustInclude": ["Asus2"],
+    "preferred": null
+  },
+  {
+    "id": "x02220-open-a-major",
+    "golden": true,
+    "voicing": "x02220",
+    "notes": ["A", "E", "A", "C#", "E"],
+    "bass": "A",
+    "mustInclude": ["A"],
+    "preferred": null
+  },
+  {
+    "id": "x02210-open-a-minor",
+    "golden": true,
+    "voicing": "x02210",
+    "notes": ["A", "E", "A", "C", "E"],
+    "bass": "A",
+    "mustInclude": ["Am"],
+    "preferred": null
+  },
+  {
+    "id": "022100-open-e-major",
+    "golden": true,
+    "voicing": "022100",
+    "notes": ["E", "B", "E", "G#", "B", "E"],
+    "bass": "E",
+    "mustInclude": ["E"],
+    "preferred": null
+  },
+  {
+    "id": "022130-open-e7",
+    "golden": true,
+    "voicing": "022130",
+    "notes": ["E", "B", "E", "G#", "D", "E"],
+    "bass": "E",
+    "mustInclude": ["E7"],
+    "preferred": null
+  },
+  {
+    "id": "020100-open-e7-no5",
+    "golden": true,
+    "voicing": "020100",
+    "notes": ["E", "B", "D", "G#", "B", "E"],
+    "bass": "E",
+    "mustInclude": ["E7"],
+    "preferred": null
+  },
+  {
+    "id": "320003-open-g-major",
+    "golden": true,
+    "voicing": "320003",
+    "notes": ["G", "B", "D", "G", "B", "G"],
+    "bass": "G",
+    "mustInclude": ["G"],
+    "preferred": null
+  },
+  {
+    "id": "320001-open-g7",
+    "golden": true,
+    "voicing": "320001",
+    "notes": ["G", "B", "D", "G", "B", "F"],
+    "bass": "G",
+    "mustInclude": ["G7"],
+    "preferred": null
+  },
+  {
+    "id": "3x0003-open-g-major-muted-a",
+    "golden": true,
+    "voicing": "3x0003",
+    "notes": ["G", "D", "G", "B", "G"],
+    "bass": "G",
+    "mustInclude": ["G"],
+    "preferred": null
+  },
+  {
+    "id": "xx0232-open-d-major",
+    "golden": true,
+    "voicing": "xx0232",
+    "notes": ["D", "A", "D", "F#"],
+    "bass": "D",
+    "mustInclude": ["D"],
+    "preferred": null
+  },
+  {
+    "id": "xx0212-open-d7",
+    "golden": true,
+    "voicing": "xx0212",
+    "notes": ["D", "A", "C", "F#"],
+    "bass": "D",
+    "mustInclude": ["D7"],
+    "preferred": null
+  },
+  {
+    "id": "xx0211-open-dm7",
+    "golden": true,
+    "voicing": "xx0211",
+    "notes": ["D", "A", "C", "F"],
+    "bass": "D",
+    "mustInclude": ["Dm7"],
+    "preferred": null
+  },
+  {
+    "id": "x32010-open-c-major",
+    "golden": true,
+    "voicing": "x32010",
+    "notes": ["C", "E", "G", "C", "E"],
+    "bass": "C",
+    "mustInclude": ["C"],
+    "preferred": null
+  },
+  {
+    "id": "x32000-open-cmaj7",
+    "golden": true,
+    "voicing": "x32000",
+    "notes": ["C", "E", "G", "B", "E"],
+    "bass": "C",
+    "mustInclude": ["Cmaj7"],
+    "preferred": null
+  },
+  {
+    "id": "x32310-open-c7-no5",
+    "golden": true,
+    "voicing": "x32310",
+    "notes": ["C", "E", "A#", "C", "E"],
+    "bass": "C",
+    "mustInclude": ["C7(no5)"],
+    "preferred": null
+  },
+  {
+    "id": "x24242-b7",
+    "golden": true,
+    "voicing": "x24242",
+    "notes": ["B", "F#", "A", "D#", "F#"],
+    "bass": "B",
+    "mustInclude": ["B7"],
+    "preferred": null
+  },
+  {
+    "id": "x20202-bm7",
+    "golden": true,
+    "voicing": "x20202",
+    "notes": ["B", "D", "A", "D", "F#"],
+    "bass": "B",
+    "mustInclude": ["Bm7"],
+    "preferred": null
+  },
+  {
+    "id": "244222-fsharp-minor",
+    "golden": true,
+    "voicing": "244222",
+    "notes": ["F#", "C#", "F#", "A", "C#", "F#"],
+    "bass": "F#",
+    "mustInclude": ["F#m"],
+    "preferred": null
+  },
+  {
+    "id": "242222-fsharp-minor7",
+    "golden": true,
+    "voicing": "242222",
+    "notes": ["F#", "C#", "E", "A", "C#", "F#"],
+    "bass": "F#",
+    "mustInclude": ["F#m7"],
+    "preferred": null
+  },
+  {
+    "id": "022000-open-e-minor",
+    "golden": true,
+    "voicing": "022000",
+    "notes": ["E", "B", "E", "G", "B", "E"],
+    "bass": "E",
+    "mustInclude": ["Em"],
+    "preferred": null
+  },
+  {
+    "id": "022030-open-em7",
+    "golden": true,
+    "voicing": "022030",
+    "notes": ["E", "B", "E", "G", "D", "E"],
+    "bass": "E",
+    "mustInclude": ["Em7"],
+    "preferred": null
+  },
+  {
+    "id": "xx2200-open-esus4",
+    "golden": true,
+    "voicing": "xx2200",
+    "notes": ["E", "A", "B", "E"],
+    "bass": "E",
+    "mustIncludeAny": ["Esus4", "Asus2/E"],
+    "preferred": null
+  },
+  {
+    "id": "x02440-b7-add11-vs-emaj7",
+    "golden": true,
+    "voicing": "x02440",
+    "notes": ["A", "E", "B", "D#", "E"],
+    "bass": "A",
+    "mustInclude": ["B7(add11,no5)/A", "Emaj7(add11,no3)/A"],
+    "preferred": null
+  },
+  {
+    "id": "022xxx-e5-power",
+    "golden": true,
+    "voicing": "022xxx",
+    "notes": ["E", "B", "E"],
+    "bass": "E",
+    "mustInclude": ["E5"],
+    "preferred": null
+  },
+  {
+    "id": "x022xx-a5-power",
+    "golden": true,
+    "voicing": "x022xx",
+    "notes": ["A", "E", "A"],
+    "bass": "A",
+    "mustInclude": ["A5"],
+    "preferred": null
+  },
+  {
+    "id": "355xxx-g5-power",
+    "golden": true,
+    "voicing": "355xxx",
+    "notes": ["G", "D", "G"],
+    "bass": "G",
+    "mustInclude": ["G5"],
+    "preferred": null
+  },
+  {
+    "id": "x355xx-c5-power",
+    "golden": true,
+    "voicing": "x355xx",
+    "notes": ["C", "G", "C"],
+    "bass": "C",
+    "mustInclude": ["C5"],
+    "preferred": null
+  },
+  {
+    "id": "xx023x-d5-power",
+    "golden": true,
+    "voicing": "xx023x",
+    "notes": ["D", "A", "D"],
+    "bass": "D",
+    "mustInclude": ["D5"],
+    "preferred": null
+  },
+  {
+    "id": "xx0230-open-dsus2",
+    "golden": true,
+    "voicing": "xx0230",
+    "notes": ["D", "A", "D", "E"],
+    "bass": "D",
+    "mustInclude": ["Dsus2"],
+    "preferred": null
+  },
+  {
+    "id": "xx0013-csus2-over-d",
+    "golden": true,
+    "voicing": "xx0013",
+    "notes": ["D", "G", "C", "G"],
+    "bass": "D",
+    "mustIncludeAny": ["Csus2/D", "Gsus4/D"],
+    "preferred": null
+  },
+  {
+    "id": "xx2010-c-over-e",
+    "golden": true,
+    "voicing": "xx2010",
+    "notes": ["E", "G", "C", "E"],
+    "bass": "E",
+    "mustInclude": ["C/E"],
+    "preferred": null
+  },
+  {
+    "id": "x21202-b7-open",
+    "golden": true,
+    "voicing": "x21202",
+    "notes": ["B", "D#", "A", "B", "F#"],
+    "bass": "B",
+    "mustInclude": ["B7"],
+    "preferred": null
+  },
+  {
+    "id": "x02020-a7-open",
+    "golden": true,
+    "voicing": "x02020",
+    "notes": ["A", "E", "G", "C#", "E"],
+    "bass": "A",
+    "mustInclude": ["A7"],
+    "preferred": null
+  },
+  {
+    "id": "x02010-am7-open",
+    "golden": true,
+    "voicing": "x02010",
+    "notes": ["A", "E", "G", "C", "E"],
+    "bass": "A",
+    "mustInclude": ["Am7"],
+    "preferred": null
+  },
+  {
+    "id": "xx0210-d7sus2",
+    "golden": true,
+    "voicing": "xx0210",
+    "notes": ["D", "A", "C", "E"],
+    "bass": "D",
+    "mustInclude": ["D7sus2"],
+    "preferred": null
+  }
+]

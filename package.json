@@ -1,7 +1,7 @@
 {
   "name": "escalas",
   "private": true,
-  "version": "6.0.52",
+  "version": "6.0.55",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -13,6 +13,11 @@
     "audit:study": "node scripts/auditStudy.mjs",
     "audit:copy-readings": "node scripts/auditCopyReadings.mjs",
     "analyze:frets": "node scripts/analyzeFrets.mjs",
+    "analyze:frets:json": "node scripts/analyzeFrets.mjs --json",
+    "generate:frets-oracle": "node scripts/generateFretsOracle.mjs",
+    "compare:frets-oracle": "node scripts/compareFretsOracle.mjs",
+    "compare:frets-oracle:golden": "node scripts/compareFretsOracle.mjs --golden",
+    "summarize:frets-oracle-discrepancies": "node scripts/summarizeFretsOracleDiscrepancies.mjs",
     "generate:manual": "node scripts/generateManual.mjs",
     "test:e2e": "playwright test",
     "test:e2e:chord-matrix": "playwright test e2e/chord-matrix.slow.spec.js",

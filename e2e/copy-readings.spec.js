@@ -37,6 +37,10 @@ async function enableDetectMode(page) {
   await expect(page.getByTestId("detected-chord-list")).toBeVisible();
 }
 
+function enabledDetectedCopyButtons(scope) {
+  return scope.locator("button[data-testid^='detected-copy-']:not([disabled])");
+}
+
 // Selecciona una nota en el mástil de detección (desktop layout).
 // sIdx: 0=HighE..5=LowE, pc: pitch class 0-11
 async function selectNote(page, sIdx, pc) {
@@ -88,7 +92,7 @@ test("38. Dm(add9)/F: al copiar, estructura es Acorde (chord), no aparece aviso 
   }
 
   // Verificar que el primer candidato con uiPatch habilitado se puede copiar sin error
-  const firstEnabledCopyBtn = page.locator("[data-testid^='detected-copy-']").filter({ hasNot: page.locator("[disabled]") }).first();
+  const firstEnabledCopyBtn = enabledDetectedCopyButtons(page).first();
   if (await firstEnabledCopyBtn.count() > 0) {
     await firstEnabledCopyBtn.click();
     // No debe aparecer "No hay 7ª activa"
@@ -110,7 +114,7 @@ test("39. Dm(add9,11)/F: copia correctamente sin activar aviso de 7ª", async ({
   await page.waitForTimeout(300);
 
   // Copiar el primer candidato con uiPatch habilitado
-  const enabledCopyBtns = page.locator("[data-testid^='detected-copy-']").filter({ hasNot: page.locator("[disabled]") });
+  const enabledCopyBtns = enabledDetectedCopyButtons(page);
   await expect(enabledCopyBtns.first()).toBeVisible({ timeout: 3000 });
   await enabledCopyBtns.first().click();
 
@@ -270,7 +274,7 @@ test("42. Cadd9: copiado como estructura Acorde (no Cuatriada), sin aviso de 7ª
 
   const cadd9 = nameEls.filter({ hasText: /Cadd9|C\(add9\)/ });
   if (await cadd9.count() > 0) {
-    const enabledCopyBtns = list.locator("[data-testid^='detected-copy-']").filter({ hasNot: page.locator("[disabled]") });
+    const enabledCopyBtns = enabledDetectedCopyButtons(list);
     if (await enabledCopyBtns.count() > 0) {
       await enabledCopyBtns.first().click();
       await expect(page.getByTestId("chord-copy-notice")).toBeVisible({ timeout: 3000 });
@@ -300,9 +304,7 @@ test("44. Fadd11(no5)/Bb: estado completo tras copiar — omit5, ext11, chips si
   await expect(page.locator('[aria-label="Selección manual"]').getByText(/Fadd11\(no5\)\/Bb/).first()).toBeVisible({ timeout: 5000 });
 
   // El botón Copiar del candidato primario (primer botón habilitado) debe estar activo
-  const firstEnabledCopyBtn = list.locator("[data-testid^='detected-copy-']")
-    .filter({ hasNot: page.locator("[disabled]") })
-    .first();
+  const firstEnabledCopyBtn = enabledDetectedCopyButtons(list).first();
   await expect(firstEnabledCopyBtn).toBeVisible({ timeout: 3000 });
   await firstEnabledCopyBtn.click();
 
@@ -367,9 +369,7 @@ test("45. x132xx→Fadd11(no5)/Bb: voicing-select contiene x132xx y queda selecc
   // Copiar el candidato primario
   const list = page.getByTestId("detected-chord-list");
   await expect(list).toBeVisible();
-  const firstEnabledCopyBtn = list.locator("[data-testid^='detected-copy-']")
-    .filter({ hasNot: page.locator("[disabled]") })
-    .first();
+  const firstEnabledCopyBtn = enabledDetectedCopyButtons(list).first();
   await expect(firstEnabledCopyBtn).toBeVisible({ timeout: 3000 });
   await firstEnabledCopyBtn.click();
 
@@ -468,8 +468,7 @@ test("46. x132xx copiado: al cambiar inversión, voicing no persiste como '(copi
   await expect(page.locator('[aria-label="Selección manual"]').getByText(/Fadd11\(no5\)\/Bb/).first()).toBeVisible({ timeout: 5000 });
 
   const list = page.getByTestId("detected-chord-list");
-  const firstEnabledCopyBtn = list.locator("[data-testid^='detected-copy-']")
-    .filter({ hasNot: page.locator("[disabled]") }).first();
+  const firstEnabledCopyBtn = enabledDetectedCopyButtons(list).first();
   await firstEnabledCopyBtn.click();
   await expect(page.getByTestId("chord-detect-toggle")).not.toBeChecked({ timeout: 3000 });
 
@@ -517,7 +516,7 @@ test("43. El aviso 'Copiado en Acorde' aparece tras pulsar el botón y desaparec
 
   await page.waitForTimeout(400);
 
-  const enabledCopyBtns = page.locator("[data-testid^='detected-copy-']").filter({ hasNot: page.locator("[disabled]") });
+  const enabledCopyBtns = enabledDetectedCopyButtons(page);
   const hasEnabled = await enabledCopyBtns.count();
 
   if (hasEnabled > 0) {
@@ -544,9 +543,7 @@ test("47. Fadd11(no5): el selector de inversión no contiene '3ª inversión'", 
   await expect(page.locator('[aria-label="Selección manual"]').getByText(/Fadd11\(no5\)\/Bb/).first()).toBeVisible({ timeout: 5000 });
 
   const list = page.getByTestId("detected-chord-list");
-  const firstEnabledCopyBtn = list.locator("[data-testid^='detected-copy-']")
-    .filter({ hasNot: page.locator("[disabled]") })
-    .first();
+  const firstEnabledCopyBtn = enabledDetectedCopyButtons(list).first();
   await firstEnabledCopyBtn.click();
 
   await expect(page.getByTestId("chord-detect-toggle")).not.toBeChecked({ timeout: 3000 });
@@ -572,9 +569,7 @@ test("48. Fadd11(no5): el selector de inversión contiene 'Bajo 11'", async ({ p
   await expect(page.locator('[aria-label="Selección manual"]').getByText(/Fadd11\(no5\)\/Bb/).first()).toBeVisible({ timeout: 5000 });
 
   const list = page.getByTestId("detected-chord-list");
-  const firstEnabledCopyBtn = list.locator("[data-testid^='detected-copy-']")
-    .filter({ hasNot: page.locator("[disabled]") })
-    .first();
+  const firstEnabledCopyBtn = enabledDetectedCopyButtons(list).first();
   await firstEnabledCopyBtn.click();
 
   await expect(page.getByTestId("chord-detect-toggle")).not.toBeChecked({ timeout: 3000 });

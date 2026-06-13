@@ -2,7 +2,7 @@
 
 import { act } from "react";
 import { createRoot } from "react-dom/client";
-import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 import { NEAR_COPY_FEEDBACK_DURATION_MS, useNearCopyFeedback } from "./useNearCopyFeedback.js";
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
@@ -16,10 +16,6 @@ function render(element) {
   container = document.createElement("div");
   document.body.appendChild(container);
   root = createRoot(container);
-  act(() => { root.render(element); });
-}
-
-function rerender(element) {
   act(() => { root.render(element); });
 }
 

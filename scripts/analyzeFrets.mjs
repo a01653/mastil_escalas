@@ -40,10 +40,26 @@ const AMBER  = "\x1b[33m";
 
 // ─── Argumentos ───────────────────────────────────────────────────────────────
 
-const args    = process.argv.slice(2);
-const useJson = args.includes("--json");
-const showAll = args.includes("--all");
-const tabStr  = args[0];
+const args = process.argv.slice(2);
+
+let useJson = false;
+let showAll = false;
+let tabStr  = null;
+let refRaw  = null;
+
+for (let i = 0; i < args.length; i += 1) {
+  const arg = args[i];
+  if (arg === "--json") {
+    useJson = true;
+  } else if (arg === "--all") {
+    showAll = true;
+  } else if (arg === "--ref") {
+    refRaw = args[i + 1] ?? null;
+    i += 1;
+  } else if (!arg.startsWith("--") && tabStr == null) {
+    tabStr = arg;
+  }
+}
 
 // ─── Salida de error (humana o JSON según modo) ───────────────────────────────
 
@@ -72,9 +88,6 @@ if (!tabStr || tabStr.startsWith("--")) {
   process.exit(1);
 }
 
-const refIdx = args.indexOf("--ref");
-const refRaw = refIdx !== -1 ? args[refIdx + 1] : null;
-
 // Parsear referencia
 let harmonyContext = null;
 if (refRaw) {
@@ -101,11 +114,21 @@ const { tabDisplay, noteNames, pcSet, bassName, readings, rankedReadings, primar
 
 function serializeReading(r) {
   const rankRaw = r.rankScore != null ? r.rankScore : (r.score ?? null);
+  const intervals = Array.isArray(r.legend) && r.legend.length
+    ? r.legend.map((item) => String(item.degree || ""))
+    : Array.isArray(r.formula?.degreeLabels) ? r.formula.degreeLabels.map(String) : [];
+  const semitones = Array.isArray(r.visibleIntervals) && r.visibleIntervals.length
+    ? r.visibleIntervals.map((n) => mod12(Number(n)))
+    : Array.isArray(r.formula?.intervals) ? r.formula.intervals.map((n) => mod12(Number(n))) : [];
   return {
     name:               r.name ?? null,
     root:               pcToName(r.rootPc, r.preferSharps),
     bass:               pcToName(r.bassPc, r.preferSharps),
     formula:            r.intervalPairsText ?? null,
+    intervals,
+    semitones,
+    missing:            Array.isArray(r.missingLabels) ? r.missingLabels.map(String) : [],
+    category:           r.formula?.quartal ? "quartal" : (r.formula?.ui?.quality ?? r.formula?.id ?? null),
     rank:               rankRaw != null ? parseFloat(rankRaw) : null,
     promotedByReference: !!(r.contextual || r.referencePromoted),
   };

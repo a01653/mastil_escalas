@@ -23,6 +23,16 @@ function runJson(...args) {
   return { exitCode, json, raw: stdout, stderr };
 }
 
+function runNpmJsonScript(pattern) {
+  const result = spawnSync("npm", ["run", "--silent", "analyze:frets:json", "--", pattern], {
+    encoding: "utf-8",
+    shell: true,
+  });
+  let json = null;
+  try { json = JSON.parse(result.stdout); } catch { /* ignore parse error */ }
+  return { exitCode: result.status ?? 1, json, raw: result.stdout ?? "", stderr: result.stderr ?? "" };
+}
+
 // ─── --json: estructura y parseo ─────────────────────────────────────────────
 
 describe("--json: salida es JSON válido", () => {
@@ -213,5 +223,13 @@ describe("--all con --ref: muestra detalle completo", () => {
     const withoutAll = runJson("x5555x", "--ref", "D7");
     expect(withAll.json?.readings.length).toBe(withoutAll.json?.readings.length);
     expect(withAll.json?.primary?.name).toBe(withoutAll.json?.primary?.name);
+  });
+
+  it("npm run analyze:frets:json -- x02440 acepta --json antes del patrón", () => {
+    const { exitCode, json } = runNpmJsonScript("x02440");
+    expect(exitCode).toBe(0);
+    expect(json?.ok).toBe(true);
+    expect(json?.pattern).toBe("x02440");
+    expect(json?.readings.some((reading) => reading.name === "B7(add11,no5)/A")).toBe(true);
   });
 });
