@@ -120,6 +120,10 @@ export default function ManualChordPanel({ layout, reading, actions, reference, 
   }
   const physicalPatternSuffix = chordDetectPhysicalPatternText ? ` (${chordDetectPhysicalPatternText})` : "";
 
+  // Lectura principal para la pill "Principal" en "Posibles acordes": la
+  // seleccionada o, en su defecto, la mejor rankeada. No cambia ranking ni Primary.
+  const primaryReadingId = cand?.id ?? chordDetectCandidatesRanked[0]?.id ?? null;
+
   // Mapa sIdx → nombre de nota seleccionada (para mostrar en el mástil).
   // Usa buildDetectedCandidateNoteNameForPc (sistema de letras musicales) para que
   // el spelling coincida con la lectura activa: Gm/Bb → "Bb", no "A#".
@@ -577,7 +581,7 @@ export default function ManualChordPanel({ layout, reading, actions, reference, 
 				</div>
 				<div className="mt-0.5 text-xs text-slate-600">
 				  {chordDetectSelectedNotes.length
-					? "Selecciona una lectura para copiarla a la sección Acorde."
+					? "La lectura principal va marcada; el resto son lecturas alternativas o contextuales."
 					: "Añade notas en el mástil para ver lecturas posibles."}
 				</div>
 			  </div>
@@ -595,6 +599,11 @@ export default function ManualChordPanel({ layout, reading, actions, reference, 
                     className="mt-0.5 h-4 w-4"
                   />
                   <div className="min-w-0">
+                    {cand.id === primaryReadingId && (
+                      <div className="mb-0.5">
+                        <span data-testid={`detected-chord-principal-${cand.id}`} className="rounded bg-sky-100 px-1.5 py-0.5 text-[10px] font-semibold text-sky-700">Principal</span>
+                      </div>
+                    )}
                     {cand.fragment && (
                       <div className="mb-0.5">
                         <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">fragmento</span>
