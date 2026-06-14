@@ -71,7 +71,6 @@ test("OE-2. al abrir, los extras aparecen y no duplican lecturas de 'Posibles ac
   if (oracleCount > 0) {
     for (let i = 0; i < oracleCount; i++) {
       const extra = oracleList.locator(`[data-testid='detected-oracle-name-${i}']`);
-      const nameEl = extra.locator("..");  // el padre contiene el nombre en <span>
       // El nombre es el primer <span> con font-bold.
       const nameText = (await extra.textContent())?.trim();
       // No debe coincidir con ninguna lectura que el lector ya muestra.
@@ -225,4 +224,19 @@ test("OE-7. cambiar el voicing resetea el bloque del oráculo (de x02440 a x4220
   // Al abrir de nuevo, el count del badge se muestra (oráculo recalculado).
   await page.getByTestId("detected-oracle-toggle").click();
   await expect(page.getByTestId("detected-oracle-list")).toBeVisible();
+});
+
+test("OE-8. 034030 no muestra badge 'sin' incompleto y deduplica variantes G equivalentes", async ({ page }) => {
+  await goToChords(page);
+  await enableDetectMode(page);
+  await applyPattern(page, "034030");
+
+  await page.getByTestId("detected-oracle-toggle").click();
+  const oracleList = page.getByTestId("detected-oracle-list");
+  await expect(oracleList).toBeVisible();
+
+  await expect(oracleList.getByText(/^sin$/)).toHaveCount(0);
+  await expect(oracleList).toContainText("Gmaj7(add11,add13,no3)/E");
+  await expect(oracleList).toContainText("sin 3");
+  await expect(oracleList).not.toContainText("Gsus4(add13,7)/E");
 });

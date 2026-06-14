@@ -780,11 +780,13 @@ export default function ManualChordPanel({ layout, reading, actions, reference, 
                                   <div data-testid={`detected-oracle-name-${idx}`} className="flex flex-wrap items-center gap-1.5 rounded-lg border border-violet-100 bg-violet-50/60 px-3 py-1.5 text-xs text-slate-700">
                                     <span className="font-bold text-slate-800">{e.name}</span>
                                     <span className="rounded bg-violet-100 px-1.5 py-0.5 text-[10px] font-semibold text-violet-700">extra del oráculo</span>
-                                    {e.level === "mayInclude" && (
-                                      <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">sin {e.missing?.join(", ")}</span>
-                                    )}
-                                    {e.missing?.length > 1 && e.level !== "mayInclude" && (
-                                      <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-500">sin {e.missing.join(", ")}</span>
+                                    {Array.isArray(e.missing) && e.missing.length > 0 && (
+                                      <span
+                                        data-testid={`detected-oracle-missing-${idx}`}
+                                        className={`rounded px-1.5 py-0.5 text-[10px] ${e.level === "mayInclude" ? "bg-amber-100 font-semibold text-amber-700" : "bg-slate-100 text-slate-500"}`}
+                                      >
+                                        {`sin ${e.missing.join(", ")}`}
+                                      </span>
                                     )}
                                   </div>
                                 </div>

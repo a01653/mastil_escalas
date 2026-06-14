@@ -42,6 +42,48 @@ function assignGroupKey(c) {
   return "otras";
 }
 
+function qualityText(candidate) {
+  return String(candidate?.quality || "");
+}
+
+function hasMaj7Quality(candidate) {
+  return qualityText(candidate).includes("maj7");
+}
+
+function hasMinor7Quality(candidate) {
+  return /^m7(?:\(|$)/.test(qualityText(candidate));
+}
+
+function hasDominant7Quality(candidate) {
+  const q = qualityText(candidate);
+  return /^7(?:\(|$)/.test(q) || /sus\d?\([^)]*7(?:[,)])/u.test(q);
+}
+
+function canonicalPreferenceScore(candidate) {
+  let score = 0;
+  if (hasMaj7Quality(candidate)) score -= 60;
+  else if (hasMinor7Quality(candidate)) score -= 40;
+  else if (hasDominant7Quality(candidate)) score -= 25;
+
+  if (candidate?.category?.startsWith("suspended")) score += 25;
+  if (candidate?.category === "quartal") score += 40;
+
+  score += Array.isArray(candidate?.missing) ? candidate.missing.length * 2 : 0;
+  score += typeof candidate?.score === "number" ? candidate.score : 0;
+  score += qualityText(candidate).length / 1000;
+  return score;
+}
+
+function preferCanonicalExtra(currentBest, nextCandidate) {
+  if (!currentBest) return nextCandidate;
+  const bestScore = canonicalPreferenceScore(currentBest);
+  const nextScore = canonicalPreferenceScore(nextCandidate);
+  if (nextScore !== bestScore) return nextScore < bestScore ? nextCandidate : currentBest;
+  return String(nextCandidate.name || "").localeCompare(String(currentBest.name || "")) < 0
+    ? nextCandidate
+    : currentBest;
+}
+
 // Reconstruye el array fretsLH[0..5] (low E → high e) desde selectedKeys.
 // selectedKeys: array de strings "sIdx:fret" donde sIdx 0=high e, 5=low E.
 function selectedKeysToFretsLH(selectedKeys) {
@@ -112,13 +154,16 @@ export function computeOracleExtras(selectedKeys, appCandidates) {
       .map((c) => pcSig(c.rootPc, voicingPcs))
   );
 
-  const extras = [];
+  const extrasBySig = new Map();
   for (const c of oracle.candidates) {
     if (appNames.has(normalizeName(c.name))) continue;
     const rootPc = sharpToPc(c.root);
     if (rootPc !== -1 && appSigs.has(pcSig(rootPc, voicingPcs))) continue;
-    extras.push({ ...c, groupKey: assignGroupKey(c) });
+    const enriched = { ...c, groupKey: assignGroupKey(c) };
+    const extraSig = rootPc !== -1 ? pcSig(rootPc, voicingPcs) : `name:${normalizeName(c.name)}`;
+    extrasBySig.set(extraSig, preferCanonicalExtra(extrasBySig.get(extraSig), enriched));
   }
 
+  const extras = Array.from(extrasBySig.values());
   return { extras, pattern: oraclePatternFromKeys(selectedKeys) };
 }

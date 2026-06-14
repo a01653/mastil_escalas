@@ -7,6 +7,10 @@ import { describe, it, expect } from "vitest";
 import { spawnSync } from "node:child_process";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { analyzeFretsCore } from "./analyzeFretsCore.js";
+import { parseFretString } from "./parseFretString.js";
+import { partitionDetectedReadings } from "../features/chord-detection/chordReadingGroupsCore.js";
+import { computeOracleExtras } from "../features/chord-detection/oracleExtrasCore.js";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 const SCRIPT = resolve(__dirname, "../../scripts/analyzeFrets.mjs");
@@ -31,6 +35,18 @@ function runNpmJsonScript(pattern) {
   let json = null;
   try { json = JSON.parse(result.stdout); } catch { /* ignore parse error */ }
   return { exitCode: result.status ?? 1, json, raw: result.stdout ?? "", stderr: result.stderr ?? "" };
+}
+
+function stripAnsi(text) {
+  // eslint-disable-next-line no-control-regex
+  return String(text || "").replace(/\x1b\[[0-9;]*m/g, "");
+}
+
+function patternToSelectedKeys(pattern) {
+  const { frets } = parseFretString(pattern);
+  return frets.flatMap((fret, lowEIndex) => (
+    fret == null ? [] : [`${5 - lowEIndex}:${fret}`]
+  ));
 }
 
 // ─── --json: estructura y parseo ─────────────────────────────────────────────
@@ -61,6 +77,9 @@ describe("--json: salida es JSON válido", () => {
     expect(json).toHaveProperty("prioritizeReference");
     expect(json).toHaveProperty("primary");
     expect(json).toHaveProperty("readings");
+    expect(json).toHaveProperty("readingsMain");
+    expect(json).toHaveProperty("readingsAdvanced");
+    expect(json).toHaveProperty("oracleExtras");
   });
 
   it("x5555x --json → pattern y normalizedPattern correctos", () => {
@@ -79,6 +98,15 @@ describe("--json: salida es JSON válido", () => {
     const { json } = runJson("x5555x");
     expect(json.reference).toBeNull();
     expect(json.prioritizeReference).toBe(false);
+  });
+
+  it("--json mantiene compatibilidad: readings sigue presente y añade partición separada", () => {
+    const { json } = runJson("x5555x");
+    expect(Array.isArray(json.readings)).toBe(true);
+    expect(Array.isArray(json.readingsMain)).toBe(true);
+    expect(Array.isArray(json.readingsAdvanced)).toBe(true);
+    expect(Array.isArray(json.oracleExtras)).toBe(true);
+    expect(json.readings[0]?.name).toBe("Cadd9/D");
   });
 
   it("4x2440 --json → bass='G#' alineado con la grafía de la primaria (no 'Ab')", () => {
@@ -213,9 +241,10 @@ describe("--all con --ref: muestra detalle completo", () => {
     expect(stdout).toMatch(/← por referencia/);
   });
 
-  it("x5555x --ref D7 sin --all → stdout NO contiene 'fórmula:' (modo compacto)", () => {
+  it("x5555x --ref D7 sin --all → stdout mantiene el detalle por secciones", () => {
     const { stdout } = run("x5555x", "--ref", "D7");
-    expect(stdout).not.toMatch(/fórmula:/);
+    expect(stripAnsi(stdout)).toContain("Lecturas principales");
+    expect(stripAnsi(stdout)).toContain("fórmula:");
   });
 
   it("--json ignora --all (siempre incluye todos los campos)", () => {
@@ -231,5 +260,63 @@ describe("--all con --ref: muestra detalle completo", () => {
     expect(json?.ok).toBe(true);
     expect(json?.pattern).toBe("x02440");
     expect(json?.readings.some((reading) => reading.name === "B7(add11,no5)/A")).toBe(true);
+  });
+});
+
+describe("salida humana: secciones como la UI", () => {
+  it("304030 muestra la sección 'Lecturas extra del oráculo'", () => {
+    const { exitCode, stdout } = run("304030");
+    expect(exitCode).toBe(0);
+    expect(stripAnsi(stdout)).toContain("Lecturas extra del oráculo");
+  });
+
+  it("304030 incluye Gmaj7(add9,add13,no3) en extras si el oráculo lo devuelve", () => {
+    const pattern = "304030";
+    const result = analyzeFretsCore(pattern);
+    const oracle = computeOracleExtras(patternToSelectedKeys(pattern), result.rankedReadings);
+    const expectedName = "Gmaj7(add9,add13,no3)";
+    const { json } = runJson(pattern);
+    const { stdout } = run(pattern);
+    const cleanStdout = stripAnsi(stdout);
+    const oracleHasExpected = oracle.extras.some((extra) => extra.name === expectedName);
+
+    if (oracleHasExpected) {
+      expect(cleanStdout).toContain(expectedName);
+      expect(json?.oracleExtras.some((extra) => extra.name === expectedName)).toBe(true);
+    } else {
+      expect(json?.oracleExtras.some((extra) => extra.name === expectedName)).toBe(false);
+    }
+  });
+
+  it("x02440 muestra normales, avanzadas/contextuales y extras o 'ninguna' según corresponda", () => {
+    const pattern = "x02440";
+    const result = analyzeFretsCore(pattern);
+    const primaryId = result.primary?.id ?? result.rankedReadings[0]?.id ?? null;
+    const { main, advanced } = partitionDetectedReadings({
+      candidates: result.rankedReadings,
+      keepVisibleId: primaryId,
+    });
+    const oracle = computeOracleExtras(patternToSelectedKeys(pattern), result.rankedReadings);
+    const { exitCode, stdout } = run(pattern);
+    const cleanStdout = stripAnsi(stdout);
+
+    expect(exitCode).toBe(0);
+    expect(cleanStdout).toContain("Lecturas principales (");
+    expect(cleanStdout).toContain("Lecturas avanzadas / contextuales (");
+    expect(cleanStdout).toContain("Lecturas extra del oráculo");
+
+    if (advanced.length === 0) {
+      expect(cleanStdout).toContain("Lecturas avanzadas / contextuales: ninguna");
+    } else {
+      expect(cleanStdout).toContain(advanced[0].name);
+    }
+
+    if (oracle.extras.length === 0) {
+      expect(cleanStdout).toContain("Lecturas extra del oráculo: ninguna");
+    } else {
+      expect(cleanStdout).toContain(oracle.extras[0].name);
+    }
+
+    expect(cleanStdout).toContain(main[0].name);
   });
 });

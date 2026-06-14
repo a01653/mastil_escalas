@@ -95,6 +95,20 @@ describe("computeOracleExtras — deduplicación", () => {
       expect(validKeys.has(e.groupKey)).toBe(true);
     }
   });
+
+  it("304030 deduplica equivalentes con raíz G y conserva la lectura canónica maj7", () => {
+    const keys304030 = ["5:3", "4:0", "3:4", "2:0", "1:3", "0:0"];
+    const { extras } = computeOracleExtras(keys304030, []);
+    const gNames = extras.filter((e) => e.root === "G").map((e) => e.name);
+    expect(gNames).toEqual(["Gmaj7(add9,add13,no3)"]);
+  });
+
+  it("034030 deduplica sus vs maj7 equivalentes y conserva Gmaj7(add11,add13,no3)/E", () => {
+    const keys034030 = ["5:0", "4:3", "3:4", "2:0", "1:3", "0:0"];
+    const { extras } = computeOracleExtras(keys034030, []);
+    const gNames = extras.filter((e) => e.root === "G").map((e) => e.name);
+    expect(gNames).toEqual(["Gmaj7(add11,add13,no3)/E"]);
+  });
 });
 
 // ── computeOracleExtras — groupKey ───────────────────────────────────────────
