@@ -1,16 +1,24 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { BookOpen, ChevronLeft, ChevronRight, Eraser, Music, Play, Volume2, VolumeX } from "lucide-react";
 import { useNearCopyFeedback } from "./useNearCopyFeedback.js";
 import { partitionDetectedReadings } from "../../features/chord-detection/chordReadingGroupsCore.js";
+import { computeOracleExtras, ORACLE_GROUP_LABELS, ORACLE_GROUP_ORDER } from "../../features/chord-detection/oracleExtrasCore.js";
 import { CopyVoicingButton } from "./ChordsPanel.jsx";
 import { CHORD_FORMS, FRET_INLAY_BG, buildDetectedCandidateBackgroundLabelForPc, buildDetectedCandidateNoteNameForPc, mod12 } from "../../music/appMusicBasics.js";
 import { classifyManualVoicingShape, studyVoicingFormLabel, formatBassLabelForTitle } from "../../music/appVoicingStudyCore.js";
 import { STRINGS, fretGridCols, hasInlayCell } from "../../music/appStaticData.js";
 import { ChordNoteBadgeStrip, MusicStaff } from "../../music/appPatternRouteStaffCore.jsx";
 
+const MAX_ORACLE_VISIBLE = 10;
+
 export default function ManualChordPanel({ layout, reading, actions, reference, patternInput, fretboard, candidates, staff, ui }) {
   const { copyFeedback, trigger: triggerCopyFeedback } = useNearCopyFeedback();
   const [advancedExpanded, setAdvancedExpanded] = useState(false);
+  // Estado del oráculo vinculado a la firma del voicing para reset automático sin useEffect.
+  // Al cambiar el voicing (oracleKeySig), los derivados devuelven sus valores iniciales.
+  const [oracleComputed, setOracleComputed] = useState(null); // { keySig, extras, pattern } | null
+  const [oracleExpandedForSig, setOracleExpandedForSig] = useState(null); // keySig | null
+  const [showAllOracleForSig, setShowAllOracleForSig] = useState(null); // keySig | null
 
   function handleCopyToNearSlot(cand, slotIdx) {
     copyDetectedCandidateToNearSlot(cand, slotIdx);
@@ -143,6 +151,28 @@ export default function ManualChordPanel({ layout, reading, actions, reference, 
     candidates: chordDetectCandidatesRanked,
     keepVisibleId: primaryReadingId,
   });
+
+  // ── Lecturas extra del oráculo ──────────────────────────────────────────
+  // Firma estable del voicing actual. Al cambiar, los derivados se invalidan
+  // automáticamente sin necesidad de useEffect.
+  const oracleKeySig = useMemo(
+    () => [...chordDetectSelectedKeys].sort().join("|"),
+    [chordDetectSelectedKeys]
+  );
+
+  // Derivados: válidos solo si su firma coincide con el voicing actual.
+  const oracleExtrasData = oracleComputed?.keySig === oracleKeySig ? oracleComputed : null;
+  const oracleExpanded = oracleExpandedForSig === oracleKeySig;
+  const showAllOracle = showAllOracleForSig === oracleKeySig;
+
+  function handleOracleToggle() {
+    const nextExpanded = !oracleExpanded;
+    if (nextExpanded && oracleExtrasData === null) {
+      const result = computeOracleExtras(chordDetectSelectedKeys, chordDetectCandidatesRanked);
+      setOracleComputed({ keySig: oracleKeySig, ...result });
+    }
+    setOracleExpandedForSig(nextExpanded ? oracleKeySig : null);
+  }
 
   const renderDetectedReadingRow = (cand) => (
     <div key={cand.id} data-testid={`detected-chord-${cand.id}`} className={`flex items-start gap-3 rounded-xl border px-3 py-2 text-xs text-slate-700 ${cand.fragment ? "border-amber-100 bg-amber-50/50" : cand.contextual || cand.referencePromoted ? "border-amber-200 bg-amber-50" : "border-slate-200 bg-sky-50"}`}>
@@ -704,6 +734,77 @@ export default function ManualChordPanel({ layout, reading, actions, reference, 
                     )}
                   </div>
                 )}
+
+                {/* ── Lecturas extra del oráculo ─────────────────────────── */}
+                <div className="pt-1" data-testid="detected-oracle-section">
+                  <button
+                    type="button"
+                    data-testid="detected-oracle-toggle"
+                    aria-expanded={oracleExpanded}
+                    onClick={handleOracleToggle}
+                    className="flex w-full items-center gap-1.5 rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-xs font-semibold text-violet-700 shadow-sm transition hover:bg-violet-100"
+                    title="Candidatos adicionales calculados por el oráculo que el lector principal no devuelve; solo informativos"
+                  >
+                    <ChevronRight className={`h-4 w-4 shrink-0 transition-transform ${oracleExpanded ? "rotate-90" : ""}`} />
+                    <span>Lecturas extra del oráculo</span>
+                    {oracleExtrasData !== null && (
+                      <span className="ml-1 rounded-full bg-violet-200 px-1.5 py-0.5 text-[10px] font-bold text-violet-700">{oracleExtrasData.extras.length}</span>
+                    )}
+                  </button>
+                  {oracleExpanded && (
+                    <div className="mt-2" data-testid="detected-oracle-list">
+                      {oracleExtrasData && oracleExtrasData.extras.length === 0 ? (
+                        <div data-testid="detected-oracle-empty" className="rounded-xl border border-dashed border-violet-200 bg-violet-50/50 px-3 py-2 text-xs text-violet-600">
+                          No hay lecturas extra del oráculo para este voicing.
+                        </div>
+                      ) : oracleExtrasData ? (() => {
+                        const visible = showAllOracle
+                          ? oracleExtrasData.extras
+                          : oracleExtrasData.extras.slice(0, MAX_ORACLE_VISIBLE);
+                        const hiddenCount = oracleExtrasData.extras.length - MAX_ORACLE_VISIBLE;
+                        const hasMultipleGroups = new Set(visible.map((e) => e.groupKey)).size > 1;
+                        let lastGroup = null;
+                        return (
+                          <div className="space-y-1.5">
+                            {visible.map((e, idx) => {
+                              const groupHeader = hasMultipleGroups && e.groupKey !== lastGroup
+                                ? (lastGroup = e.groupKey, (
+                                  <div key={`g-${e.groupKey}`} className="pt-1 text-[10px] font-semibold uppercase tracking-wide text-violet-400">
+                                    {ORACLE_GROUP_LABELS[e.groupKey] ?? e.groupKey}
+                                  </div>
+                                ))
+                                : (lastGroup = e.groupKey, null);
+                              return (
+                                <div key={`${e.name}-${idx}`}>
+                                  {groupHeader}
+                                  <div data-testid={`detected-oracle-name-${idx}`} className="flex flex-wrap items-center gap-1.5 rounded-lg border border-violet-100 bg-violet-50/60 px-3 py-1.5 text-xs text-slate-700">
+                                    <span className="font-bold text-slate-800">{e.name}</span>
+                                    <span className="rounded bg-violet-100 px-1.5 py-0.5 text-[10px] font-semibold text-violet-700">extra del oráculo</span>
+                                    {e.level === "mayInclude" && (
+                                      <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">sin {e.missing?.join(", ")}</span>
+                                    )}
+                                    {e.missing?.length > 1 && e.level !== "mayInclude" && (
+                                      <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-500">sin {e.missing.join(", ")}</span>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                            {!showAllOracle && hiddenCount > 0 && (
+                              <button
+                                type="button"
+                                onClick={() => setShowAllOracleForSig(oracleKeySig)}
+                                className="w-full rounded-lg border border-violet-200 bg-violet-50 py-1 text-[11px] font-semibold text-violet-600 hover:bg-violet-100"
+                              >
+                                +{hiddenCount} más
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })() : null}
+                    </div>
+                  )}
+                </div>
               </>
             ) : (
               <div className="rounded-xl border border-dashed border-slate-300 bg-sky-50 px-3 py-3 text-xs text-slate-500">
