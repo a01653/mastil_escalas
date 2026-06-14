@@ -1117,6 +1117,22 @@ describe("chordDetectionEngine", () => {
     expect(legendNotes(mystic)).not.toContain("Gb");
   });
 
+  test("034030: con 5 natural y F# sobre C prefiere #11 frente a b5", () => {
+    const result = analyzeSelectedNotes(["E", "C", "F#", "G", "D"], "E");
+    const reading = getReading(result, "Cadd9(#11)/E");
+    expect(readingNames(result)).not.toContain("Cadd9,addb5/E");
+    expect(legendDegrees(reading)).toEqual(["1", "3", "5", "9", "#11"]);
+    expect(legendNotes(reading)).toEqual(["C", "E", "G", "D", "F#"]);
+  });
+
+  test("sin 5 natural, el mismo tritono sigue nombrándose como b5 y no como #11", () => {
+    const result = analyzeSelectedNotes(["E", "C", "F#", "D"], "E");
+    const reading = getReading(result, "C(b5,add9)/E");
+    expect(readingNames(result)).not.toContain("Cadd9(#11)/E");
+    expect(legendDegrees(reading)).toEqual(["1", "3", "b5", "9"]);
+    expect(legendNotes(reading)).toEqual(["C", "E", "Gb", "D"]);
+  });
+
   test("021002 detecta Em(maj9) con alias James Bond chord", () => {
     // E(sIdx5,f0) B(sIdx4,f2) D#(sIdx3,f1) G(sIdx2,f0) B(sIdx1,f0) F#(sIdx0,f2), bajo E
     const result = analyzeSelectedNotes(["E", "B", "D#", "G", "F#"], "E");

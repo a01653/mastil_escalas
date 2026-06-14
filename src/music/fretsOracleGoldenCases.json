@@ -217,6 +217,25 @@
     "preferred": null
   },
   {
+    "id": "004030-em7-add9-11-no5-control",
+    "golden": true,
+    "voicing": "004030",
+    "notes": ["E", "A", "F#", "G", "D"],
+    "bass": "E",
+    "mustInclude": ["Em7(add9,11,no5)"],
+    "preferred": null
+  },
+  {
+    "id": "034030-cadd9-sharp11-over-e",
+    "golden": true,
+    "voicing": "034030",
+    "notes": ["E", "C", "F#", "G", "D"],
+    "bass": "E",
+    "mustInclude": ["Cadd9(#11)/E"],
+    "mustNotInclude": ["Cadd9,addb5/E"],
+    "preferred": null
+  },
+  {
     "id": "022xxx-e5-power",
     "golden": true,
     "voicing": "022xxx",

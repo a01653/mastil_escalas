@@ -811,6 +811,7 @@ function buildHeuristicTertianCandidates(selectedNotes) {
     const useSixthLabel = has13 && !hasHeuristicSeventh;
     const useThirteenthLabel = has13 && hasHeuristicSeventh;
     const useEleventhLabel = has11 && (hasMajThird || hasMinThird || hasHeuristicSeventh);
+    const preferSharpEleventhOverFlatFifth = hasPerfectFifth && hasFlatFifth && (hasMajThird || hasMinThird || hasHeuristicSeventh);
     const hasBassTone = intervals.includes(mod12(bass.pc - rootPc));
     const bassInterval = mod12(bass.pc - rootPc);
     // When major 3rd + b7 coexist, the chord is dominant: b3 = #9 enharmonic, b6 = b13
@@ -904,6 +905,7 @@ function buildHeuristicTertianCandidates(selectedNotes) {
         }
         if (isMajorSharpNineColor && s === 3) return "#9";
         if (quality === "dom" && s === 8) return "b13";
+        if (preferSharpEleventhOverFlatFifth && s === 6) return "#11";
         if (s === 2) return hasMajThird || hasMinThird || hasHeuristicSeventh ? "9" : "2";
         if (s === 5) return useEleventhLabel ? "11" : "4";
         if (s === 9 && !hasDimSeventh) return useThirteenthLabel ? "13" : "6";
@@ -922,14 +924,18 @@ function buildHeuristicTertianCandidates(selectedNotes) {
       const no5Str = uniqueAddTokens.includes("no5") ? ",no5" : "";
       suffix = `7(${addTextTokens.join(",")}${no5Str})`;
     } else {
-      let addText = formatHeuristicAddText(addTextTokens);
-      if (baseSuffix === "m(maj7)" && addTextTokens.length === 1 && addTextTokens[0] === "13") {
-        addText = "13";
-      }
-      const suffixDescriptor = `${addText}${uniqueAddTokens.includes("no5") ? `${addText ? "," : ""}no5` : ""}`;
-      suffix = appendDescriptorToChordSuffix(baseSuffix, suffixDescriptor);
-      if (baseSuffix === "m(maj7)" && addTextTokens.length === 1 && addTextTokens[0] === "9" && !uniqueAddTokens.includes("no5")) {
-        suffix = "m(maj9)";
+      if (!baseSuffix && addTextTokens.length === 2 && addTextTokens.includes("9") && addTextTokens.includes("#11") && !uniqueAddTokens.includes("no5")) {
+        suffix = "add9(#11)";
+      } else {
+        let addText = formatHeuristicAddText(addTextTokens);
+        if (baseSuffix === "m(maj7)" && addTextTokens.length === 1 && addTextTokens[0] === "13") {
+          addText = "13";
+        }
+        const suffixDescriptor = `${addText}${uniqueAddTokens.includes("no5") ? `${addText ? "," : ""}no5` : ""}`;
+        suffix = appendDescriptorToChordSuffix(baseSuffix, suffixDescriptor);
+        if (baseSuffix === "m(maj7)" && addTextTokens.length === 1 && addTextTokens[0] === "9" && !uniqueAddTokens.includes("no5")) {
+          suffix = "m(maj9)";
+        }
       }
     }
 
@@ -941,6 +947,7 @@ function buildHeuristicTertianCandidates(selectedNotes) {
       }
       if (isMajorSharpNineColor && s === 3) return "#9";
       if (quality === "dom" && s === 8) return "b13";
+      if (preferSharpEleventhOverFlatFifth && s === 6) return "#11";
       return intervalToChordToken(intv, { ext6: useSixthLabel, ext9: has9, ext11: useEleventhLabel, ext13: useThirteenthLabel });
     });
     const noteNames = spellChordNotes({ rootPc, chordIntervals: intervals, preferSharps, degreeLabels: heuristicDegreeLabels });
