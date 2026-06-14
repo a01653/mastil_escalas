@@ -1,5 +1,7 @@
+import { useState } from "react";
 import { BookOpen, ChevronLeft, ChevronRight, Eraser, Music, Play, Volume2, VolumeX } from "lucide-react";
 import { useNearCopyFeedback } from "./useNearCopyFeedback.js";
+import { partitionDetectedReadings } from "../../features/chord-detection/chordReadingGroupsCore.js";
 import { CopyVoicingButton } from "./ChordsPanel.jsx";
 import { CHORD_FORMS, FRET_INLAY_BG, buildDetectedCandidateBackgroundLabelForPc, buildDetectedCandidateNoteNameForPc, mod12 } from "../../music/appMusicBasics.js";
 import { classifyManualVoicingShape, studyVoicingFormLabel, formatBassLabelForTitle } from "../../music/appVoicingStudyCore.js";
@@ -8,6 +10,7 @@ import { ChordNoteBadgeStrip, MusicStaff } from "../../music/appPatternRouteStaf
 
 export default function ManualChordPanel({ layout, reading, actions, reference, patternInput, fretboard, candidates, staff, ui }) {
   const { copyFeedback, trigger: triggerCopyFeedback } = useNearCopyFeedback();
+  const [advancedExpanded, setAdvancedExpanded] = useState(false);
 
   function handleCopyToNearSlot(cand, slotIdx) {
     copyDetectedCandidateToNearSlot(cand, slotIdx);
@@ -132,6 +135,93 @@ export default function ManualChordPanel({ layout, reading, actions, reference, 
   for (const n of chordDetectSelectedNotes) {
     stringSelectedNoteName[n.sIdx] = buildDetectedCandidateNoteNameForPc(n.pc, chordDetectSelectedCandidate, prefer);
   }
+
+  // Reparte las lecturas en principales vs avanzadas/contextuales (cuartales,
+  // fragmentos, por referencia). No cambia ranking ni Primary; solo agrupa para
+  // mostrar las avanzadas en un bloque desplegable cerrado por defecto.
+  const { main: mainReadings, advanced: advancedReadings } = partitionDetectedReadings({
+    candidates: chordDetectCandidatesRanked,
+    keepVisibleId: primaryReadingId,
+  });
+
+  const renderDetectedReadingRow = (cand) => (
+    <div key={cand.id} data-testid={`detected-chord-${cand.id}`} className={`flex items-start gap-3 rounded-xl border px-3 py-2 text-xs text-slate-700 ${cand.fragment ? "border-amber-100 bg-amber-50/50" : cand.contextual || cand.referencePromoted ? "border-amber-200 bg-amber-50" : "border-slate-200 bg-sky-50"}`}>
+      <label className="flex min-w-0 flex-1 items-start gap-3">
+        <input
+          type="radio"
+          name="detected-chord"
+          checked={chordDetectCandidateId === cand.id}
+          onChange={() => selectDetectedCandidate(cand)}
+          className="mt-0.5 h-4 w-4"
+        />
+        <div className="min-w-0">
+          {cand.id === primaryReadingId && (
+            <div className="mb-0.5">
+              <span data-testid={`detected-chord-principal-${cand.id}`} className="rounded bg-sky-100 px-1.5 py-0.5 text-[10px] font-semibold text-sky-700">Principal</span>
+            </div>
+          )}
+          {cand.fragment && (
+            <div className="mb-0.5">
+              <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">fragmento</span>
+            </div>
+          )}
+          {!cand.fragment && (cand.contextual || cand.referencePromoted) && (
+            <div className="mb-0.5">
+              <span className="rounded bg-amber-200 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800">por referencia</span>
+            </div>
+          )}
+          <div data-testid={`detected-chord-name-${cand.id}`} className="font-bold text-slate-800">{formatChordNamePure(cand)}</div>
+          <div>{cand.intervalPairsText}</div>
+        </div>
+      </label>
+      <div className="flex shrink-0 flex-col items-end gap-1">
+        <button
+          type="button"
+          data-testid={`detected-copy-${cand.id}`}
+          className={UI_BTN_SM + " w-auto px-3"}
+          onClick={() => applyDetectedCandidate(cand)}
+          disabled={!cand.uiPatch}
+          title={cand.uiPatch ? "Copiar esta lectura a la sección Acorde" : "Esta lectura no es compatible con el constructor superior"}
+        >
+          Copiar en Acorde
+        </button>
+        {cand.uiPatch && (
+          <div className="flex flex-col items-end gap-0.5">
+            <div className="flex items-center gap-1">
+              <span className="shrink-0 text-[10px] text-slate-400">→ Cercano:</span>
+              {[0, 1, 2, 3].map((i) => {
+                const isActive = copyFeedback?.candId === cand.id && copyFeedback?.slotIdx === i;
+                return (
+                  <button
+                    key={i}
+                    type="button"
+                    data-testid={`detected-copy-near-${cand.id}-${i}`}
+                    className={
+                      isActive
+                        ? "inline-flex h-6 w-6 items-center justify-center rounded-lg border border-emerald-500 bg-emerald-100 px-0 text-[11px] font-semibold text-emerald-700 transition-colors"
+                        : UI_BTN_SM + " w-6 px-0 text-[11px]"
+                    }
+                    onClick={() => handleCopyToNearSlot(cand, i)}
+                    title={`Copiar lectura a Acorde cercano ${i + 1}`}
+                  >
+                    {i + 1}
+                  </button>
+                );
+              })}
+            </div>
+            {copyFeedback?.candId === cand.id && (
+              <div
+                data-testid={`detected-copy-near-feedback-${cand.id}`}
+                className="text-[10px] font-medium text-emerald-600"
+              >
+                Copiado a Cercano {copyFeedback.slotIdx + 1}: {copyFeedback.name}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
 
   return (
     <div
@@ -588,84 +678,32 @@ export default function ManualChordPanel({ layout, reading, actions, reference, 
 
 			  <div className="px-3 pb-3 pt-2">
           <div className="space-y-2" data-testid="detected-chord-list">
-            {chordDetectCandidatesRanked.length ? chordDetectCandidatesRanked.map((cand) => (
-              <div key={cand.id} data-testid={`detected-chord-${cand.id}`} className={`flex items-start gap-3 rounded-xl border px-3 py-2 text-xs text-slate-700 ${cand.fragment ? "border-amber-100 bg-amber-50/50" : cand.contextual || cand.referencePromoted ? "border-amber-200 bg-amber-50" : "border-slate-200 bg-sky-50"}`}>
-                <label className="flex min-w-0 flex-1 items-start gap-3">
-                  <input
-                    type="radio"
-                    name="detected-chord"
-                    checked={chordDetectCandidateId === cand.id}
-                    onChange={() => selectDetectedCandidate(cand)}
-                    className="mt-0.5 h-4 w-4"
-                  />
-                  <div className="min-w-0">
-                    {cand.id === primaryReadingId && (
-                      <div className="mb-0.5">
-                        <span data-testid={`detected-chord-principal-${cand.id}`} className="rounded bg-sky-100 px-1.5 py-0.5 text-[10px] font-semibold text-sky-700">Principal</span>
+            {chordDetectCandidatesRanked.length ? (
+              <>
+                {mainReadings.map((cand) => renderDetectedReadingRow(cand))}
+                {advancedReadings.length > 0 && (
+                  <div className="pt-1" data-testid="detected-advanced-section">
+                    <button
+                      type="button"
+                      data-testid="detected-advanced-toggle"
+                      aria-expanded={advancedExpanded}
+                      onClick={() => setAdvancedExpanded((v) => !v)}
+                      className="flex w-full items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-600 shadow-sm transition hover:bg-slate-100"
+                      title="Lecturas cuartales, fragmentos o por contexto: menos prioritarias"
+                    >
+                      <ChevronRight className={`h-4 w-4 shrink-0 transition-transform ${advancedExpanded ? "rotate-90" : ""}`} />
+                      <span>Lecturas avanzadas / contextuales</span>
+                      <span className="ml-1 rounded-full bg-slate-200 px-1.5 py-0.5 text-[10px] font-bold text-slate-600">{advancedReadings.length}</span>
+                    </button>
+                    {advancedExpanded && (
+                      <div className="mt-2 space-y-2" data-testid="detected-advanced-list">
+                        {advancedReadings.map((cand) => renderDetectedReadingRow(cand))}
                       </div>
                     )}
-                    {cand.fragment && (
-                      <div className="mb-0.5">
-                        <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">fragmento</span>
-                      </div>
-                    )}
-                    {!cand.fragment && (cand.contextual || cand.referencePromoted) && (
-                      <div className="mb-0.5">
-                        <span className="rounded bg-amber-200 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800">por referencia</span>
-                      </div>
-                    )}
-                    <div data-testid={`detected-chord-name-${cand.id}`} className="font-bold text-slate-800">{formatChordNamePure(cand)}</div>
-                    <div>{cand.intervalPairsText}</div>
                   </div>
-                </label>
-                <div className="flex shrink-0 flex-col items-end gap-1">
-                  <button
-                    type="button"
-                    data-testid={`detected-copy-${cand.id}`}
-                    className={UI_BTN_SM + " w-auto px-3"}
-                    onClick={() => applyDetectedCandidate(cand)}
-                    disabled={!cand.uiPatch}
-                    title={cand.uiPatch ? "Copiar esta lectura a la sección Acorde" : "Esta lectura no es compatible con el constructor superior"}
-                  >
-                    Copiar en Acorde
-                  </button>
-                  {cand.uiPatch && (
-                    <div className="flex flex-col items-end gap-0.5">
-                      <div className="flex items-center gap-1">
-                        <span className="shrink-0 text-[10px] text-slate-400">→ Cercano:</span>
-                        {[0, 1, 2, 3].map((i) => {
-                          const isActive = copyFeedback?.candId === cand.id && copyFeedback?.slotIdx === i;
-                          return (
-                            <button
-                              key={i}
-                              type="button"
-                              data-testid={`detected-copy-near-${cand.id}-${i}`}
-                              className={
-                                isActive
-                                  ? "inline-flex h-6 w-6 items-center justify-center rounded-lg border border-emerald-500 bg-emerald-100 px-0 text-[11px] font-semibold text-emerald-700 transition-colors"
-                                  : UI_BTN_SM + " w-6 px-0 text-[11px]"
-                              }
-                              onClick={() => handleCopyToNearSlot(cand, i)}
-                              title={`Copiar lectura a Acorde cercano ${i + 1}`}
-                            >
-                              {i + 1}
-                            </button>
-                          );
-                        })}
-                      </div>
-                      {copyFeedback?.candId === cand.id && (
-                        <div
-                          data-testid={`detected-copy-near-feedback-${cand.id}`}
-                          className="text-[10px] font-medium text-emerald-600"
-                        >
-                          Copiado a Cercano {copyFeedback.slotIdx + 1}: {copyFeedback.name}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )) : (
+                )}
+              </>
+            ) : (
               <div className="rounded-xl border border-dashed border-slate-300 bg-sky-50 px-3 py-3 text-xs text-slate-500">
                 No hay lecturas claras todavía. Empieza con 3 o 4 notas.
               </div>

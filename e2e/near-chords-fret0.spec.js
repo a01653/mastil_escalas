@@ -34,6 +34,14 @@ async function setupMultiFret0(page) {
   await input.fill("x02200");
   await page.getByTestId("chord-detect-apply-btn").click();
 
+  // La cuartal vive en el bloque "Lecturas avanzadas / contextuales" (cerrado
+  // por defecto): ábrelo antes de buscarla.
+  const advToggle = page.getByTestId("detected-advanced-toggle");
+  if ((await advToggle.count()) > 0 && (await page.getByTestId("detected-advanced-list").count()) === 0) {
+    await advToggle.click();
+    await expect(page.getByTestId("detected-advanced-list")).toBeVisible();
+  }
+
   // Copiar Cuartal B al slot 0
   const cuartalEl = page.locator("[data-testid^='detected-chord-name-']").filter({ hasText: /Cuartal\s+B/ }).first();
   await expect(cuartalEl).toBeVisible({ timeout: 5000 });

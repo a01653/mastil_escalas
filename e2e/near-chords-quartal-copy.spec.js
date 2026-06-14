@@ -35,6 +35,13 @@ async function applyPattern(page, pattern) {
 }
 
 async function findCandidateId(page, nameRegex) {
+  // Las lecturas cuartales/avanzadas viven en el bloque desplegable "Lecturas
+  // avanzadas / contextuales" (cerrado por defecto): ábrelo si está presente.
+  const toggle = page.getByTestId("detected-advanced-toggle");
+  if ((await toggle.count()) > 0 && (await page.getByTestId("detected-advanced-list").count()) === 0) {
+    await toggle.click();
+    await expect(page.getByTestId("detected-advanced-list")).toBeVisible();
+  }
   const nameEl = page.locator("[data-testid^='detected-chord-name-']").filter({ hasText: nameRegex }).first();
   await expect(nameEl).toBeVisible({ timeout: 5000 });
   const testId = await nameEl.getAttribute("data-testid");

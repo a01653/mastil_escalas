@@ -34,3 +34,7 @@ manual/
 reports/frets-oracle*.ndjson
 reports/frets-oracle*.json
 reports/frets-oracle*.md
+
+# Informe generado de mayInclude (derivado del oraculo; no versionar)
+reports/frets-mayinclude-report.json
+reports/frets-mayinclude-report.md

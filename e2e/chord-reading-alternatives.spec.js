@@ -1,8 +1,9 @@
 import { test, expect } from "@playwright/test";
 
 // El bloque "Posibles acordes" es la fuente para elegir lecturas: marca la
-// lectura principal con la pill "Principal" y lista el resto como alternativas o
-// contextuales (radios seleccionables). No cambia ranking, Primary ni lógica.
+// lectura principal con la pill "Principal" y lista el resto como alternativas.
+// Las lecturas avanzadas/contextuales (cuartales, fragmentos, por referencia)
+// van en un bloque desplegable cerrado por defecto. No cambia ranking ni Primary.
 
 async function goToChords(page) {
   await page.goto("/");
@@ -62,4 +63,58 @@ test("RA-2. seleccionar otra lectura en 'Posibles acordes' mueve la pill 'Princi
   await expect(page.getByTestId(`detected-chord-principal-${secondId}`)).toBeVisible();
   await expect(page.locator("[data-testid^='detected-chord-principal-']")).toHaveCount(1);
   await expect(page.getByTestId(`detected-chord-name-${secondId}`)).toHaveText(secondText);
+});
+
+test("RA-3. el bloque 'Lecturas avanzadas / contextuales' está cerrado por defecto y agrupa la cuartal", async ({ page }) => {
+  await goToChords(page);
+  await enableDetectMode(page);
+  await disableKeepPreviousReading(page);
+
+  await page.getByTestId("chord-detect-pattern-input").fill("x02440");
+  await page.getByTestId("chord-detect-apply-btn").click();
+
+  // Toggle visible con el contador de avanzadas (x02440 → 1 cuartal).
+  const toggle = page.getByTestId("detected-advanced-toggle");
+  await expect(toggle).toBeVisible();
+  await expect(toggle).toContainText("Lecturas avanzadas / contextuales");
+
+  // Cerrado por defecto: la lista avanzada no está en el DOM y no se ve la cuartal.
+  await expect(page.getByTestId("detected-advanced-list")).toHaveCount(0);
+  await expect(page.getByTestId("detected-chord-list")).not.toContainText("Cuartal");
+
+  // Desplegar: aparece la cuartal en la lista avanzada.
+  await toggle.click();
+  const advList = page.getByTestId("detected-advanced-list");
+  await expect(advList).toBeVisible();
+  await expect(advList).toContainText("Cuartal");
+
+  // Colapsar: vuelve a cerrarse.
+  await toggle.click();
+  await expect(page.getByTestId("detected-advanced-list")).toHaveCount(0);
+});
+
+test("RA-4. seleccionar una lectura avanzada la convierte en Principal y la saca del bloque", async ({ page }) => {
+  await goToChords(page);
+  await enableDetectMode(page);
+  await disableKeepPreviousReading(page);
+
+  await page.getByTestId("chord-detect-pattern-input").fill("x02440");
+  await page.getByTestId("chord-detect-apply-btn").click();
+
+  // El Primary inicial es una lectura principal (no la cuartal).
+  await expect(page.locator("[data-testid^='detected-chord-name-']").first()).toHaveText("Asus2(#11)");
+
+  // Desplegar avanzadas y elegir la cuartal.
+  await page.getByTestId("detected-advanced-toggle").click();
+  const advList = page.getByTestId("detected-advanced-list");
+  const quartalName = advList.locator("[data-testid^='detected-chord-name-']").first();
+  const qId = (await quartalName.getAttribute("data-testid")).replace("detected-chord-name-", "");
+  const qText = (await quartalName.textContent())?.trim();
+  await page.getByTestId(`detected-chord-${qId}`).locator("input[type='radio']").check();
+
+  // Pasa a ser Principal (pill única) y, al ser la única avanzada, el bloque desaparece.
+  await expect(page.getByTestId(`detected-chord-principal-${qId}`)).toBeVisible();
+  await expect(page.locator("[data-testid^='detected-chord-principal-']")).toHaveCount(1);
+  await expect(page.getByTestId(`detected-chord-name-${qId}`)).toHaveText(qText);
+  await expect(page.getByTestId("detected-advanced-toggle")).toHaveCount(0);
 });
