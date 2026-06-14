@@ -1,9 +1,21 @@
 import { test, expect } from "@playwright/test";
 
-async function goToChords(page) {
+async function resetAppStorage(page) {
   await page.goto("/");
   await page.waitForLoadState("networkidle");
-  await page.getByTestId("nav-chords").click();
+  await page.evaluate(() => {
+    window.localStorage.clear();
+    window.sessionStorage.clear();
+  });
+}
+
+async function goToChords(page) {
+  await resetAppStorage(page);
+  await page.goto("/");
+  await page.waitForLoadState("networkidle");
+  const navChords = page.getByTestId("nav-chords");
+  await expect(navChords).toBeVisible();
+  await navChords.click();
   await expect(page.getByTestId("select-structure")).toBeVisible();
 }
 

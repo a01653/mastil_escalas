@@ -15,28 +15,47 @@ const NAV_TABS = [
   { id: "nav-standards",   label: "Standards" },
 ];
 
-// ── S0: Desktop Configuración oculta Contexto tonal; otras pestañas lo mantienen ──
-test("S0. Desktop: Configuración oculta Contexto tonal; Escala/Acordes lo mantienen", async ({ page }) => {
+async function resetAppStorage(page) {
   await page.goto("/");
   await page.waitForLoadState("networkidle");
+  await page.evaluate(() => {
+    window.localStorage.clear();
+    window.sessionStorage.clear();
+  });
+}
+
+async function openFreshApp(page) {
+  await resetAppStorage(page);
+  await page.goto("/");
+  await page.waitForLoadState("networkidle");
+}
+
+async function clickNav(page, testId) {
+  const navButton = page.getByTestId(testId);
+  await expect(navButton).toBeVisible();
+  await navButton.click();
+}
+
+// ── S0: Desktop Configuración oculta Contexto tonal; otras pestañas lo mantienen ──
+test("S0. Desktop: Configuración oculta Contexto tonal; Escala/Acordes lo mantienen", async ({ page }) => {
+  await openFreshApp(page);
 
   await expect(page.getByText("Contexto tonal", { exact: true })).toBeVisible();
 
-  await page.getByTestId("nav-configuration").click();
+  await clickNav(page, "nav-configuration");
   await expect(page.getByText("Contexto tonal", { exact: true })).toHaveCount(0);
 
-  await page.getByTestId("nav-scale").click();
+  await clickNav(page, "nav-scale");
   await expect(page.getByText("Contexto tonal", { exact: true })).toBeVisible();
 
-  await page.getByTestId("nav-chords").click();
+  await clickNav(page, "nav-chords");
   await expect(page.getByText("Contexto tonal", { exact: true })).toBeVisible();
 });
 
 // ── S0b: Móvil/compacto — abrir Configuración no rompe la navegación ────────
 test("S0b. Móvil: abrir Configuración desde el menú no rompe la navegación", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/");
-  await page.waitForLoadState("networkidle");
+  await openFreshApp(page);
 
   const openConfigBtn = page.getByTitle("Abrir configuración");
   await expect(openConfigBtn).toBeVisible();
@@ -53,10 +72,9 @@ test("S0b. Móvil: abrir Configuración desde el menú no rompe la navegación",
 // ── S0c: Desktop → móvil desde Configuración cae en Acordes ─────────────────
 test("S0c. Desktop a móvil: si vienes de Configuración, el layout compacto activa Acordes", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto("/");
-  await page.waitForLoadState("networkidle");
+  await openFreshApp(page);
 
-  await page.getByTestId("nav-configuration").click();
+  await clickNav(page, "nav-configuration");
   await expect(page.getByText("Contexto tonal", { exact: true })).toHaveCount(0);
 
   await page.setViewportSize({ width: 390, height: 844 });
@@ -69,10 +87,9 @@ test("S0c. Desktop a móvil: si vienes de Configuración, el layout compacto act
 // ── S0d: Desktop → compacto desde Configuración cae en Acordes ─────────────
 test("S0d. Desktop a compacto: si vienes de Configuración, el layout compacto activa Acordes", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto("/");
-  await page.waitForLoadState("networkidle");
+  await openFreshApp(page);
 
-  await page.getByTestId("nav-configuration").click();
+  await clickNav(page, "nav-configuration");
   await expect(page.getByText("Contexto tonal", { exact: true })).toHaveCount(0);
 
   await page.setViewportSize({ width: 1024, height: 900 });
@@ -88,11 +105,10 @@ test("S1. Recorrer todas las pestañas principales sin crash ni pantalla en blan
   const errors = [];
   page.on("pageerror", (err) => errors.push(err.message));
 
-  await page.goto("/");
-  await page.waitForLoadState("networkidle");
+  await openFreshApp(page);
 
   for (const tab of NAV_TABS) {
-    await page.getByTestId(tab.id).click();
+    await clickNav(page, tab.id);
     // La página no debe quedar en blanco: al menos un texto de la app es visible
     await expect(page.locator("body")).not.toBeEmpty();
     // No debe haber errores JS fatales (pageerror)
@@ -102,9 +118,8 @@ test("S1. Recorrer todas las pestañas principales sin crash ni pantalla en blan
 
 // ── S2: Escalas — mástil renderiza y responde a cambios de tónica y modo ────
 test("S2. Escalas: abrir pestaña, cambiar tónica y modo, fretboard sigue visible", async ({ page }) => {
-  await page.goto("/");
-  await page.waitForLoadState("networkidle");
-  await page.getByTestId("nav-scale").click();
+  await openFreshApp(page);
+  await clickNav(page, "nav-scale");
 
   // El panel de escala debe ser visible
   await expect(page.getByTestId("fretboard-scale")).toBeVisible();
@@ -120,9 +135,8 @@ test("S2. Escalas: abrir pestaña, cambiar tónica y modo, fretboard sigue visib
 
 // ── S3: Escalas — cambiar de Mayor a Menor ───────────────────────────────────
 test("S3. Escalas: cambiar modo Mayor → Menor, no crash", async ({ page }) => {
-  await page.goto("/");
-  await page.waitForLoadState("networkidle");
-  await page.getByTestId("nav-scale").click();
+  await openFreshApp(page);
+  await clickNav(page, "nav-scale");
 
   const modeSelect = page.getByTestId("scale-mode-select");
   await expect(modeSelect).toBeVisible();
@@ -142,9 +156,8 @@ test("S3. Escalas: cambiar modo Mayor → Menor, no crash", async ({ page }) => 
 
 // ── S4: Patrones — abrir pestaña y selector de modo ──────────────────────────
 test("S4. Patrones: abrir pestaña, selector de modo visible", async ({ page }) => {
-  await page.goto("/");
-  await page.waitForLoadState("networkidle");
-  await page.getByTestId("nav-patterns").click();
+  await openFreshApp(page);
+  await clickNav(page, "nav-patterns");
 
   await expect(page.getByTestId("fretboard-patterns")).toBeVisible();
   await expect(page.getByTestId("pattern-mode-select")).toBeVisible();
@@ -152,9 +165,8 @@ test("S4. Patrones: abrir pestaña, selector de modo visible", async ({ page }) 
 
 // ── S5: Patrones — seleccionar CAGED ─────────────────────────────────────────
 test("S5. Patrones: seleccionar modo CAGED, fretboard sigue visible", async ({ page }) => {
-  await page.goto("/");
-  await page.waitForLoadState("networkidle");
-  await page.getByTestId("nav-patterns").click();
+  await openFreshApp(page);
+  await clickNav(page, "nav-patterns");
 
   await page.getByTestId("pattern-mode-select").selectOption("caged");
 
@@ -163,17 +175,16 @@ test("S5. Patrones: seleccionar modo CAGED, fretboard sigue visible", async ({ p
 
 // ── S6: Patrones — seleccionar 3NPS (escala mayor, 7 notas) ──────────────────
 test("S6. Patrones: seleccionar modo 3NPS en escala de 7 notas, fretboard visible", async ({ page }) => {
-  await page.goto("/");
-  await page.waitForLoadState("networkidle");
+  await openFreshApp(page);
 
   // Asegurarse de que la escala tiene 7 notas (Mayor por defecto tiene 7)
-  await page.getByTestId("nav-scale").click();
+  await clickNav(page, "nav-scale");
   const modeSelect = page.getByTestId("scale-mode-select");
   const options = await modeSelect.locator("option").allTextContents();
   const majorOption = options.find((o) => /mayor|major/i.test(o));
   if (majorOption) await modeSelect.selectOption({ label: majorOption });
 
-  await page.getByTestId("nav-patterns").click();
+  await clickNav(page, "nav-patterns");
 
   const patternSelect = page.getByTestId("pattern-mode-select");
   // La opción nps solo aparece con escalas de 7 notas
@@ -189,9 +200,8 @@ test("S6. Patrones: seleccionar modo 3NPS en escala de 7 notas, fretboard visibl
 
 // ── S7: Ruta — panel visible con inputs ──────────────────────────────────────
 test("S7. Ruta: panel visible con campos de inicio y fin", async ({ page }) => {
-  await page.goto("/");
-  await page.waitForLoadState("networkidle");
-  await page.getByTestId("nav-route").click();
+  await openFreshApp(page);
+  await clickNav(page, "nav-route");
 
   await expect(page.getByTestId("route-panel")).toBeVisible();
   await expect(page.getByTestId("route-start-input")).toBeVisible();
@@ -200,24 +210,22 @@ test("S7. Ruta: panel visible con campos de inicio y fin", async ({ page }) => {
 
 // ── S8: Ruta — cambiar escala recalcula la ruta ───────────────────────────────
 test("S8. Ruta: cambiar tónica no crashea el panel de ruta", async ({ page }) => {
-  await page.goto("/");
-  await page.waitForLoadState("networkidle");
-  await page.getByTestId("nav-route").click();
+  await openFreshApp(page);
+  await clickNav(page, "nav-route");
   await expect(page.getByTestId("route-panel")).toBeVisible();
 
   // Cambiar raíz desde la pestaña Escalas y volver a Ruta
-  await page.getByTestId("nav-scale").click();
+  await clickNav(page, "nav-scale");
   await page.getByTestId("scale-root-select").selectOption("G");
-  await page.getByTestId("nav-route").click();
+  await clickNav(page, "nav-route");
 
   await expect(page.getByTestId("route-panel")).toBeVisible();
 });
 
 // ── S9: NearChords — panel visible con al menos un slot ──────────────────────
 test("S9. Acordes cercanos: panel visible con slots de acordes", async ({ page }) => {
-  await page.goto("/");
-  await page.waitForLoadState("networkidle");
-  await page.getByTestId("nav-near-chords").click();
+  await openFreshApp(page);
+  await clickNav(page, "nav-near-chords");
 
   await expect(page.getByTestId("near-chords-panel")).toBeVisible();
   // Debe haber al menos una subsección (slot) visible
@@ -226,9 +234,8 @@ test("S9. Acordes cercanos: panel visible con slots de acordes", async ({ page }
 
 // ── S10: NearChords — botón Auto escala responde ──────────────────────────────
 test("S10. Acordes cercanos: botón Auto escala alterna sin crash", async ({ page }) => {
-  await page.goto("/");
-  await page.waitForLoadState("networkidle");
-  await page.getByTestId("nav-near-chords").click();
+  await openFreshApp(page);
+  await clickNav(page, "nav-near-chords");
   await expect(page.getByTestId("near-chords-panel")).toBeVisible();
 
   // El botón ON/OFF de auto escala debe existir y ser clickable
@@ -243,9 +250,8 @@ test("S10. Acordes cercanos: botón Auto escala alterna sin crash", async ({ pag
 
 // ── S11: Standards — catálogo carga y lista es visible ───────────────────────
 test("S11. Standards: catálogo carga, lista de standards visible", async ({ page }) => {
-  await page.goto("/");
-  await page.waitForLoadState("networkidle");
-  await page.getByTestId("nav-standards").click();
+  await openFreshApp(page);
+  await clickNav(page, "nav-standards");
 
   // Esperar a que cargue el catálogo (máx. 10s)
   await expect(page.getByTestId("standards-catalog-panel")).toBeVisible({ timeout: 10_000 });
@@ -258,9 +264,8 @@ test("S11. Standards: catálogo carga, lista de standards visible", async ({ pag
 
 // ── S12: Standards — cargar Autumn Leaves y ver el chart ─────────────────────
 test("S12. Standards: cargar Autumn Leaves, panel de Forma visible", async ({ page }) => {
-  await page.goto("/");
-  await page.waitForLoadState("networkidle");
-  await page.getByTestId("nav-standards").click();
+  await openFreshApp(page);
+  await clickNav(page, "nav-standards");
 
   // El catálogo debe cargar (esperar lista visible)
   await expect(page.getByTestId("standards-catalog-panel")).toBeVisible({ timeout: 10_000 });

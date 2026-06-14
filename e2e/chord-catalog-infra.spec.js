@@ -19,7 +19,17 @@
 
 import { test, expect } from "@playwright/test";
 
+async function resetAppStorage(page) {
+  await page.goto("/");
+  await page.waitForLoadState("networkidle");
+  await page.evaluate(() => {
+    window.localStorage.clear();
+    window.sessionStorage.clear();
+  });
+}
+
 async function goToChords(page) {
+  await resetAppStorage(page);
   await page.goto("/");
   await page.waitForLoadState("networkidle");
   await page.getByTestId("nav-chords").click();
@@ -27,6 +37,7 @@ async function goToChords(page) {
 }
 
 async function goToNearChords(page) {
+  await resetAppStorage(page);
   await page.goto("/");
   await page.waitForLoadState("networkidle");
   await page.getByTestId("nav-near-chords").click();

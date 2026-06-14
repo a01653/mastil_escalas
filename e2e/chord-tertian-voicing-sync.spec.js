@@ -2,7 +2,17 @@ import { test, expect } from "@playwright/test";
 
 const UI_STORAGE_KEY = "mastil_interactivo_guitarra_config_v1";
 
+async function resetAppStorage(page) {
+  await page.goto("/");
+  await page.waitForLoadState("networkidle");
+  await page.evaluate(() => {
+    window.localStorage.clear();
+    window.sessionStorage.clear();
+  });
+}
+
 async function goToChords(page) {
+  await resetAppStorage(page);
   await page.goto("/");
   await page.waitForLoadState("networkidle");
   await page.getByTestId("nav-chords").click();

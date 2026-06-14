@@ -24,7 +24,17 @@ function noteToFret(sIdx, targetPc) {
 
 const PC = { C: 0, Cs: 1, D: 2, Eb: 3, E: 4, F: 5, Fs: 6, G: 7, Ab: 8, A: 9, Bb: 10, B: 11 };
 
+async function resetAppStorage(page) {
+  await page.goto("/");
+  await page.waitForLoadState("networkidle");
+  await page.evaluate(() => {
+    window.localStorage.clear();
+    window.sessionStorage.clear();
+  });
+}
+
 async function goToChords(page) {
+  await resetAppStorage(page);
   await page.goto("/");
   await page.waitForLoadState("networkidle");
   await page.getByTestId("nav-chords").click();

@@ -1,0 +1,105 @@
+[
+  {
+    "id": "video-g-304030-gmaj13-no3-pending",
+    "pending": true,
+    "source": {
+      "type": "video",
+      "label": "G"
+    },
+    "voicing": "304030",
+    "notes": ["G", "A", "F#", "D", "E"],
+    "bass": "G",
+    "expectedToInvestigate": "Gmaj13(no3)",
+    "oracleEquivalent": "Gmaj7(add9,add13,no3)",
+    "currentReaderPrimary": "Dadd9,11/G",
+    "currentReaderMain": [
+      "Dadd9,11/G",
+      "Em7(add9,11,no5)/G",
+      "F#m7(addb2,addb6,no5)/G"
+    ],
+    "currentReaderAdvanced": [],
+    "currentOracleExtras": [
+      "Asus4(add13,b7)/G",
+      "Gmaj7(add9,add13,no3)"
+    ],
+    "status": "pending-investigation",
+    "problem": "El lector no propone lectura con raíz G aunque bajo=G y el set contiene 1, 5, 7M, 9 y 13."
+  },
+  {
+    "id": "video-c-034030-cadd9-sharp11-over-e-pending",
+    "pending": true,
+    "source": {
+      "type": "video",
+      "label": "C"
+    },
+    "voicing": "034030",
+    "notes": ["E", "C", "F#", "G", "D"],
+    "bass": "E",
+    "expectedToInvestigate": "Cadd9(#11)/E",
+    "oracleEquivalent": null,
+    "currentReaderPrimary": "Em7(add9,addb6,no5)",
+    "currentReaderMain": [
+      "Em7(add9,addb6,no5)",
+      "Cadd9,addb5/E",
+      "D7(add9,11,no5)/E"
+    ],
+    "currentReaderAdvanced": [
+      "Cuartal mixto D/E"
+    ],
+    "currentOracleExtras": [
+      "Gmaj7(add11,add13,no3)/E"
+    ],
+    "status": "pending-investigation",
+    "problem": "Con G natural y F# no debería nombrar F# como b5 respecto de C; la lectura a revisar es #11."
+  },
+  {
+    "id": "video-d-x54030-dadd9-11-no5-pending",
+    "pending": true,
+    "source": {
+      "type": "video",
+      "label": "D"
+    },
+    "voicing": "x54030",
+    "notes": ["D", "F#", "G", "E"],
+    "bass": "D",
+    "expectedToInvestigate": "Dadd9,11(no5)",
+    "oracleEquivalent": "D(add9,add11,no5)",
+    "currentReaderPrimary": "Em7(add9,no5)/D",
+    "currentReaderMain": [
+      "Em7(add9,no5)/D"
+    ],
+    "currentReaderAdvanced": [],
+    "currentOracleExtras": [
+      "Gmaj7(add13,no3)/D",
+      "D(add9,add11,no5)"
+    ],
+    "status": "pending-investigation",
+    "problem": "El lector no propone lectura con raíz D aunque bajo=D y el set contiene 1, 3, 9 y 11."
+  },
+  {
+    "id": "video-e-004030-em7-add9-11-no5-control",
+    "pending": true,
+    "source": {
+      "type": "video",
+      "label": "E"
+    },
+    "voicing": "004030",
+    "notes": ["E", "A", "F#", "G", "D"],
+    "bass": "E",
+    "expectedToInvestigate": "Em7(add9,11,no5)",
+    "oracleEquivalent": null,
+    "currentReaderPrimary": "Em7(add9,11,no5)",
+    "currentReaderMain": [
+      "Em7(add9,11,no5)",
+      "Dadd9,11/E",
+      "F#m7(addb2,addb6,no5)/E"
+    ],
+    "currentReaderAdvanced": [],
+    "currentOracleExtras": [
+      "Asus4(add13,b7)/E",
+      "Gmaj7(add9,add13,no3)/E"
+    ],
+    "status": "control-regression",
+    "problem": "Caso de control. La lectura actual parece correcta; se conserva para vigilar regresiones al corregir los casos pendientes."
+  }
+]

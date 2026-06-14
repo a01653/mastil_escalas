@@ -9,10 +9,22 @@
 
 import { test, expect } from "@playwright/test";
 
-async function goToNearChords(page) {
+async function resetAppStorage(page) {
   await page.goto("/");
   await page.waitForLoadState("networkidle");
-  await page.getByTestId("nav-near-chords").click();
+  await page.evaluate(() => {
+    window.localStorage.clear();
+    window.sessionStorage.clear();
+  });
+}
+
+async function goToNearChords(page) {
+  await resetAppStorage(page);
+  await page.goto("/");
+  await page.waitForLoadState("networkidle");
+  const navNearChords = page.getByTestId("nav-near-chords");
+  await expect(navNearChords).toBeVisible();
+  await navNearChords.click();
   await expect(page.getByTestId("near-chords-panel")).toBeVisible();
 }
 

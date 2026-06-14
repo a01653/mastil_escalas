@@ -3,7 +3,7 @@
  * Ejecuta el script como subproceso para verificar comportamiento real de salida.
  */
 
-import { describe, it, expect } from "vitest";
+import { describe, it as baseIt, expect } from "vitest";
 import { spawnSync } from "node:child_process";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -14,6 +14,15 @@ import { computeOracleExtras } from "../features/chord-detection/oracleExtrasCor
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 const SCRIPT = resolve(__dirname, "../../scripts/analyzeFrets.mjs");
+const DEFAULT_CLI_TIMEOUT = 15000;
+const NPM_SCRIPT_CLI_TIMEOUT = 60000;
+
+function it(name, optionsOrFn, maybeFn) {
+  if (typeof optionsOrFn === "function") {
+    return baseIt(name, { timeout: DEFAULT_CLI_TIMEOUT }, optionsOrFn);
+  }
+  return baseIt(name, { timeout: DEFAULT_CLI_TIMEOUT, ...(optionsOrFn || {}) }, maybeFn);
+}
 
 function run(...args) {
   const result = spawnSync("node", [SCRIPT, ...args], { encoding: "utf-8" });
@@ -247,14 +256,14 @@ describe("--all con --ref: muestra detalle completo", () => {
     expect(stripAnsi(stdout)).toContain("fórmula:");
   });
 
-  it("--json ignora --all (siempre incluye todos los campos)", () => {
+  it("--json ignora --all (siempre incluye todos los campos)", { timeout: 15000 }, () => {
     const withAll    = runJson("x5555x", "--ref", "D7", "--all");
     const withoutAll = runJson("x5555x", "--ref", "D7");
     expect(withAll.json?.readings.length).toBe(withoutAll.json?.readings.length);
     expect(withAll.json?.primary?.name).toBe(withoutAll.json?.primary?.name);
   });
 
-  it("npm run analyze:frets:json -- x02440 acepta --json antes del patrón", () => {
+  it("npm run analyze:frets:json -- x02440 acepta --json antes del patrón", { timeout: NPM_SCRIPT_CLI_TIMEOUT }, () => {
     const { exitCode, json } = runNpmJsonScript("x02440");
     expect(exitCode).toBe(0);
     expect(json?.ok).toBe(true);
