@@ -1605,3 +1605,21 @@ describe("Caso 3: 4x2440 = {G#,E,B,D#} bajo=G#", () => {
     expect(names).not.toContain("Abm(addb13)");
   });
 });
+
+describe("Caso x54030 = {D,F#,G,E} bajo=D", () => {
+  test("Dadd9,11(no5) aparece como lectura del motor primario", () => {
+    const result = analyzeSelectedNotes(["D", "F#", "G", "E"], "D");
+    expect(readingNames(result)).toContain("Dadd9,11(no5)");
+  });
+
+  test("Em7(add9,no5)/D se mantiene como lectura primaria", () => {
+    const result = analyzeSelectedNotes(["D", "F#", "G", "E"], "D");
+    expect(result.primary?.name).toBe("Em7(add9,no5)/D");
+  });
+
+  test("la lectura Dadd9,11(no5) tiene grados 1, 9, 3, 11 correctos", () => {
+    const result = analyzeSelectedNotes(["D", "F#", "G", "E"], "D");
+    const reading = getReading(result, "Dadd9,11(no5)");
+    expectRequiredDegrees(reading, ["1", "9", "3", "11"]);
+  });
+});

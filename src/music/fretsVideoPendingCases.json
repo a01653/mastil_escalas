@@ -53,30 +53,6 @@
     "problem": "Con G natural y F# no debería nombrar F# como b5 respecto de C; la lectura a revisar es #11."
   },
   {
-    "id": "video-d-x54030-dadd9-11-no5-pending",
-    "pending": true,
-    "source": {
-      "type": "video",
-      "label": "D"
-    },
-    "voicing": "x54030",
-    "notes": ["D", "F#", "G", "E"],
-    "bass": "D",
-    "expectedToInvestigate": "Dadd9,11(no5)",
-    "oracleEquivalent": "D(add9,add11,no5)",
-    "currentReaderPrimary": "Em7(add9,no5)/D",
-    "currentReaderMain": [
-      "Em7(add9,no5)/D"
-    ],
-    "currentReaderAdvanced": [],
-    "currentOracleExtras": [
-      "Gmaj7(add13,no3)/D",
-      "D(add9,add11,no5)"
-    ],
-    "status": "pending-investigation",
-    "problem": "El lector no propone lectura con raíz D aunque bajo=D y el set contiene 1, 3, 9 y 11."
-  },
-  {
     "id": "video-e-004030-em7-add9-11-no5-control",
     "pending": true,
     "source": {

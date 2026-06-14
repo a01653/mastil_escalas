@@ -178,6 +178,8 @@ export const CHORD_DETECT_FORMULAS = [
   // [0,7,11]: maj7 sin 3ª — naming estándar vs framing power chord
   { id: "maj7no3", intervals: [0, 7, 11], degreeLabels: ["1", "5", "7"], suffix: "maj7(no3)", ui: null },
   { id: "5maj7",   intervals: [0, 7, 11], degreeLabels: ["1", "5", "7"], suffix: "5(maj7)",   ui: null },
+  // [0,2,4,5]: mayor con 9ª y 11ª, sin 5ª
+  { id: "add9add11no5", intervals: [0, 2, 4, 5], degreeLabels: ["1", "9", "3", "11"], suffix: "add9,11(no5)", ui: null },
   // [0,4,5,10]: dom7 con 11ª, sin 5ª
   { id: "dom7add11no5", intervals: [0, 4, 5, 10], degreeLabels: ["1", "3", "11", "b7"], suffix: "7(add11,no5)", ui: null },
   // [0,3,7,8]: framing compacto de m(addb13)
@@ -434,7 +436,7 @@ function candidateFormulaComplexityPenalty(candidate) {
   if (["add9sharp11no3"].includes(id)) return 4;
   if (["maj7no3"].includes(id)) return 4;
   if (["5maj7"].includes(id)) return 6;
-  if (["dom7add11no5"].includes(id)) return 5;
+  if (["add9add11no5", "dom7add11no5"].includes(id)) return 5;
   return 7;
 }
 

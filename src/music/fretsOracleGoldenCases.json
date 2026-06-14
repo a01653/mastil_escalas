@@ -342,5 +342,14 @@
     "bass": "D",
     "mustInclude": ["D7sus2"],
     "preferred": null
+  },
+  {
+    "id": "x54030-dadd9-11-no5",
+    "golden": true,
+    "voicing": "x54030",
+    "notes": ["D", "F#", "G", "E"],
+    "bass": "D",
+    "mustInclude": ["Dadd9,11(no5)"],
+    "preferred": null
   }
 ]
