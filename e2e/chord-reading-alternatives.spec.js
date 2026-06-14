@@ -118,3 +118,47 @@ test("RA-4. seleccionar una lectura avanzada la convierte en Principal y la saca
   await expect(page.getByTestId(`detected-chord-name-${qId}`)).toHaveText(qText);
   await expect(page.getByTestId("detected-advanced-toggle")).toHaveCount(0);
 });
+
+test("RA-5. x42200: una lectura solo 'por referencia' no se mueve a avanzadas al cambiar la referencia (hotfix 6.0.59)", async ({ page }) => {
+  await goToChords(page);
+  await enableDetectMode(page);
+  // NO desactivamos "Mantener lectura anterior": el bug aparece con la selección
+  // fijada en otra lectura mientras B9sus4(no5)/C# se vuelve referencePromoted.
+
+  await page.getByTestId("chord-detect-pattern-input").fill("x42200");
+  await page.getByTestId("chord-detect-apply-btn").click();
+
+  const list = page.getByTestId("detected-chord-list");
+  const b9 = () => list.locator("[data-testid^='detected-chord-name-']").filter({ hasText: "B9sus4" });
+
+  // Fija la selección en Aadd9/C# para que B9sus4 NO sea la lectura seleccionada.
+  const aadd9 = list.locator("[data-testid^='detected-chord-name-']").filter({ hasText: "Aadd9" }).first();
+  await expect(aadd9).toBeVisible();
+  const aadd9Id = (await aadd9.getAttribute("data-testid")).replace("detected-chord-name-", "");
+  await page.getByTestId(`detected-chord-${aadd9Id}`).locator("input[type='radio']").check();
+
+  // Sin referencia: B9sus4 ya está en el bloque normal.
+  await expect(b9()).toBeVisible();
+
+  // Activa la referencia y ponla en B → B9sus4(no5)/C# se marca referencePromoted.
+  await page.getByTestId("chord-ref-enabled").check();
+  await page.getByTestId("chord-ref-natural").selectOption("B");
+  await page.waitForTimeout(300);
+
+  // La selección sigue en Aadd9 (no saltó a B9sus4): así esta prueba captura la
+  // regresión real — B9sus4 está en 'main' por el fix, no por ser el Primary.
+  await expect(page.getByTestId(`detected-chord-principal-${aadd9Id}`)).toBeVisible();
+
+  // Regla del hotfix: el bloque avanzado sigue cerrado por defecto y B9sus4 NO se ha
+  // escondido en avanzadas solo por estar "por referencia": sigue visible en el normal.
+  await expect(page.getByTestId("detected-advanced-list")).toHaveCount(0);
+  await expect(b9()).toBeVisible();
+
+  // Al abrir avanzadas, B9sus4 no está ahí (solo cuartales/contextuales reales).
+  const toggle = page.getByTestId("detected-advanced-toggle");
+  if ((await toggle.count()) > 0) {
+    await toggle.click();
+    await expect(page.getByTestId("detected-advanced-list")).toBeVisible();
+    await expect(page.getByTestId("detected-advanced-list")).not.toContainText("B9sus4");
+  }
+});

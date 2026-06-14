@@ -6,11 +6,20 @@ import {
 } from "./chordReadingGroupsCore.js";
 
 describe("isAdvancedReading", () => {
-  it("marca cuartal/fragmento/contextual/referencePromoted como avanzadas", () => {
+  it("marca cuartal/fragmento/contextual como avanzadas", () => {
     expect(isAdvancedReading({ formula: { quartal: true } })).toBe(true);
     expect(isAdvancedReading({ fragment: true })).toBe(true);
     expect(isAdvancedReading({ contextual: true })).toBe(true);
-    expect(isAdvancedReading({ referencePromoted: true })).toBe(true);
+  });
+
+  it("referencePromoted por sí solo NO es avanzada (es solo informativo)", () => {
+    expect(isAdvancedReading({ name: "B9sus4(no5)/C#", referencePromoted: true })).toBe(false);
+  });
+
+  it("referencePromoted combinado con cuartal/fragment/contextual sí es avanzada", () => {
+    expect(isAdvancedReading({ referencePromoted: true, formula: { quartal: true } })).toBe(true);
+    expect(isAdvancedReading({ referencePromoted: true, fragment: true })).toBe(true);
+    expect(isAdvancedReading({ referencePromoted: true, contextual: true })).toBe(true);
   });
 
   it("una lectura tertian normal no es avanzada; null tampoco", () => {
@@ -56,16 +65,30 @@ describe("partitionDetectedReadings", () => {
     expect(advanced).toEqual([]);
   });
 
-  it("separa fragment/contextual/referencePromoted al grupo avanzado", () => {
+  it("separa fragment/contextual al grupo avanzado, pero referencePromoted solo se queda en main", () => {
     const list = [
       { id: "p", name: "Cmaj7" },
       { id: "frag", name: "C(add9,no3)", fragment: true },
       { id: "ctx", name: "Em7/C", contextual: true },
-      { id: "ref", name: "A7/C", referencePromoted: true },
+      { id: "ref", name: "A7/C", referencePromoted: true }, // solo por referencia → main
       { id: "ok", name: "Am7/C" },
     ];
     const { main, advanced } = partitionDetectedReadings({ candidates: list, keepVisibleId: "p" });
-    expect(main.map((c) => c.id)).toEqual(["p", "ok"]);
-    expect(advanced.map((c) => c.id)).toEqual(["frag", "ctx", "ref"]);
+    expect(main.map((c) => c.id)).toEqual(["p", "ref", "ok"]);
+    expect(advanced.map((c) => c.id)).toEqual(["frag", "ctx"]);
+  });
+
+  it("una lectura solo referencePromoted (sin quartal/fragment/contextual) NO se mueve a avanzadas", () => {
+    // Regresión hotfix 6.0.59: x42200 con referencia B promueve B9sus4(no5)/C#
+    // con referencePromoted:true; aunque NO sea la seleccionada, debe quedar en main.
+    const list = [
+      { id: "aadd9", name: "Aadd9/C#" }, // seleccionada (keepVisibleId)
+      { id: "esus4", name: "Esus4/C#" },
+      { id: "b9sus4", name: "B9sus4(no5)/C#", referencePromoted: true },
+      { id: "quartal", name: "Cuartal B/C#", formula: { quartal: true } },
+    ];
+    const { main, advanced } = partitionDetectedReadings({ candidates: list, keepVisibleId: "aadd9" });
+    expect(main.map((c) => c.id)).toContain("b9sus4");
+    expect(advanced.map((c) => c.id)).toEqual(["quartal"]);
   });
 });

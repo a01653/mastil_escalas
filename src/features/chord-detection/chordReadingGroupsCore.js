@@ -5,11 +5,17 @@
 // lista ya calculada (chordDetectCandidatesRanked) para que las lecturas
 // avanzadas/contextuales puedan mostrarse en un bloque desplegable cerrado por
 // defecto. Se reutilizan los marcadores ya existentes del candidato; no se
-// introduce ninguna clasificación musical nueva:
-//   - formula.quartal   → lectura cuartal
-//   - fragment          → fragmento (harmonyContextRanking)
-//   - contextual        → lectura por contexto/referencia
-//   - referencePromoted → promovida por acorde de referencia
+// introduce ninguna clasificación musical nueva. Es avanzada si la lectura es
+// realmente cuartal, fragmentaria o contextual fuerte:
+//   - formula.quartal → lectura cuartal
+//   - fragment        → fragmento (harmonyContextRanking)
+//   - contextual      → lectura contextual real (candidato sintético por referencia)
+//
+// NOTA: `referencePromoted` NO es criterio. Marca una lectura normal que solo
+// subió al top por el acorde de referencia (sorted[0] reordenado); sigue siendo
+// terciaria/normal. Por eso "por referencia" es una etiqueta informativa, no un
+// motivo para esconderla. Si además es cuartal/fragmento/contextual, esos flags
+// (no `referencePromoted`) la mandan a avanzadas.
 
 /** ¿La lectura pertenece a la capa avanzada/contextual? Solo marcadores existentes. */
 export function isAdvancedReading(candidate) {
@@ -17,8 +23,7 @@ export function isAdvancedReading(candidate) {
   return !!(
     candidate.formula?.quartal ||
     candidate.fragment ||
-    candidate.contextual ||
-    candidate.referencePromoted
+    candidate.contextual
   );
 }
 

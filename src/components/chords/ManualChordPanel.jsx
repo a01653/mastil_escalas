@@ -420,6 +420,7 @@ export default function ManualChordPanel({ layout, reading, actions, reference, 
               <span className="relative flex h-4 w-4 flex-shrink-0 items-center justify-center">
                 <input
                   type="checkbox"
+                  data-testid="chord-ref-enabled"
                   checked={chordRefEnabled}
                   onChange={(e) => setChordRefEnabled(e.target.checked)}
                   className="absolute inset-0 h-4 w-4 cursor-pointer opacity-0"
@@ -429,6 +430,7 @@ export default function ManualChordPanel({ layout, reading, actions, reference, 
               Referencia:
             </label>
             <select
+              data-testid="chord-ref-natural"
               value={chordRefNatural}
               onChange={(e) => setChordRefNatural(e.target.value)}
               disabled={!chordRefEnabled}
