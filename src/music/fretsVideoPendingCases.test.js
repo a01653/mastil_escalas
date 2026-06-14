@@ -10,7 +10,7 @@ const cases = JSON.parse(readFileSync(CASES_PATH, "utf8"));
 describe("fretsVideoPendingCases", () => {
   it("carga un array JSON válido", () => {
     expect(Array.isArray(cases)).toBe(true);
-    expect(cases.length).toBeGreaterThanOrEqual(3);
+    expect(cases.length).toBeGreaterThanOrEqual(2);
   });
 
   it("marca todos los casos como pending y no los activa como golden", () => {

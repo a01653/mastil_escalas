@@ -351,5 +351,14 @@
     "bass": "D",
     "mustInclude": ["Dadd9,11(no5)"],
     "preferred": null
+  },
+  {
+    "id": "304030-gmaj13-no3",
+    "golden": true,
+    "voicing": "304030",
+    "notes": ["G", "A", "F#", "D", "E"],
+    "bass": "G",
+    "mustInclude": ["Gmaj13(no3)"],
+    "preferred": null
   }
 ]

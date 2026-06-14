@@ -1,31 +1,5 @@
 [
   {
-    "id": "video-g-304030-gmaj13-no3-pending",
-    "pending": true,
-    "source": {
-      "type": "video",
-      "label": "G"
-    },
-    "voicing": "304030",
-    "notes": ["G", "A", "F#", "D", "E"],
-    "bass": "G",
-    "expectedToInvestigate": "Gmaj13(no3)",
-    "oracleEquivalent": "Gmaj7(add9,add13,no3)",
-    "currentReaderPrimary": "Dadd9,11/G",
-    "currentReaderMain": [
-      "Dadd9,11/G",
-      "Em7(add9,11,no5)/G",
-      "F#m7(addb2,addb6,no5)/G"
-    ],
-    "currentReaderAdvanced": [],
-    "currentOracleExtras": [
-      "Asus4(add13,b7)/G",
-      "Gmaj7(add9,add13,no3)"
-    ],
-    "status": "pending-investigation",
-    "problem": "El lector no propone lectura con raíz G aunque bajo=G y el set contiene 1, 5, 7M, 9 y 13."
-  },
-  {
     "id": "video-c-034030-cadd9-sharp11-over-e-pending",
     "pending": true,
     "source": {

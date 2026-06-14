@@ -151,6 +151,8 @@ export const CHORD_DETECT_FORMULAS = [
   { id: "maj7add13omit5", intervals: [0, 4, 9, 11], degreeLabels: ["1", "3", "13", "7"], suffix: "maj7(add13,no5)", ui: { quality: "maj", suspension: "none", structure: "chord", inversion: "all", form: "open", positionForm: "open", ext7: true, ext6: false, ext9: false, ext11: false, ext13: true }, manualOnly: true },
   { id: "maj13", intervals: [0, 2, 4, 7, 9, 11], degreeLabels: ["1", "9", "3", "5", "13", "7"], suffix: "maj13", ui: { quality: "maj", suspension: "none", structure: "chord", inversion: "all", form: "open", positionForm: "open", ext7: true, ext6: false, ext9: true, ext11: false, ext13: true } },
   { id: "maj13omit5", intervals: [0, 2, 4, 9, 11], degreeLabels: ["1", "9", "3", "13", "7"], suffix: "maj13(no5)", ui: { quality: "maj", suspension: "none", structure: "chord", inversion: "all", form: "open", positionForm: "open", ext7: true, ext6: false, ext9: true, ext11: false, ext13: true }, manualOnly: true },
+  // [0,2,7,9,11]: maj13 sin 3ª — raíz+9+5+13+7M presente, 3ª ausente
+  { id: "maj13no3", intervals: [0, 2, 7, 9, 11], degreeLabels: ["1", "9", "5", "13", "7"], suffix: "maj13(no3)", ui: null },
   { id: "maj7sharp9", intervals: [0, 3, 4, 7, 11], degreeLabels: ["1", "#9", "3", "5", "7"], suffix: "maj7(#9)", ui: null, manualOnly: true },
   { id: "9", intervals: [0, 2, 4, 7, 10], degreeLabels: ["1", "9", "3", "5", "b7"], suffix: "9", ui: { quality: "dom", suspension: "none", structure: "chord", inversion: "all", form: "open", positionForm: "open", ext7: true, ext6: false, ext9: true, ext11: false, ext13: false } },
   { id: "7sharp9", intervals: [0, 3, 4, 7, 10], degreeLabels: ["1", "#9", "3", "5", "b7"], suffix: "7(#9)", ui: null, manualOnly: true },
@@ -361,6 +363,9 @@ function shouldFilterContradictoryPartialCoreCandidate(candidate) {
   }
   if (id === "dom7sus4") return missing.includes("4");
   if (id === "dom7sus2") return missing.includes("2");
+  // maj13no3 requiere las 5 notas completas (raíz+9+5+13+7M); con cualquier nota
+  // ausente el nombre acumula dos omisiones (no3 + noX), generando ruido.
+  if (id === "maj13no3") return true;
   return false;
 }
 
@@ -427,7 +432,7 @@ function candidateFormulaComplexityPenalty(candidate) {
   if (["maj9", "9", "m9", "7sharp9", "7sharp9no5", "mmaj9", "maj7sharp9"].includes(id)) return 6;
   if (["dom13sharp11"].includes(id)) return 8;
   if (["m7flat13", "m7no5addb13"].includes(id)) return 8;
-  if (["maj7add13", "maj7add13omit5", "maj13", "maj13omit5"].includes(id)) return 8;
+  if (["maj7add13", "maj7add13omit5", "maj13", "maj13omit5", "maj13no3"].includes(id)) return 8;
   if (["m11flat13", "m11flat13omit3"].includes(id)) return 10;
   if (["mmaj7"].includes(id)) return 8;
   if (["mmaj7add13"].includes(id)) return 5;

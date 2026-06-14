@@ -1623,3 +1623,34 @@ describe("Caso x54030 = {D,F#,G,E} bajo=D", () => {
     expectRequiredDegrees(reading, ["1", "9", "3", "11"]);
   });
 });
+
+describe("Caso 304030 = {G,A,F#,D,E} bajo=G", () => {
+  test("Gmaj13(no3) aparece como lectura del motor primario", () => {
+    const result = analyzeSelectedNotes(["G", "A", "F#", "D", "E"], "G");
+    expect(readingNames(result)).toContain("Gmaj13(no3)");
+  });
+
+  test("Dadd9,11/G sigue siendo Primary", () => {
+    const result = analyzeSelectedNotes(["G", "A", "F#", "D", "E"], "G");
+    expect(result.primary?.name).toBe("Dadd9,11/G");
+  });
+
+  test("Gmaj13(no3) tiene grados 1, 5, 7, 9, 13 correctos", () => {
+    const result = analyzeSelectedNotes(["G", "A", "F#", "D", "E"], "G");
+    const reading = getReading(result, "Gmaj13(no3)");
+    expectRequiredDegrees(reading, ["1", "5", "7", "9", "13"]);
+  });
+
+  test("regresión negativa: sin 7M (sin F#) no genera Gmaj13(no3)", () => {
+    // G A D E — sin F# (7M): no hay maj13 sin tercera sin séptima mayor
+    const result = analyzeSelectedNotes(["G", "A", "D", "E"], "G");
+    expect(readingNames(result)).not.toContain("Gmaj13(no3)");
+  });
+
+  test("regresión negativa: 4 notas (sin 9ª, A ausente) no genera Gmaj13(no3) fragmentario", () => {
+    // G D E F# — falta A (9ª): el formula exact-only descarta el fragmento con no9
+    const result = analyzeSelectedNotes(["G", "D", "E", "F#"], "G");
+    expect(readingNames(result)).not.toContain("Gmaj13(no3)");
+    expect(readingNames(result)).not.toContain("Gmaj13(no3,no9)");
+  });
+});
