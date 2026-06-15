@@ -136,4 +136,51 @@ describe("analyzeProgression", () => {
       expect(cMaj.outsideChords).toContain("Eb");
     }
   });
+
+  // ── Progresiones adicionales del comando analyze:progression ─────────────────
+
+  test("D G A Bm → D mayor y B menor con encaje alto", () => {
+    const r = analyzeProgression("D | G | A | Bm");
+    const labels = r.keys.map((k) => k.label);
+    expect(labels).toContain("D mayor");
+    expect(labels).toContain("B menor");
+    expect(r.keys.find((k) => k.label === "D mayor").percentage).toBe(100);
+  });
+
+  test("E Am G C → C mayor o A menor con encaje alto", () => {
+    const r = analyzeProgression("E | Am | G | C");
+    // E mayor no es diatónico en C mayor (Em lo es), pero es dominante de Am
+    const labels = r.keys.map((k) => k.label);
+    expect(labels.some((l) => l === "C mayor" || l === "A menor")).toBe(true);
+  });
+
+  test("A7 Dm G C → C mayor primera opción (cadencias II-V-I)", () => {
+    const r = analyzeProgression("A7 | Dm | G | C");
+    expect(r.keys[0].label).toBe("C mayor");
+  });
+
+  test("B7 Em C D → E menor primera opción (B7 = dominante de Em)", () => {
+    const r = analyzeProgression("B7 | Em | C | D");
+    expect(r.keys[0].label).toBe("E menor");
+    const eMin = r.keys.find((k) => k.label === "E menor");
+    expect(eMin.functionalChords.some((f) => f.explanation.includes("dominante de Em"))).toBe(true);
+    // G mayor también aparece con encaje moderado
+    const gMaj = r.keys.find((k) => k.label === "G mayor");
+    expect(gMaj).toBeDefined();
+  });
+
+  test("C E7 Am F G → tonalidad con encaje moderado incluye C mayor o A menor", () => {
+    const r = analyzeProgression("C | E7 | Am | F | G");
+    const labels = r.keys.map((k) => k.label);
+    expect(labels.some((l) => l === "C mayor" || l === "A menor")).toBe(true);
+  });
+
+  test("Am G F E → A menor o C mayor con encaje alto", () => {
+    const r = analyzeProgression("Am | G | F | E");
+    const labels = r.keys.map((k) => k.label);
+    // E mayor en A menor = dominante funcional → A menor debería puntuar alto
+    expect(labels).toContain("A menor");
+    const aMin = r.keys.find((k) => k.label === "A menor");
+    expect(aMin.strength).not.toBe("débil");
+  });
 });

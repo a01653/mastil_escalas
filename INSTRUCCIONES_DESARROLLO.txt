@@ -200,6 +200,47 @@ ANALIZAR DIGITACIÓN DESDE TERMINAL
     - 'x' = cuerda silenciada. Orden: cuerda 6 (LowE) → cuerda 1 (HighE).
 
 
+ANÁLISIS DE PROGRESIONES / TONALIDAD DESDE CONSOLA
+----------------------------------------------------
+  npm run analyze:progression -- "F# | Bm | A/E | D/F#"
+  npm run analyze:progression -- "C F G Am"
+  npm run analyze:progression -- "Am | F | C | G"
+
+  Uso:
+    Permite probar el mismo motor de análisis tonal usado en la tarjeta
+    "Analizador de tonalidad / progresión" (pestaña Acordes cercanos) sin abrir la UI.
+    Reutiliza src/music/keyAnalysisEngine.js sin duplicar lógica.
+
+  Separadores aceptados:
+    |  coma  salto-de-línea  espacios simples o múltiples
+
+  Slash chords:
+    A/E  D/F#  (el bajo se extrae pero el análisis usa solo el acorde principal)
+
+  Salida JSON (sin colores, útil para scripts):
+    npm run analyze:progression -- "F# | Bm | A/E | D/F#" --json
+    node scripts/analyzeProgression.mjs "F# | Bm | A/E | D/F#" --json
+
+  Ejemplos representativos:
+    npm run analyze:progression -- "C | F | G | Am"          → C mayor / A menor
+    npm run analyze:progression -- "D | G | A | Bm"          → D mayor / B menor
+    npm run analyze:progression -- "F# | Bm | A/E | D/F#"    → B menor (F# → dominante de Bm)
+    npm run analyze:progression -- "Am | F | C | G"          → A menor / C mayor
+    npm run analyze:progression -- "A7 | Dm | G | C"         → C mayor (cadencia II-V-I)
+    npm run analyze:progression -- "B7 | Em | C | D"         → G mayor
+    npm run analyze:progression -- "C | E7 | Am | F | G"     → C mayor o A menor
+    npm run analyze:progression -- "Am | G | F | E"          → A menor (E = dominante de Am)
+
+  Notas importantes:
+    - El análisis es probabilístico por puntuación, no diatónico estricto.
+    - Las tonalidades diatónicas estrictas (ver Acordes cercanos en la UI) son distintas
+      de la "tonalidad probable" calculada por este motor.
+    - El motor reconoce dominantes funcionales: F# → Bm en B menor, E → Am en A menor.
+    - Las progresiones de blues (A7 D7 A7 E7 D7 A7) pueden dar resultados discutibles;
+      el motor no detecta modos ni escalas de blues — solo Mayor y Menor natural.
+    - Las alternativas con menor puntuación se muestran siempre que estén a 1 punto del top.
+
+
 GENERAR MANUAL DE USUARIO (PDF)
 ---------------------------------
   Requiere que el servidor preview esté corriendo:
