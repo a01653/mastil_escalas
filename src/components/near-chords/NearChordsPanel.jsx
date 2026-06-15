@@ -503,7 +503,7 @@ export default function NearChordsPanel({
           bodyClassName="space-y-3"
         >
           <div className="text-xs text-slate-600">
-            <b>Posibles tonalidades:</b> {nearTonalityAnalysis.text}
+            <b>Tonalidades diatónicas estrictas de los acordes activos:</b> {nearTonalityAnalysis.text}
           </div>
 
           <div className="space-y-2">

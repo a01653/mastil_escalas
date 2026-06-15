@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import PanelBlock from "./components/PanelBlock.jsx";
 import NearChordsPanel from "./components/near-chords/NearChordsPanel.jsx";
+import KeyProgressionAnalyzer from "./components/near-chords/KeyProgressionAnalyzer.jsx";
 import ChordsPanel, { CopyVoicingButton } from "./components/chords/ChordsPanel.jsx";
 import ManualChordPanel from "./components/chords/ManualChordPanel.jsx";
 import AppHeader, { ChordDiagramIcon } from "./components/layout/AppHeader.jsx";
@@ -279,7 +280,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "6.0.65";
+const APP_VERSION = "6.0.66";
 
 
 // ─── Acorde de referencia (bloque "Investigar en mástil") ────────────────────
@@ -4603,6 +4604,8 @@ export default function FretboardScalesPage() {
             }}
           />
         ) : null}
+
+        {boardVisibility.nearChords ? <KeyProgressionAnalyzer /> : null}
 
         <NearChordsPanel
           visible={boardVisibility.nearChords}
