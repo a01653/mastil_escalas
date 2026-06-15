@@ -240,6 +240,100 @@ ANÁLISIS DE PROGRESIONES / TONALIDAD DESDE CONSOLA
       el motor no detecta modos ni escalas de blues — solo Mayor y Menor natural.
     - Las alternativas con menor puntuación se muestran siempre que estén a 1 punto del top.
 
+BATERÍA RECOMENDADA PARA PROBAR analyze:progression
+------------------------------------------------------
+  Ejecutar el script en modo --json para verificar automáticamente:
+
+  A) Regresión estricta (los resultados NO deben cambiar):
+
+    Diatónicos puros:
+      node scripts/analyzeProgression.mjs "G | Em | C | D" --json
+        → G mayor 100 %, E menor 100 %, sin funcionales ni fuera de tonalidad
+
+      node scripts/analyzeProgression.mjs "F#m | Bm | A/E | D/F#" --json
+        → D mayor primero; D mayor, A mayor, F# menor, B menor al 100 %
+
+    Dominante funcional en menor (armónico V):
+      node scripts/analyzeProgression.mjs "F# | Bm | A | D" --json
+        → B menor primero 92 %; F# → dominante de Bm
+
+      node scripts/analyzeProgression.mjs "E | Am | G | C" --json
+        → A menor primero 92 %; E → dominante de Am
+
+      node scripts/analyzeProgression.mjs "B7 | Em | C | D" --json
+        → E menor primero; B7 → dominante de Em; G mayor como alternativa
+
+    Dominante secundario:
+      node scripts/analyzeProgression.mjs "A7 | Dm | G | C" --json
+        → C mayor primero; A7 → dominante secundario de Dm
+
+      node scripts/analyzeProgression.mjs "C | E7 | Am | F | G" --json
+        → A menor primero 93 %; E7 → dominante de Am; E7 no es diatónico estricto
+
+      node scripts/analyzeProgression.mjs "Dm7 | G7 | Cmaj7 | A7 | Dm7 | G7" --json
+        → C mayor >= 80 %; A7 → dominante secundario de Dm
+
+    Slash chords:
+      node scripts/analyzeProgression.mjs "D/F# | G | A | D" --json
+        → D mayor 100 %; D/F#, G, A, D todos diatónicos
+
+  B) Comportamiento documentado / limitaciones (NO deben romper):
+
+    Modal — bVII prestado (sin lógica de modos; resultado aproximado):
+      node scripts/analyzeProgression.mjs "C | Bb | F | C" --json
+        → No rompe; F mayor o D menor esperado (limitación: no detecta C mixolidio)
+
+      node scripts/analyzeProgression.mjs "D | C | G | D" --json
+        → No rompe; G mayor o E menor esperado (limitación: no detecta D mixolidio)
+
+    Blues (limitación: dom7 se trata como mayor en matching diatónico):
+      node scripts/analyzeProgression.mjs "A7 | D7 | A7 | E7 | D7 | A7" --json
+        → A mayor 100 % (resultado razonable como aproximación; no es bug)
+
+      node scripts/analyzeProgression.mjs "E7 | A7 | B7 | A7" --json
+        → No rompe; E mayor o similar esperado
+
+    Intercambio modal:
+      node scripts/analyzeProgression.mjs "C | Ab | Bb | C" --json
+        → No rompe; resultado ambiguo (fuera del modelo Mayor/Menor natural)
+
+  Todos estos casos están cubiertos por tests automáticos en:
+    src/music/keyAnalysisEngine.test.js  (grupos A y B)
+    scripts/analyzeProgression.test.js   (grupos A y B — CLI)
+
+
+MEJORAS FUTURAS PENDIENTES EN EL MOTOR DE ANÁLISIS TONAL
+----------------------------------------------------------
+
+1. Resolución real de dominantes secundarios
+
+   Actualmente el motor puede etiquetar un acorde como dominante secundario si
+   teóricamente es V de otro acorde de la tonalidad. En una mejora futura conviene
+   comprobar también si resuelve realmente hacia ese acorde.
+
+   Ejemplo:
+     Bm | F# | A | E | G | D
+
+   La tonalidad probable B menor es correcta.
+   F# → dominante de Bm es correcto.
+   E → dominante secundario de A es discutible si no resuelve a A;
+   en ese contexto puede ser mejor marcarlo como acorde no diatónico,
+   color dórico o posible dominante sin resolución.
+
+2. Detección de blues (I7 - IV7 - V7)
+
+   El motor trata dom7 como tríada mayor para el matching diatónico,
+   lo que hace que A7 | D7 | E7 puntúe al 100% en A mayor.
+   En una mejora futura, la progresión I7-IV7-V7 debería detectarse como
+   "A blues" o etiquetarse de forma diferenciada de "A mayor diatónico".
+
+3. Modos (mixolidio, dórico, etc.)
+
+   Progresiones como C | Bb | F | C (bVII prestado → C mixolidio) o
+   D | C | G | D (D mixolidio) se aproximan actualmente a F mayor o G mayor
+   porque el motor solo conoce Mayor y Menor natural.
+   En una mejora futura se podría puntuar modos específicos.
+
 
 GENERAR MANUAL DE USUARIO (PDF)
 ---------------------------------
