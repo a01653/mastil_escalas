@@ -231,6 +231,34 @@ ANÁLISIS DE PROGRESIONES / TONALIDAD DESDE CONSOLA
     npm run analyze:progression -- "C | E7 | Am | F | G"     → C mayor o A menor
     npm run analyze:progression -- "Am | G | F | E"          → A menor (E = dominante de Am)
 
+  Bloque de grados (v6.0.69):
+    El resultado incluye una tabla de armonización diatónica de la tonalidad principal.
+    El modo (tríadas / tétradas) se elige automáticamente:
+      - Tríadas: si la progresión solo contiene acordes sin 7ª (C, Am, F#m, G, etc.)
+      - Tétradas: si algún acorde tiene 7ª o extensión (G7, Dm7, Cmaj7, Bm7b5, etc.)
+
+    Modo tríadas (ejemplo: C | F | G | Am → C mayor):
+      I    C     ✓ usado
+      ii   Dm
+      iii  Em
+      IV   F     ✓ usado
+      V    G     ✓ usado
+      vi   Am    ✓ usado
+      vii° Bdim
+
+    Modo tétradas (ejemplo: Cmaj7 | Dm7 | G7 | Cmaj7 → C mayor):
+      Imaj7   Cmaj7   ✓ usado
+      ii7     Dm7     ✓ usado
+      iii7    Em7
+      IVmaj7  Fmaj7
+      V7      G7      ✓ usado
+      vi7     Am7
+      viiø7   Bm7b5
+
+    En la UI se muestra como tabla horizontal con los grados usados resaltados en azul.
+    Los acordes slash y con extensiones (D/F#, G7) se marcan en su grado base.
+    Los acordes funcionales/no diatónicos no se incluyen en la tabla de grados.
+
   Notas importantes:
     - El análisis es probabilístico por puntuación, no diatónico estricto.
     - Las tonalidades diatónicas estrictas (ver Acordes cercanos en la UI) son distintas

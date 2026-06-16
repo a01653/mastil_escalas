@@ -19,6 +19,21 @@ const SCORE_DIATONIC = 3;
 const SCORE_FUNCTIONAL_DOM = 2;
 const SCORE_SECONDARY_DOM = 1;
 
+const DEGREE_LABELS_TRIAD = {
+  Mayor: ["I", "ii", "iii", "IV", "V", "vi", "vii°"],
+  "Menor natural": ["i", "ii°", "III", "iv", "v", "VI", "VII"],
+};
+
+const DEGREE_LABELS_TETRAD = {
+  Mayor: ["Imaj7", "ii7", "iii7", "IVmaj7", "V7", "vi7", "viiø7"],
+  "Menor natural": ["im7", "iiø7", "IIImaj7", "iv7", "v7", "VImaj7", "VII7"],
+};
+
+const TETRAD_QUALITIES = {
+  Mayor: ["maj7", "min7", "min7", "maj7", "dom7", "min7", "hdim7"],
+  "Menor natural": ["min7", "hdim7", "maj7", "min7", "min7", "maj7", "dom7"],
+};
+
 function suffixToQuality(suffix) {
   const s = suffix.trim();
   // Case-sensitive checks first
@@ -38,6 +53,11 @@ function suffixToQuality(suffix) {
   if (["m7b5", "m7(b5)", "hdim", "hdim7"].includes(sl)) return "hdim";
   if (["aug", "aug7"].includes(sl)) return "aug";
   return "maj";
+}
+
+function suffixHasSeventh(rawSuffix) {
+  const s = rawSuffix.trim();
+  return s.toLowerCase().includes("7") || ["Δ", "△", "△7", "ø", "ø7"].includes(s);
 }
 
 function parseChordToken(raw) {
@@ -62,7 +82,9 @@ function parseChordToken(raw) {
   while (i < chordPart.length && chordPart[i] === "b") { rootPc -= 1; i++; }
   rootPc = mod12(rootPc);
 
-  const quality = suffixToQuality(chordPart.slice(i));
+  const rawSuffix = chordPart.slice(i);
+  const quality = suffixToQuality(rawSuffix);
+  const hasSeventh = suffixHasSeventh(rawSuffix) || quality === "dom" || quality === "hdim";
 
   let bassRootPc = null;
   if (bassText) {
@@ -76,7 +98,7 @@ function parseChordToken(raw) {
     }
   }
 
-  return { symbol: token, rootPc, quality, bassRootPc };
+  return { symbol: token, rootPc, quality, bassRootPc, hasSeventh };
 }
 
 export function parseProgressionText(text) {
@@ -97,6 +119,41 @@ function triadQuality(q) {
   if (q === "dom") return "maj";
   if (q === "hdim") return "dim";
   return q;
+}
+
+function degreeChordName(rootPc, quality, preferSharps) {
+  const name = pcToName(rootPc, preferSharps);
+  if (quality === "min") return `${name}m`;
+  if (quality === "dim") return `${name}dim`;
+  return name;
+}
+
+function tetradChordName(rootPc, tetradQuality, preferSharps) {
+  const name = pcToName(rootPc, preferSharps);
+  if (tetradQuality === "maj7") return `${name}maj7`;
+  if (tetradQuality === "min7") return `${name}m7`;
+  if (tetradQuality === "dom7") return `${name}7`;
+  if (tetradQuality === "hdim7") return `${name}m7b5`;
+  return name;
+}
+
+export function buildDiatonicTable(tonicPc, scaleName, preferSharps, chords, mode) {
+  const { intervals, qualities } = SCALES[scaleName];
+  const degreeLabels = mode === "tetrad" ? DEGREE_LABELS_TETRAD[scaleName] : DEGREE_LABELS_TRIAD[scaleName];
+  const tetradQuals = TETRAD_QUALITIES[scaleName];
+  return intervals.map((iv, i) => {
+    const rootPc = mod12(tonicPc + iv);
+    const triadQual = qualities[i];
+    const tetradQual = tetradQuals[i];
+    const name = mode === "tetrad"
+      ? tetradChordName(rootPc, tetradQual, preferSharps)
+      : degreeChordName(rootPc, triadQual, preferSharps);
+    // Match using triad quality regardless of display mode
+    const usedBy = chords
+      .filter((c) => c.rootPc === rootPc && triadQuality(c.quality) === triadQual)
+      .map((c) => c.symbol);
+    return { degree: degreeLabels[i], name, rootPc, quality: triadQual, tetradQuality: tetradQual, used: usedBy.length > 0, usedBy };
+  });
 }
 
 function scoreChord(chord, tonicPc, scaleName, degrees) {
@@ -145,7 +202,9 @@ function buildChordExplanation(chord, tonicPc, scaleName, scoreInfo, preferSharp
 
 export function analyzeProgression(text) {
   const chords = parseProgressionText(text);
-  if (!chords.length) return { chords: [], keys: [], isEmpty: true };
+  if (!chords.length) return { chords: [], keys: [], isEmpty: true, mode: "triad" };
+
+  const mode = chords.some((c) => c.hasSeventh) ? "tetrad" : "triad";
 
   const results = [];
 
@@ -183,6 +242,19 @@ export function analyzeProgression(text) {
       const tonicName = pcToName(tonicPc, preferSharps);
       const { label } = SCALES[scaleName];
 
+      const diatonicTable = buildDiatonicTable(tonicPc, scaleName, preferSharps, chords, mode);
+
+      // Map each diatonic input chord to its degree label
+      const chordDegrees = {};
+      for (const chord of chords) {
+        const match = diatonicTable.find(
+          (d) => d.rootPc === chord.rootPc && triadQuality(chord.quality) === d.quality
+        );
+        if (match && !chordDegrees[chord.symbol]) {
+          chordDegrees[chord.symbol] = match.degree;
+        }
+      }
+
       results.push({
         label: `${tonicName} ${label}`,
         tonicPc,
@@ -194,6 +266,8 @@ export function analyzeProgression(text) {
         diatonicChords,
         functionalChords,
         outsideChords,
+        diatonicTable,
+        chordDegrees,
       });
     }
   }
@@ -211,5 +285,5 @@ export function analyzeProgression(text) {
     .filter((r) => r.percentage >= 40 && r.score >= topScore - SCORE_DIATONIC)
     .slice(0, 6);
 
-  return { chords, keys, isEmpty: false };
+  return { chords, keys, isEmpty: false, mode };
 }

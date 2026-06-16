@@ -1,5 +1,5 @@
 import { describe, test, expect } from "vitest";
-import { analyzeProgression, parseProgressionText } from "./keyAnalysisEngine.js";
+import { analyzeProgression, parseProgressionText, buildDiatonicTable } from "./keyAnalysisEngine.js";
 
 // ── parseProgressionText ──────────────────────────────────────────────────────
 
@@ -392,5 +392,171 @@ describe("B) Comportamiento documentado — blues (limitación actual)", () => {
     expect(r.keys.length).toBeGreaterThan(0);
     const labels = r.keys.map((k) => k.label);
     expect(labels.some((l) => l.startsWith("E ") || l.startsWith("A ") || l.startsWith("C# "))).toBe(true);
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════════════════
+// TABLA DE GRADOS — v6.0.69
+// ════════════════════════════════════════════════════════════════════════════════
+
+describe("Tabla de grados — modo tríada", () => {
+  test("C F G Am → C mayor, tabla tríadas, grados I IV V vi usados", () => {
+    const r = analyzeProgression("C | F | G | Am");
+    expect(r.mode).toBe("triad");
+    const cMaj = r.keys.find((k) => k.label === "C mayor");
+    expect(cMaj).toBeDefined();
+    const table = cMaj.diatonicTable;
+    expect(table).toHaveLength(7);
+    // Nombres de las tríadas diatónicas de C mayor
+    expect(table.map((d) => d.name)).toEqual(["C", "Dm", "Em", "F", "G", "Am", "Bdim"]);
+    // Grados
+    expect(table.map((d) => d.degree)).toEqual(["I", "ii", "iii", "IV", "V", "vi", "vii°"]);
+    // Marcados como usados: I (C), IV (F), V (G), vi (Am)
+    expect(table.find((d) => d.degree === "I").used).toBe(true);
+    expect(table.find((d) => d.degree === "ii").used).toBe(false);
+    expect(table.find((d) => d.degree === "iii").used).toBe(false);
+    expect(table.find((d) => d.degree === "IV").used).toBe(true);
+    expect(table.find((d) => d.degree === "V").used).toBe(true);
+    expect(table.find((d) => d.degree === "vi").used).toBe(true);
+    expect(table.find((d) => d.degree === "vii°").used).toBe(false);
+    // Mapa chord → grado
+    expect(cMaj.chordDegrees).toMatchObject({ C: "I", F: "IV", G: "V", Am: "vi" });
+  });
+
+  test("D G A Bm → D mayor, tabla tríadas, grados I IV V vi usados", () => {
+    const r = analyzeProgression("D | G | A | Bm");
+    expect(r.mode).toBe("triad");
+    const dMaj = r.keys.find((k) => k.label === "D mayor");
+    expect(dMaj).toBeDefined();
+    const table = dMaj.diatonicTable;
+    expect(table.map((d) => d.name)).toEqual(["D", "Em", "F#m", "G", "A", "Bm", "C#dim"]);
+    expect(table.find((d) => d.degree === "I").used).toBe(true);
+    expect(table.find((d) => d.degree === "IV").used).toBe(true);
+    expect(table.find((d) => d.degree === "V").used).toBe(true);
+    expect(table.find((d) => d.degree === "vi").used).toBe(true);
+    expect(dMaj.chordDegrees).toMatchObject({ D: "I", G: "IV", A: "V", Bm: "vi" });
+  });
+
+  test("F# Bm A D → B menor, tabla tríadas, grados i III VII usados; F# no diatónico", () => {
+    const r = analyzeProgression("F# | Bm | A | D");
+    expect(r.mode).toBe("triad");
+    const bMin = r.keys.find((k) => k.label === "B menor");
+    expect(bMin).toBeDefined();
+    const table = bMin.diatonicTable;
+    expect(table.map((d) => d.name)).toEqual(["Bm", "C#dim", "D", "Em", "F#m", "G", "A"]);
+    expect(table.map((d) => d.degree)).toEqual(["i", "ii°", "III", "iv", "v", "VI", "VII"]);
+    // Bm → i, D → III, A → VII
+    expect(table.find((d) => d.degree === "i").used).toBe(true);
+    expect(table.find((d) => d.degree === "III").used).toBe(true);
+    expect(table.find((d) => d.degree === "VII").used).toBe(true);
+    // F# major no está en B menor natural (es el v que debería ser F#m); F# major → dominante funcional
+    expect(bMin.chordDegrees["F#"]).toBeUndefined();
+    expect(bMin.functionalChords.some((f) => f.symbol === "F#")).toBe(true);
+  });
+});
+
+describe("Tabla de grados — modo tétrada", () => {
+  test("Cmaj7 Dm7 Em7 Fmaj7 → C mayor, tabla tétradas, 4 grados usados", () => {
+    const r = analyzeProgression("Cmaj7 | Dm7 | Em7 | Fmaj7");
+    expect(r.mode).toBe("tetrad");
+    const cMaj = r.keys.find((k) => k.label === "C mayor");
+    expect(cMaj).toBeDefined();
+    const table = cMaj.diatonicTable;
+    expect(table.map((d) => d.degree)).toEqual(["Imaj7", "ii7", "iii7", "IVmaj7", "V7", "vi7", "viiø7"]);
+    expect(table.map((d) => d.name)).toEqual(["Cmaj7", "Dm7", "Em7", "Fmaj7", "G7", "Am7", "Bm7b5"]);
+    expect(table.find((d) => d.degree === "Imaj7").used).toBe(true);
+    expect(table.find((d) => d.degree === "ii7").used).toBe(true);
+    expect(table.find((d) => d.degree === "iii7").used).toBe(true);
+    expect(table.find((d) => d.degree === "IVmaj7").used).toBe(true);
+    expect(table.find((d) => d.degree === "V7").used).toBe(false);   // G7 no está en la progresión
+    expect(table.find((d) => d.degree === "viiø7").used).toBe(false); // Bm7b5 no está
+    expect(cMaj.chordDegrees).toMatchObject({ Cmaj7: "Imaj7", Dm7: "ii7", Em7: "iii7", Fmaj7: "IVmaj7" });
+  });
+
+  test("Dm7 G7 Cmaj7 → C mayor, V7 y ii7 e Imaj7 usados", () => {
+    const r = analyzeProgression("Dm7 | G7 | Cmaj7");
+    expect(r.mode).toBe("tetrad");
+    const cMaj = r.keys.find((k) => k.label === "C mayor");
+    expect(cMaj).toBeDefined();
+    expect(cMaj.diatonicTable.find((d) => d.degree === "ii7").used).toBe(true);
+    expect(cMaj.diatonicTable.find((d) => d.degree === "V7").used).toBe(true);
+    expect(cMaj.diatonicTable.find((d) => d.degree === "Imaj7").used).toBe(true);
+    expect(cMaj.chordDegrees).toMatchObject({ Dm7: "ii7", G7: "V7", Cmaj7: "Imaj7" });
+  });
+
+  test("Am7 Bm7b5 Cmaj7 Dm7 → A menor, tabla tétradas", () => {
+    const r = analyzeProgression("Am7 | Bm7b5 | Cmaj7 | Dm7");
+    expect(r.mode).toBe("tetrad");
+    const aMin = r.keys.find((k) => k.label === "A menor");
+    expect(aMin).toBeDefined();
+    const table = aMin.diatonicTable;
+    expect(table.map((d) => d.degree)).toEqual(["im7", "iiø7", "IIImaj7", "iv7", "v7", "VImaj7", "VII7"]);
+    expect(table.map((d) => d.name)).toEqual(["Am7", "Bm7b5", "Cmaj7", "Dm7", "Em7", "Fmaj7", "G7"]);
+    expect(table.find((d) => d.degree === "im7").used).toBe(true);
+    expect(table.find((d) => d.degree === "iiø7").used).toBe(true);
+    expect(table.find((d) => d.degree === "IIImaj7").used).toBe(true);
+    expect(table.find((d) => d.degree === "iv7").used).toBe(true);
+  });
+
+  test("G (tríada) en progresión tétrada marca V7 como usado", () => {
+    // Si hay otros acordes con 7ª, el modo es tetrad; una tríada sola debe marcar su grado
+    const r = analyzeProgression("C | Dm7 | G | Am");
+    expect(r.mode).toBe("tetrad");
+    const cMaj = r.keys.find((k) => k.label === "C mayor");
+    expect(cMaj.diatonicTable.find((d) => d.degree === "V7").used).toBe(true);
+    expect(cMaj.chordDegrees["G"]).toBe("V7");
+  });
+});
+
+describe("hasSeventh — detección de 7ª en acordes", () => {
+  test("G7 → hasSeventh true; G → false", () => {
+    const r7 = parseProgressionText("G7");
+    expect(r7[0].hasSeventh).toBe(true);
+    const r = parseProgressionText("G");
+    expect(r[0].hasSeventh).toBe(false);
+  });
+
+  test("Cmaj7, Am7, Bm7b5, Fmaj7 → hasSeventh true", () => {
+    for (const sym of ["Cmaj7", "Am7", "Bm7b5", "Fmaj7"]) {
+      expect(parseProgressionText(sym)[0].hasSeventh).toBe(true);
+    }
+  });
+
+  test("C, Am, Bdim, F#m → hasSeventh false", () => {
+    for (const sym of ["C", "Am", "Bdim", "F#m"]) {
+      expect(parseProgressionText(sym)[0].hasSeventh).toBe(false);
+    }
+  });
+
+  test("Dm (tríada) → mode triad; Dm7 → mode tetrad", () => {
+    expect(analyzeProgression("C F Dm G").mode).toBe("triad");
+    expect(analyzeProgression("C F Dm7 G").mode).toBe("tetrad");
+  });
+});
+
+describe("buildDiatonicTable — función exportada", () => {
+  test("C mayor tríadas", () => {
+    const table = buildDiatonicTable(0, "Mayor", true, [], "triad");
+    expect(table.map((d) => d.name)).toEqual(["C", "Dm", "Em", "F", "G", "Am", "Bdim"]);
+    expect(table.map((d) => d.degree)).toEqual(["I", "ii", "iii", "IV", "V", "vi", "vii°"]);
+    expect(table.every((d) => !d.used)).toBe(true);
+  });
+
+  test("C mayor tétradas", () => {
+    const table = buildDiatonicTable(0, "Mayor", true, [], "tetrad");
+    expect(table.map((d) => d.name)).toEqual(["Cmaj7", "Dm7", "Em7", "Fmaj7", "G7", "Am7", "Bm7b5"]);
+    expect(table.map((d) => d.degree)).toEqual(["Imaj7", "ii7", "iii7", "IVmaj7", "V7", "vi7", "viiø7"]);
+  });
+
+  test("A menor tríadas", () => {
+    const table = buildDiatonicTable(9, "Menor natural", false, [], "triad");
+    expect(table.map((d) => d.name)).toEqual(["Am", "Bdim", "C", "Dm", "Em", "F", "G"]);
+    expect(table.map((d) => d.degree)).toEqual(["i", "ii°", "III", "iv", "v", "VI", "VII"]);
+  });
+
+  test("A menor tétradas", () => {
+    const table = buildDiatonicTable(9, "Menor natural", false, [], "tetrad");
+    expect(table.map((d) => d.name)).toEqual(["Am7", "Bm7b5", "Cmaj7", "Dm7", "Em7", "Fmaj7", "G7"]);
+    expect(table.map((d) => d.degree)).toEqual(["im7", "iiø7", "IIImaj7", "iv7", "v7", "VImaj7", "VII7"]);
   });
 });

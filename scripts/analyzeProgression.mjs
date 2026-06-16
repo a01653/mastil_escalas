@@ -66,6 +66,48 @@ if (useJson) {
   process.exit(0);
 }
 
+// ─── Helper: imprimir bloque de una tonalidad ─────────────────────────────────
+
+function printKeyBlock(keyData, isMain) {
+  if (keyData.diatonicChords.length) {
+    console.log();
+    console.log(`${BOLD}Acordes diatónicos:${R} ${keyData.diatonicChords.join(", ")}`);
+  }
+
+  if (keyData.diatonicTable?.length) {
+    console.log();
+    console.log(`${BOLD}Grados en ${keyData.label}:${R}`);
+    const maxDeg = Math.max(...keyData.diatonicTable.map((d) => d.degree.length));
+    for (const d of keyData.diatonicTable) {
+      const deg = d.degree.padEnd(maxDeg + 2);
+      const coloredName = d.used ? `${GREEN}${d.name}${R}` : d.name;
+      console.log(`  ${BOLD}${deg}${R}→ ${coloredName}`);
+    }
+  }
+
+  const diatonicEntries = Object.entries(keyData.chordDegrees ?? {});
+  if (diatonicEntries.length) {
+    console.log();
+    console.log(`${BOLD}Acordes introducidos:${R}`);
+    const maxLen = Math.max(...diatonicEntries.map(([sym]) => sym.length));
+    for (const [sym, deg] of diatonicEntries) {
+      console.log(`  ${sym.padEnd(maxLen + 2)}→ ${GREEN}${deg}${R}`);
+    }
+  }
+
+  if (keyData.functionalChords.length) {
+    console.log();
+    console.log(`${BOLD}Acordes funcionales/no diatónicos:${R}`);
+    keyData.functionalChords.forEach((f) => console.log(`  - ${AMBER}${f.explanation}${R}`));
+  }
+
+  if (keyData.outsideChords.length) {
+    console.log();
+    console.log(`${BOLD}Fuera de tonalidad:${R}`);
+    keyData.outsideChords.forEach((ch) => console.log(`  - ${DIM}${ch}${R}`));
+  }
+}
+
 // ─── Salida humana ─────────────────────────────────────────────────────────────
 
 console.log();
@@ -88,28 +130,14 @@ console.log();
 console.log(`${BOLD}Tonalidad probable:${R}`);
 console.log(`  ${GREEN}${best.label}${R} — encaje ${BOLD}${best.strength}${R} (${best.percentage}%)`);
 
-if (best.diatonicChords.length) {
-  console.log();
-  console.log(`${BOLD}Acordes diatónicos:${R}`);
-  best.diatonicChords.forEach((ch) => console.log(`  - ${ch}`));
-}
-
-if (best.functionalChords.length) {
-  console.log();
-  console.log(`${BOLD}Acordes funcionales/no diatónicos:${R}`);
-  best.functionalChords.forEach((f) => console.log(`  - ${AMBER}${f.explanation}${R}`));
-}
-
-if (best.outsideChords.length) {
-  console.log();
-  console.log(`${BOLD}Fuera de tonalidad:${R}`);
-  best.outsideChords.forEach((ch) => console.log(`  - ${DIM}${ch}${R}`));
-}
+printKeyBlock(best, true);
 
 if (alternatives.length) {
-  console.log();
-  console.log(`${BOLD}Opciones alternativas:${R}`);
-  alternatives.forEach((k) => console.log(`  - ${k.label} (${k.percentage}%)`));
+  for (const alt of alternatives) {
+    console.log();
+    console.log(`${BOLD}Opción alternativa:${R} ${alt.label} (${alt.percentage}%)`);
+    printKeyBlock(alt, false);
+  }
 }
 
 console.log();

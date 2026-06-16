@@ -110,6 +110,132 @@ export default function KeyProgressionAnalyzer() {
   );
 }
 
+// ─── Badge de acorde usado ────────────────────────────────────────────────────
+// #0284C7 = sky-600; borde #0369A1 = sky-700
+
+const BADGE_USED = "rounded border px-1.5 py-0.5 font-mono text-xs font-bold text-white";
+const BADGE_USED_STYLE = { background: "#0284C7", borderColor: "#0369A1" };
+
+function DiatonicTable({ diatonicTable, label, testId }) {
+  if (!diatonicTable?.length) return null;
+  return (
+    <div>
+      <div className="mb-1.5 font-semibold text-slate-700">Grados en {label}:</div>
+      <div className="overflow-x-auto">
+        <div
+          data-testid={testId ?? "diatonic-table"}
+          style={{
+            display: "inline-grid",
+            gridTemplateColumns: `repeat(${diatonicTable.length}, minmax(60px, 84px))`,
+            columnGap: "8px",
+            rowGap: "4px",
+          }}
+        >
+          {diatonicTable.map((d) => (
+            <div
+              key={`deg-${d.degree}`}
+              className={`text-center font-mono text-xs font-bold ${d.used ? "text-slate-800" : "text-slate-400"}`}
+            >
+              {d.degree}
+            </div>
+          ))}
+          {diatonicTable.map((d) => (
+            <div key={`name-${d.degree}`} className="flex justify-center">
+              {d.used ? (
+                <span className={BADGE_USED} style={BADGE_USED_STYLE}>
+                  {d.name}
+                </span>
+              ) : (
+                <span className="font-mono text-xs text-slate-400">{d.name}</span>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ChordDegreesMap({ chordDegrees }) {
+  const entries = Object.entries(chordDegrees ?? {});
+  if (!entries.length) return null;
+  return (
+    <div>
+      <div className="mb-1 font-semibold text-slate-700">Acordes introducidos:</div>
+      <div className="flex flex-wrap gap-x-4 gap-y-0.5 font-mono">
+        {entries.map(([sym, deg]) => (
+          <span key={sym}>
+            <span className="font-semibold text-sky-800">{sym}</span>
+            <span className="mx-1 text-slate-400">→</span>
+            <span className="text-sky-600">{deg}</span>
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function KeyBlock({ keyData, isMain }) {
+  return (
+    <div className={isMain ? "space-y-2" : "space-y-1.5 border-t border-slate-200 pt-2"}>
+      <div>
+        {isMain ? (
+          <>
+            <span className="font-semibold text-slate-800">Tonalidad probable: </span>
+            <span className="font-bold text-sky-700">{keyData.label}</span>
+            {" — encaje "}
+            <span>{keyData.strength}</span>
+            <span className="ml-1 text-slate-400">({keyData.percentage}%)</span>
+          </>
+        ) : (
+          <>
+            <span className="font-semibold text-slate-600">Alternativa: </span>
+            <span className="font-semibold text-slate-700">{keyData.label}</span>
+            <span className="ml-1 text-slate-400">({keyData.percentage}%)</span>
+          </>
+        )}
+      </div>
+
+      {keyData.diatonicChords.length > 0 && (
+        <div>
+          <span className="font-semibold">Acordes diatónicos: </span>
+          <span>{keyData.diatonicChords.join(", ")}</span>
+        </div>
+      )}
+
+      {keyData.diatonicTable?.length > 0 && (
+        <DiatonicTable
+          diatonicTable={keyData.diatonicTable}
+          label={keyData.label}
+          testId={isMain ? "diatonic-table" : `diatonic-table-alt-${keyData.label}`}
+        />
+      )}
+
+      {Object.keys(keyData.chordDegrees ?? {}).length > 0 && (
+        <ChordDegreesMap chordDegrees={keyData.chordDegrees} />
+      )}
+
+      {keyData.functionalChords.length > 0 && (
+        <div>
+          <div className="font-semibold">Acordes funcionales/no diatónicos:</div>
+          <ul className="mt-0.5 space-y-0.5 pl-3">
+            {keyData.functionalChords.map((f, i) => (
+              <li key={i}>{f.explanation}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {keyData.outsideChords.length > 0 && (
+        <div>
+          <span className="font-semibold">Fuera de tonalidad: </span>
+          <span className="text-slate-500">{keyData.outsideChords.join(", ")}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function KeyAnalysisResult({ result }) {
   if (result.isEmpty || !result.keys.length) {
     return (
@@ -126,45 +252,10 @@ function KeyAnalysisResult({ result }) {
 
   return (
     <div className="space-y-2 rounded border border-slate-100 bg-slate-50 p-3 text-xs text-slate-700">
-      <div>
-        <span className="font-semibold text-slate-800">Tonalidad probable: </span>
-        <span className="font-bold text-sky-700">{best.label}</span>
-        {" — encaje "}
-        <span>{best.strength}</span>
-        <span className="ml-1 text-slate-400">({best.percentage}%)</span>
-      </div>
-
-      {best.diatonicChords.length > 0 && (
-        <div>
-          <span className="font-semibold">Acordes diatónicos: </span>
-          <span>{best.diatonicChords.join(", ")}</span>
-        </div>
-      )}
-
-      {best.functionalChords.length > 0 && (
-        <div>
-          <div className="font-semibold">Acordes funcionales/no diatónicos:</div>
-          <ul className="mt-0.5 space-y-0.5 pl-3">
-            {best.functionalChords.map((f, i) => (
-              <li key={i}>{f.explanation}</li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {best.outsideChords.length > 0 && (
-        <div>
-          <span className="font-semibold">Fuera de tonalidad: </span>
-          <span className="text-slate-500">{best.outsideChords.join(", ")}</span>
-        </div>
-      )}
-
-      {alternatives.length > 0 && (
-        <div className="border-t border-slate-200 pt-2 text-slate-500">
-          <span className="font-semibold text-slate-600">Opciones alternativas: </span>
-          {alternatives.map((k) => `${k.label} (${k.percentage}%)`).join(" · ")}
-        </div>
-      )}
+      <KeyBlock keyData={best} isMain={true} />
+      {alternatives.map((k) => (
+        <KeyBlock key={k.label} keyData={k} isMain={false} />
+      ))}
     </div>
   );
 }
