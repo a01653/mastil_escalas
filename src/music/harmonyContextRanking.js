@@ -42,6 +42,16 @@ const DOM7_TENSION_DATA = {
   baseSuffix:     "7",
 };
 
+// Intervalos válidos para fragmento 6/9 mayor (la raíz 0 está ausente por definición)
+const MAJ6_9_DATA = {
+  coreIntervals:  [0, 4, 7],            // 1, 3, 5
+  coreLabels:     { 0: "1", 4: "3", 7: "5" },
+  requiredExts:   new Set([2, 9]),       // 9ª y 6ª ambas deben estar presentes
+  extLabels:      { 2: "9", 9: "6" },   // "6" (no "13") para el sufijo 6/9
+  allValid:       new Set([0, 2, 4, 7, 9]),
+  baseSuffix:     "6/9",
+};
+
 // Intervalos válidos para maj7 rootless (la raíz 0 está ausente por definición)
 const MAJ7_ROOTLESS_DATA = {
   coreIntervals:  [0, 4, 7, 11],           // 1, 3, 5, 7M (0 siempre faltará)
@@ -393,6 +403,102 @@ function buildContextualMaj7RootlessCandidate(harmonyContext, readings) {
 }
 
 /**
+ * Genera un candidato fragmentario "6/9" cuando la referencia es Mayor y la raíz
+ * está ausente. Solo se crea si:
+ *   - quality === "Mayor"
+ *   - la raíz de referencia NO está en la selección
+ *   - los intervalos 2 (9ª) Y 9 (6ª) están ambos presentes
+ *   - todas las notas son intervalos válidos en {0,2,4,7,9}
+ *   - NO existe ya una lectura mayor con esa raíz
+ *
+ * Se añade al FINAL del ranking: no reemplaza lecturas literales.
+ */
+function buildContextualMajFragmentCandidate(harmonyContext, readings) {
+  const { rootPc: rootPcRaw, selectedNotes } = harmonyContext;
+  if (!Array.isArray(selectedNotes) || selectedNotes.length === 0) return null;
+
+  const rootPc = mod12(rootPcRaw);
+
+  if (hasCompatibleReading(readings, rootPc, "Mayor")) return null;
+
+  const data = MAJ6_9_DATA;
+  const uniquePcs = Array.from(new Set(selectedNotes.map((n) => mod12(n.pc))));
+  const selectedIntervals = uniquePcs.map((pc) => mod12(pc - rootPc));
+  const selectedIntervalSet = new Set(selectedIntervals);
+
+  // La raíz debe estar ausente
+  if (selectedIntervalSet.has(0)) return null;
+
+  // Todas las notas deben ser intervalos válidos del conjunto mayor extendido
+  for (const intv of selectedIntervals) {
+    if (!data.allValid.has(intv)) return null;
+  }
+
+  // Tanto la 9ª (2) como la 6ª (9) deben estar presentes para el patrón 6/9
+  if (!selectedIntervalSet.has(2) || !selectedIntervalSet.has(9)) return null;
+
+  const corePresent   = data.coreIntervals.filter((i) =>  selectedIntervalSet.has(i));
+  const coreMissing   = data.coreIntervals.filter((i) => !selectedIntervalSet.has(i));
+  const missingLabels = coreMissing.map((i) => data.coreLabels[i]);
+
+  const extsPresent = [2, 9].filter((i) => selectedIntervalSet.has(i));
+
+  const pairsData = [
+    ...corePresent.map((i) => ({ intv: i, label: data.coreLabels[i] })),
+    ...extsPresent.map((i) => ({ intv: i, label: data.extLabels[i] })),
+  ];
+
+  const preferSharps = preferSharpsFromMajorTonicPc(rootPc);
+  const rootName     = pcToName(rootPc, preferSharps);
+  const suffix       = buildContextualSuffix(data.baseSuffix, [], missingLabels);
+  const name         = `${rootName}${suffix}`;
+
+  const noteNames = spellChordNotes({
+    rootPc,
+    chordIntervals: pairsData.map((p) => p.intv),
+    preferSharps,
+    degreeLabels:   pairsData.map((p) => p.label),
+  });
+
+  const intervalPairsText = pairsData
+    .map(({ label }, idx) => `${label}=${noteNames[idx]}`)
+    .join(", ");
+
+  const syntheticFormula = {
+    id:           "contextual_maj6_9_fragment",
+    intervals:    pairsData.map((p) => p.intv),
+    degreeLabels: pairsData.map((p) => p.label),
+    quartal:      false,
+    ui:           null,
+    suffix,
+  };
+
+  const bassPc               = mod12(selectedNotes[0].pc);
+  const externalBassInterval = mod12(bassPc - rootPc); // siempre ≠ 0 porque raíz ausente
+
+  return {
+    id:                   `contextual_frag|${rootPc}|maj6_9|${uniquePcs.slice().sort((a, b) => a - b).join(",")}`,
+    name,
+    rootPc,
+    bassPc,
+    preferSharps,
+    formula:              syntheticFormula,
+    exact:                false,
+    score:                0,
+    probabilityScore:     990,
+    rankScore:            "990",
+    uiPatch:              null,
+    intervalPairsText,
+    visibleNotes:         noteNames,
+    visibleIntervals:     pairsData.map((p) => p.intv),
+    missingLabels,
+    externalBassInterval,
+    contextual:           true,
+    fragment:             true,
+  };
+}
+
+/**
  * Reordena readings según un acorde de referencia armónico.
  *
  * @param {object[]} readings  Lista de readings del motor (inmutables).
@@ -416,6 +522,11 @@ export function rankReadingsWithHarmonyContext(readings, harmonyContext) {
   // Fragmento dominante: solo cuando falta b7 y el candidato principal no se generó
   const fragmentCandidate = quality === "7" && !contextualCandidate
     ? buildContextualDom7FragmentCandidate(harmonyContext, readings)
+    : null;
+
+  // Fragmento 6/9 mayor: cuando referencia Mayor, raíz ausente y 6ª+9ª presentes
+  const maj6_9Fragment = quality === "Mayor"
+    ? buildContextualMajFragmentCandidate(harmonyContext, readings)
     : null;
 
   const scored = readings.map((r) => ({
@@ -445,9 +556,11 @@ export function rankReadingsWithHarmonyContext(readings, harmonyContext) {
     const promotedWinner = { ...sorted[0], referencePromoted: true };
     const result = [promotedWinner, ...sorted.slice(1)];
     if (fragmentCandidate) result.push(fragmentCandidate);
+    if (maj6_9Fragment) result.push(maj6_9Fragment);
     return result;
   }
 
   if (fragmentCandidate) return [...sorted, fragmentCandidate];
+  if (maj6_9Fragment) return [...sorted, maj6_9Fragment];
   return sorted;
 }

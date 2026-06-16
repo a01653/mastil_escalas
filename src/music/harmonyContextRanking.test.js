@@ -598,3 +598,148 @@ describe("rankReadingsWithHarmonyContext — fragmento: fronteras de calidad dom
     expect(frag).toBeUndefined();
   });
 });
+
+// ─── buildContextualMajFragmentCandidate ──────────────────────────────────────
+
+describe("rankReadingsWithHarmonyContext — fragmento 6/9 mayor (xx445x = F# B E, ref D/A)", () => {
+  // xx445x: cuerdas 4-3-2 = F#(6) B(11) E(4), bajo F#
+  const NOTES = ["F#", "B", "E"];
+  const BASS  = "F#";
+
+  function rankedFor(rootPc, quality, notes = NOTES, bass = BASS) {
+    const readings      = readingsFor(notes, bass);
+    const selectedNotes = buildSyntheticSelectedNotes(notes, bass);
+    return {
+      readings,
+      ranked: rankReadingsWithHarmonyContext(readings, {
+        enabled: true, rootPc, quality: quality ?? "Mayor", selectedNotes,
+      }),
+    };
+  }
+
+  // ─ Caso 1: sin referencia ──────────────────────────────────────────────
+
+  it("1a) sin contexto, motor devuelve Bsus4/F# y/o Esus2/F# como lecturas literales", () => {
+    const readings = readingsFor(NOTES, BASS);
+    expect(readings.some((r) => r.name === "Bsus4/F#" || r.name === "Esus2/F#")).toBe(true);
+  });
+
+  it("1b) disabled=false → no hay fragmento contextual en la lista", () => {
+    const readings = readingsFor(NOTES, BASS);
+    const ranked = rankReadingsWithHarmonyContext(readings, { enabled: false, rootPc: 2, quality: "Mayor" });
+    expect(ranked.every((r) => !r.contextual)).toBe(true);
+  });
+
+  // ─ Caso 2: referencia D (rootPc=2) ────────────────────────────────────
+
+  it("2a) ref D → genera D6/9(no1,no5) como candidato contextual/fragmentario", () => {
+    const { ranked } = rankedFor(2, "Mayor");
+    const frag = ranked.find((r) => r.contextual === true && r.fragment === true);
+    expect(frag, "debe existir fragmento contextual con ref D").toBeTruthy();
+    expect(frag.name).toBe("D6/9(no1,no5)");
+    expect(frag.rootPc).toBe(2);
+  });
+
+  it("2b) ref D → missingLabels contiene '1' y '5'", () => {
+    const { ranked } = rankedFor(2, "Mayor");
+    const frag = ranked.find((r) => r.contextual === true && r.fragment === true);
+    expect(frag.missingLabels).toContain("1");
+    expect(frag.missingLabels).toContain("5");
+  });
+
+  it("2c) ref D → el fragmento es el último elemento de la lista", () => {
+    const { readings, ranked } = rankedFor(2, "Mayor");
+    expect(ranked[ranked.length - 1].name).toBe("D6/9(no1,no5)");
+    expect(ranked.length).toBe(readings.length + 1);
+  });
+
+  it("2d) ref D → Bsus4/F# precede al fragmento (lecturas literales intactas)", () => {
+    const { ranked } = rankedFor(2, "Mayor");
+    const fragIdx  = ranked.findIndex((r) => r.contextual === true && r.fragment === true);
+    const bsus4Idx = ranked.findIndex((r) => r.name === "Bsus4/F#");
+    expect(bsus4Idx).toBeGreaterThanOrEqual(0);
+    expect(bsus4Idx).toBeLessThan(fragIdx);
+  });
+
+  it("2e) ref D → intervalPairsText menciona 3=F#, 9=E y 6=B", () => {
+    const { ranked } = rankedFor(2, "Mayor");
+    const frag = ranked.find((r) => r.contextual === true && r.fragment === true);
+    expect(frag.intervalPairsText).toContain("3=F#");
+    expect(frag.intervalPairsText).toContain("9=E");
+    expect(frag.intervalPairsText).toContain("6=B");
+  });
+
+  // ─ Caso 3: referencia A (rootPc=9) ────────────────────────────────────
+
+  it("3a) ref A → genera A6/9(no1,no3) como candidato contextual/fragmentario", () => {
+    const { ranked } = rankedFor(9, "Mayor");
+    const frag = ranked.find((r) => r.contextual === true && r.fragment === true);
+    expect(frag, "debe existir fragmento contextual con ref A").toBeTruthy();
+    expect(frag.name).toBe("A6/9(no1,no3)");
+    expect(frag.rootPc).toBe(9);
+  });
+
+  it("3b) ref A → missingLabels contiene '1' y '3'", () => {
+    const { ranked } = rankedFor(9, "Mayor");
+    const frag = ranked.find((r) => r.contextual === true && r.fragment === true);
+    expect(frag.missingLabels).toContain("1");
+    expect(frag.missingLabels).toContain("3");
+  });
+
+  it("3c) ref A → el fragmento es el último elemento de la lista", () => {
+    const { readings, ranked } = rankedFor(9, "Mayor");
+    expect(ranked[ranked.length - 1].name).toBe("A6/9(no1,no3)");
+    expect(ranked.length).toBe(readings.length + 1);
+  });
+
+  it("3d) ref A → intervalPairsText menciona 5=E, 9=B y 6=F#", () => {
+    const { ranked } = rankedFor(9, "Mayor");
+    const frag = ranked.find((r) => r.contextual === true && r.fragment === true);
+    expect(frag.intervalPairsText).toContain("5=E");
+    expect(frag.intervalPairsText).toContain("9=B");
+    expect(frag.intervalPairsText).toContain("6=F#");
+  });
+
+  // ─ Caso 4: referencia E — raíz presente, sin fragmento ───────────────
+
+  it("4a) ref E → NO genera fragmento (raíz E presente en las notas)", () => {
+    const { readings, ranked } = rankedFor(4, "Mayor");
+    const frag = ranked.find((r) => r.contextual === true && r.fragment === true);
+    expect(frag).toBeUndefined();
+    expect(ranked.length).toBe(readings.length);
+  });
+
+  it("4b) ref E → Esus2/F# aparece en la lista (no eliminada)", () => {
+    const { ranked } = rankedFor(4, "Mayor");
+    expect(ranked.some((r) => r.name === "Esus2/F#")).toBe(true);
+  });
+
+  // ─ Guardas ─────────────────────────────────────────────────────────────
+
+  it("5) sin selectedNotes → no genera fragmento", () => {
+    const readings = readingsFor(NOTES, BASS);
+    const ranked = rankReadingsWithHarmonyContext(readings, { enabled: true, rootPc: 2, quality: "Mayor" });
+    expect(ranked.find((r) => r.contextual === true && r.fragment === true)).toBeUndefined();
+  });
+
+  it("6) quality='7' con ref D → no genera fragmento 6/9 mayor", () => {
+    const { ranked } = rankedFor(2, "7");
+    const frag = ranked.find((r) => r.formula?.id === "contextual_maj6_9_fragment");
+    expect(frag).toBeUndefined();
+  });
+
+  it("7) solo 6ª pero sin 9ª (F# B, sin E) → no genera fragmento", () => {
+    const { ranked } = rankedFor(2, "Mayor", ["F#", "B"], "F#");
+    expect(ranked.find((r) => r.formula?.id === "contextual_maj6_9_fragment")).toBeUndefined();
+  });
+
+  it("8) solo 9ª pero sin 6ª (F# E, sin B) → no genera fragmento", () => {
+    const { ranked } = rankedFor(2, "Mayor", ["F#", "E"], "F#");
+    expect(ranked.find((r) => r.formula?.id === "contextual_maj6_9_fragment")).toBeUndefined();
+  });
+
+  it("9) intervalo no válido (C=b7 de D) → no genera fragmento", () => {
+    const { ranked } = rankedFor(2, "Mayor", ["F#", "B", "E", "C"], "F#");
+    expect(ranked.find((r) => r.formula?.id === "contextual_maj6_9_fragment")).toBeUndefined();
+  });
+});
