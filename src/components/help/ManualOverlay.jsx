@@ -18,8 +18,8 @@ export default function ManualOverlay({ open, onClose, UI_BTN_SM }) {
           <section className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
             <div className="text-sm font-semibold text-slate-800">Qué hace</div>
             <div className="mt-2 text-xs leading-5 text-slate-600">
-              Esta página muestra escalas, patrones, rutas sobre el mástil y acordes con digitaciones reales.
-              Sirve para estudiar dónde están las notas, qué intervalos forman una escala, qué patrones encajan y qué acordes puedes tocar o investigar.
+              Esta página muestra escalas, comparación de escalas, rutas sobre el mástil y acordes con digitaciones reales.
+              Sirve para estudiar dónde están las notas, qué intervalos forman una escala, cómo se comparan dos escalas y qué acordes puedes tocar o investigar.
             </div>
           </section>
 
@@ -28,7 +28,7 @@ export default function ManualOverlay({ open, onClose, UI_BTN_SM }) {
             <div className="mt-2 space-y-1 text-xs text-slate-600">
               <div>1. Elige <b>Nota raíz</b> y <b>Escala</b>.</div>
               <div>2. Decide si quieres ver <b>Notas</b>, <b>Intervalos</b> o ambos.</div>
-              <div>3. Activa los mástiles que necesites: <b>Escala</b>, <b>Patrones</b>, <b>Ruta</b> y <b>Acordes</b>.</div>
+              <div>3. Activa los mástiles que necesites: <b>Escala</b>, <b>Comparar</b>, <b>Ruta</b> y <b>Acordes</b>.</div>
               <div>4. Ajusta <b>Trastes</b> para ampliar o reducir el rango visible.</div>
             </div>
           </section>
@@ -44,13 +44,13 @@ export default function ManualOverlay({ open, onClose, UI_BTN_SM }) {
           </section>
 
           <section className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-            <div className="text-sm font-semibold text-slate-800">Patrones</div>
+            <div className="text-sm font-semibold text-slate-800">Comparador de escalas</div>
             <div className="mt-2 space-y-1 text-xs text-slate-600">
-              <div>Permite ver patrones posicionales sobre la escala activa.</div>
-              <div><b>Auto</b> decide el sistema adecuado según la escala.</div>
-              <div>En pentatónicas usa <b>5 boxes</b>.</div>
-              <div>En escalas de 7 notas usa <b>7 patrones 3NPS</b>.</div>
-              <div>También puedes forzar <b>CAGED</b>.</div>
+              <div>Muestra hasta 2 escalas simultáneamente sobre el mástil.</div>
+              <div>Activa cada fila con <b>Ver</b>. Solo 2 pueden estar visibles a la vez (FIFO).</div>
+              <div>Las notas únicas de cada escala aparecen en círculos de su color.</div>
+              <div>Si dos escalas comparten una nota, se ven dos círculos juntos en el mismo traste.</div>
+              <div>Útil para comparar modos, escalas paralelas o sustituciones.</div>
             </div>
           </section>
 

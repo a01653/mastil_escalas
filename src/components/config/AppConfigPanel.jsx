@@ -18,7 +18,7 @@ export default function AppConfigPanel({ view, theme, colorState, presets, actio
     themeDisabledControlBg, setThemeDisabledControlBg,
   } = theme;
 
-  const { colors, setColor, patternColors, setPatternColor, legend } = colorState;
+  const { colors, setColor, legend } = colorState;
 
   const {
     selectedQuickPresetSlot, setSelectedQuickPresetSlot,
@@ -30,7 +30,7 @@ export default function AppConfigPanel({ view, theme, colorState, presets, actio
 
   const { exportUiConfig, resetUiConfig, importConfigInputRef } = actions;
 
-  const { patternsMode, scaleIntervals } = layout;
+  void layout;
 
   const { ToggleButton, UI_LABEL_SM, UI_SELECT_SM, UI_BTN_SM } = ui;
 
@@ -80,24 +80,6 @@ export default function AppConfigPanel({ view, theme, colorState, presets, actio
           </div>
         </PanelBlock>
 
-        <PanelBlock
-          level="subsection"
-          title="Colores (patrones)"
-          description={`Patrones disponibles: ${patternsMode === "caged" ? "5 CAGED" : scaleIntervals.length === 5 ? "5 boxes" : scaleIntervals.length === 7 ? "7 3NPS" : "(sin patrones)"}.`}
-        >
-          <div className="flex flex-wrap gap-2">
-            {Array.from({ length: 7 }, (_, i) => i).map((i) => (
-              <div key={i} className="flex min-w-[120px] flex-1 items-center justify-between gap-2 rounded-xl border border-slate-200 bg-sky-50 px-2 py-1.5">
-                <span className="text-xs font-semibold text-slate-700">Patrón {i + 1}</span>
-                <ColorPickerPopover
-                  value={patternColors[i]}
-                  onChange={(v) => setPatternColor(i, v)}
-                  label={`Patrón ${i + 1}`}
-                />
-              </div>
-            ))}
-          </div>
-        </PanelBlock>
       </div>
     );
   }

@@ -1,5 +1,5 @@
 import React from "react";
-import { Blocks, BookOpen, HelpCircle, Menu, Music, Route, Settings, Waypoints, X } from "lucide-react";
+import { BookOpen, HelpCircle, Layers2, Menu, Music, Route, Settings, Waypoints, X } from "lucide-react";
 import { ToggleButton } from "../ui/AppUiPrimitives.jsx";
 
 export function ChordDiagramIcon({ className = "", ...props }) {
@@ -45,7 +45,7 @@ export default function AppHeader({
     <header className="mb-3">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-lg font-semibold sm:text-xl">Mástil interactivo: escalas, patrones, rutas y acordes</h1>
+          <h1 className="text-lg font-semibold sm:text-xl">Mástil interactivo: escalas, comparación, rutas y acordes</h1>
         </div>
         <div className="flex items-center gap-2">
           <button type="button" className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white shadow-sm xl:hidden"
@@ -62,8 +62,8 @@ export default function AppHeader({
           <ToggleButton active={effectiveBoards.scale} onClick={() => selectBoardView("scale")} title="Muestra el mástil de la escala" testId="nav-scale">
             <NavIconLabel icon={Music} label="Escala" />
           </ToggleButton>
-          <ToggleButton active={effectiveBoards.patterns} onClick={() => selectBoardView("patterns")} title="Muestra el mástil de patrones" testId="nav-patterns">
-            <NavIconLabel icon={Blocks} label="Patrones" />
+          <ToggleButton active={effectiveBoards.scaleCompare} onClick={() => selectBoardView("scaleCompare")} title="Comparador de escalas" testId="nav-scale-compare">
+            <NavIconLabel icon={Layers2} label="Comparar" />
           </ToggleButton>
           <ToggleButton active={effectiveBoards.route} onClick={() => selectBoardView("route")} title="Muestra el mástil de ruta" testId="nav-route">
             <NavIconLabel icon={Route} label="Ruta" />

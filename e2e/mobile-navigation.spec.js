@@ -107,13 +107,13 @@ test("MN4. Móvil: swipe izquierda avanza de sección", async ({ page }) => {
   await expect(page.getByTestId("mobile-nav-scale")).not.toHaveAttribute("aria-disabled", "true", { timeout: 2000 }).catch(() => {});
   await page.waitForTimeout(350);
 
-  // Swipe izquierda (delta negativo) → avanza a siguiente sección (patterns).
+  // Swipe izquierda (delta negativo) → avanza a siguiente sección (scaleCompare).
   const swipeContainerSel = ".mobile-section-slide";
   await simulateSwipe(page, swipeContainerSel, 300, 400, -260);
 
   await expect(async () => {
     const active = await getActiveSection(page);
-    expect(active).toBe("patterns");
+    expect(active).toBe("scaleCompare");
   }).toPass({ timeout: 4000 });
 });
 

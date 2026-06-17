@@ -124,3 +124,28 @@ export function computeMobileFret0TopPadding(maxCluster) {
   // El margen de ~6.5 px sobre el marcador más alto sale de la propia separación.
   return Math.max(0, (maxCluster - 1) * FRET0_SPACING);
 }
+
+// ── mobileNonFret0ClusterPos — apilado vertical en celdas de traste normal ──
+
+// Altura de celdas de traste normal en móvil: h-[45px] (mobileVerticalFretCellClass fret>0).
+const MOBILE_NONFRET0_CELL_HEIGHT_PX = 45;
+
+/**
+ * Posicionamiento vertical para clusters en celdas de traste normal (fret > 0) en móvil.
+ *
+ * En móvil vertical las celdas son columnas estrechas: apilar horizontalmente
+ * (como hace calibratedClusterPos para desktop) desborda fuera de la columna.
+ * Esta función apila los marcadores verticalmente dentro de la celda de 45 px.
+ *
+ * Para n=2: separación de 24 px entre centros — ambos marcadores cal (21 px) quedan
+ * dentro de la celda sin solapamiento (gap ≈ 3 px).
+ * Para n>=3: separación reducida proporcionalmente; puede haber leve solapamiento
+ * pero los marcadores permanecen dentro de la celda.
+ */
+export function mobileNonFret0ClusterPos(n, idx) {
+  const cellCenter = MOBILE_NONFRET0_CELL_HEIGHT_PX / 2;
+  const spacing = n <= 2 ? 24 : Math.round((MOBILE_NONFRET0_CELL_HEIGHT_PX - 4) / (n - 1));
+  const totalSpan = (n - 1) * spacing;
+  const y = cellCenter - totalSpan / 2 + idx * spacing;
+  return { left: "50%", top: `${y}px`, transform: "translate(-50%, -50%)" };
+}

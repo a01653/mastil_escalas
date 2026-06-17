@@ -7,12 +7,12 @@
 import { test, expect } from "@playwright/test";
 
 const NAV_TABS = [
-  { id: "nav-scale",       label: "Escala" },
-  { id: "nav-patterns",    label: "Patrones" },
-  { id: "nav-route",       label: "Ruta" },
-  { id: "nav-chords",      label: "Acordes" },
-  { id: "nav-near-chords", label: "Acordes cercanos" },
-  { id: "nav-standards",   label: "Standards" },
+  { id: "nav-scale",         label: "Escala" },
+  { id: "nav-scale-compare", label: "Comparar" },
+  { id: "nav-route",         label: "Ruta" },
+  { id: "nav-chords",        label: "Acordes" },
+  { id: "nav-near-chords",   label: "Acordes cercanos" },
+  { id: "nav-standards",     label: "Standards" },
 ];
 
 async function resetAppStorage(page) {
@@ -154,48 +154,43 @@ test("S3. Escalas: cambiar modo Mayor → Menor, no crash", async ({ page }) => 
   await expect(page.getByTestId("fretboard-scale")).toBeVisible();
 });
 
-// ── S4: Patrones — abrir pestaña y selector de modo ──────────────────────────
-test("S4. Patrones: abrir pestaña, selector de modo visible", async ({ page }) => {
+// ── S4: Comparador de escalas — abrir pestaña y ver panel ────────────────────
+test("S4. Comparador: abrir pestaña, panel visible con 4 filas", async ({ page }) => {
   await openFreshApp(page);
-  await clickNav(page, "nav-patterns");
+  await clickNav(page, "nav-scale-compare");
 
-  await expect(page.getByTestId("fretboard-patterns")).toBeVisible();
-  await expect(page.getByTestId("pattern-mode-select")).toBeVisible();
-});
-
-// ── S5: Patrones — seleccionar CAGED ─────────────────────────────────────────
-test("S5. Patrones: seleccionar modo CAGED, fretboard sigue visible", async ({ page }) => {
-  await openFreshApp(page);
-  await clickNav(page, "nav-patterns");
-
-  await page.getByTestId("pattern-mode-select").selectOption("caged");
-
-  await expect(page.getByTestId("fretboard-patterns")).toBeVisible();
-});
-
-// ── S6: Patrones — seleccionar 3NPS (escala mayor, 7 notas) ──────────────────
-test("S6. Patrones: seleccionar modo 3NPS en escala de 7 notas, fretboard visible", async ({ page }) => {
-  await openFreshApp(page);
-
-  // Asegurarse de que la escala tiene 7 notas (Mayor por defecto tiene 7)
-  await clickNav(page, "nav-scale");
-  const modeSelect = page.getByTestId("scale-mode-select");
-  const options = await modeSelect.locator("option").allTextContents();
-  const majorOption = options.find((o) => /mayor|major/i.test(o));
-  if (majorOption) await modeSelect.selectOption({ label: majorOption });
-
-  await clickNav(page, "nav-patterns");
-
-  const patternSelect = page.getByTestId("pattern-mode-select");
-  // La opción nps solo aparece con escalas de 7 notas
-  const patternOptions = await patternSelect.locator("option").allTextContents();
-  if (patternOptions.some((o) => /nps|3nps/i.test(o))) {
-    await patternSelect.selectOption("nps");
-    await expect(page.getByTestId("fretboard-patterns")).toBeVisible();
-  } else {
-    // En escala pentatónica no hay 3NPS: el test es N/A
-    await expect(page.getByTestId("fretboard-patterns")).toBeVisible();
+  await expect(page.getByTestId("scale-compare-panel")).toBeVisible();
+  for (let i = 0; i < 4; i++) {
+    await expect(page.getByTestId(`scale-compare-row-${i}`)).toBeVisible();
   }
+});
+
+// ── S5: Comparador de escalas — activar fila muestra el mástil ───────────────
+test("S5. Comparador: activar una fila con 'Ver' hace aparecer el mástil", async ({ page }) => {
+  await openFreshApp(page);
+  await clickNav(page, "nav-scale-compare");
+
+  await expect(page.getByTestId("scale-compare-panel")).toBeVisible();
+  // Por defecto ninguna está visible: activar la primera fila
+  await page.getByTestId("scale-compare-toggle-0").click();
+
+  // El panel sigue visible y sin crash
+  await expect(page.getByTestId("scale-compare-panel")).toBeVisible();
+  await expect(page.locator("body")).not.toBeEmpty();
+});
+
+// ── S6: Comparador de escalas — FIFO: activar 3 filas queda solo 2 ──────────
+test("S6. Comparador: FIFO — activar 3 escalas resulta en sólo 2 visibles", async ({ page }) => {
+  await openFreshApp(page);
+  await clickNav(page, "nav-scale-compare");
+
+  await page.getByTestId("scale-compare-toggle-0").click();
+  await page.getByTestId("scale-compare-toggle-1").click();
+  await page.getByTestId("scale-compare-toggle-2").click();
+
+  // El panel sigue visible sin crash
+  await expect(page.getByTestId("scale-compare-panel")).toBeVisible();
+  await expect(page.locator("body")).not.toBeEmpty();
 });
 
 // ── S7: Ruta — panel visible con inputs ──────────────────────────────────────

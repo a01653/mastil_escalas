@@ -5,8 +5,9 @@ import NearChordSlot from "./NearChordSlot.jsx";
 import { InfoTitle as InfoTitleImpl } from "../ui/AppUiPrimitives.jsx";
 import { MobileMainFretboard as MobileMainFretboardImpl } from "../fretboard/MobileMainFretboard.jsx";
 import { HoverCellNote as HoverCellNoteImpl } from "../fretboard/FretboardShared.jsx";
+import FretNoteMarker from "../fretboard/FretNoteMarker.jsx";
 
-import { calibratedClusterPos, cornerStyle, fret0ClusterPos, fret0ClusterPosMobile, computeMobileFret0TopPadding, FRET0_SPACING } from "../../features/near-chords/nearFretCellLayout.js";
+import { calibratedClusterPos, cornerStyle, fret0ClusterPos, fret0ClusterPosMobile, mobileNonFret0ClusterPos, computeMobileFret0TopPadding, FRET0_SPACING } from "../../features/near-chords/nearFretCellLayout.js";
 import * as AppStaticData from "../../music/appStaticData.js";
 const {
   NEAR_CHORDS_INFO_TEXT,
@@ -28,7 +29,6 @@ const {
   pcToDualName,
   intervalToSimpleChordDegreeToken,
   intervalToChordToken,
-  isDark,
 } = AppMusicBasics;
 
 import * as AppVoicingStudyCore from "../../music/appVoicingStudyCore.js";
@@ -205,32 +205,15 @@ export default function NearChordsPanel({
     const voicing = nearComputed.selected[slotIdx] || null;
     const chordBg = nearBgColors[slotIdx] || NEAR_CHORD_SLOT_COLORS[slotIdx]?.bg || "#94a3b8";
     const ring = NEAR_CHORD_SLOT_COLORS[slotIdx]?.border || "#64748b";
-    const dark = isDark(chordBg);
-    const sizeClass = size === "cal"
-      ? "h-[21px] w-[21px] text-[8px]"
-      : size === "pair"
-        ? "h-[26px] w-[26px] text-[10px]"
-        : size === "s"
-          ? "h-6 w-6 text-[9px]"
-          : "h-7 w-7 text-[10px]";
-
+    const label = slotLabelForPc(slot, pc, voicing);
     return (
-      <div
-        className={`relative z-20 inline-flex items-center justify-center rounded-full font-bold ${sizeClass}`}
-        title={`${slotLabelForPc(slot, pc, voicing)} · acorde ${slotIdx + 1}`}
-      >
-        <span
-          className="absolute inset-0 z-[1] rounded-full"
-          style={{
-            backgroundColor: chordBg,
-            border: `2px solid ${ring}`,
-            boxSizing: "border-box",
-          }}
-        />
-        <span className="relative z-[2]" style={{ color: dark ? "#fff" : "#0f172a" }}>
-          {slotLabelForPc(slot, pc, voicing)}
-        </span>
-      </div>
+      <FretNoteMarker
+        color={chordBg}
+        ring={ring}
+        label={label}
+        size={size}
+        title={`${label} · acorde ${slotIdx + 1}`}
+      />
     );
   }
 
@@ -364,11 +347,10 @@ export default function NearChordsPanel({
                         .map((it, i2) => {
                           const pos = fret === 0
                             ? fret0ClusterPosMobile(items.length, i2)
-                            : (calibratedClusterPos(items.length, i2) || cornerStyle(items.length, i2));
-                          const miniSize = fret === 0 ? "cal" : (items.length === 2 ? "pair" : calibratedClusterPos(items.length, i2) ? "cal" : "s");
+                            : mobileNonFret0ClusterPos(items.length, i2);
                           return (
                             <div key={`${it.slotIdx}-${it.role}-${i2}`} className="absolute" style={pos}>
-                              <Mini size={miniSize} slotIdx={it.slotIdx} pc={it.pc} fret={fret} sIdx={sIdx} />
+                              <Mini size="cal" slotIdx={it.slotIdx} pc={it.pc} fret={fret} sIdx={sIdx} />
                             </div>
                           );
                         })}

@@ -92,9 +92,9 @@ async function captureAll(page, appUrl) {
   await clickNavButton(page, "Escala");
   const escala = await shot(page, "01_escala");
 
-  // 2. Patrones
-  await clickNavButton(page, "Patrones");
-  const patrones = await shot(page, "02_patrones");
+  // 2. Comparador de escalas
+  await clickNavButton(page, "Comparar");
+  const patrones = await shot(page, "02_comparar");
 
   // 3. Ruta
   await clickNavButton(page, "Ruta");
@@ -416,7 +416,7 @@ function buildHtml(shots, appUrl, appVersion) {
   <div class="toc-section">Secciones principales</div>
   <ul class="toc">
     <li><span class="toc-num">3</span><span class="toc-title">Escala — diapasón con resaltado de grados</span><span class="toc-page">4</span></li>
-    <li><span class="toc-num">4</span><span class="toc-title">Patrones — 3NPS, CAGED y cajas pentatónicas</span><span class="toc-page">5</span></li>
+    <li><span class="toc-num">4</span><span class="toc-title">Comparador de escalas — dos escalas simultáneas en el mástil</span><span class="toc-page">5</span></li>
     <li><span class="toc-num">5</span><span class="toc-title">Ruta musical</span><span class="toc-page">6</span></li>
     <li><span class="toc-num">6</span><span class="toc-title">Acordes — constructor, digitaciones y Modo Estudio</span><span class="toc-page">7</span></li>
     <li><span class="toc-num">7</span><span class="toc-title">Acordes cercanos — búsqueda por proximidad</span><span class="toc-page">10</span></li>
@@ -437,7 +437,7 @@ function buildHtml(shots, appUrl, appVersion) {
 
   <p>
     <strong>Mástil Escalas</strong> es una aplicación web interactiva para guitarristas que quieren
-    explorar escalas, patrones de posición, rutas melódicas y acordes sobre el diapasón real.
+    explorar escalas, comparar escalas entre sí, rutas melódicas y acordes sobre el diapasón real.
     Funciona en el navegador, sin instalación, y está optimizada tanto para escritorio como para móvil.
   </p>
 
@@ -447,8 +447,8 @@ function buildHtml(shots, appUrl, appVersion) {
   <table>
     <tr><th>Sección</th><th>Qué hace</th></tr>
     <tr><td><strong>Escala</strong></td><td>Muestra el diapasón completo con las notas de la escala activa, resaltando raíz, 3ª y 5ª.</td></tr>
-    <tr><td><strong>Patrones</strong></td><td>Visualiza los patrones 3NPS, CAGED y cajas pentatónicas sobre el diapasón.</td></tr>
-    <tr><td><strong>Ruta</strong></td><td>Recorre la escala en orden de altura y la restringe a los patrones activos.</td></tr>
+    <tr><td><strong>Comparar</strong></td><td>Muestra hasta 2 escalas simultáneamente en el mástil con sus colores, intervalos y solapamientos.</td></tr>
+    <tr><td><strong>Ruta</strong></td><td>Recorre la escala en orden de altura siguiendo posiciones de mástil lógicas.</td></tr>
     <tr><td><strong>Acordes</strong></td><td>Constructor de acordes con digitaciones reales, Modo Estudio y modo Investigar en mástil.</td></tr>
     <tr><td><strong>Acordes cercanos</strong></td><td>Busca digitaciones de hasta 4 acordes dentro de una ventana de trastes.</td></tr>
     <tr><td><strong>Standards</strong></td><td>Charts armónicos de standards de jazz para trabajar el repertorio.</td></tr>
@@ -460,7 +460,7 @@ function buildHtml(shots, appUrl, appVersion) {
   <p>
     El <strong>Contexto tonal</strong> es el ajuste global más importante de la app.
     Aparece en el panel lateral de configuración (escritorio) y en el menú hamburguesa (móvil).
-    Afecta simultáneamente a Escala, Patrones, Ruta y al contexto armónico de Acordes y Acordes cercanos.
+    Afecta simultáneamente a Escala, Comparador, Ruta y al contexto armónico de Acordes y Acordes cercanos.
   </p>
 
   <ul>
@@ -516,45 +516,46 @@ function buildHtml(shots, appUrl, appVersion) {
   </p>
 </div>
 
-<!-- ═══════════════════════════════════════════════════════ PATRONES -->
+<!-- ═══════════════════════════════════════════════════════ COMPARADOR -->
 <div class="page">
-  <h1 class="section-title">4 — Patrones</h1>
-  <div class="section-subtitle">3NPS, CAGED y cajas pentatónicas</div>
+  <h1 class="section-title">4 — Comparador de escalas</h1>
+  <div class="section-subtitle">Dos escalas simultáneas en el mástil</div>
 
-  ${img(shots.patrones.data, "Sección Patrones")}
-  <div class="screenshot-caption">Sección Patrones — cada patrón resalta su posición en el diapasón</div>
+  ${img(shots.patrones.data, "Sección Comparador de escalas")}
+  <div class="screenshot-caption">Sección Comparador — dos escalas activas, cada una con su color y sus intervalos</div>
 
   <p>
-    La sección <strong>Patrones</strong> divide el diapasón en posiciones de digitación sistemáticas.
-    Cada patrón se activa individualmente y se muestra sobre el diapasón con un color propio.
+    La sección <strong>Comparador de escalas</strong> muestra hasta dos escalas simultáneamente
+    sobre el mástil. Cada escala tiene su propia nota raíz, tipo de escala y color.
+    Las notas se muestran como círculos de color con el intervalo o nombre de nota dentro.
   </p>
 
-  <h3>Tipos de patrones disponibles</h3>
+  <h3>Cómo funciona</h3>
   <table>
-    <tr><th>Tipo</th><th>Número</th><th>Para qué sirve</th></tr>
-    <tr><td><strong>3NPS</strong> (3 notas por cuerda)</td><td>7 posiciones</td><td>Escalas de 7 notas (Mayor, Menor, Modos). Cubre todo el mástil con posiciones simétricas.</td></tr>
-    <tr><td><strong>CAGED</strong></td><td>5 posiciones (C-A-G-E-D)</td><td>Posiciones derivadas de las 5 formas de acorde abierto. Relaciona acordes y escala.</td></tr>
-    <tr><td><strong>Cajas pentatónicas</strong></td><td>5 posiciones (Caja 1-5)</td><td>Escalas pentatónicas mayor/menor. Las más usadas en blues, rock y pop.</td></tr>
+    <tr><th>Elemento</th><th>Descripción</th></tr>
+    <tr><td><strong>Ver</strong></td><td>Activa o desactiva una escala en el mástil. Solo 2 pueden estar visibles a la vez (FIFO).</td></tr>
+    <tr><td><strong>Tono</strong></td><td>Nota raíz de la escala (letra + bemol/sostenido).</td></tr>
+    <tr><td><strong>Escala</strong></td><td>Tipo de escala (Mayor, Menor natural, Dórico, Pentatónica, etc.).</td></tr>
+    <tr><td><strong>Fondo</strong></td><td>Color del círculo de esa escala en el mástil.</td></tr>
   </table>
 
-  <h3>Uso típico</h3>
+  <h3>Notas en el mástil</h3>
   <ul>
-    <li>Selecciona la <strong>escala y tonalidad</strong> en Contexto tonal.</li>
-    <li>Activa uno o varios patrones haciendo clic en los botones numerados.</li>
-    <li>El diapasón muestra solo las notas de ese patrón, en su color.</li>
-    <li>Al activar varios patrones a la vez, puedes ver cómo se conectan en el mástil.</li>
+    <li>Una nota exclusiva de la Escala 1 → un círculo con el color de la Escala 1.</li>
+    <li>Una nota exclusiva de la Escala 2 → un círculo con el color de la Escala 2.</li>
+    <li>Una nota compartida por ambas → dos círculos lado a lado, cada uno con su color.</li>
   </ul>
 
   <div class="note">
-    <strong>Nota:</strong> para escalas pentatónicas la app muestra las 5 cajas pentatónicas.
-    Para escalas de 7 notas (Mayor, Dórico, etc.) muestra los 7 patrones 3NPS y las 5 posiciones CAGED.
+    <strong>Casos de uso:</strong> comparar un modo con su escala paralela, ver el solapamiento entre
+    dos tonalidades relativas, o explorar sustituciones melódicas entre escalas.
   </div>
 </div>
 
 <!-- ═══════════════════════════════════════════════════════ RUTA -->
 <div class="page">
   <h1 class="section-title">5 — Ruta musical</h1>
-  <div class="section-subtitle">Recorre la escala en orden de altura, restringida a patrones</div>
+  <div class="section-subtitle">Recorre la escala en orden de altura siguiendo posiciones lógicas</div>
 
   ${img(shots.ruta.data, "Sección Ruta")}
   <div class="screenshot-caption">Sección Ruta — notas de la escala ordenadas por altura y posición en el mástil</div>
@@ -565,10 +566,10 @@ function buildHtml(shots, appUrl, appVersion) {
     puedes seguir nota a nota.
   </p>
 
-  <h3>Diferencia con Escala y Patrones</h3>
+  <h3>Diferencia con Escala y Comparador</h3>
   <ul>
     <li><strong>Escala</strong>: muestra <em>dónde</em> están todas las notas, sin orden.</li>
-    <li><strong>Patrones</strong>: muestra <em>qué posición de mano</em> agrupar las notas.</li>
+    <li><strong>Comparador</strong>: muestra <em>qué notas comparte</em> una escala con otra.</li>
     <li><strong>Ruta</strong>: muestra <em>en qué orden</em> tocar las notas para subir/bajar por la escala, usando la posición de mano más lógica para cada momento.</li>
   </ul>
 

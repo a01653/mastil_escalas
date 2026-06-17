@@ -10,7 +10,7 @@ export const COMPACT_LAYOUT_WIDTH_MEDIA_QUERY = "(max-width: 1279px)";
 export const NARROW_BOARD_LAYOUT_WIDTH_MEDIA_QUERY = "(max-width: 1151px)";
 export const MOBILE_SECTION_OPTIONS = [
   { value: "scale", label: "Escala" },
-  { value: "patterns", label: "Patrones" },
+  { value: "scaleCompare", label: "Comparar" },
   { value: "route", label: "Ruta" },
   { value: "chords", label: "Acordes" },
   { value: "nearChords", label: "Acordes cercanos" },
@@ -19,7 +19,7 @@ export const MOBILE_SECTION_OPTIONS = [
 export const MOBILE_SECTION_SWIPE_COMMIT_RATIO = 0.5;
 
 export const SCALE_INFO_TEXT = "Escala + (opcional) extras. Resalta raíz/3ª/5ª.";
-export const PATTERNS_INFO_TEXT = "Patrones: 5 boxes (pentatónicas), 7 3NPS (7 notas) y CAGED. Ruta: sigue la escala en orden y se restringe a patrones";
+export const SCALE_COMPARE_INFO_TEXT = "Selecciona hasta 4 escalas y visualiza 2 a la vez sobre el mástil. Útil para ver cómo conectar un acorde/tono con el siguiente.";
 export const NEAR_CHORDS_INFO_TEXT = "Selecciona hasta 4 acordes y busca digitaciones dentro de un rango. Ordena por cercanía al primer acorde activo. Los acordes se ajustan automáticamente según la nota raíz y la escala activas.";
 export const NEAR_AUTO_SCALE_INFO_TEXT = "Con Auto escala ON, los acordes cercanos se rellenan y actualizan según la nota raíz, la escala y la armonización activas. Con OFF, cada acorde queda bajo edición manual.";
 export const STANDARDS_INFO_TEXT = [
@@ -61,8 +61,8 @@ export const NEAR_CHORD_SLOT_COLORS = [
   { bg: "#FED2EB", border: "#C03A7A" }, // Acorde 4
 ];
 
-export const PRIMARY_BOARD_SECTIONS = ["scale", "patterns", "route", "chords", "nearChords", "standards", "configuration"];
-export const TONAL_CONTEXT_TOOLTIP = "Afecta a Escala, Patrones, Ruta y al contexto armónico usado en análisis y acordes cercanos.";
+export const PRIMARY_BOARD_SECTIONS = ["scale", "scaleCompare", "route", "chords", "nearChords", "standards", "configuration"];
+export const TONAL_CONTEXT_TOOLTIP = "Afecta a Escala, Comparador de escalas, Ruta y al contexto armónico usado en análisis y acordes cercanos.";
 export const MOBILE_VERTICAL_STRING_ORDER = [5, 4, 3, 2, 1, 0];
 export const WEB_FRET_LABEL_COL_PX = 110;
 export const WEB_FRET_ZERO_WIDTH_PX = 22;
@@ -91,7 +91,7 @@ export const MOBILE_CHORD_INVESTIGATION_WINDOW_SIZE = 6;
 export function normalizeBoardVisibility(value = {}, preferredPrimary = null) {
   const next = {
     scale: false,
-    patterns: false,
+    scaleCompare: false,
     route: false,
     chords: false,
     nearChords: false,

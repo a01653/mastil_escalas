@@ -23,7 +23,7 @@ import { ToggleButton, InfoTitle as InfoTitleImpl } from "./components/ui/AppUiP
 import ManualOverlay from "./components/help/ManualOverlay.jsx";
 import MobileInfoPopover from "./components/help/MobileInfoPopover.jsx";
 import StandardsPanel from "./components/standards/StandardsPanel.jsx";
-import { Blocks, BookOpen, ChevronLeft, ChevronRight, Eraser, Info, Music, Play, Route, Search, Volume2, VolumeX, Waypoints, X } from "lucide-react";
+import { BookOpen, ChevronLeft, ChevronRight, Eraser, Info, Layers2, Music, Play, Route, Search, Volume2, VolumeX, Waypoints, X } from "lucide-react";
 import {
   formatChordName as formatChordNamePure,
 } from "./music/chordDetectionEngine.js";
@@ -60,6 +60,19 @@ import {
 import { buildChordBuilderPatchFromDetectedCandidate } from "./features/chord-detection/chordDetectionCopyCore.js";
 import { buildNearSlotPatchFromDetectedCandidate } from "./features/near-chords/copyToNearSlot.js";
 import { compareAppVersions } from "./features/config/configVersionUtils.js";
+import {
+  SCALE_COMPARE_ROW_DEFAULTS,
+  SCALE_COMPARE_LETTERS,
+  SCALE_COMPARE_ACCS,
+  SCALE_COMPARE_NAMES,
+  rootPcFromLetterAcc,
+  computeScalePcs,
+  buildIntervalLabelMap,
+  toggleScaleCompareVisible as toggleScaleCompareVisibleFn,
+} from "./features/scale-compare/scaleCompareUtils.js";
+import ColorPickerPopover from "./components/ui/ColorPickerPopover.jsx";
+import FretNoteMarker from "./components/fretboard/FretNoteMarker.jsx";
+import { fret0ClusterPos, fret0ClusterPosMobile, calibratedClusterPos, mobileNonFret0ClusterPos, computeMobileFret0TopPadding } from "./features/near-chords/nearFretCellLayout.js";
 
 import * as AppStaticData from "./music/appStaticData.js";
 const {
@@ -68,7 +81,8 @@ const {
   MOBILE_LAYOUT_TOUCH_MEDIA_QUERY,
   MOBILE_SECTION_OPTIONS,
   SCALE_INFO_TEXT,
-  PATTERNS_INFO_TEXT,
+  SCALE_COMPARE_INFO_TEXT,
+  NEAR_CHORD_SLOT_COLORS,
   NEAR_CHORDS_INFO_TEXT,
   NEAR_AUTO_SCALE_INFO_TEXT,
   STANDARDS_INFO_TEXT,
@@ -171,7 +185,6 @@ const {
   FRET_INLAY_BG,
   isDark,
   sanitizePosCodeInput,
-  buildMembershipMap,
   preferSharpsFromMajorTonicPc,
 } = AppMusicBasics;
 
@@ -207,11 +220,6 @@ const {
 
 import * as AppPatternRouteStaffCore from "./music/appPatternRouteStaffCore.jsx";
 const {
-  build3NpsPatternsMerged,
-  buildCagedPatternInstances,
-  pickCagedViewPatterns,
-  buildPentatonicBoxInstances,
-  mergeInstancesToPatterns,
   cleanUiText,
   inferControlTitle,
   sanitizeBoolValue,
@@ -235,10 +243,8 @@ const {
 // - Escalas: pentatónicas (mayor/menor), mayor/menor natural, modos
 // - Resaltado: raíz, 3ª, 5ª + extras
 // - Vista: notas / intervalos
-// - Patrones "reales":
-//   * Pentatónicas: 5 boxes
-//   * Escalas de 7 notas: 3NPS (7 patrones)
-// - Ruta "musical": recorre la escala en orden (asc/desc por altura) y se restringe a patrones.
+// - Comparador de escalas: hasta 4 escalas visualizadas de 2 en 2 sobre el mástil.
+// - Ruta "musical": recorre la escala en orden (asc/desc por altura) y se restringe a posiciones.
 // - Notación: auto #/b según armadura (con override manual)
 
 // ============================================================================
@@ -248,7 +254,7 @@ const {
 // 3. Utilidades de notación y teoría básica
 // 4. Motor de acordes y nomenclatura
 // 5. Detección de acordes desde notas seleccionadas
-// 6. Patrones, CAGED y cajas pentatónicas
+// 6. Comparador de escalas
 // 7. Ruta musical
 // 8. Componente principal
 //    8.1 Estado general
@@ -264,7 +270,7 @@ const {
 
 const MOBILE_BOTTOM_NAV_OPTIONS = [
   { value: "scale", label: "Escala", icon: Music },
-  { value: "patterns", label: "Patrones", icon: Blocks },
+  { value: "scaleCompare", label: "Comparar", icon: Layers2 },
   { value: "route", label: "Ruta", icon: Route },
   { value: "chords", label: "Acordes", icon: ChordDiagramIcon },
   { value: "nearChords", label: "Cercanos", icon: Waypoints },
@@ -280,7 +286,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "6.0.70";
+const APP_VERSION = "6.0.71";
 
 
 // ─── Acorde de referencia (bloque "Investigar en mástil") ────────────────────
@@ -371,9 +377,6 @@ export default function FretboardScalesPage() {
     bb: KING_BOX_DEFAULTS.bb.border,
     albert: KING_BOX_DEFAULTS.albert.border,
   });
-
-  // Modo de patrones para el 2º mástil
-  const [patternsMode, setPatternsMode] = useState("auto"); // auto | boxes | nps | caged
 
   // --------------------------------------------------------------------------
   // ESTADO: ACORDE PRINCIPAL
@@ -739,8 +742,6 @@ export default function FretboardScalesPage() {
   // ESTADO: RUTA MUSICAL
   // --------------------------------------------------------------------------
 
-  const usesFiveNoteBoxPatterns = scaleIntervals.length === 5;
-
   const route = useRouteFeature({ rootPc, scaleName, scaleIntervals, maxFret, preferSharps });
   const { lab: routeLab, labTuning: routeLabTuning, main: routeMain, mainTuning: routeMainTuning, derived: routeDerived } = route;
   const { routeLabStartCode, setRouteLabStartCode, routeLabEndCode, setRouteLabEndCode, routeLabMaxPerString, setRouteLabMaxPerString, routeLabPickNext, setRouteLabPickNext } = routeLab;
@@ -768,15 +769,10 @@ export default function FretboardScalesPage() {
     thirteenth: "#88f2c9",
   });
 
-  const [patternColors, setPatternColors] = useState([
-    "#c7d2fe",
-    "#bae6fd",
-    "#bbf7d0",
-    "#fde68a",
-    "#fecaca",
-    "#ddd6fe",
-    "#a7f3d0",
-  ]);
+  // ── Comparador de escalas ───────────────────────────────────────────────────
+  const [scaleCompareRows, setScaleCompareRows] = useState(SCALE_COMPARE_ROW_DEFAULTS);
+  const [scaleCompareVisible, setScaleCompareVisible] = useState([]);
+
   const [themePageBg, setThemePageBg] = useState("#f7f8f8");
   const [themeObjectBg, setThemeObjectBg] = useState("#ebf2fa");
   const [themeSectionHeaderBg, setThemeSectionHeaderBg] = useState("#c7d8e5");
@@ -838,7 +834,8 @@ export default function FretboardScalesPage() {
     extraInput,
     showExtra,
     showBoards,
-    patternsMode,
+    scaleCompareRows,
+    scaleCompareVisible,
     chordRootPc,
     chordSpellPreferSharps,
     chordFamily,
@@ -904,7 +901,6 @@ export default function FretboardScalesPage() {
     routeFixedPattern,
     routePickNext,
     colors,
-    patternColors,
     themePageBg,
     themeObjectBg,
     themeSectionHeaderBg,
@@ -928,7 +924,8 @@ export default function FretboardScalesPage() {
     extraInput,
     showExtra,
     showBoards,
-    patternsMode,
+    scaleCompareRows,
+    scaleCompareVisible,
     chordRootPc,
     chordSpellPreferSharps,
     chordFamily,
@@ -994,7 +991,6 @@ export default function FretboardScalesPage() {
     routeFixedPattern,
     routePickNext,
     colors,
-    patternColors,
     themePageBg,
     themeObjectBg,
     themeSectionHeaderBg,
@@ -1081,7 +1077,8 @@ export default function FretboardScalesPage() {
         setShowBoards((prev) => normalizeBoardVisibility({
           ...prev,
           scale: sanitizeBoolValue(saved.showBoards.scale, prev.scale),
-          patterns: sanitizeBoolValue(saved.showBoards.patterns, prev.patterns),
+          // Migración: configs antiguas usaban "patterns", ahora es "scaleCompare"
+          scaleCompare: sanitizeBoolValue(saved.showBoards.scaleCompare ?? saved.showBoards.patterns, prev.scaleCompare),
           route: sanitizeBoolValue(saved.showBoards.route, prev.route),
           chords: sanitizeBoolValue(saved.showBoards.chords, prev.chords),
           nearChords: sanitizeBoolValue(saved.showBoards.nearChords, prev.nearChords),
@@ -1089,7 +1086,6 @@ export default function FretboardScalesPage() {
           configuration: sanitizeBoolValue(saved.showBoards.configuration, prev.configuration),
         }));
       }
-      if ("patternsMode" in saved) setPatternsMode(sanitizeOneOf(saved.patternsMode, ["auto", "boxes", "nps", "caged"], "auto"));
 
       if ("chordRootPc" in saved) setChordRootPc(sanitizeNumberValue(saved.chordRootPc, 5, 0, 11));
       if ("chordSpellPreferSharps" in saved) setChordSpellPreferSharps(sanitizeBoolValue(saved.chordSpellPreferSharps, true));
@@ -1203,8 +1199,24 @@ export default function FretboardScalesPage() {
           thirteenth: sanitizeColorValue(saved.colors.thirteenth, prev.thirteenth),
         }));
       }
-      if (Array.isArray(saved.patternColors)) {
-        setPatternColors((prev) => prev.map((c, i) => sanitizeColorValue(saved.patternColors[i], c)));
+      // Restaurar estado del Comparador de escalas
+      if (Array.isArray(saved.scaleCompareRows)) {
+        setScaleCompareRows((prev) => prev.map((r, i) => {
+          const s = saved.scaleCompareRows[i];
+          if (!s || s.id !== r.id) return r;
+          return {
+            ...r,
+            rootLetter: SCALE_COMPARE_LETTERS.includes(s.rootLetter) ? s.rootLetter : r.rootLetter,
+            rootAcc: ["", "b", "#"].includes(s.rootAcc) ? s.rootAcc : r.rootAcc,
+            scaleName: Object.prototype.hasOwnProperty.call(SCALE_PRESETS, s.scaleName) ? s.scaleName : r.scaleName,
+            color: sanitizeColorValue(s.color, r.color),
+          };
+        }));
+      }
+      if (Array.isArray(saved.scaleCompareVisible)) {
+        setScaleCompareVisible(
+          saved.scaleCompareVisible.filter((id) => [0, 1, 2, 3].includes(id)).slice(0, 2)
+        );
       }
       if ("themePageBg" in saved) setThemePageBg(sanitizeColorValue(saved.themePageBg, "#f7f8f8"));
       if ("themeObjectBg" in saved) setThemeObjectBg(sanitizeColorValue(saved.themeObjectBg, "#ebf2fa"));
@@ -3233,14 +3245,6 @@ export default function FretboardScalesPage() {
     setColors((c) => ({ ...c, [key]: value }));
   }
 
-  function setPatternColor(i, value) {
-    setPatternColors((arr) => {
-      const next = [...arr];
-      next[i] = value;
-      return next;
-    });
-  }
-
   function setNearBgColor(idx, value) {
     setNearBgColors((arr) => {
       const next = [...arr];
@@ -3264,45 +3268,24 @@ export default function FretboardScalesPage() {
   }
 
   // --------------------------------------------------------------------------
-  // CÁLCULOS DERIVADOS: PATRONES, RUTA Y ESCALAS
+  // CÁLCULOS DERIVADOS: COMPARADOR DE ESCALAS, RUTA Y ESCALAS
   // --------------------------------------------------------------------------
 
-  // Patrones (para el 2º mástil)
-  const patternsMerged = useMemo(() => {
-    // AUTO: mantiene el comportamiento existente
-    if (patternsMode === "auto") {
-      if (usesFiveNoteBoxPatterns) {
-        const inst = buildPentatonicBoxInstances({ rootPc, scaleIntervals, maxFret });
-        return mergeInstancesToPatterns(inst, 5, "Box");
-      }
-      if (scaleIntervals.length === 7) {
-        return build3NpsPatternsMerged({ rootPc, scaleIntervals, maxFret });
-      }
-      return [];
-    }
-
-    if (patternsMode === "caged") {
-      const inst = buildCagedPatternInstances({ rootPc, scaleIntervals, maxFret });
-      return pickCagedViewPatterns({ instances: inst, maxFret });
-    }
-
-    if (patternsMode === "boxes") {
-      if (scaleIntervals.length === 5) {
-        const inst = buildPentatonicBoxInstances({ rootPc, scaleIntervals, maxFret });
-        return mergeInstancesToPatterns(inst, 5, "Box");
-      }
-      return [];
-    }
-
-    if (patternsMode === "nps") {
-      if (scaleIntervals.length === 7) return build3NpsPatternsMerged({ rootPc, scaleIntervals, maxFret });
-      return [];
-    }
-
-    return [];
-  }, [patternsMode, usesFiveNoteBoxPatterns, rootPc, scaleIntervals, maxFret]);
-
-  const patternMembership = useMemo(() => buildMembershipMap(patternsMerged), [patternsMerged]);
+  // Comparador de escalas: datos derivados para las filas visibles
+  const scaleCompareDerived = useMemo(() => {
+    return scaleCompareVisible.map((id) => {
+      const row = scaleCompareRows.find((r) => r.id === id);
+      if (!row) return null;
+      const rootPcRow = rootPcFromLetterAcc(row.rootLetter, row.rootAcc);
+      return {
+        row,
+        rootPcRow,
+        pcs: computeScalePcs(rootPcRow, row.scaleName),
+        intervalMap: buildIntervalLabelMap(rootPcRow, row.scaleName),
+        preferSharps: preferSharpsFromMajorTonicPc(rootPcRow),
+      };
+    }).filter(Boolean);
+  }, [scaleCompareVisible, scaleCompareRows]);
 
   const kingBoxOverlay = useMemo(
     () => buildKingBoxOverlayMap({
@@ -3313,20 +3296,6 @@ export default function FretboardScalesPage() {
     }),
     [isKingBoxEligibleScale, showKingBoxes, kingBoxMode, rootPc, maxFret]
   );
-
-  function patternBgStyle(cellKey) {
-    const idxs = patternMembership.get(cellKey) || [];
-    if (!idxs.length) return {};
-    const a = idxs[0];
-    const b = idxs[1];
-    if (b == null) {
-      const c = patternColors[a] || "#e2e8f0";
-      return { backgroundColor: rgba(c, 0.65) };
-    }
-    const c1 = rgba(patternColors[a] || "#e2e8f0", 0.65);
-    const c2 = rgba(patternColors[b] || "#e2e8f0", 0.65);
-    return { backgroundImage: `linear-gradient(135deg, ${c1} 0%, ${c1} 50%, ${c2} 50%, ${c2} 100%)` };
-  }
 
   // Ruta: los derivados vienen de routeDerived (useRouteFeature)
 
@@ -3745,7 +3714,7 @@ export default function FretboardScalesPage() {
   }
 
   function Fretboard({ title, subtitle, mode, testId }) {
-    // mode: scale | patterns | route
+    // mode: scale | route
     const showAllNotes = showNonScale;
     const usesKingOverlay = mode === "scale" && isKingBoxEligibleScale && showKingBoxes;
 
@@ -3754,23 +3723,7 @@ export default function FretboardScalesPage() {
         data-testid={testId}
         title={<InfoTitle label={title} info={subtitle} />}
         titleTooltip={!isMobileLayout ? subtitle : ""}
-        headerAside={mode === "patterns" ? (
-            <div className="flex items-center gap-2">
-              <div className="text-xs font-semibold text-slate-700">Modo patrones:</div>
-              <select
-                data-testid="pattern-mode-select"
-                className={UI_SELECT_SM + " w-44"}
-                value={patternsMode}
-                onChange={(e) => setPatternsMode(e.target.value)}
-                title="Define el modo del mástil Patrones (Auto/Boxes/3NPS/CAGED)"
-              >
-                <option value="auto">Auto</option>
-                {scaleIntervals.length === 5 ? <option value="boxes">Boxes (pentatónica)</option> : null}
-                {scaleIntervals.length === 7 ? <option value="nps">3NPS</option> : null}
-                <option value="caged">CAGED</option>
-              </select>
-            </div>
-          ) : mode === "route" ? (
+        headerAside={mode === "route" ? (
             <div className="text-xs text-slate-600">
               {routeResult.reason ? (
                 <span className="font-semibold text-rose-600">{routeResult.reason}</span>
@@ -3792,7 +3745,6 @@ export default function FretboardScalesPage() {
               const displayRole = getDisplayRole({ pc, inScale, inExtra });
 
               const cellKey = `${sIdx}:${fret}`;
-              const bgPat = mode === "patterns" && inScale ? patternBgStyle(cellKey) : {};
 
               const routeIdx = mode === "route" ? routeIndexByCell.get(cellKey) : null;
               const inRoute = mode === "route" && routeIdx != null;
@@ -3825,7 +3777,7 @@ export default function FretboardScalesPage() {
                   className={`group relative flex w-full overflow-visible items-center justify-center rounded-lg border ${cellClassName} ${
                     mobileVerticalFretBorderClass(fret)
                   } ${mode === "route" && inScale ? "cursor-pointer hover:ring-2 hover:ring-slate-300" : ""}`}
-                  style={{ backgroundColor: fret === 0 ? "transparent" : FRET_CELL_BG, ...bgPat, ...bgRoute }}
+                  style={{ backgroundColor: fret === 0 ? "transparent" : FRET_CELL_BG, ...bgRoute }}
                 >
                   <HoverCellNote sIdx={sIdx} fret={fret} visible={!shouldRender} />
                   {shouldRender && effectiveRole ? (
@@ -3860,7 +3812,6 @@ export default function FretboardScalesPage() {
                       const displayRole = getDisplayRole({ pc, inScale, inExtra });
 
                       const cellKey = `${sIdx}:${fret}`;
-                      const bgPat = mode === "patterns" && inScale ? patternBgStyle(cellKey) : {};
 
                       const routeIdx = mode === "route" ? routeIndexByCell.get(cellKey) : null;
                       const inRoute = mode === "route" && routeIdx != null;
@@ -3894,7 +3845,7 @@ export default function FretboardScalesPage() {
                           className={`group relative isolate flex h-8 overflow-visible items-center justify-center rounded-lg border ${
                             fret === 0 ? "border-slate-300" : "border-slate-200"
                           } ${shouldRender && displayRole ? "z-[4]" : "z-0"} ${mode === "route" && inScale ? "cursor-pointer hover:ring-2 hover:ring-slate-300" : ""}`}
-                          style={{ backgroundColor: FRET_CELL_BG, ...bgPat, ...bgRoute }}
+                          style={{ backgroundColor: FRET_CELL_BG, ...bgRoute }}
                         >
                           {hasInlayCell(fret, sIdx) ? (
                             <div
@@ -4009,7 +3960,7 @@ export default function FretboardScalesPage() {
   const effectiveBoards = isMobileLayout
     ? {
         scale: mobileActiveSection === "scale",
-        patterns: mobileActiveSection === "patterns",
+        scaleCompare: mobileActiveSection === "scaleCompare",
         route: mobileActiveSection === "route",
         chords: mobileActiveSection === "chords",
         nearChords: mobileActiveSection === "nearChords",
@@ -4414,10 +4365,10 @@ export default function FretboardScalesPage() {
     return {
       view: { showNotesLabel, setShowNotesLabel, showIntervalsLabel, setShowIntervalsLabel, maxFret, setMaxFret, showNonScale, setShowNonScale, debugMode, setDebugMode },
       theme: { themePageBg, setThemePageBg, themeObjectBg, setThemeObjectBg, themeSectionHeaderBg, setThemeSectionHeaderBg, themeElementBg, setThemeElementBg, themeDisabledControlBg, setThemeDisabledControlBg },
-      colorState: { colors, setColor, patternColors, setPatternColor, legend },
+      colorState: { colors, setColor, legend },
       presets: { selectedQuickPresetSlot, setSelectedQuickPresetSlot, quickPresets, loadQuickPreset, selectedQuickPresetIndex, selectedQuickPreset, saveQuickPreset, QUICK_PRESET_COUNT },
       actions: { exportUiConfig, resetUiConfig, importConfigInputRef },
-      layout: { effectiveBoards, patternsMode, scaleIntervals },
+      layout: { effectiveBoards, scaleIntervals },
       ui: { ToggleButton, UI_LABEL_SM, UI_SELECT_SM, UI_BTN_SM },
     };
   }
@@ -4425,7 +4376,7 @@ export default function FretboardScalesPage() {
   function boardVisibilityForSection(section) {
     return {
       scale: section === "scale",
-      patterns: section === "patterns",
+      scaleCompare: section === "scaleCompare",
       route: section === "route",
       chords: section === "chords",
       nearChords: section === "nearChords",
@@ -4472,13 +4423,281 @@ export default function FretboardScalesPage() {
     );
   }
 
+  // ── Comparador de escalas ───────────────────────────────────────────────────
+
+  function ScaleCompareBoard() {
+    // Mismo label que NearChordSlot.jsx
+    const LBL = "block text-[11px] font-semibold text-slate-700";
+
+    function updateRow(id, field, value) {
+      setScaleCompareRows((prev) => prev.map((r) => r.id === id ? { ...r, [field]: value } : r));
+    }
+
+    function toggleVisible(id) {
+      setScaleCompareVisible((prev) => toggleScaleCompareVisibleFn(prev, id));
+    }
+
+    function toggleAcc(rowId, accValue) {
+      const row = scaleCompareRows.find((r) => r.id === rowId);
+      updateRow(rowId, "rootAcc", row?.rootAcc === accValue ? "" : accValue);
+    }
+
+    function scalesInCell(pc) {
+      return scaleCompareDerived.filter((d) => d.pcs.has(pc));
+    }
+
+    function circleLabel(d, pc) {
+      if (showIntervalsLabel) return d.intervalMap.get(pc) ?? "·";
+      if (showNotesLabel) return pcToName(pc, d.preferSharps);
+      return "·";
+    }
+
+    function renderCell(pc, fret, sIdx, isDesktop) {
+      const entries = scalesInCell(pc);
+      const hasAny = entries.length > 0;
+      const n = entries.length;
+
+      let cellContent;
+      if (!hasAny) {
+        cellContent = showNonScale ? (
+          <div className="pointer-events-none relative z-[1] text-[10px] text-slate-400">{labelForPc(pc)}</div>
+        ) : null;
+      } else if (n === 1) {
+        const d = entries[0];
+        const ring = NEAR_CHORD_SLOT_COLORS[d.row.id]?.border || "#64748b";
+        cellContent = (
+          <div className="pointer-events-none relative z-[5]">
+            <FretNoteMarker
+              color={d.row.color}
+              ring={ring}
+              label={circleLabel(d, pc)}
+              size={fret === 0 ? "s" : "m"}
+            />
+          </div>
+        );
+      } else {
+        // 2 escalas en la misma celda: posicionamiento absoluto igual que NearChords
+        const isFret0 = fret === 0;
+        // Desktop: par lado-a-lado en celdas normales (como NearChords)
+        // Mobile: apilar verticalmente siempre (calibratedClusterPos desborda en columnas estrechas)
+        const getPos = isFret0
+          ? (i) => (isDesktop ? fret0ClusterPos(n, i) : fret0ClusterPosMobile(n, i))
+          : (i) => isDesktop
+            ? (calibratedClusterPos(n, i) || { left: "50%", top: "50%", transform: "translate(-50%, -50%)" })
+            : mobileNonFret0ClusterPos(n, i);
+        // Desktop no-fret0: "pair" (26px) — caben bien en celdas de ~65px
+        // Mobile o fret0: "cal" (21px) — caben en columnas estrechas/apiladas
+        const size = isFret0 || !isDesktop ? "cal" : "pair";
+
+        cellContent = (
+          <div className="absolute inset-0 z-[5] pointer-events-none">
+            {entries.slice(0, 2).map((d, i) => {
+              const ring = NEAR_CHORD_SLOT_COLORS[d.row.id]?.border || "#64748b";
+              return (
+                <div key={d.row.id} className="absolute" style={getPos(i)}>
+                  <FretNoteMarker
+                    color={d.row.color}
+                    ring={ring}
+                    label={circleLabel(d, pc)}
+                    size={size}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        );
+      }
+
+      if (!isDesktop) return cellContent;
+
+      return (
+        <div
+          key={fret}
+          className={`group relative isolate flex h-8 overflow-visible items-center justify-center rounded-lg border ${
+            fret === 0 ? "border-slate-300" : "border-slate-200"
+          } ${hasAny ? "z-[4]" : "z-0"}`}
+          style={{ backgroundColor: FRET_CELL_BG }}
+        >
+          {hasInlayCell(fret, sIdx) ? (
+            <div className="pointer-events-none absolute left-1/2 z-0 -translate-x-1/2" style={{ bottom: "-10px" }}>
+              <div className="h-4 w-4 rounded-full opacity-95" style={{ backgroundColor: FRET_INLAY_BG }} />
+            </div>
+          ) : null}
+          {cellContent}
+        </div>
+      );
+    }
+
+    const mobileFret0TopPx = isNarrowBoardLayout
+      ? computeMobileFret0TopPadding(Math.max(0, ...STRINGS.map((_, sIdx) =>
+          scalesInCell(mod12(STRINGS[sIdx].pc)).length
+        )))
+      : 0;
+
+    return (
+      <PanelBlock
+        data-testid="scale-compare-panel"
+        title={<InfoTitle label="Comparador de escalas" info={SCALE_COMPARE_INFO_TEXT} />}
+        titleTooltip={!isMobileLayout ? SCALE_COMPARE_INFO_TEXT : ""}
+      >
+        {/* ── 4 filas — 2 columnas en desktop, 1 en mobile ────────────────── */}
+        <div className={`mt-2 ${isNarrowBoardLayout ? "space-y-1.5" : "grid grid-cols-2 gap-2"}`}>
+          {scaleCompareRows.map((row) => {
+            const isVisible = scaleCompareVisible.includes(row.id);
+            const activeFlat  = row.rootAcc === "b";
+            const activeSharp = row.rootAcc === "#";
+            return (
+              <div
+                key={row.id}
+                data-testid={`scale-compare-row-${row.id}`}
+                className={`flex flex-wrap items-end gap-x-2 gap-y-1 rounded-lg border px-2 py-1.5 transition-all ${
+                  isVisible ? "border-slate-300" : "border-slate-200 bg-slate-50"
+                }`}
+                style={isVisible ? {
+                  backgroundColor: rgba(row.color, 0.20),
+                  boxShadow: `inset 3px 0 0 0 ${row.color}, 0 1px 2px 0 rgba(0,0,0,0.05)`,
+                } : undefined}
+              >
+                {/* Ver — siempre normal, es el control que activa la fila */}
+                <button
+                  type="button"
+                  data-testid={`scale-compare-toggle-${row.id}`}
+                  onClick={() => toggleVisible(row.id)}
+                  title={isVisible ? "Ocultar del mástil" : "Ver en mástil (máx. 2 simultáneas)"}
+                  className={`h-7 rounded-xl px-2 text-sm ring-1 shadow-sm ${isVisible ? "bg-sky-600 text-white ring-sky-600" : "bg-white text-slate-700 ring-slate-200 hover:bg-sky-50 hover:text-slate-900"}`}
+                >
+                  Ver
+                </button>
+
+                {/* Tono + Escala + Fondo */}
+                <div className="flex min-w-0 flex-1 flex-wrap items-end gap-x-2 gap-y-1">
+
+                  {/* Tono */}
+                  <div className="flex flex-col items-start gap-0.5">
+                    <span className={LBL}>Tono</span>
+                    <div className="flex items-center gap-1">
+                      <select
+                        data-testid={`scale-compare-letter-${row.id}`}
+                        className={UI_SELECT_SM_TONE}
+                        style={{ width: "50px" }}
+                        value={row.rootLetter}
+                        onChange={(e) => updateRow(row.id, "rootLetter", e.target.value)}
+                        title="Nota raíz"
+                      >
+                        {SCALE_COMPARE_LETTERS.map((l) => <option key={l} value={l}>{l}</option>)}
+                      </select>
+                      <button
+                        type="button"
+                        data-testid={`scale-compare-flat-${row.id}`}
+                        className={`${UI_BTN_SM} ${activeFlat ? "!bg-[#71a3c1] !text-slate-900 !border-[#71a3c1]" : ""}`}
+                        onClick={() => toggleAcc(row.id, "b")}
+                        title="Bemol"
+                      >b</button>
+                      <button
+                        type="button"
+                        data-testid={`scale-compare-sharp-${row.id}`}
+                        className={`${UI_BTN_SM} ${activeSharp ? "!bg-[#71a3c1] !text-slate-900 !border-[#71a3c1]" : ""}`}
+                        onClick={() => toggleAcc(row.id, "#")}
+                        title="Sostenido"
+                      >#</button>
+                    </div>
+                  </div>
+
+                  {/* Escala */}
+                  <div className="flex min-w-0 flex-1 flex-col items-start gap-0.5">
+                    <span className={LBL}>Escala</span>
+                    <select
+                      data-testid={`scale-compare-scale-${row.id}`}
+                      className={`${UI_SELECT_SM} w-full`}
+                      value={row.scaleName}
+                      onChange={(e) => updateRow(row.id, "scaleName", e.target.value)}
+                      title="Escala"
+                    >
+                      {SCALE_COMPARE_NAMES.map((n) => <option key={n} value={n}>{n}</option>)}
+                    </select>
+                  </div>
+
+                  {/* Fondo */}
+                  <div className="flex flex-col items-start gap-0.5">
+                    <ColorPickerPopover
+                      value={row.color}
+                      onChange={(v) => updateRow(row.id, "color", v)}
+                      label="Fondo"
+                      data-testid={`scale-compare-color-${row.id}`}
+                    />
+                  </div>
+
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* ── leyenda de escalas visibles ──────────────────────────────────── */}
+        {scaleCompareDerived.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-3 text-xs text-slate-600">
+            {scaleCompareDerived.map((d) => (
+              <span key={d.row.id} className="flex items-center gap-1.5">
+                <span className="inline-block h-3 w-3 rounded-full border border-slate-300/50 shadow-sm" style={{ backgroundColor: d.row.color }} />
+                <span className="font-medium">{d.row.rootLetter}{d.row.rootAcc} {d.row.scaleName}</span>
+              </span>
+            ))}
+          </div>
+        )}
+
+        {/* ── mástil ─────────────────────────────────────────────────────── */}
+        {scaleCompareDerived.length === 0 ? (
+          <p className="mt-3 text-sm text-slate-500">Activa hasta 2 escalas para visualizarlas en el mástil.</p>
+        ) : isNarrowBoardLayout ? (
+          <MobileMainFretboard
+            fret0TopPadding={mobileFret0TopPx}
+            renderCell={({ sIdx, fret, cellClassName }) => {
+              const pc = mod12(STRINGS[sIdx].pc + fret);
+              return (
+                <div
+                  key={`${sIdx}-${fret}`}
+                  className={`relative flex w-full overflow-visible items-center justify-center rounded-lg border ${cellClassName} ${mobileVerticalFretBorderClass(fret)}`}
+                  style={{ backgroundColor: fret === 0 ? "transparent" : FRET_CELL_BG }}
+                >
+                  {renderCell(pc, fret, sIdx, false)}
+                </div>
+              );
+            }}
+          />
+        ) : (
+          <>
+            <div className="grid items-center gap-1" style={{ gridTemplateColumns: fretGridCols(maxFret) }}>
+              <div className="text-xs font-semibold text-slate-600">Cuerda</div>
+              {Array.from({ length: maxFret + 1 }, (_, fret) => (
+                <WebFretNumberHeader key={fret} fret={fret} />
+              ))}
+            </div>
+            <div className="mt-2 space-y-1">
+              {STRINGS.map((st, sIdx) => (
+                <React.Fragment key={st.label}>
+                  <div className="grid items-center gap-1" style={{ gridTemplateColumns: fretGridCols(maxFret) }}>
+                    <div className="text-xs font-medium text-slate-700">{st.label}</div>
+                    {Array.from({ length: maxFret + 1 }, (_, fret) => {
+                      const pc = mod12(st.pc + fret);
+                      return renderCell(pc, fret, sIdx, true);
+                    })}
+                  </div>
+                </React.Fragment>
+              ))}
+            </div>
+          </>
+        )}
+      </PanelBlock>
+    );
+  }
+
   function renderBoardPanels(boardVisibility, { paneClassName = "space-y-3", includeMobileTonalContext = false } = {}) {
-    const showMobileTonalContext = includeMobileTonalContext && !boardVisibility.standards;
+    const showMobileTonalContext = includeMobileTonalContext && !boardVisibility.standards && !boardVisibility.scaleCompare;
     return (
       <div className={paneClassName}>
         {showMobileTonalContext ? renderMobileTonalContextCard() : null}
         {boardVisibility.scale ? <Fretboard title="Escala" subtitle={SCALE_INFO_TEXT} mode="scale" testId="fretboard-scale" /> : null}
-        {boardVisibility.patterns ? <Fretboard title="Patrones" subtitle={PATTERNS_INFO_TEXT} mode="patterns" testId="fretboard-patterns" /> : null}
+        {boardVisibility.scaleCompare ? <ScaleCompareBoard /> : null}
         {boardVisibility.route ? (
           <PanelBlock
             data-testid="route-panel"
@@ -4761,7 +4980,7 @@ export default function FretboardScalesPage() {
         <div className="space-y-4">
           <div className="space-y-4">
             <div className="space-y-4">
-              {!isMobileLayout && !hideDesktopTonalContextOnConfiguration ? <TonalContextPanel {...buildTonalContextProps()} /> : null}
+              {!isMobileLayout && !hideDesktopTonalContextOnConfiguration && !effectiveBoards.scaleCompare ? <TonalContextPanel {...buildTonalContextProps()} /> : null}
             </div>
 
             {/* MÁSTILES */}
