@@ -70,6 +70,7 @@ import {
   buildIntervalLabelMap,
   toggleScaleCompareVisible as toggleScaleCompareVisibleFn,
 } from "./features/scale-compare/scaleCompareUtils.js";
+import { computeResolutionPoints } from "./features/scale-compare/scaleResolutionUtils.js";
 import ColorPickerPopover from "./components/ui/ColorPickerPopover.jsx";
 import FretNoteMarker from "./components/fretboard/FretNoteMarker.jsx";
 import { fret0ClusterPos, fret0ClusterPosMobile, calibratedClusterPos, mobileNonFret0ClusterPos, computeMobileFret0TopPadding } from "./features/near-chords/nearFretCellLayout.js";
@@ -286,7 +287,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "6.0.71";
+const APP_VERSION = "6.0.72";
 
 
 // ─── Acorde de referencia (bloque "Investigar en mástil") ────────────────────
@@ -772,6 +773,11 @@ export default function FretboardScalesPage() {
   // ── Comparador de escalas ───────────────────────────────────────────────────
   const [scaleCompareRows, setScaleCompareRows] = useState(SCALE_COMPARE_ROW_DEFAULTS);
   const [scaleCompareVisible, setScaleCompareVisible] = useState([]);
+  const [showResolutionPoints, setShowResolutionPoints] = useState(false);
+  const [resolutionSwapped, setResolutionSwapped] = useState(false);
+  const scaleCompareCellRefs = useRef(new Map());
+  const scaleCompareFretboardRef = useRef(null);
+  const [scaleCompareArrows, setScaleCompareArrows] = useState([]);
 
   const [themePageBg, setThemePageBg] = useState("#f7f8f8");
   const [themeObjectBg, setThemeObjectBg] = useState("#ebf2fa");
@@ -3287,6 +3293,62 @@ export default function FretboardScalesPage() {
     }).filter(Boolean);
   }, [scaleCompareVisible, scaleCompareRows]);
 
+  // Reiniciar dirección de swap al cambiar las escalas visibles
+  useEffect(() => { setResolutionSwapped(false); }, [scaleCompareVisible]);
+
+  const resolutionPoints = useMemo(() => {
+    if (!showResolutionPoints || scaleCompareDerived.length !== 2) return [];
+    const [org, dst] = resolutionSwapped
+      ? [scaleCompareDerived[1], scaleCompareDerived[0]]
+      : [scaleCompareDerived[0], scaleCompareDerived[1]];
+    return computeResolutionPoints(org, dst, maxFret);
+  }, [showResolutionPoints, scaleCompareDerived, resolutionSwapped, maxFret]);
+
+  const resolutionDestPcSet = useMemo(
+    () => new Set(resolutionPoints.map((c) => c.destPc)),
+    [resolutionPoints]
+  );
+
+  // Medir posiciones DOM para dibujar flechas SVG en el mástil
+  useEffect(() => {
+    if (!showResolutionPoints || resolutionPoints.length === 0) {
+      setScaleCompareArrows([]);
+      return;
+    }
+    function measure() {
+      const container = scaleCompareFretboardRef.current;
+      if (!container) return;
+      const cRect = container.getBoundingClientRect();
+      if (cRect.width === 0) return;
+      const nextArrows = [];
+      for (const conn of resolutionPoints) {
+        const fromEl = scaleCompareCellRefs.current.get(`${conn.stringIdx}-${conn.originFret}`);
+        const toEl   = scaleCompareCellRefs.current.get(`${conn.stringIdx}-${conn.destFret}`);
+        if (!fromEl || !toEl) continue;
+        const fR = fromEl.getBoundingClientRect();
+        const tR = toEl.getBoundingClientRect();
+        const x1 = fR.left - cRect.left + fR.width  / 2;
+        const y1 = fR.top  - cRect.top  + fR.height / 2;
+        const x2 = tR.left - cRect.left + tR.width  / 2;
+        const y2 = tR.top  - cRect.top  + tR.height / 2;
+        const dx = x2 - x1, dy = y2 - y1;
+        const len = Math.sqrt(dx * dx + dy * dy);
+        if (len < 8) continue;
+        const margin = 14;
+        const ux = dx / len, uy = dy / len;
+        nextArrows.push({
+          x1: x1 + ux * margin, y1: y1 + uy * margin,
+          x2: x2 - ux * margin, y2: y2 - uy * margin,
+        });
+      }
+      setScaleCompareArrows(nextArrows);
+    }
+    const rafId = requestAnimationFrame(measure);
+    const ro = new ResizeObserver(measure);
+    if (scaleCompareFretboardRef.current) ro.observe(scaleCompareFretboardRef.current);
+    return () => { cancelAnimationFrame(rafId); ro.disconnect(); };
+  }, [showResolutionPoints, resolutionPoints, isNarrowBoardLayout]);
+
   const kingBoxOverlay = useMemo(
     () => buildKingBoxOverlayMap({
       enabled: isKingBoxEligibleScale && showKingBoxes,
@@ -4429,6 +4491,13 @@ export default function FretboardScalesPage() {
     // Mismo label que NearChordSlot.jsx
     const LBL = "block text-[11px] font-semibold text-slate-700";
 
+    const originDerived = scaleCompareDerived.length === 2
+      ? (resolutionSwapped ? scaleCompareDerived[1] : scaleCompareDerived[0])
+      : null;
+    const destDerived = scaleCompareDerived.length === 2
+      ? (resolutionSwapped ? scaleCompareDerived[0] : scaleCompareDerived[1])
+      : null;
+
     function updateRow(id, field, value) {
       setScaleCompareRows((prev) => prev.map((r) => r.id === id ? { ...r, [field]: value } : r));
     }
@@ -4456,6 +4525,14 @@ export default function FretboardScalesPage() {
       const entries = scalesInCell(pc);
       const hasAny = entries.length > 0;
       const n = entries.length;
+
+      // Indicador visual para notas-objetivo de resolución
+      const isResDest = showResolutionPoints && hasAny && resolutionDestPcSet.has(pc);
+      const haloEl = isResDest ? (
+        <div className="absolute inset-0 z-[3] flex items-center justify-center pointer-events-none">
+          <div className="h-7 w-7 rounded-full ring-2 ring-amber-400/70" />
+        </div>
+      ) : null;
 
       let cellContent;
       if (!hasAny) {
@@ -4508,11 +4585,15 @@ export default function FretboardScalesPage() {
         );
       }
 
-      if (!isDesktop) return cellContent;
+      if (!isDesktop) return haloEl ? <>{haloEl}{cellContent}</> : cellContent;
 
       return (
         <div
           key={fret}
+          ref={(el) => {
+            if (el) scaleCompareCellRefs.current.set(`${sIdx}-${fret}`, el);
+            else scaleCompareCellRefs.current.delete(`${sIdx}-${fret}`);
+          }}
           className={`group relative isolate flex h-8 overflow-visible items-center justify-center rounded-lg border ${
             fret === 0 ? "border-slate-300" : "border-slate-200"
           } ${hasAny ? "z-[4]" : "z-0"}`}
@@ -4523,6 +4604,7 @@ export default function FretboardScalesPage() {
               <div className="h-4 w-4 rounded-full opacity-95" style={{ backgroundColor: FRET_INLAY_BG }} />
             </div>
           ) : null}
+          {haloEl}
           {cellContent}
         </div>
       );
@@ -4645,25 +4727,105 @@ export default function FretboardScalesPage() {
           </div>
         )}
 
+        {/* ── Puntos de resolución ──────────────────────────────────────── */}
+        <div
+          data-testid="scale-resolution-block"
+          className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2"
+        >
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold text-slate-700">Puntos de resolución</span>
+            <button
+              type="button"
+              data-testid="scale-resolution-toggle"
+              onClick={() => setShowResolutionPoints((v) => !v)}
+              title={showResolutionPoints ? "Desactivar puntos de resolución" : "Activar puntos de resolución"}
+              className={`h-6 rounded-full px-3 text-xs ring-1 shadow-sm transition-colors ${
+                showResolutionPoints
+                  ? "bg-amber-500 text-white ring-amber-500"
+                  : "bg-white text-slate-700 ring-slate-200 hover:bg-amber-50 hover:ring-amber-300"
+              }`}
+            >
+              {showResolutionPoints ? "ON" : "OFF"}
+            </button>
+          </div>
+          {scaleCompareDerived.length < 2 ? (
+            <p className="mt-1 text-xs text-slate-500">
+              Selecciona dos escalas para ver puntos de resolución.
+            </p>
+          ) : (
+            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-600">
+              <span>
+                <span className="font-medium">Origen:</span>{" "}
+                <span className="font-semibold" style={{ color: originDerived.row.color }}>
+                  {originDerived.row.rootLetter}{originDerived.row.rootAcc}{" "}
+                  {originDerived.row.scaleName}
+                </span>
+              </span>
+              <span className="text-slate-400">→</span>
+              <span>
+                <span className="font-medium">Destino:</span>{" "}
+                <span className="font-semibold" style={{ color: destDerived.row.color }}>
+                  {destDerived.row.rootLetter}{destDerived.row.rootAcc}{" "}
+                  {destDerived.row.scaleName}
+                </span>
+              </span>
+              <button
+                type="button"
+                data-testid="scale-resolution-swap"
+                onClick={() => setResolutionSwapped((v) => !v)}
+                title="Intercambiar origen y destino"
+                className="rounded px-2 py-0.5 text-xs ring-1 ring-slate-200 bg-white hover:bg-slate-100 hover:ring-slate-300"
+              >
+                ⇄ Intercambiar
+              </button>
+            </div>
+          )}
+        </div>
+
         {/* ── mástil ─────────────────────────────────────────────────────── */}
         {scaleCompareDerived.length === 0 ? (
           <p className="mt-3 text-sm text-slate-500">Activa hasta 2 escalas para visualizarlas en el mástil.</p>
         ) : isNarrowBoardLayout ? (
-          <MobileMainFretboard
-            fret0TopPadding={mobileFret0TopPx}
-            renderCell={({ sIdx, fret, cellClassName }) => {
-              const pc = mod12(STRINGS[sIdx].pc + fret);
-              return (
-                <div
-                  key={`${sIdx}-${fret}`}
-                  className={`relative flex w-full overflow-visible items-center justify-center rounded-lg border ${cellClassName} ${mobileVerticalFretBorderClass(fret)}`}
-                  style={{ backgroundColor: fret === 0 ? "transparent" : FRET_CELL_BG }}
-                >
-                  {renderCell(pc, fret, sIdx, false)}
-                </div>
-              );
-            }}
-          />
+          <div className="relative" ref={scaleCompareFretboardRef}>
+            <MobileMainFretboard
+              fret0TopPadding={mobileFret0TopPx}
+              renderCell={({ sIdx, fret, cellClassName }) => {
+                const pc = mod12(STRINGS[sIdx].pc + fret);
+                return (
+                  <div
+                    key={`${sIdx}-${fret}`}
+                    ref={(el) => {
+                      if (el) scaleCompareCellRefs.current.set(`${sIdx}-${fret}`, el);
+                      else scaleCompareCellRefs.current.delete(`${sIdx}-${fret}`);
+                    }}
+                    className={`relative flex w-full overflow-visible items-center justify-center rounded-lg border ${cellClassName} ${mobileVerticalFretBorderClass(fret)}`}
+                    style={{ backgroundColor: fret === 0 ? "transparent" : FRET_CELL_BG }}
+                  >
+                    {renderCell(pc, fret, sIdx, false)}
+                  </div>
+                );
+              }}
+            />
+            {showResolutionPoints && scaleCompareArrows.length > 0 && (
+              <svg
+                className="pointer-events-none absolute inset-0 z-10 overflow-visible"
+                aria-hidden="true"
+                data-testid="scale-resolution-arrows"
+                style={{ width: "100%", height: "100%" }}
+              >
+                <defs>
+                  <marker id="sc-resolve-arrow-m" markerWidth="7" markerHeight="5" refX="5" refY="2.5" orient="auto">
+                    <polygon points="0 0, 7 2.5, 0 5" fill="#f59e0b" />
+                  </marker>
+                </defs>
+                {scaleCompareArrows.map((a, i) => (
+                  <line key={i} x1={a.x1} y1={a.y1} x2={a.x2} y2={a.y2}
+                        stroke="#f59e0b" strokeWidth="2" strokeOpacity="0.85"
+                        markerEnd="url(#sc-resolve-arrow-m)" />
+                ))}
+              </svg>
+            )}
+          </div>
         ) : (
           <>
             <div className="grid items-center gap-1" style={{ gridTemplateColumns: fretGridCols(maxFret) }}>
@@ -4672,7 +4834,7 @@ export default function FretboardScalesPage() {
                 <WebFretNumberHeader key={fret} fret={fret} />
               ))}
             </div>
-            <div className="mt-2 space-y-1">
+            <div className="relative mt-2 space-y-1" ref={scaleCompareFretboardRef}>
               {STRINGS.map((st, sIdx) => (
                 <React.Fragment key={st.label}>
                   <div className="grid items-center gap-1" style={{ gridTemplateColumns: fretGridCols(maxFret) }}>
@@ -4684,8 +4846,61 @@ export default function FretboardScalesPage() {
                   </div>
                 </React.Fragment>
               ))}
+              {showResolutionPoints && scaleCompareArrows.length > 0 && (
+                <svg
+                  className="pointer-events-none absolute inset-0 z-10 overflow-visible"
+                  aria-hidden="true"
+                  data-testid="scale-resolution-arrows"
+                  style={{ width: "100%", height: "100%" }}
+                >
+                  <defs>
+                    <marker id="sc-resolve-arrow" markerWidth="7" markerHeight="5" refX="5" refY="2.5" orient="auto">
+                      <polygon points="0 0, 7 2.5, 0 5" fill="#f59e0b" />
+                    </marker>
+                  </defs>
+                  {scaleCompareArrows.map((a, i) => (
+                    <line key={i} x1={a.x1} y1={a.y1} x2={a.x2} y2={a.y2}
+                          stroke="#f59e0b" strokeWidth="2" strokeOpacity="0.85"
+                          markerEnd="url(#sc-resolve-arrow)" />
+                  ))}
+                </svg>
+              )}
             </div>
           </>
+        )}
+
+        {/* ── Lista de puntos de resolución ────────────────────────────── */}
+        {showResolutionPoints && resolutionPoints.length > 0 && destDerived && (
+          <div className="mt-3" data-testid="scale-resolution-list">
+            <p className="mb-1.5 text-xs font-semibold text-slate-600">
+              Hacia{" "}
+              <span style={{ color: destDerived.row.color }}>
+                {destDerived.row.rootLetter}{destDerived.row.rootAcc} {destDerived.row.scaleName}
+              </span>
+              :
+            </p>
+            <ol className="space-y-0.5">
+              {resolutionPoints.map((c, i) => (
+                <li
+                  key={`${c.stringIdx}-${c.destFret}`}
+                  className="flex flex-wrap items-baseline gap-x-2 gap-y-0 rounded px-1.5 py-0.5 text-xs even:bg-slate-50"
+                >
+                  <span className="w-4 shrink-0 text-right text-slate-400">{i + 1}.</span>
+                  <span className="shrink-0 font-semibold text-slate-700">{c.stringLabel}</span>
+                  <span className="shrink-0 text-slate-500">tr.{c.originFret}→{c.destFret}</span>
+                  <span className="shrink-0">
+                    <span className="font-mono text-slate-600">{c.originLabel}</span>
+                    <span className="mx-0.5 text-slate-400">→</span>
+                    <span className="font-mono font-bold text-amber-600">{c.destLabel}</span>
+                  </span>
+                  <span className="text-slate-500">({c.destRoleName})</span>
+                  <span className={`ml-auto shrink-0 font-medium ${Math.abs(c.distance) === 1 ? "text-emerald-600" : "text-slate-500"}`}>
+                    {c.distance > 0 ? "+" : ""}{c.distance}
+                  </span>
+                </li>
+              ))}
+            </ol>
+          </div>
         )}
       </PanelBlock>
     );
