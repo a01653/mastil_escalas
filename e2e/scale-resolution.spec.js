@@ -20,9 +20,22 @@ async function activateTwoScales(page) {
   await page.getByTestId("scale-compare-toggle-1").click();
 }
 
+// Inicia con scaleCompareVisible:[] para tests que verifican estado sin filas activas
+async function gotoDesktopClearVisible(page) {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.addInitScript((cfg) => {
+    if (typeof window !== "undefined") {
+      window.localStorage.clear();
+      window.localStorage.setItem("mastil_interactivo_guitarra_config_v1", JSON.stringify(cfg));
+    }
+  }, { version: 1, appVersion: "6.0.74", config: { scaleCompareVisible: [] } });
+  await page.goto("/");
+  await page.waitForLoadState("networkidle");
+}
+
 // ── SR1: Bloque visible con 0 escalas activas ────────────────────────────────
 test("SR1. Bloque resolución visible; mensaje de ayuda cuando <2 escalas", async ({ page }) => {
-  await gotoDesktop(page);
+  await gotoDesktopClearVisible(page);
   await openCompare(page);
 
   await expect(page.getByTestId("scale-resolution-block")).toBeVisible();
@@ -31,7 +44,7 @@ test("SR1. Bloque resolución visible; mensaje de ayuda cuando <2 escalas", asyn
 
 // ── SR2: Activar dos escalas muestra origen/destino e Intercambiar ───────────
 test("SR2. Con 2 escalas activas: muestra origen, destino y botón Intercambiar", async ({ page }) => {
-  await gotoDesktop(page);
+  await gotoDesktopClearVisible(page);
   await openCompare(page);
   await activateTwoScales(page);
 
@@ -45,7 +58,7 @@ test("SR3. Toggle ON activa puntos de resolución; la lista aparece debajo del m
   const errors = [];
   page.on("pageerror", (err) => errors.push(err.message));
 
-  await gotoDesktop(page);
+  await gotoDesktopClearVisible(page);
   await openCompare(page);
   await activateTwoScales(page);
 
@@ -66,7 +79,7 @@ test("SR4. Intercambiar invierte origen y destino sin crash", async ({ page }) =
   const errors = [];
   page.on("pageerror", (err) => errors.push(err.message));
 
-  await gotoDesktop(page);
+  await gotoDesktopClearVisible(page);
   await openCompare(page);
   await activateTwoScales(page);
 
@@ -118,7 +131,7 @@ test("SR6. FIFO sigue funcionando con puntos de resolución activados", async ({
 
 // ── SR7: Toggle OFF oculta la lista ──────────────────────────────────────────
 test("SR7. Toggle OFF oculta la lista de resolución", async ({ page }) => {
-  await gotoDesktop(page);
+  await gotoDesktopClearVisible(page);
   await openCompare(page);
   await activateTwoScales(page);
 
@@ -135,7 +148,7 @@ test("SR8. Resolución ON + 2 escalas: flechas SVG aparecen en el mástil", asyn
   const errors = [];
   page.on("pageerror", (err) => errors.push(err.message));
 
-  await gotoDesktop(page);
+  await gotoDesktopClearVisible(page);
   await openCompare(page);
   await activateTwoScales(page);
 

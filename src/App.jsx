@@ -62,6 +62,7 @@ import { buildNearSlotPatchFromDetectedCandidate } from "./features/near-chords/
 import { compareAppVersions } from "./features/config/configVersionUtils.js";
 import {
   SCALE_COMPARE_ROW_DEFAULTS,
+  SCALE_COMPARE_VISIBLE_DEFAULTS,
   SCALE_COMPARE_LETTERS,
   SCALE_COMPARE_ACCS,
   SCALE_COMPARE_NAMES,
@@ -69,6 +70,7 @@ import {
   computeScalePcs,
   buildIntervalLabelMap,
   toggleScaleCompareVisible as toggleScaleCompareVisibleFn,
+  normalizeScaleCompareConfig,
 } from "./features/scale-compare/scaleCompareUtils.js";
 import { computeResolutionPoints } from "./features/scale-compare/scaleResolutionUtils.js";
 import ColorPickerPopover from "./components/ui/ColorPickerPopover.jsx";
@@ -287,7 +289,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "6.0.73";
+const APP_VERSION = "6.0.74";
 
 
 // ─── Acorde de referencia (bloque "Investigar en mástil") ────────────────────
@@ -772,10 +774,11 @@ export default function FretboardScalesPage() {
 
   // ── Comparador de escalas ───────────────────────────────────────────────────
   const [scaleCompareRows, setScaleCompareRows] = useState(SCALE_COMPARE_ROW_DEFAULTS);
-  const [scaleCompareVisible, setScaleCompareVisible] = useState([]);
+  const [scaleCompareVisible, setScaleCompareVisible] = useState(SCALE_COMPARE_VISIBLE_DEFAULTS);
   const [showResolutionPoints, setShowResolutionPoints] = useState(false);
   const [resolutionSwapped, setResolutionSwapped] = useState(false);
   const scaleCompareCellRefs = useRef(new Map());
+  const scaleCompareMarkerRefs = useRef(new Map());
   const scaleCompareFretboardRef = useRef(null);
   const [scaleCompareArrows, setScaleCompareArrows] = useState([]);
 
@@ -842,6 +845,7 @@ export default function FretboardScalesPage() {
     showBoards,
     scaleCompareRows,
     scaleCompareVisible,
+    showResolutionPoints,
     chordRootPc,
     chordSpellPreferSharps,
     chordFamily,
@@ -932,6 +936,7 @@ export default function FretboardScalesPage() {
     showBoards,
     scaleCompareRows,
     scaleCompareVisible,
+    showResolutionPoints,
     chordRootPc,
     chordSpellPreferSharps,
     chordFamily,
@@ -1206,23 +1211,11 @@ export default function FretboardScalesPage() {
         }));
       }
       // Restaurar estado del Comparador de escalas
-      if (Array.isArray(saved.scaleCompareRows)) {
-        setScaleCompareRows((prev) => prev.map((r, i) => {
-          const s = saved.scaleCompareRows[i];
-          if (!s || s.id !== r.id) return r;
-          return {
-            ...r,
-            rootLetter: SCALE_COMPARE_LETTERS.includes(s.rootLetter) ? s.rootLetter : r.rootLetter,
-            rootAcc: ["", "b", "#"].includes(s.rootAcc) ? s.rootAcc : r.rootAcc,
-            scaleName: Object.prototype.hasOwnProperty.call(SCALE_PRESETS, s.scaleName) ? s.scaleName : r.scaleName,
-            color: sanitizeColorValue(s.color, r.color),
-          };
-        }));
-      }
-      if (Array.isArray(saved.scaleCompareVisible)) {
-        setScaleCompareVisible(
-          saved.scaleCompareVisible.filter((id) => [0, 1, 2, 3].includes(id)).slice(0, 2)
-        );
+      {
+        const norm = normalizeScaleCompareConfig(saved);
+        setScaleCompareRows(norm.rows);
+        setScaleCompareVisible(norm.visible);
+        setShowResolutionPoints(norm.showResolutionPoints);
       }
       if ("themePageBg" in saved) setThemePageBg(sanitizeColorValue(saved.themePageBg, "#f7f8f8"));
       if ("themeObjectBg" in saved) setThemeObjectBg(sanitizeColorValue(saved.themeObjectBg, "#ebf2fa"));
@@ -3309,12 +3302,30 @@ export default function FretboardScalesPage() {
     [resolutionPoints]
   );
 
+  // IDs de fila de origen y destino para localizar los refs de marcador en el DOM
+  const [resOriginRowId, resDestRowId] = useMemo(() => {
+    if (!showResolutionPoints || scaleCompareDerived.length !== 2) return [null, null];
+    const [o, d] = resolutionSwapped
+      ? [scaleCompareDerived[1], scaleCompareDerived[0]]
+      : [scaleCompareDerived[0], scaleCompareDerived[1]];
+    return [o.row.id, d.row.id];
+  }, [showResolutionPoints, scaleCompareDerived, resolutionSwapped]);
+
   // Medir posiciones DOM para dibujar flechas SVG en el mástil
   useEffect(() => {
     if (!showResolutionPoints || resolutionPoints.length === 0) {
       setScaleCompareArrows([]);
       return;
     }
+    // Geometría de la punta de flecha:
+    //   marker: <polygon points="0 0, 7 2.5, 0 5"> refX=5, markerUnits=strokeWidth, strokeWidth=2
+    //   La punta está en x=7 (local), el ref en x=5 → extensión = (7-5)×2 = 4 px
+    //   Fórmula:
+    //     P1 = center_origin + u × (r1 + GAP)        — sale del borde del círculo origen
+    //     P2 = center_dest   − u × (r2 + TIP_EXTRA)  — punta queda en center_dest − u × r2
+    const TIP_EXTRA = 4; // px que la punta de flecha sobresale del endpoint de la línea
+    const GAP       = 2; // px de separación visual en el extremo origen
+
     function measure() {
       const container = scaleCompareFretboardRef.current;
       if (!container) return;
@@ -3322,23 +3333,38 @@ export default function FretboardScalesPage() {
       if (cRect.width === 0) return;
       const nextArrows = [];
       for (const conn of resolutionPoints) {
-        const fromEl = scaleCompareCellRefs.current.get(`${conn.stringIdx}-${conn.originFret}`);
-        const toEl   = scaleCompareCellRefs.current.get(`${conn.stringIdx}-${conn.destFret}`);
-        if (!fromEl || !toEl) continue;
+        // Preferir el ref del marcador (da centro y radio exactos); fallback: celda
+        const fromMarkerEl = scaleCompareMarkerRefs.current.get(`${conn.stringIdx}-${conn.originFret}-${resOriginRowId}`);
+        const fromEl = fromMarkerEl || scaleCompareCellRefs.current.get(`${conn.stringIdx}-${conn.originFret}`);
+        if (!fromEl) continue;
+
+        const toMarkerEl = scaleCompareMarkerRefs.current.get(`${conn.stringIdx}-${conn.destFret}-${resDestRowId}`);
+        const toEl = toMarkerEl || scaleCompareCellRefs.current.get(`${conn.stringIdx}-${conn.destFret}`);
+        if (!toEl) continue;
+
         const fR = fromEl.getBoundingClientRect();
         const tR = toEl.getBoundingClientRect();
-        const x1 = fR.left - cRect.left + fR.width  / 2;
-        const y1 = fR.top  - cRect.top  + fR.height / 2;
-        const x2 = tR.left - cRect.left + tR.width  / 2;
-        const y2 = tR.top  - cRect.top  + tR.height / 2;
-        const dx = x2 - x1, dy = y2 - y1;
+
+        // Centro de cada marcador relativo al contenedor SVG
+        const x1c = fR.left - cRect.left + fR.width  / 2;
+        const y1c = fR.top  - cRect.top  + fR.height / 2;
+        const x2c = tR.left - cRect.left + tR.width  / 2;
+        const y2c = tR.top  - cRect.top  + tR.height / 2;
+
+        // Radio real medido del DOM; fallback si no hay marker ref
+        const r1 = fromMarkerEl ? fR.width / 2 : 14;
+        const r2 = toMarkerEl   ? tR.width / 2 : 14;
+
+        const dx = x2c - x1c, dy = y2c - y1c;
         const len = Math.sqrt(dx * dx + dy * dy);
-        if (len < 8) continue;
-        const margin = 14;
+        if (len < r1 + r2 + TIP_EXTRA) continue; // sin espacio para flecha
         const ux = dx / len, uy = dy / len;
+
         nextArrows.push({
-          x1: x1 + ux * margin, y1: y1 + uy * margin,
-          x2: x2 - ux * margin, y2: y2 - uy * margin,
+          x1: x1c + ux * (r1 + GAP),
+          y1: y1c + uy * (r1 + GAP),
+          x2: x2c - ux * (r2 + TIP_EXTRA),
+          y2: y2c - uy * (r2 + TIP_EXTRA),
         });
       }
       setScaleCompareArrows(nextArrows);
@@ -3347,7 +3373,7 @@ export default function FretboardScalesPage() {
     const ro = new ResizeObserver(measure);
     if (scaleCompareFretboardRef.current) ro.observe(scaleCompareFretboardRef.current);
     return () => { cancelAnimationFrame(rafId); ro.disconnect(); };
-  }, [showResolutionPoints, resolutionPoints, isNarrowBoardLayout]);
+  }, [showResolutionPoints, resolutionPoints, isNarrowBoardLayout, resOriginRowId, resDestRowId]);
 
   const kingBoxOverlay = useMemo(
     () => buildKingBoxOverlayMap({
@@ -4543,7 +4569,14 @@ export default function FretboardScalesPage() {
         const d = entries[0];
         const ring = NEAR_CHORD_SLOT_COLORS[d.row.id]?.border || "#64748b";
         cellContent = (
-          <div className="pointer-events-none relative z-[5]">
+          <div
+            className="pointer-events-none relative z-[5]"
+            ref={(el) => {
+              const key = `${sIdx}-${fret}-${d.row.id}`;
+              if (el) scaleCompareMarkerRefs.current.set(key, el);
+              else scaleCompareMarkerRefs.current.delete(key);
+            }}
+          >
             <FretNoteMarker
               color={d.row.color}
               ring={ring}
@@ -4571,7 +4604,16 @@ export default function FretboardScalesPage() {
             {entries.slice(0, 2).map((d, i) => {
               const ring = NEAR_CHORD_SLOT_COLORS[d.row.id]?.border || "#64748b";
               return (
-                <div key={d.row.id} className="absolute" style={getPos(i)}>
+                <div
+                  key={d.row.id}
+                  className="absolute"
+                  style={getPos(i)}
+                  ref={(el) => {
+                    const key = `${sIdx}-${fret}-${d.row.id}`;
+                    if (el) scaleCompareMarkerRefs.current.set(key, el);
+                    else scaleCompareMarkerRefs.current.delete(key);
+                  }}
+                >
                   <FretNoteMarker
                     color={d.row.color}
                     ring={ring}

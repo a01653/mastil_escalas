@@ -11,6 +11,19 @@ async function gotoDesktop(page) {
   await page.waitForLoadState("networkidle");
 }
 
+// Inicia con scaleCompareVisible:[] para tests que verifican estado sin filas activas
+async function gotoDesktopClearVisible(page) {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.addInitScript((cfg) => {
+    if (typeof window !== "undefined") {
+      window.localStorage.clear();
+      window.localStorage.setItem("mastil_interactivo_guitarra_config_v1", JSON.stringify(cfg));
+    }
+  }, { version: 1, appVersion: "6.0.74", config: { scaleCompareVisible: [] } });
+  await page.goto("/");
+  await page.waitForLoadState("networkidle");
+}
+
 async function openCompare(page) {
   await page.getByTestId("nav-scale-compare").click();
   await expect(page.getByTestId("scale-compare-panel")).toBeVisible();
@@ -65,7 +78,7 @@ test("SC4. Comparador: FIFO — al activar la 3.ª escala, la 1.ª se desactiva"
 
 // ── SC5: Color del mástil refleja la escala activa ────────────────────────────
 test("SC5. Comparador: el mástil aparece cuando hay ≥1 fila activa", async ({ page }) => {
-  await gotoDesktop(page);
+  await gotoDesktopClearVisible(page);
   await openCompare(page);
 
   // Sin filas activas: debe haber un mensaje de placeholder
@@ -114,7 +127,7 @@ test("SC7. Comparador: cambiar la tónica de la fila 1 no provoca crash", async 
 
 // ── SC8: Desactivar una fila la quita del mástil ─────────────────────────────
 test("SC8. Comparador: desactivar una fila activa vuelve al estado de 0 visibles", async ({ page }) => {
-  await gotoDesktop(page);
+  await gotoDesktopClearVisible(page);
   await openCompare(page);
 
   await page.getByTestId("scale-compare-toggle-0").click();
