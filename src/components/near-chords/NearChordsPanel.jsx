@@ -8,6 +8,7 @@ import { HoverCellNote as HoverCellNoteImpl } from "../fretboard/FretboardShared
 import FretNoteMarker from "../fretboard/FretNoteMarker.jsx";
 
 import { calibratedClusterPos, cornerStyle, fret0ClusterPos, fret0ClusterPosMobile, mobileNonFret0ClusterPos, computeMobileFret0TopPadding, FRET0_SPACING } from "../../features/near-chords/nearFretCellLayout.js";
+import { NEAR_CHORDS_PROGRESSIONS, NEAR_CHORDS_STYLES, getProgressionsForStyle, getStyleById } from "../../music/nearChordsProgressions.js";
 import * as AppStaticData from "../../music/appStaticData.js";
 const {
   NEAR_CHORDS_INFO_TEXT,
@@ -76,6 +77,11 @@ export default function NearChordsPanel({
   setNearWindowSize,
   setNearWindowSizeRaw,
   setNearAutoScaleSync,
+  nearProgressionId,
+  onNearProgressionChange,
+  nearProgressionStyleId,
+  onNearStyleChange,
+  nearParallelLabel,
   setNearBgColor,
   setStudyTarget,
   setStudyOpen,
@@ -459,31 +465,94 @@ export default function NearChordsPanel({
             </span>
           ) : "Acordes cercanos"}
           titleTooltip={!isMobileLayout ? NEAR_CHORDS_INFO_TEXT : ""}
-          headerAside={<div className="flex items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-700" title={!isMobileLayout ? NEAR_AUTO_SCALE_INFO_TEXT : undefined}>
-                <span>Auto escala</span>
-                {isMobileLayout ? (
+          headerAside={(() => {
+              const currentStyle = getStyleById(nearProgressionStyleId ?? "all");
+              const filteredProgs = getProgressionsForStyle(nearProgressionStyleId ?? "all");
+              const selectCls = `rounded border px-1.5 py-0.5 text-xs shadow-sm ${
+                nearAutoScaleSync
+                  ? "border-slate-200 bg-white text-slate-700"
+                  : "border-slate-200 bg-slate-50 text-slate-400 opacity-60 cursor-not-allowed"
+              }`;
+              return (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-slate-700">Estilo</span>
+                  <select
+                    data-testid="near-style-select"
+                    className={selectCls}
+                    value={nearProgressionStyleId ?? "all"}
+                    onChange={(e) => onNearStyleChange(e.target.value)}
+                    disabled={!nearAutoScaleSync}
+                    aria-label="Estilo de progresión de acordes cercanos"
+                  >
+                    {NEAR_CHORDS_STYLES.map((s) => (
+                      <option key={s.id} value={s.id}>{s.label}</option>
+                    ))}
+                  </select>
+                  {nearAutoScaleSync && currentStyle && currentStyle.id !== "all" && (
+                    <span className={`text-xs rounded border px-1 py-0.5 font-medium ${currentStyle.colorClass}`}>
+                      {currentStyle.label}
+                    </span>
+                  )}
+                  <span className="text-xs font-semibold text-slate-700">Progresión</span>
+                  <select
+                    data-testid="near-progression-select"
+                    className={selectCls}
+                    value={nearProgressionId}
+                    onChange={(e) => onNearProgressionChange(e.target.value)}
+                    disabled={!nearAutoScaleSync}
+                    aria-label="Progresión de acordes cercanos"
+                  >
+                    {(nearProgressionStyleId === "all" || !nearProgressionStyleId)
+                      ? NEAR_CHORDS_STYLES.filter((s) => s.id !== "all").map((style) => {
+                          const progs = NEAR_CHORDS_PROGRESSIONS.filter((p) => p.style === style.id);
+                          if (!progs.length) return null;
+                          return (
+                            <optgroup key={style.id} label={style.label}>
+                              {progs.map((p) => (
+                                <option key={p.id} value={p.id}>{p.label}</option>
+                              ))}
+                            </optgroup>
+                          );
+                        })
+                      : filteredProgs.map((p) => (
+                          <option key={p.id} value={p.id}>{p.label}</option>
+                        ))
+                    }
+                  </select>
+                  <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-700" title={!isMobileLayout ? NEAR_AUTO_SCALE_INFO_TEXT : undefined}>
+                    <span>Auto escala</span>
+                    {isMobileLayout ? (
+                      <button
+                        type="button"
+                        className="inline-flex h-5 w-5 items-center justify-center rounded-full text-slate-600 hover:text-slate-900"
+                        onClick={(e) => openMobileInfoPopover(e, "Auto escala", NEAR_AUTO_SCALE_INFO_TEXT)}
+                        aria-label="Información sobre Auto escala"
+                      >
+                        <Info className="h-3.5 w-3.5" aria-hidden="true" />
+                      </button>
+                    ) : null}
+                  </span>
                   <button
                     type="button"
-                    className="inline-flex h-5 w-5 items-center justify-center rounded-full text-slate-600 hover:text-slate-900"
-                    onClick={(e) => openMobileInfoPopover(e, "Auto escala", NEAR_AUTO_SCALE_INFO_TEXT)}
-                    aria-label="Información sobre Auto escala"
+                    className={`rounded-xl px-2 py-1 text-xs ring-1 ring-slate-200 shadow-sm ${nearAutoScaleSync ? "bg-[#71a3c1] text-slate-900" : "bg-white"}`}
+                    onClick={() => setNearAutoScaleSync((v) => !v)}
+                    title="Activa o desactiva el ajuste automático de acordes cercanos según la escala"
                   >
-                    <Info className="h-3.5 w-3.5" aria-hidden="true" />
+                    {nearAutoScaleSync ? "ON" : "OFF"}
                   </button>
-                ) : null}
-              </span>
-              <button
-                type="button"
-                className={`rounded-xl px-2 py-1 text-xs ring-1 ring-slate-200 shadow-sm ${nearAutoScaleSync ? "bg-[#71a3c1] text-slate-900" : "bg-white"}`}
-                onClick={() => setNearAutoScaleSync((v) => !v)}
-                title="Activa o desactiva el ajuste automático de acordes cercanos según la escala"
-              >
-                {nearAutoScaleSync ? "ON" : "OFF"}
-              </button>
-            </div>}
+                </div>
+              );
+            })()}
           bodyClassName="space-y-3"
         >
+          {nearParallelLabel && (
+            <p
+              data-testid="near-parallel-label"
+              className="text-xs italic text-slate-500"
+            >
+              {nearParallelLabel}
+            </p>
+          )}
           <div className="text-xs text-slate-600">
             <b>Tonalidades diatónicas estrictas de los acordes activos:</b> {nearTonalityAnalysis.text}
           </div>

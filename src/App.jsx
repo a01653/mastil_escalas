@@ -59,6 +59,17 @@ import {
 } from "./features/chord-detection/chordDetectionPresentationCore.js";
 import { buildChordBuilderPatchFromDetectedCandidate } from "./features/chord-detection/chordDetectionCopyCore.js";
 import { buildNearSlotPatchFromDetectedCandidate } from "./features/near-chords/copyToNearSlot.js";
+import {
+  DEFAULT_NEAR_PROGRESSION_ID,
+  DEFAULT_NEAR_PROGRESSION_STYLE_ID,
+  NEAR_CHORDS_PROGRESSIONS,
+  NEAR_CHORDS_STYLES,
+  findNearProgression,
+  getProgressionsForStyle,
+  getProgressionParallelLabel,
+  getStyleById,
+  resolveProgressionDegrees,
+} from "./music/nearChordsProgressions.js";
 import { compareAppVersions } from "./features/config/configVersionUtils.js";
 import {
   SCALE_COMPARE_ROW_DEFAULTS,
@@ -289,7 +300,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "6.0.81";
+const APP_VERSION = "6.0.89";
 
 
 // ─── Acorde de referencia (bloque "Investigar en mástil") ────────────────────
@@ -600,6 +611,8 @@ export default function FretboardScalesPage() {
   const [nearWindowSize, setNearWindowSize] = useState(6); // tamaño del rango (nº de trastes, incluye inicio)
   const [nearWindowSizeRaw, setNearWindowSizeRaw] = useState("6"); // texto del input, puede estar vacío mientras el usuario edita
   const [nearAutoScaleSync, setNearAutoScaleSync] = useState(true);
+  const [nearProgressionId, setNearProgressionId] = useState(DEFAULT_NEAR_PROGRESSION_ID);
+  const [nearProgressionStyleId, setNearProgressionStyleId] = useState(DEFAULT_NEAR_PROGRESSION_STYLE_ID);
 
   // ─── Analizador de tonalidad ─────────────────────────────────────────────────
   const [keyAnalyzerOpen, setKeyAnalyzerOpen] = useState(false);
@@ -900,6 +913,8 @@ export default function FretboardScalesPage() {
     nearWindowStart,
     nearWindowSize,
     nearAutoScaleSync,
+    nearProgressionId,
+    nearProgressionStyleId,
     nearSlots,
     nearBgColors,
     keyAnalyzerOpen,
@@ -1001,6 +1016,8 @@ export default function FretboardScalesPage() {
     nearWindowStart,
     nearWindowSize,
     nearAutoScaleSync,
+    nearProgressionId,
+    nearProgressionStyleId,
     nearSlots,
     nearBgColors,
     keyAnalyzerOpen,
@@ -1197,6 +1214,14 @@ export default function FretboardScalesPage() {
       if ("nearWindowStart" in saved) setNearWindowStart(sanitizeNumberValue(saved.nearWindowStart, 1, 0, 24));
       if ("nearWindowSize" in saved) setNearWindowSize(sanitizeNumberValue(saved.nearWindowSize, 6, 1, 24));
       if ("nearAutoScaleSync" in saved) setNearAutoScaleSync(sanitizeBoolValue(saved.nearAutoScaleSync, true));
+      if ("nearProgressionId" in saved) {
+        const validId = NEAR_CHORDS_PROGRESSIONS.find((p) => p.id === saved.nearProgressionId)?.id;
+        if (validId) setNearProgressionId(validId);
+      }
+      if ("nearProgressionStyleId" in saved) {
+        const validStyleId = NEAR_CHORDS_STYLES.find((s) => s.id === saved.nearProgressionStyleId)?.id;
+        if (validStyleId) setNearProgressionStyleId(validStyleId);
+      }
 
       if ("keyAnalyzerOpen" in saved) setKeyAnalyzerOpen(sanitizeBoolValue(saved.keyAnalyzerOpen, false));
       if ("keyAnalyzerInput" in saved && typeof saved.keyAnalyzerInput === "string") setKeyAnalyzerInput(saved.keyAnalyzerInput);
@@ -2276,6 +2301,20 @@ export default function FretboardScalesPage() {
     }));
   }
 
+  function handleNearProgressionChange(id) {
+    setNearProgressionId(id);
+    // Reset enabled on slots 1-3 so the effects re-fill them with the new progression.
+    setNearSlots((prev) => prev.map((s, i) => (i === 0 ? s : { ...s, enabled: false })));
+  }
+
+  function handleNearStyleChange(styleId) {
+    setNearProgressionStyleId(styleId);
+    const progs = getProgressionsForStyle(styleId);
+    if (progs.length > 0 && !progs.find((p) => p.id === nearProgressionId)) {
+      handleNearProgressionChange(progs[0].id);
+    }
+  }
+
   function buildEmptyNearSlot(rootPcValue = chordRootPc, spellPreferSharpsValue = chordSpellPreferSharps) {
     return {
       enabled: false,
@@ -3098,24 +3137,42 @@ export default function FretboardScalesPage() {
           spellPreferSharps: preferSharps,
         };
       } else {
-        const withSeventh = s0.structure === "tetrad" || !!s0.ext7;
-        const built = buildHarmonyDegreeChord({ scaleName, harmonyMode, scaleIntervals, degreeIndex: 0, withSeventh });
-        if (!built) return prev;
-
-        patch = {
-          rootPc: mod12(rootPc + built.rootOffset),
-          quality: built.quality,
-          suspension: "none",
-          structure: built.structure,
-          form: "open",
-          positionForm: "open",
-          ext7: built.ext7,
-          ext6: false,
-          ext9: false,
-          ext11: false,
-          ext13: false,
-          spellPreferSharps: preferSharps,
-        };
+        const progression = findNearProgression(nearProgressionId);
+        if (progression) {
+          const deg0 = progression.degrees[0];
+          patch = {
+            rootPc: mod12(rootPc + deg0.semitones),
+            quality: deg0.quality,
+            suspension: "none",
+            structure: deg0.structure ?? "triad",
+            form: "open",
+            positionForm: "open",
+            ext7: deg0.ext7 ?? false,
+            ext6: false,
+            ext9: false,
+            ext11: false,
+            ext13: false,
+            spellPreferSharps: preferSharps,
+          };
+        } else {
+          const withSeventh = s0.structure === "tetrad" || !!s0.ext7;
+          const built = buildHarmonyDegreeChord({ scaleName, harmonyMode, scaleIntervals, degreeIndex: 0, withSeventh });
+          if (!built) return prev;
+          patch = {
+            rootPc: mod12(rootPc + built.rootOffset),
+            quality: built.quality,
+            suspension: "none",
+            structure: built.structure,
+            form: "open",
+            positionForm: "open",
+            ext7: built.ext7,
+            ext6: false,
+            ext9: false,
+            ext11: false,
+            ext13: false,
+            spellPreferSharps: preferSharps,
+          };
+        }
       }
 
       let changed = false;
@@ -3131,44 +3188,54 @@ export default function FretboardScalesPage() {
       next[0] = { ...s0, ...patch };
       return next;
     });
-  }, [storageHydrated, nearAutoScaleSync, rootPc, scaleName, harmonyMode, scaleIntervals, preferSharps]);
+  }, [storageHydrated, nearAutoScaleSync, nearProgressionId, rootPc, scaleName, harmonyMode, scaleIntervals, preferSharps]);
 
-  // Auto-propuesta: si un slot NO está activo, lo ajustamos a grados diatónicos de la escala activa.
-  // Se mantienen ii / IV / V como propuesta por defecto cuando existan en la escala.
+  // Auto-propuesta: si un slot NO está activo, lo ajustamos según la progresión seleccionada
+  // o con los grados diatónicos preferidos (ii, IV, V) si no hay progresión.
   useEffect(() => {
     if (!storageHydrated) return;
     if (!nearAutoScaleSync) return;
+
+    const progression = findNearProgression(nearProgressionId);
+    const progressionPatches = progression
+      ? resolveProgressionDegrees(nearProgressionId, rootPc, preferSharps)
+      : null;
+
     setNearSlots((prev) => {
       if (!prev?.length) return prev;
-
-      const preferredDegreeIdx = harmonizedScale.preferredDegreeIdx?.length
-        ? harmonizedScale.preferredDegreeIdx
-        : [1, 3, 4].filter((i) => i < harmonizedScale.degrees.length);
       let changed = false;
 
       const next = prev.map((s, i) => {
         if (i === 0) return s;
         if (s?.enabled) return s;
 
-        const degree = harmonizedScale.degrees[preferredDegreeIdx[i - 1]];
-        if (!degree?.supported) return s;
+        let patch;
 
-        const patch = {
-          family: "tertian",
-          rootPc: degree.rootPc,
-          quality: degree.quality,
-          suspension: degree.suspension,
-          structure: degree.structure,
-          inversion: "all",
-          form: "open",
-          positionForm: "open",
-          ext7: degree.ext7,
-          ext6: false,
-          ext9: false,
-          ext11: false,
-          ext13: false,
-          spellPreferSharps: degree.spellPreferSharps,
-        };
+        if (progressionPatches) {
+          patch = { family: "tertian", ...progressionPatches[i] };
+        } else {
+          const preferredDegreeIdx = harmonizedScale.preferredDegreeIdx?.length
+            ? harmonizedScale.preferredDegreeIdx
+            : [1, 3, 4].filter((idx) => idx < harmonizedScale.degrees.length);
+          const degree = harmonizedScale.degrees[preferredDegreeIdx[i - 1]];
+          if (!degree?.supported) return s;
+          patch = {
+            family: "tertian",
+            rootPc: degree.rootPc,
+            quality: degree.quality,
+            suspension: degree.suspension,
+            structure: degree.structure,
+            inversion: "all",
+            form: "open",
+            positionForm: "open",
+            ext7: degree.ext7,
+            ext6: false,
+            ext9: false,
+            ext11: false,
+            ext13: false,
+            spellPreferSharps: degree.spellPreferSharps,
+          };
+        }
 
         for (const k of Object.keys(patch)) {
           if (s?.[k] !== patch[k]) {
@@ -3181,7 +3248,7 @@ export default function FretboardScalesPage() {
 
       return changed ? next : prev;
     });
-  }, [storageHydrated, nearAutoScaleSync, harmonizedScale]);
+  }, [storageHydrated, nearAutoScaleSync, nearProgressionId, harmonizedScale, rootPc, preferSharps]);
 
 
   const _spelledChordNotes = useMemo(
@@ -5186,6 +5253,11 @@ export default function FretboardScalesPage() {
           setNearWindowSize={setNearWindowSize}
           setNearWindowSizeRaw={setNearWindowSizeRaw}
           setNearAutoScaleSync={setNearAutoScaleSync}
+          nearProgressionId={nearProgressionId}
+          onNearProgressionChange={handleNearProgressionChange}
+          nearProgressionStyleId={nearProgressionStyleId}
+          onNearStyleChange={handleNearStyleChange}
+          nearParallelLabel={nearAutoScaleSync ? getProgressionParallelLabel(nearProgressionId, scaleName, pcToName(rootPc, preferSharps)) : null}
           setNearBgColor={setNearBgColor}
           setStudyTarget={setStudyTarget}
           setStudyOpen={setStudyOpen}

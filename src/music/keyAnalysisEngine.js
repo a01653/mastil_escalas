@@ -34,6 +34,10 @@ const TETRAD_QUALITIES = {
   "Menor natural": ["min7", "hdim7", "maj7", "min7", "min7", "maj7", "dom7"],
 };
 
+const CHROMATIC_DEGREE_NAMES_UPPER = [
+  "I", "bII", "II", "bIII", "III", "IV", "#IV", "V", "bVI", "VI", "bVII", "VII",
+];
+
 function suffixToQuality(suffix) {
   const s = suffix.trim();
   // Case-sensitive checks first
@@ -107,6 +111,24 @@ export function parseProgressionText(text) {
   const primary = text.split(/[|,\n\r]+|\t/).map((t) => t.trim()).filter(Boolean);
   const tokens = primary.flatMap((t) => t.split(/\s+/).filter(Boolean));
   return tokens.map(parseChordToken).filter(Boolean);
+}
+
+function buildChromaticDegreeLabel(interval, quality, hasSeventh) {
+  const upperBase = CHROMATIC_DEGREE_NAMES_UPPER[interval];
+  const isMinorLike = quality === "min" || quality === "dim" || quality === "hdim";
+  const base = isMinorLike
+    ? upperBase.replace(/[IVX]+/g, (m) => m.toLowerCase())
+    : upperBase;
+  if (quality === "maj" && hasSeventh) return `${base}maj7`;
+  if (quality === "maj") return base;
+  if (quality === "min" && hasSeventh) return `${base}7`;
+  if (quality === "min") return base;
+  if (quality === "dom") return `${base}7`;
+  if (quality === "dim" && hasSeventh) return `${base}°7`;
+  if (quality === "dim") return `${base}°`;
+  if (quality === "hdim") return `${base}ø7`;
+  if (quality === "aug") return `${base}+`;
+  return base;
 }
 
 function buildDegrees(tonicPc, scaleName) {
@@ -262,6 +284,9 @@ const PENTA_MIN_DEGREES = ["1", "b3", "4", "5", "b7"];
 function buildSuggestedScales(tonicPc, modeDef, parentPc, parentPreferSharps) {
   const tonicPreferSharps = preferSharpsFromMajorTonicPc(parentPc);
   const tonicName = pcToName(tonicPc, tonicPreferSharps);
+  // Modos menores (dórico, frigio, eólico): pentatónica menor del tónico primero.
+  // Modos mayores (jónico, lidio, mixolidio): pentatónica mayor del tónico primero.
+  const isMinorMode = modeDef.qualities[0] === "min";
   const scales = [];
 
   // 1. The mode itself
@@ -285,41 +310,66 @@ function buildSuggestedScales(tonicPc, modeDef, parentPc, parentPreferSharps) {
     });
   }
 
-  // 3. Pentatonic major of tonic
-  const pentaMajPcs = PENTA_MAJ_IVS.map((iv) => mod12(tonicPc + iv));
-  const pentaMajNotes = pentaMajPcs.map((pc) => pcToName(pc, tonicPreferSharps));
-
-  // 4. Relative minor pentatonic (vi of the mode = interval[5])
-  const viPc = mod12(tonicPc + modeDef.intervals[5]);
-  const viPreferSharps = preferSharpsFromMajorTonicPc(parentPc);
-  const viName = pcToName(viPc, viPreferSharps);
-  const pentaMinPcs = PENTA_MIN_IVS.map((iv) => mod12(viPc + iv));
-  const pentaMinNotes = pentaMinPcs.map((pc) => pcToName(pc, viPreferSharps));
-
-  const pcSet1 = new Set(pentaMajPcs);
-  const pcSet2 = new Set(pentaMinPcs);
-  const sameNotes = pcSet1.size === pcSet2.size && [...pcSet1].every((pc) => pcSet2.has(pc));
-
-  scales.push({
-    id: `penta-maj-${tonicPc}`,
-    name: `${tonicName} pentatónica mayor`,
-    notes: pentaMajNotes,
-    degrees: PENTA_MAJ_DEGREES,
-    relativeNote: sameNotes ? `Mismas notas que ${viName} pentatónica menor, distinto centro tonal.` : null,
-  });
-
-  scales.push({
-    id: `penta-min-${viPc}`,
-    name: `${viName} pentatónica menor`,
-    notes: pentaMinNotes,
-    degrees: PENTA_MIN_DEGREES,
-    relativeNote: sameNotes ? `Mismas notas que ${tonicName} pentatónica mayor, distinto centro tonal.` : null,
-  });
+  if (isMinorMode) {
+    // 3. Minor pentatonic of tonic (natural choice for minor modes)
+    const pentaMinPcs = PENTA_MIN_IVS.map((iv) => mod12(tonicPc + iv));
+    const pentaMinNotes = pentaMinPcs.map((pc) => pcToName(pc, tonicPreferSharps));
+    // 4. Major pentatonic of bIII (relative major = intervals[2] above tonic)
+    const bIIIPc = mod12(tonicPc + modeDef.intervals[2]);
+    const bIIIPreferSharps = preferSharpsFromMajorTonicPc(parentPc);
+    const bIIIName = pcToName(bIIIPc, bIIIPreferSharps);
+    const pentaMajPcs = PENTA_MAJ_IVS.map((iv) => mod12(bIIIPc + iv));
+    const pentaMajNotes = pentaMajPcs.map((pc) => pcToName(pc, bIIIPreferSharps));
+    const pcSetMin = new Set(pentaMinPcs);
+    const pcSetMaj = new Set(pentaMajPcs);
+    const sameNotes = pcSetMin.size === pcSetMaj.size && [...pcSetMin].every((pc) => pcSetMaj.has(pc));
+    scales.push({
+      id: `penta-min-${tonicPc}`,
+      name: `${tonicName} pentatónica menor`,
+      notes: pentaMinNotes,
+      degrees: PENTA_MIN_DEGREES,
+      relativeNote: sameNotes ? `Mismas notas que ${bIIIName} pentatónica mayor, distinto centro tonal.` : null,
+    });
+    scales.push({
+      id: `penta-maj-${bIIIPc}`,
+      name: `${bIIIName} pentatónica mayor`,
+      notes: pentaMajNotes,
+      degrees: PENTA_MAJ_DEGREES,
+      relativeNote: sameNotes ? `Mismas notas que ${tonicName} pentatónica menor, distinto centro tonal.` : null,
+    });
+  } else {
+    // 3. Major pentatonic of tonic (natural choice for major modes)
+    const pentaMajPcs = PENTA_MAJ_IVS.map((iv) => mod12(tonicPc + iv));
+    const pentaMajNotes = pentaMajPcs.map((pc) => pcToName(pc, tonicPreferSharps));
+    // 4. Minor pentatonic of vi (relative minor = intervals[5] above tonic)
+    const viPc = mod12(tonicPc + modeDef.intervals[5]);
+    const viPreferSharps = preferSharpsFromMajorTonicPc(parentPc);
+    const viName = pcToName(viPc, viPreferSharps);
+    const pentaMinPcs = PENTA_MIN_IVS.map((iv) => mod12(viPc + iv));
+    const pentaMinNotes = pentaMinPcs.map((pc) => pcToName(pc, viPreferSharps));
+    const pcSetMaj = new Set(pentaMajPcs);
+    const pcSetMin = new Set(pentaMinPcs);
+    const sameNotes = pcSetMaj.size === pcSetMin.size && [...pcSetMaj].every((pc) => pcSetMin.has(pc));
+    scales.push({
+      id: `penta-maj-${tonicPc}`,
+      name: `${tonicName} pentatónica mayor`,
+      notes: pentaMajNotes,
+      degrees: PENTA_MAJ_DEGREES,
+      relativeNote: sameNotes ? `Mismas notas que ${viName} pentatónica menor, distinto centro tonal.` : null,
+    });
+    scales.push({
+      id: `penta-min-${viPc}`,
+      name: `${viName} pentatónica menor`,
+      notes: pentaMinNotes,
+      degrees: PENTA_MIN_DEGREES,
+      relativeNote: sameNotes ? `Mismas notas que ${tonicName} pentatónica mayor, distinto centro tonal.` : null,
+    });
+  }
 
   return scales;
 }
 
-export function buildKeyScales(tonicPc, scaleName, preferSharps) {
+export function buildKeyScales(tonicPc, scaleName, preferSharps, chords = null) {
   const tonicName = pcToName(tonicPc, preferSharps);
   const scales = [];
 
@@ -361,6 +411,32 @@ export function buildKeyScales(tonicPc, scaleName, preferSharps) {
       degrees: PENTA_MIN_DEGREES,
       relativeNote: `Mismas notas que ${tonicName} pentatónica mayor, distinto centro tonal.`,
     });
+
+    // 5. Extra: minor pentatonics for diatonic minor chord roots that appear in the
+    //    progression and are NOT the standard relative (vi) already covered above.
+    if (chords && chords.length > 0) {
+      const majorDegrees = SCALES.Mayor.intervals.map((iv, i) => ({
+        rootPc: mod12(tonicPc + iv),
+        quality: SCALES.Mayor.qualities[i],
+      }));
+      const coveredPcs = new Set([viPc]);
+      for (const chord of chords) {
+        if (coveredPcs.has(chord.rootPc)) continue;
+        const isDiatonicMinor = majorDegrees.some(
+          (d) => d.rootPc === chord.rootPc && d.quality === "min"
+        );
+        if (!isDiatonicMinor) continue;
+        coveredPcs.add(chord.rootPc);
+        const extraName = pcToName(chord.rootPc, preferSharps);
+        scales.push({
+          id: `key-penta-min-ctx-${chord.rootPc}`,
+          name: `${extraName} pentatónica menor`,
+          notes: PENTA_MIN_IVS.map((iv) => pcToName(mod12(chord.rootPc + iv), preferSharps)),
+          degrees: PENTA_MIN_DEGREES,
+          relativeNote: null,
+        });
+      }
+    }
   } else {
     // Menor natural
 
@@ -508,6 +584,67 @@ export function computeModalCenters(chords) {
   return allCenters;
 }
 
+// Prioridad musical para modos de origen en intercambio modal (clave mayor).
+// Cuando un acorde encaja en varios modos paralelos, el más frecuente en la práctica
+// recibe preferencia. La clave es el intervalo desde la tónica.
+const INTERCHANGE_MODE_PRIORITY = {
+  1: "frigio",      // bII → origen neapolitano / frigio
+  3: "eólico",      // bIII → menor natural
+  5: "eólico",      // iv → menor natural
+  8: "eólico",      // bVI → menor natural
+  10: "mixolidio",  // bVII (mayor/dom) → mixolidio; minor → eólico (ver código)
+};
+
+function selectPrimaryInterchangeSource(interval, quality, sources) {
+  if (sources.length <= 1) return sources[0] ?? null;
+  const tq = triadQuality(quality);
+  // bVII con calidad menor: preferir eólico sobre mixolidio
+  let preferredName = INTERCHANGE_MODE_PRIORITY[interval];
+  if (interval === 10 && tq !== "maj") preferredName = "eólico";
+  if (preferredName) {
+    const found = sources.find((s) => s.includes(preferredName));
+    if (found) return found;
+  }
+  return sources[0];
+}
+
+function detectModalInterchange(tonicPc, scaleName, preferSharps, outsideChordsData) {
+  const mainModeName = scaleName === "Mayor" ? "jónico" : "eólico";
+  const tonicName = pcToName(tonicPc, preferSharps);
+  const result = [];
+  for (const chord of outsideChordsData) {
+    const interval = mod12(chord.rootPc - tonicPc);
+    const tq = triadQuality(chord.quality);
+    const sources = [];
+    for (const modeDef of MODES_LIST) {
+      if (modeDef.name === mainModeName) continue;
+      const degIdx = modeDef.intervals.indexOf(interval);
+      if (degIdx < 0) continue;
+      if (modeDef.qualities[degIdx] !== tq) continue;
+      sources.push(modeDef.displayName);
+    }
+    const degreeLabel = buildChromaticDegreeLabel(interval, chord.quality, chord.hasSeventh);
+    const isInterchange = sources.length > 0;
+    // Seleccionar el modo de origen musicalmente más relevante para la explicación principal
+    const primarySource = isInterchange
+      ? selectPrimaryInterchangeSource(interval, chord.quality, sources)
+      : null;
+    const sourceDescription = isInterchange ? `${tonicName} ${primarySource}` : null;
+    result.push({
+      symbol: chord.symbol,
+      interval,
+      degreeLabel,
+      sources,
+      sourceDescription,
+      explanation: isInterchange
+        ? `${chord.symbol} → ${degreeLabel}, prestado de ${sourceDescription}`
+        : null,
+      isInterchange,
+    });
+  }
+  return result;
+}
+
 export function analyzeProgression(text) {
   const chords = parseProgressionText(text);
   if (!chords.length) return { chords: [], keys: [], isEmpty: true, mode: "triad" };
@@ -524,7 +661,8 @@ export function analyzeProgression(text) {
       let totalScore = 0;
       const diatonicChords = [];
       const functionalChords = [];
-      const outsideChords = [];
+      const outsideChordSymbols = [];
+      const outsideChordObjects = [];
 
       for (const chord of chords) {
         const si = scoreChord(chord, tonicPc, scaleName, degrees);
@@ -540,12 +678,33 @@ export function analyzeProgression(text) {
             });
           }
         } else {
-          if (!outsideChords.includes(chord.symbol)) outsideChords.push(chord.symbol);
+          if (!outsideChordSymbols.includes(chord.symbol)) {
+            outsideChordSymbols.push(chord.symbol);
+            outsideChordObjects.push(chord);
+          }
+        }
+      }
+
+      // Bonus I-IV-V tonic-start: when the first chord is the I (major) of this key,
+      // IV and V are diatonic, and at least one chord is non-diatonic, add a ranking
+      // bonus equal to SCORE_FUNCTIONAL_DOM. Percentage is computed from the base score
+      // to avoid showing >100%; the bonus only lifts the key in the ranking, ensuring
+      // it appears as a strong alternative next to keys that happen to be fully diatonic.
+      let bonusScore = 0;
+      if (scaleName === "Mayor" && outsideChordSymbols.length > 0) {
+        const firstChord = chords[0];
+        if (triadQuality(firstChord.quality) === "maj" && firstChord.rootPc === tonicPc) {
+          const ivPc = mod12(tonicPc + 5);
+          const vPc = mod12(tonicPc + 7);
+          const hasIV = chords.some((c) => c.rootPc === ivPc && diatonicChords.includes(c.symbol));
+          const hasV = chords.some((c) => c.rootPc === vPc && diatonicChords.includes(c.symbol));
+          if (hasIV && hasV) bonusScore = SCORE_FUNCTIONAL_DOM;
         }
       }
 
       const maxScore = chords.length * SCORE_DIATONIC;
       const percentage = Math.round((totalScore / maxScore) * 100);
+      totalScore += bonusScore;
       const tonicCount = chords.filter((c) => c.rootPc === tonicPc).length;
       const tonicName = pcToName(tonicPc, preferSharps);
       const { label } = SCALES[scaleName];
@@ -563,6 +722,10 @@ export function analyzeProgression(text) {
         }
       }
 
+      const allInterchangeInfo = detectModalInterchange(tonicPc, scaleName, preferSharps, outsideChordObjects);
+      const interchangeChords = allInterchangeInfo.filter((ic) => ic.isInterchange);
+      const outsideChords = allInterchangeInfo.filter((ic) => !ic.isInterchange).map((ic) => ic.symbol);
+
       results.push({
         label: `${tonicName} ${label}`,
         tonicPc,
@@ -574,9 +737,11 @@ export function analyzeProgression(text) {
         diatonicChords,
         functionalChords,
         outsideChords,
+        interchangeChords,
         diatonicTable,
         chordDegrees,
-        suggestedScales: buildKeyScales(tonicPc, scaleName, preferSharps),
+        hasFunctionalBonus: bonusScore > 0,
+        suggestedScales: buildKeyScales(tonicPc, scaleName, preferSharps, chords),
       });
     }
   }

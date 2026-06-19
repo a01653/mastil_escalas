@@ -29,6 +29,7 @@
  *   KA-KEY-ACCORDION-TOGGLE      se puede abrir y cerrar el acordeón de alternativas
  *   KA-ACCORDION-PERSIST-CLOSED  estado cerrar/abrir de acordeones persiste al recargar
  *   KA-ACCORDION-PERSIST-RESET   reset de acordeones al cambiar appVersion
+ *   KA-FUNCTIONAL-BONUS-LABEL    C F G Bb → C mayor con etiqueta "centro funcional sugerido"
  */
 
 import { test, expect } from "@playwright/test";
@@ -494,6 +495,22 @@ test("KA-ACCORDION-PERSIST-CLOSED: cerrar tonalidad principal y abrir E lidio pe
   // Verificar que E lidio sigue abierto
   const elidioToggleAfter = page.getByTestId("modal-center-toggle-4-lidio");
   await expect(elidioToggleAfter).toHaveAttribute("aria-expanded", "true");
+});
+
+// ── KA-FUNCTIONAL-BONUS-LABEL ─────────────────────────────────────────────────
+test("KA-FUNCTIONAL-BONUS-LABEL: C F G Bb → C mayor muestra etiqueta de prioridad funcional I-IV-V", async ({ page }) => {
+  await goToNearChords(page);
+  await openAndAnalyze(page, "C F G Bb");
+  // C mayor debe aparecer como tonalidad probable (bonus la sube al top)
+  await expect(page.getByTestId("key-block-main")).toContainText("C mayor");
+  // Debe mostrar la etiqueta de prioridad funcional (no contradicción visual)
+  await expect(page.getByTestId("functional-bonus-label")).toBeVisible();
+  await expect(page.getByTestId("functional-bonus-label")).toContainText("centro funcional sugerido");
+  // El porcentaje real diatónico (75%) debe aparecer, no inflado
+  await expect(page.getByTestId("key-block-main")).toContainText("75%");
+  // F mayor debe aparecer como alternativa (no como tonalidad probable)
+  await expect(page.getByTestId("key-analyzer-result")).toContainText("F mayor");
+  await expect(page.getByTestId("key-analyzer-result")).toContainText("Alternativa");
 });
 
 // ── KA-ACCORDION-PERSIST-RESET ────────────────────────────────────────────────

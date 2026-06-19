@@ -141,11 +141,11 @@ function DetailLabel({ children }) {
   );
 }
 
-function BlockHeader({ children, slate = false }) {
+function BlockHeader({ children, slate = false, amber = false }) {
   return (
     <div
       className={`mb-1.5 text-[10px] font-semibold uppercase tracking-wide ${
-        slate ? "text-slate-500" : "text-sky-700"
+        amber ? "text-amber-700" : slate ? "text-slate-500" : "text-sky-700"
       }`}
     >
       {children}
@@ -340,9 +340,26 @@ function KeyAccordion({
             <>
               <span className="text-slate-500">Tonalidad probable: </span>
               <span className="font-bold text-sky-700">{keyData.label}</span>
-              {" — encaje "}
-              <span>{keyData.strength}</span>
-              <span className="ml-1 text-slate-400">({keyData.percentage}%)</span>
+              {keyData.hasFunctionalBonus ? (
+                <>
+                  {" — "}
+                  <span
+                    className="font-medium text-amber-700"
+                    data-testid="functional-bonus-label"
+                  >
+                    centro funcional sugerido
+                  </span>
+                  {" · encaje "}
+                  <span>{keyData.strength}</span>
+                  <span className="ml-1 text-slate-400">({keyData.percentage}%)</span>
+                </>
+              ) : (
+                <>
+                  {" — encaje "}
+                  <span>{keyData.strength}</span>
+                  <span className="ml-1 text-slate-400">({keyData.percentage}%)</span>
+                </>
+              )}
             </>
           ) : (
             <>
@@ -395,7 +412,18 @@ function KeyAccordion({
             </div>
           )}
 
-          {keyData.outsideChords.length > 0 && (
+          {keyData.interchangeChords?.length > 0 && (
+            <div className="rounded-md border border-amber-200 bg-amber-50 p-2" data-testid="interchange-chords">
+              <BlockHeader amber>Intercambio modal</BlockHeader>
+              <ul className="mt-0.5 space-y-0.5 pl-3">
+                {keyData.interchangeChords.map((ic, i) => (
+                  <li key={i}>{ic.explanation}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {keyData.outsideChords?.length > 0 && (
             <div className="rounded-md border border-slate-200 bg-slate-50 p-2">
               <span className="font-semibold text-slate-600">Fuera de tonalidad: </span>
               <span className="text-slate-500">{keyData.outsideChords.join(", ")}</span>

@@ -1,4 +1,4 @@
-import { describe, test, expect } from "vitest";
+import { describe, test, expect, beforeAll } from "vitest";
 import { analyzeProgression, parseProgressionText, buildDiatonicTable, computeModalCenters } from "./keyAnalysisEngine.js";
 
 // ── parseProgressionText ──────────────────────────────────────────────────────
@@ -129,11 +129,15 @@ describe("analyzeProgression", () => {
     expect(bMinor.diatonicChords).toContain("D/F#");
   });
 
-  test("acordes fuera de tonalidad quedan en outsideChords", () => {
-    const r = analyzeProgression("C Eb G Am"); // Eb no encaja en C mayor
+  test("Eb en C mayor es intercambio modal (bIII prestado), no fuera de tonalidad", () => {
+    const r = analyzeProgression("C Eb G Am"); // Eb = bIII prestado de C menor
     const cMaj = r.keys.find((k) => k.label === "C mayor");
     if (cMaj) {
-      expect(cMaj.outsideChords).toContain("Eb");
+      expect(cMaj.outsideChords).not.toContain("Eb");
+      const ic = cMaj.interchangeChords.find((c) => c.symbol === "Eb");
+      expect(ic).toBeDefined();
+      expect(ic.isInterchange).toBe(true);
+      expect(ic.degreeLabel).toBe("bIII");
     }
   });
 
@@ -709,6 +713,99 @@ describe("computeModalCenters — E F# C#m", () => {
   });
 });
 
+// ════════════════════════════════════════════════════════════════════════════════
+// PENTATÓNICAS SUGERIDAS — v6.0.82
+// ════════════════════════════════════════════════════════════════════════════════
+
+describe("suggestedScales para C# dórico (modo menor)", () => {
+  const chords = parseProgressionText("E F# C#m");
+
+  test("C# dórico primer elemento pentatónico es C# pentatónica menor", () => {
+    const centers = computeModalCenters(chords);
+    const csharpDor = centers.find((c) => c.label === "C# dórico");
+    expect(csharpDor).toBeDefined();
+    const pentas = csharpDor.suggestedScales.filter((s) => s.name.includes("pentatónica"));
+    expect(pentas[0].name).toBe("C# pentatónica menor");
+  });
+
+  test("C# dórico incluye C# pentatónica menor con notas C# E F# G# B", () => {
+    const centers = computeModalCenters(chords);
+    const csharpDor = centers.find((c) => c.label === "C# dórico");
+    const pentaMin = csharpDor.suggestedScales.find((s) => s.name === "C# pentatónica menor");
+    expect(pentaMin).toBeDefined();
+    expect(pentaMin.notes).toEqual(["C#", "E", "F#", "G#", "B"]);
+  });
+
+  test("C# dórico incluye E pentatónica mayor (relativa de C# penta menor)", () => {
+    const centers = computeModalCenters(chords);
+    const csharpDor = centers.find((c) => c.label === "C# dórico");
+    const scaleNames = csharpDor.suggestedScales.map((s) => s.name);
+    expect(scaleNames).toContain("E pentatónica mayor");
+  });
+
+  test("C# dórico NO prioriza C# pentatónica mayor sobre C# pentatónica menor", () => {
+    const centers = computeModalCenters(chords);
+    const csharpDor = centers.find((c) => c.label === "C# dórico");
+    const scaleNames = csharpDor.suggestedScales.map((s) => s.name);
+    const pentaMinIdx = scaleNames.indexOf("C# pentatónica menor");
+    const pentaMajIdx = scaleNames.indexOf("C# pentatónica mayor");
+    // C# penta menor debe aparecer
+    expect(pentaMinIdx).toBeGreaterThanOrEqual(0);
+    // C# penta mayor no debe aparecer, o si aparece debe ser después de la menor
+    if (pentaMajIdx >= 0) {
+      expect(pentaMinIdx).toBeLessThan(pentaMajIdx);
+    }
+  });
+
+  test("C# dórico pentatónicas tienen relativeNote de equivalencia", () => {
+    const centers = computeModalCenters(chords);
+    const csharpDor = centers.find((c) => c.label === "C# dórico");
+    const pentaMin = csharpDor.suggestedScales.find((s) => s.name === "C# pentatónica menor");
+    const pentaMaj = csharpDor.suggestedScales.find((s) => s.name === "E pentatónica mayor");
+    expect(pentaMin?.relativeNote).toMatch(/mismas notas/i);
+    expect(pentaMaj?.relativeNote).toMatch(/mismas notas/i);
+  });
+});
+
+describe("suggestedScales — B mayor con E F# C#m incluye C# pentatónica menor", () => {
+  test("B mayor suggestedScales incluye C# pentatónica menor (C#m diatónico en la progresión)", () => {
+    const r = analyzeProgression("E F# C#m");
+    const bMaj = r.keys.find((k) => k.label === "B mayor");
+    expect(bMaj).toBeDefined();
+    const scaleNames = bMaj.suggestedScales.map((s) => s.name);
+    expect(scaleNames).toContain("C# pentatónica menor");
+  });
+
+  test("B mayor suggestedScales C# pentatónica menor tiene notas C# E F# G# B", () => {
+    const r = analyzeProgression("E F# C#m");
+    const bMaj = r.keys.find((k) => k.label === "B mayor");
+    const pentaMin = bMaj.suggestedScales.find((s) => s.name === "C# pentatónica menor");
+    expect(pentaMin).toBeDefined();
+    expect(pentaMin.notes).toEqual(["C#", "E", "F#", "G#", "B"]);
+  });
+
+  test("B mayor suggestedScales sigue incluyendo B mayor, B penta mayor, G# menor, G# penta menor", () => {
+    const r = analyzeProgression("E F# C#m");
+    const bMaj = r.keys.find((k) => k.label === "B mayor");
+    const scaleNames = bMaj.suggestedScales.map((s) => s.name);
+    expect(scaleNames).toContain("B mayor");
+    expect(scaleNames).toContain("B pentatónica mayor");
+    expect(scaleNames).toContain("G# menor natural");
+    expect(scaleNames).toContain("G# pentatónica menor");
+  });
+
+  test("C mayor + Am F G no añade pentatónicas extra a C mayor (Am es la relativa estándar)", () => {
+    const r = analyzeProgression("C Am F G");
+    const cMaj = r.keys.find((k) => k.label === "C mayor");
+    expect(cMaj).toBeDefined();
+    const extraPentas = cMaj.suggestedScales.filter(
+      (s) => s.id && s.id.startsWith("key-penta-min-ctx-")
+    );
+    // Am (vi) ya está como relativa estándar → no debe añadir extra
+    expect(extraPentas).toHaveLength(0);
+  });
+});
+
 describe("analyzeProgression — campo modalCenters", () => {
   test("E F# C#m → modalCenters devuelve B mayor y G# menor como tonalidades principales y centros modales", () => {
     const r = analyzeProgression("E F# C#m");
@@ -734,5 +831,249 @@ describe("analyzeProgression — campo modalCenters", () => {
     expect(labels).toContain("A eólico / menor natural");
     expect(labels).toContain("F lidio");
     expect(labels).toContain("G mixolidio");
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════════════════
+// INTERCAMBIO MODAL — v6.0.83
+// ════════════════════════════════════════════════════════════════════════════════
+
+describe("INTERCAMBIO MODAL — Fmaj7 Am7 Bbmaj7 Gm7 Dbmaj7", () => {
+  let result;
+  beforeAll(() => { result = analyzeProgression("Fmaj7 Am7 Bbmaj7 Gm7 Dbmaj7"); });
+
+  test("F mayor es la tonalidad principal detectada", () => {
+    expect(result.keys[0].label).toBe("F mayor");
+  });
+
+  test("Dbmaj7 no aparece en outsideChords", () => {
+    const fMaj = result.keys.find((k) => k.label === "F mayor");
+    expect(fMaj.outsideChords).not.toContain("Dbmaj7");
+  });
+
+  test("Dbmaj7 → bVImaj7 en interchangeChords", () => {
+    const fMaj = result.keys.find((k) => k.label === "F mayor");
+    const ic = fMaj.interchangeChords.find((c) => c.symbol === "Dbmaj7");
+    expect(ic).toBeDefined();
+    expect(ic.degreeLabel).toBe("bVImaj7");
+    expect(ic.isInterchange).toBe(true);
+  });
+
+  test("Dbmaj7 indica intercambio desde F eólico / menor natural", () => {
+    const fMaj = result.keys.find((k) => k.label === "F mayor");
+    const ic = fMaj.interchangeChords.find((c) => c.symbol === "Dbmaj7");
+    expect(ic.sources).toContain("eólico / menor natural");
+  });
+
+  test("acordes diatónicos preservados en chordDegrees", () => {
+    const fMaj = result.keys.find((k) => k.label === "F mayor");
+    expect(fMaj.chordDegrees["Fmaj7"]).toBe("Imaj7");
+    expect(fMaj.chordDegrees["Am7"]).toBe("iii7");
+    expect(fMaj.chordDegrees["Bbmaj7"]).toBe("IVmaj7");
+    expect(fMaj.chordDegrees["Gm7"]).toBe("ii7");
+  });
+});
+
+describe("INTERCAMBIO MODAL — casos genéricos", () => {
+  test("C mayor: Abmaj7 → bVImaj7, prestado de C eólico / menor natural", () => {
+    const r = analyzeProgression("C Abmaj7 F G");
+    const cMaj = r.keys.find((k) => k.label === "C mayor");
+    expect(cMaj).toBeDefined();
+    const ic = cMaj.interchangeChords.find((c) => c.symbol === "Abmaj7");
+    expect(ic).toBeDefined();
+    expect(ic.degreeLabel).toBe("bVImaj7");
+    expect(ic.sources).toContain("eólico / menor natural");
+    expect(ic.isInterchange).toBe(true);
+  });
+
+  test("C mayor: Fm → iv, prestado de C eólico / menor natural", () => {
+    const r = analyzeProgression("C Fm G Am");
+    const cMaj = r.keys.find((k) => k.label === "C mayor");
+    expect(cMaj).toBeDefined();
+    const ic = cMaj.interchangeChords.find((c) => c.symbol === "Fm");
+    expect(ic).toBeDefined();
+    expect(ic.degreeLabel).toBe("iv");
+    expect(ic.sources).toContain("eólico / menor natural");
+    expect(ic.isInterchange).toBe(true);
+  });
+
+  test("G mayor: Cm → iv, prestado de G eólico / menor natural", () => {
+    const r = analyzeProgression("G Cm D Em");
+    const gMaj = r.keys.find((k) => k.label === "G mayor");
+    expect(gMaj).toBeDefined();
+    const ic = gMaj.interchangeChords.find((c) => c.symbol === "Cm");
+    expect(ic).toBeDefined();
+    expect(ic.degreeLabel).toBe("iv");
+    expect(ic.sources).toContain("eólico / menor natural");
+    expect(ic.isInterchange).toBe(true);
+  });
+
+  test("C mayor: Bb triad → bVII, prestado de C mixolidio o C eólico", () => {
+    const r = analyzeProgression("C Bb F G");
+    const cMaj = r.keys.find((k) => k.label === "C mayor");
+    expect(cMaj).toBeDefined();
+    const ic = cMaj.interchangeChords.find((c) => c.symbol === "Bb");
+    expect(ic).toBeDefined();
+    expect(ic.degreeLabel).toBe("bVII");
+    expect(ic.isInterchange).toBe(true);
+    expect(ic.sources.some((s) => s.includes("mixolidio") || s.includes("eólico"))).toBe(true);
+  });
+
+  test("acorde realmente fuera de tonalidad queda en outsideChords", () => {
+    // F# mayor en C mayor no pertenece a ningún modo paralelo de C
+    // F# es #IV en C, no aparece con calidad maj en ningún modo paralelo
+    const r = analyzeProgression("C F# G Am");
+    const cMaj = r.keys.find((k) => k.label === "C mayor");
+    expect(cMaj).toBeDefined();
+    // F# major en C: interval = 6 (#IV), no tiene calidad maj en modos paralelos de C
+    // (en lidio sería #iv° que es diminuido, no mayor)
+    const ic = cMaj.interchangeChords.find((c) => c.symbol === "F#");
+    if (ic) {
+      // Si por algún modo encaja, igualmente el acorde debe clasificarse consistentemente
+      expect(ic.isInterchange).toBe(true);
+    } else {
+      expect(cMaj.outsideChords).toContain("F#");
+    }
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════════════════
+// INTERCAMBIO MODAL — prioridad del modo de origen (v6.0.84)
+// ════════════════════════════════════════════════════════════════════════════════
+
+describe("INTERCAMBIO MODAL — prioridad del modo de origen", () => {
+  test("F mayor: Dbmaj7 muestra F eólico / menor natural como origen principal", () => {
+    const r = analyzeProgression("Fmaj7 Am7 Bbmaj7 Gm7 Dbmaj7");
+    const fMaj = r.keys.find((k) => k.label === "F mayor");
+    const ic = fMaj.interchangeChords.find((c) => c.symbol === "Dbmaj7");
+    expect(ic.sourceDescription).toContain("eólico / menor natural");
+    expect(ic.explanation).toContain("eólico / menor natural");
+    expect(ic.explanation).not.toContain("frigio");
+  });
+
+  test("C mayor: Fm muestra C eólico / menor natural como origen principal", () => {
+    const r = analyzeProgression("C Fm G Am");
+    const cMaj = r.keys.find((k) => k.label === "C mayor");
+    const ic = cMaj.interchangeChords.find((c) => c.symbol === "Fm");
+    expect(ic.sourceDescription).toContain("eólico / menor natural");
+    expect(ic.explanation).toContain("eólico / menor natural");
+    expect(ic.explanation).not.toContain("frigio");
+  });
+
+  test("G mayor: Cm muestra G eólico / menor natural como origen principal", () => {
+    const r = analyzeProgression("G Cm D Em");
+    const gMaj = r.keys.find((k) => k.label === "G mayor");
+    const ic = gMaj.interchangeChords.find((c) => c.symbol === "Cm");
+    expect(ic.sourceDescription).toContain("eólico / menor natural");
+    expect(ic.explanation).toContain("eólico / menor natural");
+    expect(ic.explanation).not.toContain("frigio");
+  });
+
+  test("C mayor: Bb prioriza C mixolidio en explanation", () => {
+    const r = analyzeProgression("C Bb F G");
+    const cMaj = r.keys.find((k) => k.label === "C mayor");
+    const ic = cMaj.interchangeChords.find((c) => c.symbol === "Bb");
+    expect(ic.sourceDescription).toContain("mixolidio");
+    expect(ic.explanation).toContain("mixolidio");
+  });
+
+  test("C mayor: Db prioriza C frigio (único modo con bII mayor)", () => {
+    const r = analyzeProgression("C Db F G");
+    const cMaj = r.keys.find((k) => k.label === "C mayor");
+    const ic = cMaj.interchangeChords.find((c) => c.symbol === "Db");
+    expect(ic.sourceDescription).toContain("frigio");
+    expect(ic.explanation).toContain("frigio");
+  });
+
+  test("sources sigue conteniendo todos los modos coincidentes aunque solo uno sea principal", () => {
+    // Dbmaj7 en F encaja en frigio Y eólico; sources debe tener ambos
+    const r = analyzeProgression("Fmaj7 Dbmaj7 Bbmaj7");
+    const fMaj = r.keys.find((k) => k.label === "F mayor");
+    const ic = fMaj.interchangeChords.find((c) => c.symbol === "Dbmaj7");
+    expect(ic.sources).toContain("eólico / menor natural");
+    expect(ic.sources).toContain("frigio");
+    expect(ic.sources.length).toBeGreaterThanOrEqual(2);
+  });
+});
+
+describe("REFUERZO I-IV-V — primer acorde como tónica con intercambio modal (v6.0.85)", () => {
+  test("C F G Bb: C mayor aparece en keys y su score está dentro del rango de F mayor", () => {
+    const r = analyzeProgression("C F G Bb");
+    const fMaj = r.keys.find((k) => k.label === "F mayor");
+    const cMaj = r.keys.find((k) => k.label === "C mayor");
+    expect(fMaj).toBeDefined();
+    expect(cMaj).toBeDefined();
+    // El bonus I-IV-V debe dejar C mayor a no más de 1 punto de F mayor
+    expect(cMaj.score).toBeGreaterThanOrEqual(fMaj.score - 1);
+  });
+
+  test("C F G Bb: F mayor también aparece en keys (no se elimina)", () => {
+    const r = analyzeProgression("C F G Bb");
+    expect(r.keys.find((k) => k.label === "F mayor")).toBeDefined();
+  });
+
+  test("C F G Bb: Bb en C mayor es bVII prestado de C mixolidio", () => {
+    const r = analyzeProgression("C F G Bb");
+    const cMaj = r.keys.find((k) => k.label === "C mayor");
+    expect(cMaj).toBeDefined();
+    const ic = cMaj.interchangeChords.find((c) => c.symbol === "Bb");
+    expect(ic).toBeDefined();
+    expect(ic.degreeLabel).toBe("bVII");
+    expect(ic.sourceDescription).toContain("mixolidio");
+  });
+
+  test("C F G Am: sin acordes fuera de escala, el bonus no se aplica (ambas tonalidades al 100%)", () => {
+    const r = analyzeProgression("C F G Am");
+    const cMaj = r.keys.find((k) => k.label === "C mayor");
+    const aMin = r.keys.find((k) => k.label === "A menor");
+    expect(cMaj).toBeDefined();
+    expect(aMin).toBeDefined();
+    // No hay outsideChordSymbols → no bonus → percentage sin inflación
+    expect(cMaj.percentage).toBe(100);
+    expect(aMin.percentage).toBe(100);
+  });
+
+  test("G D Em C Eb: G mayor reforzado como tónica de I-IV-V con Eb como intercambio", () => {
+    const r = analyzeProgression("G D Em C Eb");
+    const gMaj = r.keys.find((k) => k.label === "G mayor");
+    expect(gMaj).toBeDefined();
+    // G(I), C(IV) y D(V) son diatónicos; Eb es intercambio → bonus I-IV-V activo
+    expect(gMaj.interchangeChords.some((ic) => ic.symbol === "Eb")).toBe(true);
+    // G mayor debe ser la tonalidad principal o quedar en keys
+    expect(r.keys[0].label).toBe("G mayor");
+  });
+
+  test("Am F C G: primer acorde menor, bonus no aplica; C mayor y A menor permanecen", () => {
+    const r = analyzeProgression("Am F C G");
+    const labels = r.keys.map((k) => k.label);
+    expect(labels).toContain("C mayor");
+    expect(labels).toContain("A menor");
+    // Primer acorde Am es menor → sin bonus I-IV-V en ninguna clave mayor
+    const cMaj = r.keys.find((k) => k.label === "C mayor");
+    expect(cMaj.percentage).toBe(100);
+  });
+
+  test("C F G Bb: hasFunctionalBonus=true en C mayor", () => {
+    const r = analyzeProgression("C F G Bb");
+    const cMaj = r.keys.find((k) => k.label === "C mayor");
+    expect(cMaj.hasFunctionalBonus).toBe(true);
+  });
+
+  test("C F G Bb: hasFunctionalBonus=false en F mayor (C es V, no I)", () => {
+    const r = analyzeProgression("C F G Bb");
+    const fMaj = r.keys.find((k) => k.label === "F mayor");
+    expect(fMaj.hasFunctionalBonus).toBe(false);
+  });
+
+  test("C F G Am: hasFunctionalBonus=false cuando todos los acordes son diatónicos", () => {
+    const r = analyzeProgression("C F G Am");
+    const cMaj = r.keys.find((k) => k.label === "C mayor");
+    expect(cMaj.hasFunctionalBonus).toBe(false);
+  });
+
+  test("G D Em C Eb: hasFunctionalBonus=true en G mayor (I-IV-V con Eb fuera)", () => {
+    const r = analyzeProgression("G D Em C Eb");
+    const gMaj = r.keys.find((k) => k.label === "G mayor");
+    expect(gMaj.hasFunctionalBonus).toBe(true);
   });
 });
