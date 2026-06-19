@@ -3,6 +3,7 @@
  */
 
 import { test, expect } from "@playwright/test";
+import { TEST_APP_VERSION } from "./helpers/appVersion.js";
 
 async function gotoDesktop(page) {
   await page.setViewportSize({ width: 1440, height: 900 });
@@ -28,7 +29,7 @@ async function gotoDesktopClearVisible(page) {
       window.localStorage.clear();
       window.localStorage.setItem("mastil_interactivo_guitarra_config_v1", JSON.stringify(cfg));
     }
-  }, { version: 1, appVersion: "6.0.81", config: { scaleCompareVisible: [] } });
+  }, { version: 1, appVersion: TEST_APP_VERSION, config: { scaleCompareVisible: [] } });
   await page.goto("/");
   await page.waitForLoadState("networkidle");
 }

@@ -3,9 +3,10 @@
  */
 
 import { test, expect } from "@playwright/test";
+import { TEST_APP_VERSION } from "./helpers/appVersion.js";
 
 const STORAGE_KEY = "mastil_interactivo_guitarra_config_v1";
-const APP_VERSION = "6.0.81";
+const APP_VERSION = TEST_APP_VERSION;
 
 async function gotoFresh(page) {
   await page.setViewportSize({ width: 1440, height: 900 });
