@@ -308,6 +308,7 @@ const modeToggle = (
             <label className={UI_LABEL_SM}>Familia</label>
             <select
               className={chordAutoSelectClass + " mt-1"}
+              data-testid="select-family"
               style={isMobileLayout ? undefined : { width: chordFamilySelectWidth }}
               value={chordFamily}
               onChange={(e) => setChordFamily(e.target.value)}
@@ -436,6 +437,7 @@ const modeToggle = (
             <label className={UI_LABEL_SM}>Familia</label>
             <select
               className={chordSelectClass + " mt-1"}
+              data-testid="select-family"
               value={chordFamily}
               onChange={(e) => setChordFamily(e.target.value)}
             >
@@ -531,6 +533,7 @@ const modeToggle = (
             <label className={UI_LABEL_SM}>Familia</label>
             <select
               className={chordSelectClass + " mt-1"}
+              data-testid="select-family"
               value={chordFamily}
               onChange={(e) => setChordFamily(e.target.value)}
             >

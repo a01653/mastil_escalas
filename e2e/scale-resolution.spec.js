@@ -28,7 +28,7 @@ async function gotoDesktopClearVisible(page) {
       window.localStorage.clear();
       window.localStorage.setItem("mastil_interactivo_guitarra_config_v1", JSON.stringify(cfg));
     }
-  }, { version: 1, appVersion: "6.0.74", config: { scaleCompareVisible: [] } });
+  }, { version: 1, appVersion: "6.0.81", config: { scaleCompareVisible: [] } });
   await page.goto("/");
   await page.waitForLoadState("networkidle");
 }

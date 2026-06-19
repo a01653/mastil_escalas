@@ -191,7 +191,8 @@ test("41. Fmaj7(add13): botón Copiar habilitado, copiado sin perder ext13", asy
   // D en B string: B(11)+fret → D=2: f=3 → 11+3=14→2=D ✓
   // E en HighE: HighE(4)=E fret 0
 
-  // Rehacemos la selección:
+  // Rehacemos la selección (limpiamos localStorage para evitar restaurar chordDetectMode):
+  await page.evaluate(() => localStorage.clear());
   await page.reload();
   await page.waitForLoadState("networkidle");
   await page.getByTestId("nav-chords").click();
@@ -210,6 +211,7 @@ test("41. Fmaj7(add13): botón Copiar habilitado, copiado sin perder ext13", asy
   // E: HighE open (fret 0)
   // D: B string fret 3 → B(11)+3=14→2=D
 
+  await page.evaluate(() => localStorage.clear());
   await page.reload();
   await page.waitForLoadState("networkidle");
   await page.getByTestId("nav-chords").click();

@@ -1,4 +1,4 @@
-import { mod12, pcToName, computeAutoPreferSharps } from "./appMusicBasics.js";
+import { mod12, pcToName, computeAutoPreferSharps, preferSharpsFromMajorTonicPc } from "./appMusicBasics.js";
 
 const NOTE_PCS = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
 
@@ -200,6 +200,314 @@ function buildChordExplanation(chord, tonicPc, scaleName, scoreInfo, preferSharp
   return chord.symbol;
 }
 
+// ─── Modal centers ────────────────────────────────────────────────────────────
+
+const MODES_LIST = [
+  {
+    name: "jónico",
+    displayName: "jónico / mayor",
+    parentOffset: 0,
+    intervals: [0, 2, 4, 5, 7, 9, 11],
+    qualities: ["maj", "min", "min", "maj", "maj", "min", "dim"],
+    degreeLabels: ["I", "ii", "iii", "IV", "V", "vi", "vii°"],
+  },
+  {
+    name: "dórico",
+    displayName: "dórico",
+    parentOffset: 2,
+    intervals: [0, 2, 3, 5, 7, 9, 10],
+    qualities: ["min", "min", "maj", "maj", "min", "dim", "maj"],
+    degreeLabels: ["i", "ii", "III", "IV", "v", "vi°", "VII"],
+  },
+  {
+    name: "frigio",
+    displayName: "frigio",
+    parentOffset: 4,
+    intervals: [0, 1, 3, 5, 7, 8, 10],
+    qualities: ["min", "maj", "maj", "min", "dim", "maj", "min"],
+    degreeLabels: ["i", "bII", "III", "iv", "v°", "VI", "vii"],
+  },
+  {
+    name: "lidio",
+    displayName: "lidio",
+    parentOffset: 5,
+    intervals: [0, 2, 4, 6, 7, 9, 11],
+    qualities: ["maj", "maj", "min", "dim", "maj", "min", "min"],
+    degreeLabels: ["I", "II", "iii", "#iv°", "V", "vi", "vii"],
+  },
+  {
+    name: "mixolidio",
+    displayName: "mixolidio",
+    parentOffset: 7,
+    intervals: [0, 2, 4, 5, 7, 9, 10],
+    qualities: ["maj", "min", "dim", "maj", "min", "min", "maj"],
+    degreeLabels: ["I", "ii", "iii°", "IV", "v", "vi", "bVII"],
+  },
+  {
+    name: "eólico",
+    displayName: "eólico / menor natural",
+    parentOffset: 9,
+    intervals: [0, 2, 3, 5, 7, 8, 10],
+    qualities: ["min", "dim", "maj", "min", "min", "maj", "maj"],
+    degreeLabels: ["i", "ii°", "III", "iv", "v", "VI", "VII"],
+  },
+  // Locrio omitted: diminished tonic is not a functional modal center
+];
+
+const PENTA_MAJ_IVS = [0, 2, 4, 7, 9];
+const PENTA_MIN_IVS = [0, 3, 5, 7, 10];
+const PENTA_MAJ_DEGREES = ["1", "2", "3", "5", "6"];
+const PENTA_MIN_DEGREES = ["1", "b3", "4", "5", "b7"];
+
+function buildSuggestedScales(tonicPc, modeDef, parentPc, parentPreferSharps) {
+  const tonicPreferSharps = preferSharpsFromMajorTonicPc(parentPc);
+  const tonicName = pcToName(tonicPc, tonicPreferSharps);
+  const scales = [];
+
+  // 1. The mode itself
+  scales.push({
+    id: `mode-${tonicPc}-${modeDef.name}`,
+    name: `${tonicName} ${modeDef.displayName}`,
+    notes: modeDef.intervals.map((iv) => pcToName(mod12(tonicPc + iv), tonicPreferSharps)),
+    degrees: modeDef.degreeLabels,
+    relativeNote: null,
+  });
+
+  // 2. Parent major scale (skip if jónico — same notes as #1)
+  if (modeDef.name !== "jónico") {
+    const parentName = pcToName(parentPc, parentPreferSharps);
+    scales.push({
+      id: `parent-${parentPc}`,
+      name: `${parentName} mayor`,
+      notes: SCALES.Mayor.intervals.map((iv) => pcToName(mod12(parentPc + iv), parentPreferSharps)),
+      degrees: DEGREE_LABELS_TRIAD.Mayor,
+      relativeNote: null,
+    });
+  }
+
+  // 3. Pentatonic major of tonic
+  const pentaMajPcs = PENTA_MAJ_IVS.map((iv) => mod12(tonicPc + iv));
+  const pentaMajNotes = pentaMajPcs.map((pc) => pcToName(pc, tonicPreferSharps));
+
+  // 4. Relative minor pentatonic (vi of the mode = interval[5])
+  const viPc = mod12(tonicPc + modeDef.intervals[5]);
+  const viPreferSharps = preferSharpsFromMajorTonicPc(parentPc);
+  const viName = pcToName(viPc, viPreferSharps);
+  const pentaMinPcs = PENTA_MIN_IVS.map((iv) => mod12(viPc + iv));
+  const pentaMinNotes = pentaMinPcs.map((pc) => pcToName(pc, viPreferSharps));
+
+  const pcSet1 = new Set(pentaMajPcs);
+  const pcSet2 = new Set(pentaMinPcs);
+  const sameNotes = pcSet1.size === pcSet2.size && [...pcSet1].every((pc) => pcSet2.has(pc));
+
+  scales.push({
+    id: `penta-maj-${tonicPc}`,
+    name: `${tonicName} pentatónica mayor`,
+    notes: pentaMajNotes,
+    degrees: PENTA_MAJ_DEGREES,
+    relativeNote: sameNotes ? `Mismas notas que ${viName} pentatónica menor, distinto centro tonal.` : null,
+  });
+
+  scales.push({
+    id: `penta-min-${viPc}`,
+    name: `${viName} pentatónica menor`,
+    notes: pentaMinNotes,
+    degrees: PENTA_MIN_DEGREES,
+    relativeNote: sameNotes ? `Mismas notas que ${tonicName} pentatónica mayor, distinto centro tonal.` : null,
+  });
+
+  return scales;
+}
+
+export function buildKeyScales(tonicPc, scaleName, preferSharps) {
+  const tonicName = pcToName(tonicPc, preferSharps);
+  const scales = [];
+
+  if (scaleName === "Mayor") {
+    // 1. Tonic major
+    scales.push({
+      id: `key-major-${tonicPc}`,
+      name: `${tonicName} mayor`,
+      notes: SCALES.Mayor.intervals.map((iv) => pcToName(mod12(tonicPc + iv), preferSharps)),
+      degrees: DEGREE_LABELS_TRIAD.Mayor,
+      relativeNote: null,
+    });
+
+    // 2. Tonic major pentatonic
+    scales.push({
+      id: `key-penta-maj-${tonicPc}`,
+      name: `${tonicName} pentatónica mayor`,
+      notes: PENTA_MAJ_IVS.map((iv) => pcToName(mod12(tonicPc + iv), preferSharps)),
+      degrees: PENTA_MAJ_DEGREES,
+      relativeNote: null,
+    });
+
+    // 3. Relative minor natural (vi = +9 semitones)
+    const viPc = mod12(tonicPc + 9);
+    const viName = pcToName(viPc, preferSharps);
+    scales.push({
+      id: `key-minor-${viPc}`,
+      name: `${viName} menor natural`,
+      notes: SCALES["Menor natural"].intervals.map((iv) => pcToName(mod12(viPc + iv), preferSharps)),
+      degrees: DEGREE_LABELS_TRIAD["Menor natural"],
+      relativeNote: null,
+    });
+
+    // 4. Relative minor pentatonic
+    scales.push({
+      id: `key-penta-min-${viPc}`,
+      name: `${viName} pentatónica menor`,
+      notes: PENTA_MIN_IVS.map((iv) => pcToName(mod12(viPc + iv), preferSharps)),
+      degrees: PENTA_MIN_DEGREES,
+      relativeNote: `Mismas notas que ${tonicName} pentatónica mayor, distinto centro tonal.`,
+    });
+  } else {
+    // Menor natural
+
+    // 1. Tonic minor natural
+    scales.push({
+      id: `key-minor-${tonicPc}`,
+      name: `${tonicName} menor natural`,
+      notes: SCALES["Menor natural"].intervals.map((iv) => pcToName(mod12(tonicPc + iv), preferSharps)),
+      degrees: DEGREE_LABELS_TRIAD["Menor natural"],
+      relativeNote: null,
+    });
+
+    // 2. Tonic minor pentatonic
+    scales.push({
+      id: `key-penta-min-${tonicPc}`,
+      name: `${tonicName} pentatónica menor`,
+      notes: PENTA_MIN_IVS.map((iv) => pcToName(mod12(tonicPc + iv), preferSharps)),
+      degrees: PENTA_MIN_DEGREES,
+      relativeNote: null,
+    });
+
+    // 3. Relative major (III = +3 semitones)
+    const IIIPc = mod12(tonicPc + 3);
+    const IIIName = pcToName(IIIPc, preferSharps);
+    scales.push({
+      id: `key-major-${IIIPc}`,
+      name: `${IIIName} mayor`,
+      notes: SCALES.Mayor.intervals.map((iv) => pcToName(mod12(IIIPc + iv), preferSharps)),
+      degrees: DEGREE_LABELS_TRIAD.Mayor,
+      relativeNote: null,
+    });
+
+    // 4. Relative major pentatonic
+    scales.push({
+      id: `key-penta-maj-${IIIPc}`,
+      name: `${IIIName} pentatónica mayor`,
+      notes: PENTA_MAJ_IVS.map((iv) => pcToName(mod12(IIIPc + iv), preferSharps)),
+      degrees: PENTA_MAJ_DEGREES,
+      relativeNote: `Mismas notas que ${tonicName} pentatónica menor, distinto centro tonal.`,
+    });
+  }
+
+  return scales;
+}
+
+export function computeModalCenters(chords) {
+  if (!chords || !chords.length) return [];
+
+  const allCenters = [];
+  const chordRootPcs = new Set(chords.map((c) => c.rootPc));
+  const firstRootPc = chords[0].rootPc;
+  const lastRootPc = chords[chords.length - 1].rootPc;
+
+  for (let parentPc = 0; parentPc < 12; parentPc++) {
+    const parentDegrees = SCALES.Mayor.intervals.map((iv, i) => ({
+      rootPc: mod12(parentPc + iv),
+      quality: SCALES.Mayor.qualities[i],
+    }));
+
+    // All chords must fit diatonically in this parent major scale
+    const allFit = chords.every((chord) => {
+      const tq = triadQuality(chord.quality);
+      return parentDegrees.some((d) => d.rootPc === chord.rootPc && d.quality === tq);
+    });
+    if (!allFit) continue;
+
+    const parentPreferSharps = preferSharpsFromMajorTonicPc(parentPc);
+
+    for (const modeDef of MODES_LIST) {
+      const modalTonicPc = mod12(parentPc + modeDef.parentOffset);
+      const isMainMode = modeDef.name === "jónico" || modeDef.name === "eólico";
+      if (!chordRootPcs.has(modalTonicPc) && !isMainMode) continue;
+
+      const tonicPreferSharps = preferSharpsFromMajorTonicPc(parentPc);
+      const tonicName = pcToName(modalTonicPc, tonicPreferSharps);
+      const label = `${tonicName} ${modeDef.displayName}`;
+
+      // Deduplicate by (tonicPc, modeName)
+      const dedupKey = `${modalTonicPc}-${modeDef.name}`;
+      if (allCenters.some((c) => c.dedupKey === dedupKey)) continue;
+
+      // Degree mapping for each unique chord
+      const seen = new Set();
+      const chordDegrees = {};
+      for (const chord of chords) {
+        if (seen.has(chord.symbol)) continue;
+        seen.add(chord.symbol);
+        const interval = mod12(chord.rootPc - modalTonicPc);
+        const degIdx = modeDef.intervals.indexOf(interval);
+        if (degIdx >= 0) chordDegrees[chord.symbol] = modeDef.degreeLabels[degIdx];
+      }
+
+      // Summary line: "E = I, F# = II, C#m = vi"
+      const summaryParts = chords
+        .filter((c, i, arr) => arr.findIndex((x) => x.symbol === c.symbol) === i)
+        .map((c) => (chordDegrees[c.symbol] ? `${c.symbol} = ${chordDegrees[c.symbol]}` : null))
+        .filter(Boolean);
+      const summary = summaryParts.join(", ");
+
+      // Score
+      let score = chords.length; // base: all chords fit
+      if (firstRootPc === modalTonicPc) score += 4;
+      if (lastRootPc === modalTonicPc) score += 3;
+      score += chords.filter((c) => c.rootPc === modalTonicPc).length * 2;
+
+      // Diatonic table
+      const diatonicTable = modeDef.intervals.map((iv, i) => {
+        const rootPc = mod12(modalTonicPc + iv);
+        const quality = modeDef.qualities[i];
+        const name = degreeChordName(rootPc, quality, tonicPreferSharps);
+        const usedBy = chords
+          .filter((c) => c.rootPc === rootPc && triadQuality(c.quality) === quality)
+          .map((c) => c.symbol);
+        return { degree: modeDef.degreeLabels[i], name, rootPc, quality, used: usedBy.length > 0, usedBy };
+      });
+
+      const parentName = pcToName(parentPc, parentPreferSharps);
+      const modeNotes = modeDef.intervals.map((iv) => pcToName(mod12(modalTonicPc + iv), tonicPreferSharps));
+      const suggestedScales = buildSuggestedScales(modalTonicPc, modeDef, parentPc, parentPreferSharps);
+
+      allCenters.push({
+        dedupKey,
+        label,
+        tonicPc: modalTonicPc,
+        modeName: modeDef.name,
+        modeDisplayName: modeDef.displayName,
+        parentTonicPc: parentPc,
+        parentLabel: `${parentName} mayor`,
+        modeNotes,
+        diatonicTable,
+        chordDegrees,
+        summary,
+        score,
+        suggestedScales,
+        suggestedExpand: false,
+      });
+    }
+  }
+
+  allCenters.sort((a, b) => b.score - a.score);
+
+  // Mark the top-scoring center as suggested for auto-expand
+  if (allCenters.length > 0) allCenters[0].suggestedExpand = true;
+
+  return allCenters;
+}
+
 export function analyzeProgression(text) {
   const chords = parseProgressionText(text);
   if (!chords.length) return { chords: [], keys: [], isEmpty: true, mode: "triad" };
@@ -268,6 +576,7 @@ export function analyzeProgression(text) {
         outsideChords,
         diatonicTable,
         chordDegrees,
+        suggestedScales: buildKeyScales(tonicPc, scaleName, preferSharps),
       });
     }
   }
@@ -285,5 +594,7 @@ export function analyzeProgression(text) {
     .filter((r) => r.percentage >= 40 && r.score >= topScore - SCORE_DIATONIC)
     .slice(0, 6);
 
-  return { chords, keys, isEmpty: false, mode };
+  const modalCenters = computeModalCenters(chords);
+
+  return { chords, keys, isEmpty: false, mode, modalCenters };
 }

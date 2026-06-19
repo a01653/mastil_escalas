@@ -1,5 +1,5 @@
 import { describe, test, expect } from "vitest";
-import { analyzeProgression, parseProgressionText, buildDiatonicTable } from "./keyAnalysisEngine.js";
+import { analyzeProgression, parseProgressionText, buildDiatonicTable, computeModalCenters } from "./keyAnalysisEngine.js";
 
 // ── parseProgressionText ──────────────────────────────────────────────────────
 
@@ -558,5 +558,181 @@ describe("buildDiatonicTable — función exportada", () => {
     const table = buildDiatonicTable(9, "Menor natural", false, [], "tetrad");
     expect(table.map((d) => d.name)).toEqual(["Am7", "Bm7b5", "Cmaj7", "Dm7", "Em7", "Fmaj7", "G7"]);
     expect(table.map((d) => d.degree)).toEqual(["im7", "iiø7", "IIImaj7", "iv7", "v7", "VImaj7", "VII7"]);
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════════════════
+// CENTROS MODALES — computeModalCenters y analyzeProgression.modalCenters
+// ════════════════════════════════════════════════════════════════════════════════
+
+describe("computeModalCenters — E F# C#m", () => {
+  const chords = parseProgressionText("E F# C#m");
+
+  test("devuelve array no vacío", () => {
+    const centers = computeModalCenters(chords);
+    expect(Array.isArray(centers)).toBe(true);
+    expect(centers.length).toBeGreaterThan(0);
+  });
+
+  test("E lidio aparece como primer centro modal (score más alto)", () => {
+    const centers = computeModalCenters(chords);
+    expect(centers[0].label).toBe("E lidio");
+  });
+
+  test("E lidio tiene suggestedExpand = true", () => {
+    const centers = computeModalCenters(chords);
+    const eLidio = centers.find((c) => c.label === "E lidio");
+    expect(eLidio).toBeDefined();
+    expect(eLidio.suggestedExpand).toBe(true);
+  });
+
+  test("E lidio summary correcto: E = I, F# = II, C#m = vi", () => {
+    const centers = computeModalCenters(chords);
+    const eLidio = centers.find((c) => c.label === "E lidio");
+    expect(eLidio.summary).toBe("E = I, F# = II, C#m = vi");
+  });
+
+  test("E lidio chordDegrees correcto", () => {
+    const centers = computeModalCenters(chords);
+    const eLidio = centers.find((c) => c.label === "E lidio");
+    expect(eLidio.chordDegrees).toMatchObject({ E: "I", "F#": "II", "C#m": "vi" });
+  });
+
+  test("E lidio parentLabel es B mayor", () => {
+    const centers = computeModalCenters(chords);
+    const eLidio = centers.find((c) => c.label === "E lidio");
+    expect(eLidio.parentLabel).toBe("B mayor");
+  });
+
+  test("E lidio modeNotes son E F# G# A# B C# D#", () => {
+    const centers = computeModalCenters(chords);
+    const eLidio = centers.find((c) => c.label === "E lidio");
+    expect(eLidio.modeNotes).toEqual(["E", "F#", "G#", "A#", "B", "C#", "D#"]);
+  });
+
+  test("C# dórico aparece y tiene resumen correcto", () => {
+    const centers = computeModalCenters(chords);
+    const csharpDor = centers.find((c) => c.label === "C# dórico");
+    expect(csharpDor).toBeDefined();
+    expect(csharpDor.summary).toBe("E = III, F# = IV, C#m = i");
+  });
+
+  test("F# mixolidio aparece y tiene resumen correcto", () => {
+    const centers = computeModalCenters(chords);
+    const fsharpMix = centers.find((c) => c.label === "F# mixolidio");
+    expect(fsharpMix).toBeDefined();
+    expect(fsharpMix.summary).toBe("E = bVII, F# = I, C#m = v");
+  });
+
+  test("B jónico / mayor aparece (modo principal)", () => {
+    const centers = computeModalCenters(chords);
+    const bJon = centers.find((c) => c.label === "B jónico / mayor");
+    expect(bJon).toBeDefined();
+    expect(bJon.summary).toBe("E = IV, F# = V, C#m = ii");
+  });
+
+  test("G# eólico / menor natural aparece (modo principal)", () => {
+    const centers = computeModalCenters(chords);
+    const gsMin = centers.find((c) => c.label === "G# eólico / menor natural");
+    expect(gsMin).toBeDefined();
+    expect(gsMin.summary).toBe("E = VI, F# = VII, C#m = iv");
+  });
+
+  test("D# frigio NO aparece (tónica D# ausente en la progresión)", () => {
+    const centers = computeModalCenters(chords);
+    const dFrig = centers.find((c) => c.modeName === "frigio" && c.tonicPc === 3);
+    expect(dFrig).toBeUndefined();
+  });
+
+  test("ningún locrio aparece en los centros", () => {
+    const centers = computeModalCenters(chords);
+    expect(centers.every((c) => c.modeName !== "locrio")).toBe(true);
+  });
+
+  test("E lidio diatonicTable tiene 7 grados con E, F# y C#m marcados como usados", () => {
+    const centers = computeModalCenters(chords);
+    const eLidio = centers.find((c) => c.label === "E lidio");
+    expect(eLidio.diatonicTable).toHaveLength(7);
+    expect(eLidio.diatonicTable.find((d) => d.degree === "I").used).toBe(true);   // E
+    expect(eLidio.diatonicTable.find((d) => d.degree === "II").used).toBe(true);  // F#
+    expect(eLidio.diatonicTable.find((d) => d.degree === "vi").used).toBe(true);  // C#m
+    expect(eLidio.diatonicTable.find((d) => d.degree === "#iv°").used).toBe(false);
+    expect(eLidio.diatonicTable.find((d) => d.degree === "V").used).toBe(false);
+  });
+
+  test("E lidio suggestedScales incluye E lidio, B mayor, E pentatónica mayor y C# pentatónica menor", () => {
+    const centers = computeModalCenters(chords);
+    const eLidio = centers.find((c) => c.label === "E lidio");
+    const scaleNames = eLidio.suggestedScales.map((s) => s.name);
+    expect(scaleNames).toContain("E lidio");
+    expect(scaleNames).toContain("B mayor");
+    expect(scaleNames).toContain("E pentatónica mayor");
+    expect(scaleNames).toContain("C# pentatónica menor");
+  });
+
+  test("E pentatónica mayor tiene notas E F# G# B C#", () => {
+    const centers = computeModalCenters(chords);
+    const eLidio = centers.find((c) => c.label === "E lidio");
+    const pentaMaj = eLidio.suggestedScales.find((s) => s.name === "E pentatónica mayor");
+    expect(pentaMaj).toBeDefined();
+    expect(pentaMaj.notes).toEqual(["E", "F#", "G#", "B", "C#"]);
+  });
+
+  test("C# pentatónica menor tiene notas C# E F# G# B", () => {
+    const centers = computeModalCenters(chords);
+    const eLidio = centers.find((c) => c.label === "E lidio");
+    const pentaMin = eLidio.suggestedScales.find((s) => s.name === "C# pentatónica menor");
+    expect(pentaMin).toBeDefined();
+    expect(pentaMin.notes).toEqual(["C#", "E", "F#", "G#", "B"]);
+  });
+
+  test("E pentatónica mayor y C# pentatónica menor tienen relativeNote de equivalencia", () => {
+    const centers = computeModalCenters(chords);
+    const eLidio = centers.find((c) => c.label === "E lidio");
+    const pentaMaj = eLidio.suggestedScales.find((s) => s.name === "E pentatónica mayor");
+    const pentaMin = eLidio.suggestedScales.find((s) => s.name === "C# pentatónica menor");
+    expect(pentaMaj.relativeNote).toMatch(/mismas notas/i);
+    expect(pentaMin.relativeNote).toMatch(/mismas notas/i);
+  });
+
+  test("orden esperado: E lidio, C# dórico, F# mixolidio antes de B jónico y G# eólico", () => {
+    const centers = computeModalCenters(chords);
+    const eLidioIdx = centers.findIndex((c) => c.label === "E lidio");
+    const csharpDorIdx = centers.findIndex((c) => c.label === "C# dórico");
+    const fsharpMixIdx = centers.findIndex((c) => c.label === "F# mixolidio");
+    const bJonIdx = centers.findIndex((c) => c.label === "B jónico / mayor");
+    const gsMinIdx = centers.findIndex((c) => c.label === "G# eólico / menor natural");
+    expect(eLidioIdx).toBeLessThan(csharpDorIdx);
+    expect(eLidioIdx).toBeLessThan(fsharpMixIdx);
+    expect(eLidioIdx).toBeLessThan(bJonIdx);
+    expect(eLidioIdx).toBeLessThan(gsMinIdx);
+  });
+});
+
+describe("analyzeProgression — campo modalCenters", () => {
+  test("E F# C#m → modalCenters devuelve B mayor y G# menor como tonalidades principales y centros modales", () => {
+    const r = analyzeProgression("E F# C#m");
+    expect(r.modalCenters).toBeDefined();
+    expect(Array.isArray(r.modalCenters)).toBe(true);
+    expect(r.modalCenters.length).toBeGreaterThan(0);
+    // Tonalidades principales intactas
+    const labels = r.keys.map((k) => k.label);
+    expect(labels).toContain("B mayor");
+    expect(labels).toContain("G# menor");
+  });
+
+  test("vacío → modalCenters es array vacío", () => {
+    const r = analyzeProgression("");
+    expect(r.modalCenters).toBeUndefined(); // isEmpty path devuelve antes
+  });
+
+  test("C F G Am → modalCenters incluye C jónico / mayor y A eólico / menor natural", () => {
+    const r = analyzeProgression("C F G Am");
+    expect(r.modalCenters.length).toBeGreaterThan(0);
+    const labels = r.modalCenters.map((c) => c.label);
+    expect(labels).toContain("C jónico / mayor");
+    expect(labels).toContain("A eólico / menor natural");
+    expect(labels).toContain("F lidio");
+    expect(labels).toContain("G mixolidio");
   });
 });

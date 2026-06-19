@@ -289,7 +289,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "6.0.74";
+const APP_VERSION = "6.0.81";
 
 
 // ─── Acorde de referencia (bloque "Investigar en mástil") ────────────────────
@@ -601,6 +601,15 @@ export default function FretboardScalesPage() {
   const [nearWindowSizeRaw, setNearWindowSizeRaw] = useState("6"); // texto del input, puede estar vacío mientras el usuario edita
   const [nearAutoScaleSync, setNearAutoScaleSync] = useState(true);
 
+  // ─── Analizador de tonalidad ─────────────────────────────────────────────────
+  const [keyAnalyzerOpen, setKeyAnalyzerOpen] = useState(false);
+  const [keyAnalyzerInput, setKeyAnalyzerInput] = useState("");
+  const [keyAnalyzerExpandedModal, setKeyAnalyzerExpandedModal] = useState(null);
+  const [keyAnalyzerModalScaleIdxs, setKeyAnalyzerModalScaleIdxs] = useState({});
+  const [keyAnalyzerKeyScaleIdxs, setKeyAnalyzerKeyScaleIdxs] = useState({});
+  const [keyAnalyzerExpandedKeys, setKeyAnalyzerExpandedKeys] = useState({});
+  const [keyAnalyzerModalSectionOpen, setKeyAnalyzerModalSectionOpen] = useState(false);
+
   // Clamp del rango a 0–maxFret
   useEffect(() => {
     const size = Math.max(1, Math.floor(Number(nearWindowSize) || 1));
@@ -872,12 +881,15 @@ export default function FretboardScalesPage() {
     chordExt9,
     chordExt11,
     chordExt13,
+    chordOmit,
     chordVoicingIdx,
     chordSelectedFrets,
     chordMaxDist,
     chordAllowOpenStrings,
     chordKeepZone,
     chordVoicingFilterLevel,
+    chordDetectMode,
+    chordDetectSelectedKeys,
     chordDetectWindowStart,
     chordDetectPrioritizeContext,
     chordDetectPrioritizeContextTouched,
@@ -890,6 +902,13 @@ export default function FretboardScalesPage() {
     nearAutoScaleSync,
     nearSlots,
     nearBgColors,
+    keyAnalyzerOpen,
+    keyAnalyzerInput,
+    keyAnalyzerExpandedModal,
+    keyAnalyzerModalScaleIdxs,
+    keyAnalyzerKeyScaleIdxs,
+    keyAnalyzerExpandedKeys,
+    keyAnalyzerModalSectionOpen,
     routeStartCode,
     routeEndCode,
     routeMaxPerString,
@@ -963,12 +982,15 @@ export default function FretboardScalesPage() {
     chordExt9,
     chordExt11,
     chordExt13,
+    chordOmit,
     chordVoicingIdx,
     chordSelectedFrets,
     chordMaxDist,
     chordAllowOpenStrings,
     chordKeepZone,
     chordVoicingFilterLevel,
+    chordDetectMode,
+    chordDetectSelectedKeys,
     chordDetectWindowStart,
     chordDetectPrioritizeContext,
     chordDetectPrioritizeContextTouched,
@@ -981,6 +1003,13 @@ export default function FretboardScalesPage() {
     nearAutoScaleSync,
     nearSlots,
     nearBgColors,
+    keyAnalyzerOpen,
+    keyAnalyzerInput,
+    keyAnalyzerExpandedModal,
+    keyAnalyzerModalScaleIdxs,
+    keyAnalyzerKeyScaleIdxs,
+    keyAnalyzerExpandedKeys,
+    keyAnalyzerModalSectionOpen,
     routeStartCode,
     routeEndCode,
     routeMaxPerString,
@@ -1132,6 +1161,7 @@ export default function FretboardScalesPage() {
       if ("chordExt9" in saved) setChordExt9(sanitizeBoolValue(saved.chordExt9, false));
       if ("chordExt11" in saved) setChordExt11(sanitizeBoolValue(saved.chordExt11, false));
       if ("chordExt13" in saved) setChordExt13(sanitizeBoolValue(saved.chordExt13, false));
+      if ("chordOmit" in saved) setChordOmit(sanitizeOneOf(saved.chordOmit, ["none", "1", "3", "5"], "none"));
       if ("chordVoicingIdx" in saved) setChordVoicingIdx(sanitizeNumberValue(saved.chordVoicingIdx, 0, 0, 999));
       if ("chordSelectedFrets" in saved) {
         const restored = typeof saved.chordSelectedFrets === "string" || saved.chordSelectedFrets == null ? saved.chordSelectedFrets : null;
@@ -1142,6 +1172,11 @@ export default function FretboardScalesPage() {
       if ("chordAllowOpenStrings" in saved) setChordAllowOpenStrings(sanitizeBoolValue(saved.chordAllowOpenStrings, false));
       if ("chordKeepZone" in saved) setChordKeepZone(sanitizeBoolValue(saved.chordKeepZone, true));
       if ("chordVoicingFilterLevel" in saved) setChordVoicingFilterLevel(sanitizeOneOf(saved.chordVoicingFilterLevel, ["all", "habitual", "essential"], "all"));
+      if ("chordDetectMode" in saved) setChordDetectMode(sanitizeBoolValue(saved.chordDetectMode, false));
+      if ("chordDetectSelectedKeys" in saved && Array.isArray(saved.chordDetectSelectedKeys)) {
+        const validKeys = saved.chordDetectSelectedKeys.filter((k) => typeof k === "string" && /^\d:\d{1,2}$/.test(k));
+        if (validKeys.length > 0) setChordDetectSelectedKeys(validKeys);
+      }
       if ("chordDetectWindowStart" in saved) setChordDetectWindowStart(sanitizeNumberValue(saved.chordDetectWindowStart, 1, 1, 24));
       if ("chordDetectPrioritizeContextTouched" in saved) {
         const restoredTouched = sanitizeBoolValue(saved.chordDetectPrioritizeContextTouched, false);
@@ -1162,6 +1197,20 @@ export default function FretboardScalesPage() {
       if ("nearWindowStart" in saved) setNearWindowStart(sanitizeNumberValue(saved.nearWindowStart, 1, 0, 24));
       if ("nearWindowSize" in saved) setNearWindowSize(sanitizeNumberValue(saved.nearWindowSize, 6, 1, 24));
       if ("nearAutoScaleSync" in saved) setNearAutoScaleSync(sanitizeBoolValue(saved.nearAutoScaleSync, true));
+
+      if ("keyAnalyzerOpen" in saved) setKeyAnalyzerOpen(sanitizeBoolValue(saved.keyAnalyzerOpen, false));
+      if ("keyAnalyzerInput" in saved && typeof saved.keyAnalyzerInput === "string") setKeyAnalyzerInput(saved.keyAnalyzerInput);
+      if ("keyAnalyzerExpandedModal" in saved) setKeyAnalyzerExpandedModal(typeof saved.keyAnalyzerExpandedModal === "string" ? saved.keyAnalyzerExpandedModal : null);
+      if (saved.keyAnalyzerModalScaleIdxs && typeof saved.keyAnalyzerModalScaleIdxs === "object" && !Array.isArray(saved.keyAnalyzerModalScaleIdxs)) {
+        setKeyAnalyzerModalScaleIdxs(Object.fromEntries(Object.entries(saved.keyAnalyzerModalScaleIdxs).map(([k, v]) => [k, typeof v === "number" ? v : 0])));
+      }
+      if (saved.keyAnalyzerKeyScaleIdxs && typeof saved.keyAnalyzerKeyScaleIdxs === "object" && !Array.isArray(saved.keyAnalyzerKeyScaleIdxs)) {
+        setKeyAnalyzerKeyScaleIdxs(Object.fromEntries(Object.entries(saved.keyAnalyzerKeyScaleIdxs).map(([k, v]) => [k, typeof v === "number" ? v : 0])));
+      }
+      if (saved.keyAnalyzerExpandedKeys && typeof saved.keyAnalyzerExpandedKeys === "object" && !Array.isArray(saved.keyAnalyzerExpandedKeys)) {
+        setKeyAnalyzerExpandedKeys(Object.fromEntries(Object.entries(saved.keyAnalyzerExpandedKeys).filter(([, v]) => typeof v === "boolean")));
+      }
+      if ("keyAnalyzerModalSectionOpen" in saved) setKeyAnalyzerModalSectionOpen(sanitizeBoolValue(saved.keyAnalyzerModalSectionOpen, false));
       if (Array.isArray(saved.nearSlots)) {
         pendingNearRestoreRef.current = Array.from({ length: 4 }, (_, i) => ({
           active: true,
@@ -1858,6 +1907,16 @@ export default function FretboardScalesPage() {
     chordKeepZone,
     chordVoicingFilterLevel,
   });
+
+  // Voicing de vista previa: mientras la chord DB carga asíncronamente y activeChordVoicing es null,
+  // reconstruye el voicing guardado (chordSelectedFrets) para que el mástil no aparezca en blanco.
+  const chordActiveVoicingDisplay = useMemo(() => {
+    if (activeChordVoicing) return activeChordVoicing;
+    if (!chordVoicingsResolving || !chordSelectedFrets) return null;
+    const fretsLH = parseChordDbFretsString(chordSelectedFrets);
+    if (!fretsLH) return null;
+    return buildVoicingFromFretsLH({ fretsLH, rootPc: chordRootPc, maxFret });
+  }, [activeChordVoicing, chordVoicingsResolving, chordSelectedFrets, chordRootPc, maxFret]);
 
   useChordBuilderPendingCopyResolutionSync({
     storageHydrated,
@@ -5060,7 +5119,7 @@ export default function FretboardScalesPage() {
               activeQuartalVoicing, chordQuartalVoicingIdx, chordQuartalVoicings,
               quartalRoleOfPc, labelForQuartalPc, quartalNoteNameForPc,
               activeGuideToneVoicing, guideToneVoicingIdx, guideToneVoicings,
-              activeChordVoicing, chordVoicingIdx, chordVoicingsDisplay,
+              activeChordVoicing: chordActiveVoicingDisplay, chordVoicingIdx, chordVoicingsDisplay,
               chordDbError, chordVoicingsResolving,
             }}
             detectArea={{ chordDetectInvestigationAreaRef, chordDetectClearMinHeight }}
@@ -5081,7 +5140,24 @@ export default function FretboardScalesPage() {
           />
         ) : null}
 
-        {boardVisibility.nearChords ? <KeyProgressionAnalyzer /> : null}
+        {boardVisibility.nearChords ? (
+          <KeyProgressionAnalyzer
+            open={keyAnalyzerOpen}
+            setOpen={setKeyAnalyzerOpen}
+            input={keyAnalyzerInput}
+            setInput={setKeyAnalyzerInput}
+            expandedModal={keyAnalyzerExpandedModal}
+            setExpandedModal={setKeyAnalyzerExpandedModal}
+            modalScaleIdxs={keyAnalyzerModalScaleIdxs}
+            setModalScaleIdxs={setKeyAnalyzerModalScaleIdxs}
+            keyScaleIdxs={keyAnalyzerKeyScaleIdxs}
+            setKeyScaleIdxs={setKeyAnalyzerKeyScaleIdxs}
+            expandedKeys={keyAnalyzerExpandedKeys}
+            setExpandedKeys={setKeyAnalyzerExpandedKeys}
+            modalSectionOpen={keyAnalyzerModalSectionOpen}
+            setModalSectionOpen={setKeyAnalyzerModalSectionOpen}
+          />
+        ) : null}
 
         <NearChordsPanel
           visible={boardVisibility.nearChords}
