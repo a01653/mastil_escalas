@@ -1,0 +1,13 @@
+{
+  "appId": "com.jqbit.mastilescalas",
+  "appName": "Mastil Escalas",
+  "webDir": "dist-android",
+  "android": {
+    "minSdkVersion": 24
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 0
+    }
+  }
+}

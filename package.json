@@ -23,9 +23,16 @@
     "generate:manual": "node scripts/generateManual.mjs",
     "test:e2e": "playwright test",
     "test:e2e:chord-matrix": "playwright test e2e/chord-matrix.slow.spec.js",
-    "audit:chord-ui-matrix": "node scripts/auditChordUiMatrix.mjs"
+    "audit:chord-ui-matrix": "node scripts/auditChordUiMatrix.mjs",
+    "build:android": "vite build --config vite.config.android.js",
+    "cap:sync": "npx cap sync android",
+    "cap:build:debug": "npm run build:android && npx cap sync android",
+    "cap:open": "npx cap open android"
   },
   "dependencies": {
+    "@capacitor/android": "^8.4.1",
+    "@capacitor/cli": "^8.4.1",
+    "@capacitor/core": "^8.4.1",
     "lucide-react": "^0.577.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
