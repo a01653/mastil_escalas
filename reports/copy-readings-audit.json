@@ -351,8 +351,7 @@
       "uiPatchEnabled": true,
       "candidates": [
         "A/C#",
-        "C#m(addb13,no5)",
-        "C#m(b13,no5)"
+        "C#m(addb13,no5)"
       ],
       "pass": true,
       "failures": [],
@@ -732,7 +731,7 @@
       "uiPatchEnabled": true,
       "candidates": [
         "C6(add9,11)/F",
-        "Dm7(add9,11)/F",
+        "Dm9(add11)/F",
         "Em7(addb2,add11,addb6,no5)/F",
         "Fmaj13",
         "Am11(b13)/F",

@@ -50,6 +50,7 @@ export default function ManualOverlay({ open, onClose, UI_BTN_SM }) {
               <div>Activa cada fila con <b>Ver</b>. Solo 2 pueden estar visibles a la vez (FIFO).</div>
               <div>Las notas únicas de cada escala aparecen en círculos de su color.</div>
               <div>Si dos escalas comparten una nota, se ven dos círculos juntos en el mismo traste.</div>
+              <div>Con dos escalas activas, <b>Puntos de resolución</b> muestra dónde convergen o divergen las tensiones de ambas.</div>
               <div>Útil para comparar modos, escalas paralelas o sustituciones.</div>
             </div>
           </section>
@@ -59,7 +60,7 @@ export default function ManualOverlay({ open, onClose, UI_BTN_SM }) {
             <div className="mt-2 space-y-1 text-xs text-slate-600">
               <div>Calcula un recorrido entre una nota inicial y una final siguiendo la escala.</div>
               <div>Puedes escribir posiciones como <b>61</b> o elegirlas con clic en el mástil.</div>
-              <div>La ruta musical actual usa el motor nuevo y busca llegar del inicio al fin de la forma más tocable posible.</div>
+              <div>La ruta busca llegar del inicio al fin de la forma más tocable posible.</div>
               <div>El límite de notas por cuerda es orientativo: intenta respetarlo, pero puede hacer slides o pequeños desplazamientos si eso mejora la digitación.</div>
               <div>Prioriza avanzar con lógica de guitarrista, evitando retrocesos absurdos de cuerda y favoreciendo trayectorias diagonales naturales.</div>
             </div>
@@ -75,9 +76,9 @@ export default function ManualOverlay({ open, onClose, UI_BTN_SM }) {
           </section>
 
           <section className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-            <div className="text-sm font-semibold text-slate-800">Investigar en mástil</div>
+            <div className="text-sm font-semibold text-slate-800">Modo Manual</div>
             <div className="mt-2 space-y-1 text-xs text-slate-600">
-              <div>Al activar <b>Investigar en mástil</b>, el cuadro de acorde queda bloqueado y seleccionas notas directamente en el mástil.</div>
+              <div>Al activar el modo <b>Manual</b>, el cuadro de acorde queda bloqueado y seleccionas notas directamente en el mástil.</div>
               <div>Solo puede haber una nota por cuerda. Si pulsas otra en la misma cuerda, sustituye a la anterior.</div>
               <div>La app propone lecturas posibles del acorde y puedes copiar una a la sección de arriba.</div>
               <div>Arriba a la derecha tienes los iconos de altavoz, <b>Play</b> y limpiar; el altavoz tachado indica que el sonido al pulsar está apagado y <b>Play</b> recorre la selección cuerda a cuerda, de 6ª a 1ª, mientras va resaltando cada nota.</div>
@@ -91,6 +92,8 @@ export default function ManualOverlay({ open, onClose, UI_BTN_SM }) {
             <div className="mt-2 space-y-1 text-xs text-slate-600">
               <div>Permite comparar hasta 4 acordes en una misma zona del mástil.</div>
               <div>Busca digitaciones dentro de un rango de trastes y ordena por cercanía al acorde de referencia.</div>
+              <div>Con <b>Auto</b> activado, los acordes se generan según la raíz, escala y armonización activas; <b>Estilo</b> y <b>Progresión</b> controlan el tipo de armonía.</div>
+              <div>Con <b>Auto</b> desactivado, cada acorde queda bajo edición manual.</div>
               <div>Sirve para estudiar progresiones, voice leading y tonalidades posibles.</div>
             </div>
           </section>

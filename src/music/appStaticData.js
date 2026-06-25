@@ -19,9 +19,9 @@ export const MOBILE_SECTION_OPTIONS = [
 export const MOBILE_SECTION_SWIPE_COMMIT_RATIO = 0.5;
 
 export const SCALE_INFO_TEXT = "Escala + (opcional) extras. Resalta raíz/3ª/5ª.";
-export const SCALE_COMPARE_INFO_TEXT = "Selecciona hasta 4 escalas y visualiza 2 a la vez sobre el mástil. Útil para ver cómo conectar un acorde/tono con el siguiente.";
+export const SCALE_COMPARE_INFO_TEXT = "Selecciona hasta 4 escalas y visualiza 2 a la vez sobre el mástil. Útil para ver cómo conectar un acorde/tono con el siguiente. Con dos escalas activas puedes activar Puntos de resolución para ver dónde convergen o divergen sus tensiones.";
 export const NEAR_CHORDS_INFO_TEXT = "Selecciona hasta 4 acordes y busca digitaciones dentro de un rango. Ordena por cercanía al primer acorde activo. Los acordes se ajustan automáticamente según la nota raíz y la escala activas.";
-export const NEAR_AUTO_SCALE_INFO_TEXT = "Con Auto escala ON, los acordes cercanos se rellenan y actualizan según la nota raíz, la escala y la armonización activas. Con OFF, cada acorde queda bajo edición manual.";
+export const NEAR_AUTO_SCALE_INFO_TEXT = "Con Auto ON, los acordes cercanos se rellenan y actualizan según la nota raíz, la escala y la armonización activas. Los selectores Estilo y Progresión controlan el tipo de armonía generada. Con Auto OFF, cada acorde queda bajo edición manual.";
 export const STANDARDS_INFO_TEXT = [
   "Standards reúne charts armónicos sin melodía y reducciones de estudio pensadas para trabajar repertorio dentro del flujo de esta app.",
   "Cuando un tema tenga chart real, verás la forma completa compás a compás y podrás seleccionar hasta 4 cambios para cargarlos en Acordes cercanos.",
@@ -29,7 +29,7 @@ export const STANDARDS_INFO_TEXT = [
 ].join("\n");
 export const CHORDS_SECTION_INFO_TEXT = [
   "Acordes construye el acorde principal y muestra digitaciones reales sobre el mástil.",
-  "Investigar en mástil bloquea el editor superior y te deja seleccionar una nota por cuerda directamente en el diapasón.",
+  "El modo Manual bloquea el editor superior y te deja seleccionar una nota por cuerda directamente en el diapasón.",
   "En ese modo la app propone lecturas posibles y puedes copiarlas de vuelta a la sección Acorde.",
 ].join("\n");
 export const CHORD_EDITOR_INFO_TEXT = [
@@ -46,7 +46,6 @@ export const CHORD_STUDY_INFO_TEXT = [
 export const CHORD_FRETBOARD_INFO_TEXT = [
   "Este mástil muestra la digitación real del acorde activo.",
   "Permitir cuerdas al aire deja entrar voicings con cuerdas al aire sin contar esas cuerdas para la distancia.",
-  "Voicing X/Y indica qué digitación concreta estás viendo dentro de las encontradas.",
 ].join("\n");
 export const DETECTED_CHORDS_INFO_TEXT = [
   "Aquí aparecen las lecturas posibles a partir de las notas que has marcado en el mástil.",
