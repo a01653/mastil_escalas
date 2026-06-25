@@ -63,7 +63,7 @@ const MAJ7_ROOTLESS_DATA = {
   baseSuffix:     "maj7",
 };
 
-function contextMatchScore(reading, rootPc, quality) {
+function contextMatchScore(reading, rootPc, quality, contextPreferSharps) {
   if (reading.rootPc !== rootPc) return 0;
 
   let qualMatch = false;
@@ -77,8 +77,12 @@ function contextMatchScore(reading, rootPc, quality) {
     qualMatch = readingQ === engineQ;
   }
 
-  // Raíz coincide: 2 puntos base + 1 por calidad compatible → máximo 3
-  return 2 + (qualMatch ? 1 : 0);
+  // Raíz coincide: 2 puntos base + 1 por calidad compatible + 0.5 por grafía enarmónica → máximo 3.5
+  let score = 2 + (qualMatch ? 1 : 0);
+  if (contextPreferSharps != null && typeof reading.preferSharps === "boolean") {
+    if (reading.preferSharps === contextPreferSharps) score += 0.5;
+  }
+  return score;
 }
 
 // Devuelve true si ya existe alguna lectura con la raíz y calidad compatibles.
@@ -510,7 +514,7 @@ export function rankReadingsWithHarmonyContext(readings, harmonyContext) {
     return readings?.slice() ?? [];
   }
 
-  const { rootPc, quality } = harmonyContext;
+  const { rootPc, quality, preferSharps: contextPreferSharps = null } = harmonyContext;
 
   // Intentar generar candidato contextual (dom7 o maj7 rootless)
   const contextualCandidate = quality === "7"
@@ -531,7 +535,7 @@ export function rankReadingsWithHarmonyContext(readings, harmonyContext) {
 
   const scored = readings.map((r) => ({
     reading: r,
-    match:   contextMatchScore(r, rootPc, quality),
+    match:   contextMatchScore(r, rootPc, quality, contextPreferSharps),
   }));
 
   const bestMatch = Math.max(...scored.map((s) => s.match));

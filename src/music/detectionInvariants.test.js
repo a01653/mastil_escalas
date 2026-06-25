@@ -107,7 +107,6 @@ describe("detectionInvariants", () => {
     const COEXISTENCE_PAIRS = new Set([
       ["sus2sharp11", "add9sharp11no3"].sort().join("|"),
       ["maj7no3", "5maj7"].sort().join("|"),
-      ["maddb13", "mflat13"].sort().join("|"),
     ]);
     // Strip root note name and bass note name; compare only the structural suffix
     const rootRe = /^[A-G][#b]{0,2}/;

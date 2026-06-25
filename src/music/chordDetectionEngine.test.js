@@ -1427,20 +1427,18 @@ describe("deduplicación: condiciones de fusión", () => {
 
   // Mismo root/bajo/mismos intervalos visibles pero distinto missingLabels → no fusionar
 
-  test("Em(addb13,no5) y Em(b13,no5) coexisten para {E,G,C} bajo=E; la lectura contradictoria nob7 se descarta", () => {
+  test("Em(addb13,no5) aparece para {E,G,C} bajo=E; Em(b13,no5) se elimina (dedup: forma 'add' prevalece sin 7ª)", () => {
     const result = analyzeSelectedNotes(["E", "G", "C"], "E");
     const eReadings = result.readings.filter((r) => r.rootPc === 4 && r.bassPc === 4);
     const names = eReadings.map((r) => r.name);
     // Una fórmula que declara séptima (m7) pero pierde la b7 produce un nombre contradictorio
     // ("m7…,nob7") y debe filtrarse: la séptima es la nota definitoria del acorde.
     expect(names).not.toContain("Em7(b13,no5,nob7)");
-    // Los dos encuadres válidos del mismo material (addb13 vs b13) sí coexisten.
+    // Sin séptima, la forma 'add' es la canónica; 'm(b13)' sin 7ª se deduplica.
     expect(names).toContain("Em(addb13,no5)");
-    expect(names).toContain("Em(b13,no5)");
+    expect(names).not.toContain("Em(b13,no5)");
     const addb13 = eReadings.find((r) => r.name === "Em(addb13,no5)");
-    const flat13 = eReadings.find((r) => r.name === "Em(b13,no5)");
     expect(addb13.missingLabels).not.toContain("b7");
-    expect(flat13.missingLabels).not.toContain("b7");
   });
 
   test("Bbadd9/C no genera variante enharmónica A#add9/B# — grafía B# eliminada", () => {
@@ -1574,12 +1572,12 @@ describe("Caso 2: 0x2440 = {E,B,D#} bajo=E", () => {
 });
 
 describe("Caso 3: 4x2440 = {G#,E,B,D#} bajo=G#", () => {
-  test("G#m(b13) aparece", () => {
+  test("G#m(b13) NO aparece — dedup: forma 'add' prevalece sin 7ª", () => {
     const result = analyzeSelectedNotes(["G#", "E", "B", "D#"], "G#");
-    expect(readingNames(result)).toContain("G#m(b13)");
+    expect(readingNames(result)).not.toContain("G#m(b13)");
   });
 
-  test("G#m(addb13) aparece", () => {
+  test("G#m(addb13) aparece como única lectura m(...b13) de raíz G#", () => {
     const result = analyzeSelectedNotes(["G#", "E", "B", "D#"], "G#");
     expect(readingNames(result)).toContain("G#m(addb13)");
   });
@@ -1612,9 +1610,9 @@ describe("Caso x54030 = {D,F#,G,E} bajo=D", () => {
     expect(readingNames(result)).toContain("Dadd9,11(no5)");
   });
 
-  test("Em7(add9,no5)/D se mantiene como lectura primaria", () => {
+  test("Em9(no5)/D se mantiene como lectura primaria — m9 cuando hay b7+9", () => {
     const result = analyzeSelectedNotes(["D", "F#", "G", "E"], "D");
-    expect(result.primary?.name).toBe("Em7(add9,no5)/D");
+    expect(result.primary?.name).toBe("Em9(no5)/D");
   });
 
   test("la lectura Dadd9,11(no5) tiene grados 1, 9, 3, 11 correctos", () => {
@@ -1652,5 +1650,180 @@ describe("Caso 304030 = {G,A,F#,D,E} bajo=G", () => {
     const result = analyzeSelectedNotes(["G", "D", "E", "F#"], "G");
     expect(readingNames(result)).not.toContain("Gmaj13(no3)");
     expect(readingNames(result)).not.toContain("Gmaj13(no3,no9)");
+  });
+});
+
+// ─── Enarmonía contextual: x4x440 (C#, B, D#, E) ───────────────────────────
+
+describe("x4x440 = {C#,B,D#,E} bajo=C#: enarmonía contextual", () => {
+  // Notas en afinación estándar: cuerda 5 traste 4 = C#, cuerda 3 traste 4 = B,
+  // cuerda 2 traste 4 = D#, cuerda 1 al aire = E. Bajo = C# (pc=1).
+  // Intervalos desde C#: 1=raíz, D#=9, E=b3, B=b7 → C#m9(no5)
+
+  const x4x440Notes = [
+    { pc: 1,  pitch: 49 }, // C# (A2+4)
+    { pc: 11, pitch: 59 }, // B  (G3+4)
+    { pc: 3,  pitch: 63 }, // D# (B3+4)
+    { pc: 4,  pitch: 64 }, // E  (E4)
+  ];
+
+  test("sin contexto: aparece C#m9(no5) como lectura de grafía sostenido", () => {
+    const readings = detectChordReadings(x4x440Notes);
+    const names = readings.map((r) => r.name);
+    // Heurística genera Dbm9(no5); la grafía C# sobrevive como enarmónica alternativa limpia
+    expect(names).toContain("C#m9(no5)");
+  });
+
+  test("sin contexto: la grafía canónica es Dbm9(no5), no Dbm7(add9,no5)", () => {
+    const readings = detectChordReadings(x4x440Notes);
+    const names = readings.map((r) => r.name);
+    // b7 + 9 presentes → siempre m9, nunca m7(add9)
+    expect(names).toContain("Dbm9(no5)");
+    expect(names).not.toContain("Dbm7(add9,no5)");
+  });
+
+  test("sin contexto: ambas grafías usan sufijo m9(no5), no mezclan m7(add9) con m9", () => {
+    const readings = detectChordReadings(x4x440Notes);
+    const rootPc1 = readings.filter((r) => r.rootPc === 1 && r.bassPc === 1);
+    // Todas las lecturas m..(no5) con raíz pc=1 deben usar "m9(no5)"
+    for (const r of rootPc1) {
+      if (r.name.includes("m") && r.name.includes("no5")) {
+        expect(r.name).toMatch(/m9\(no5\)/);
+      }
+    }
+  });
+
+  test("sin contexto: C#m9(no5) y Dbm9(no5) tienen grafías distintas", () => {
+    const readings = detectChordReadings(x4x440Notes);
+    const csharp = readings.find((r) => r.name === "C#m9(no5)");
+    const db     = readings.find((r) => r.name === "Dbm9(no5)");
+    expect(csharp).toBeDefined();
+    expect(db).toBeDefined();
+    // La grafía C# usa preferSharps=true; la grafía Db usa preferSharps=false
+    expect(csharp?.preferSharps).toBe(true);
+    expect(db?.preferSharps).toBe(false);
+  });
+});
+
+// ─── Deduplicación addb13 vs b13: 4xx440 (G#, B, D#, E) ────────────────────
+
+describe("4xx440 = {G#,B,D#,E} bajo=G#: sin 7ª, solo debe aparecer m(addb13)", () => {
+  // Voicing: cuerda 6 traste 4=G#(pc=8), cuerda 3 traste 4=B(pc=11),
+  // cuerda 2 traste 4=D#(pc=3), cuerda 1 al aire=E(pc=4).
+  // Desde G#: 0=G#, 3=B(b3), 7=D#(5), 8=E(b13). Sin séptima.
+
+  const v4xx440Notes = [
+    { pc: 8,  pitch: 44 }, // G# (E2+4)
+    { pc: 11, pitch: 59 }, // B  (G3+4)
+    { pc: 3,  pitch: 63 }, // D# (B3+4)
+    { pc: 4,  pitch: 64 }, // E  (E4)
+  ];
+
+  test("G#m(addb13) aparece", () => {
+    const readings = detectChordReadings(v4xx440Notes);
+    expect(readings.map((r) => r.name)).toContain("G#m(addb13)");
+  });
+
+  test("G#m(b13) NO aparece simultáneamente con G#m(addb13) — dedup sin 7ª", () => {
+    const readings = detectChordReadings(v4xx440Notes);
+    const names = readings.map((r) => r.name);
+    // Solo puede aparecer una de las dos para la misma raíz y bajo
+    const hasAddb13 = names.includes("G#m(addb13)");
+    const hasB13    = names.includes("G#m(b13)");
+    // Si hay addb13, no debe haber b13 (o viceversa, pero addb13 debe ganar)
+    expect(hasAddb13).toBe(true);
+    expect(hasB13).toBe(false);
+  });
+
+  test("Abm(b13) y Abm(addb13) NO aparecen — grafía enarmónica con Cb/Fb descartada", () => {
+    const readings = detectChordReadings(v4xx440Notes);
+    const names = readings.map((r) => r.name);
+    expect(names).not.toContain("Abm(b13)");
+    expect(names).not.toContain("Abm(addb13)");
+  });
+});
+
+// ─── Generalización: m7(add9) → m9 para cualquier voicing ──────────────────
+//
+// El fix en buildHeuristicTertianCandidates es general: cuando hay b3+b7+9,
+// el heurístico siempre genera m9 (no m7(add9)). Estos tests lo prueban con
+// raíces y voicings distintos, no solo con x4x440.
+
+describe("normalización m9: b3+b7+9 siempre produce m9 (no m7(add9))", () => {
+  // ── Caso 1: b7+9, sin 5ª → m9(no5) ──────────────────────────────────────
+  test.each([
+    { label: "Cm9(no5) — raíz C",  notas: ["C","Eb","Bb","D"],  bajo: "C",  expected: "Cm9(no5)"  },
+    { label: "Am9(no5) — raíz A",  notas: ["A","C","G","B"],    bajo: "A",  expected: "Am9(no5)"  },
+    { label: "Em9(no5) — raíz E",  notas: ["E","G","D","F#"],   bajo: "E",  expected: "Em9(no5)"  },
+    { label: "Fm9(no5) — raíz F",  notas: ["F","Ab","Eb","G"],  bajo: "F",  expected: "Fm9(no5)"  },
+    { label: "Gm9(no5) — raíz G",  notas: ["G","Bb","F","A"],   bajo: "G",  expected: "Gm9(no5)"  },
+  ])("$label", ({ notas, bajo, expected }) => {
+    const result = analyzeSelectedNotes(notas, bajo);
+    expect(result.primary?.name).toBe(expected);
+    const names = result.readings.map((r) => r.name);
+    expect(names.some((n) => /m7\(add9/.test(n))).toBe(false);
+  });
+
+  // ── Caso 2: b7+9, con 5ª → m9 ────────────────────────────────────────────
+  test.each([
+    { label: "Cm9 — raíz C",  notas: ["C","Eb","G","Bb","D"],  bajo: "C",  expected: "Cm9"  },
+    { label: "Dm9 — raíz D",  notas: ["D","F","A","C","E"],    bajo: "D",  expected: "Dm9"  },
+    { label: "Am9 — raíz A",  notas: ["A","C","E","G","B"],    bajo: "A",  expected: "Am9"  },
+    { label: "Bm9 — raíz B",  notas: ["B","D","F#","A","C#"],  bajo: "B",  expected: "Bm9"  },
+  ])("$label", ({ notas, bajo, expected }) => {
+    const result = analyzeSelectedNotes(notas, bajo);
+    expect(result.primary?.name).toBe(expected);
+    const names = result.readings.map((r) => r.name);
+    expect(names.some((n) => /m7\(add9/.test(n))).toBe(false);
+  });
+
+  // ── Caso 3: 9 sin b7 → m(add9) (add9 se conserva) ───────────────────────
+  test.each([
+    { label: "Cm(add9) — raíz C sin b7",  notas: ["C","Eb","G","D"],   bajo: "C",  expected: "Cm(add9)"  },
+    { label: "Am(add9) — raíz A sin b7",  notas: ["A","C","E","B"],    bajo: "A",  expected: "Am(add9)"  },
+    { label: "Em(add9) — raíz E sin b7",  notas: ["E","G","B","F#"],   bajo: "E",  expected: "Em(add9)"  },
+  ])("$label", ({ notas, bajo, expected }) => {
+    const result = analyzeSelectedNotes(notas, bajo);
+    // Sin b7, "add9" es la forma correcta — NO debe usarse m9
+    expect(result.primary?.name).toBe(expected);
+  });
+
+  // ── Caso 4: b7+9+11 → m9(add11,...) ────────────────────────────────────
+  test.each([
+    { label: "Em9(add11,no5) — raíz E",  notas: ["E","G","A","D","F#"],  bajo: "E",  expected: "Em9(add11,no5)"  },
+    { label: "Dm9(add11,no5) — raíz D",  notas: ["D","F","G","C","E"],   bajo: "D",  expected: "Dm9(add11,no5)"  },
+    { label: "Am9(add11,no5) — raíz A",  notas: ["A","C","D","G","B"],   bajo: "A",  expected: "Am9(add11,no5)"  },
+  ])("$label", ({ notas, bajo, expected }) => {
+    const result = analyzeSelectedNotes(notas, bajo);
+    expect(result.primary?.name).toBe(expected);
+    const names = result.readings.map((r) => r.name);
+    // No debe aparecer m7(add9,11,...) — el 9 ya está absorbido en m9
+    expect(names.some((n) => /m7\(add9/.test(n))).toBe(false);
+  });
+
+  // ── Caso 5: no coexisten m7(add9) y m9 para el mismo conjunto de notas ──
+  test("ningún voicing produce simultáneamente m7(add9...) y m9(...) con la misma raíz", () => {
+    const conjuntos = [
+      { notas: ["C","Eb","Bb","D"],    bajo: "C" },
+      { notas: ["E","G","D","F#"],     bajo: "E" },
+      { notas: ["C","Eb","G","Bb","D"],bajo: "C" },
+      { notas: ["E","G","A","D","F#"], bajo: "E" },
+    ];
+    for (const { notas, bajo } of conjuntos) {
+      const readings = analyzeSelectedNotes(notas, bajo).readings;
+      const byRoot = new Map();
+      for (const r of readings) {
+        if (!byRoot.has(r.rootPc)) byRoot.set(r.rootPc, []);
+        byRoot.get(r.rootPc).push(r.name);
+      }
+      for (const [rootPc, names] of byRoot) {
+        const oldForms = names.filter((n) => /m7\(add9/.test(n));
+        const newForms = names.filter((n) => /m9/.test(n));
+        expect(
+          oldForms.length > 0 && newForms.length > 0,
+          `rootPc=${rootPc} en [${notas.join(",")}/${bajo}]: coexisten m7(add9) ${JSON.stringify(oldForms)} y m9 ${JSON.stringify(newForms)}`
+        ).toBe(false);
+      }
+    }
   });
 });

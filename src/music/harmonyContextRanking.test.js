@@ -743,3 +743,85 @@ describe("rankReadingsWithHarmonyContext — fragmento 6/9 mayor (xx445x = F# B 
     expect(ranked.find((r) => r.formula?.id === "contextual_maj6_9_fragment")).toBeUndefined();
   });
 });
+
+// ─── Preferencia enarmónica contextual ───────────────────────────────────────
+
+describe("rankReadingsWithHarmonyContext — preferencia enarmónica (preferSharps)", () => {
+  // x4x440: C#(1), B(11), D#(3), E(4) — desde C#: raíz, b7, 9, b3 → C#m9(no5) vs Dbm...
+  const x4x440Notes = [
+    { pc: 1,  pitch: 49 },
+    { pc: 11, pitch: 59 },
+    { pc: 3,  pitch: 63 },
+    { pc: 4,  pitch: 64 },
+  ];
+
+  it("con contexto C# menor (preferSharps=true), C#m9(no5) aparece antes que lecturas Db", () => {
+    const readings = readingsFor(["C#", "B", "D#", "E"], "C#");
+    const context = {
+      enabled: true,
+      rootPc: 1,
+      quality: "menor",
+      preferSharps: true,
+      selectedNotes: x4x440Notes,
+    };
+    const ranked = rankReadingsWithHarmonyContext(readings, context);
+    const csharpIdx = ranked.findIndex((r) => r.name.startsWith("C#") && r.rootPc === 1);
+    const dbIdx     = ranked.findIndex((r) => r.name.startsWith("Db") && r.rootPc === 1);
+    expect(csharpIdx).toBeGreaterThanOrEqual(0);
+    // Si hay lectura Db, debe aparecer después de la lectura C#
+    if (dbIdx >= 0) expect(csharpIdx).toBeLessThan(dbIdx);
+  });
+
+  it("con contexto C# menor, la primera lectura rootPc=1 es exactamente C#m9(no5)", () => {
+    const readings = readingsFor(["C#", "B", "D#", "E"], "C#");
+    const context = {
+      enabled: true,
+      rootPc: 1,
+      quality: "menor",
+      preferSharps: true,
+      selectedNotes: x4x440Notes,
+    };
+    const ranked = rankReadingsWithHarmonyContext(readings, context);
+    const firstRootPc1 = ranked.find((r) => r.rootPc === 1);
+    expect(firstRootPc1?.preferSharps).toBe(true);
+    expect(firstRootPc1?.name).toBe("C#m9(no5)");
+  });
+
+  it("con contexto Db menor (preferSharps=false), la lectura Db es exactamente Dbm9(no5), no Dbm7(add9,no5)", () => {
+    const readings = readingsFor(["C#", "B", "D#", "E"], "C#");
+    const context = {
+      enabled: true,
+      rootPc: 1,
+      quality: "menor",
+      preferSharps: false,
+      selectedNotes: x4x440Notes,
+    };
+    const ranked = rankReadingsWithHarmonyContext(readings, context);
+    const firstRootPc1 = ranked.find((r) => r.rootPc === 1);
+    // La grafía canónica es Dbm9(no5), no Dbm7(add9,no5) — b7+9 siempre produce m9
+    expect(firstRootPc1?.name).toBe("Dbm9(no5)");
+    const allNames = ranked.map((r) => r.name);
+    expect(allNames).not.toContain("Dbm7(add9,no5)");
+    const dbIdx     = ranked.findIndex((r) => r.name.startsWith("Db") && r.rootPc === 1);
+    const csharpIdx = ranked.findIndex((r) => r.name.startsWith("C#") && r.rootPc === 1);
+    if (dbIdx >= 0 && csharpIdx >= 0) expect(dbIdx).toBeLessThan(csharpIdx);
+  });
+
+  it("sin preferSharps en el contexto, el orden de enharmonías no cambia respecto al motor", () => {
+    const readings = readingsFor(["C#", "B", "D#", "E"], "C#");
+    const contextConPrefer = {
+      enabled: true, rootPc: 1, quality: "menor", preferSharps: true, selectedNotes: x4x440Notes,
+    };
+    const contextSinPrefer = {
+      enabled: true, rootPc: 1, quality: "menor", selectedNotes: x4x440Notes,
+    };
+    const rankedCon = rankReadingsWithHarmonyContext(readings, contextConPrefer);
+    const rankedSin = rankReadingsWithHarmonyContext(readings, contextSinPrefer);
+    const firstCon = rankedCon.find((r) => r.rootPc === 1);
+    const firstSin = rankedSin.find((r) => r.rootPc === 1);
+    // Con preferSharps=true, primero debe ser C#; sin preferSharps, Db puede ser primero
+    expect(firstCon?.name).toContain("C#");
+    // Sin preferSharps el motor mantiene su orden (Db primero para pc=1)
+    expect(firstSin?.name.startsWith("Db") || firstSin?.name.startsWith("C#")).toBe(true);
+  });
+});

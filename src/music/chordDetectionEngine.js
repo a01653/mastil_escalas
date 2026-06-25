@@ -411,13 +411,19 @@ function shouldFilterInexactCandidateShadowedByExact(candidate, exactCandidates)
   if (candidate.externalBassInterval != null && isOptionalSlashTensionInterval(candidate.externalBassInterval)) return false;
   const signature = candidateHeardIntervalSignature(candidate);
   if (!signature) return false;
+  // A candidate offering the alternate enharmonic spelling of an exact reading is kept
+  // when it uses a clean (non-rare) root accidental. This allows context-sensitive
+  // enharmonic preference (e.g. C# vs Db) in rankReadingsWithHarmonyContext while
+  // still discarding rare-accidental duplicates (Fb, Cb, B#, E#).
+  const isCleanAlternateEnharmonic = (exact) =>
+    exact.preferSharps !== candidate.preferSharps &&
+    candidateRareEnharmonicPenalty(candidate) === 0;
   return exactCandidates.some((exact) => exact?.exact
     && exact.rootPc === candidate.rootPc
     && exact.bassPc === candidate.bassPc
     && candidateHeardIntervalSignature(exact) === signature
-    // Don't shadow when the exact uses an external bass but the inexact incorporates that
-    // same note as an internal interval — the inexact offers richer harmonic context.
-    && !(exact.externalBassInterval != null && candidate.externalBassInterval == null));
+    && !(exact.externalBassInterval != null && candidate.externalBassInterval == null)
+    && !isCleanAlternateEnharmonic(exact));
 }
 
 function candidateFormulaComplexityPenalty(candidate) {
@@ -436,7 +442,8 @@ function candidateFormulaComplexityPenalty(candidate) {
   if (["m11flat13", "m11flat13omit3"].includes(id)) return 10;
   if (["mmaj7"].includes(id)) return 8;
   if (["mmaj7add13"].includes(id)) return 5;
-  if (["maj7sharp5", "7sharp5", "7flat5", "maddb13", "mflat13"].includes(id)) return 12;
+  if (["maj7sharp5", "7sharp5", "7flat5", "maddb13"].includes(id)) return 12;
+  if (["mflat13"].includes(id)) return 14;
   if (["sus2sharp11"].includes(id)) return 3;
   if (["add9sharp11no3"].includes(id)) return 4;
   if (["maj7no3"].includes(id)) return 4;
@@ -865,6 +872,9 @@ function buildHeuristicTertianCandidates(selectedNotes) {
       } else if (hasMajSeventh) {
         baseSuffix = "m(maj7)";
         coreIntervals.push(11);
+      } else if (hasMinSeventh && has9) {
+        baseSuffix = "m9";
+        coreIntervals.push(10, 2);
       } else if (hasMinSeventh) {
         baseSuffix = "m7";
         coreIntervals.push(10);
@@ -1260,7 +1270,6 @@ function dedupeRankedChordReadings(readings) {
   const COEXISTENCE_PAIRS = new Set([
     ["sus2sharp11", "add9sharp11no3"].sort().join("|"),
     ["maj7no3", "5maj7"].sort().join("|"),
-    ["maddb13", "mflat13"].sort().join("|"),
   ]);
 
   const contentWinners = new Map();

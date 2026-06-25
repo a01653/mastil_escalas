@@ -140,10 +140,12 @@ export function useChordDetectionFeature({ maxFret }) {
   );
 
   const chordDetectCandidatesRanked = useMemo(() => {
+    const refPreferSharps = chordRefAcc > 0 ? true : chordRefAcc < 0 ? false : null;
     const harmonyContext = {
       enabled: chordRefEnabled,
       rootPc: ((CHORD_REF_NATURAL_PC[chordRefNatural] ?? 0) + chordRefAcc + 12) % 12,
       quality: chordRefQuality,
+      preferSharps: refPreferSharps,
       selectedNotes: chordDetectSelectedNotes,
     };
     return rankReadingsWithHarmonyContextPure(chordDetectCandidates, harmonyContext);

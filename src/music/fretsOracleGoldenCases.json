@@ -217,12 +217,12 @@
     "preferred": null
   },
   {
-    "id": "004030-em7-add9-11-no5-control",
+    "id": "004030-em9-add11-no5-control",
     "golden": true,
     "voicing": "004030",
     "notes": ["E", "A", "F#", "G", "D"],
     "bass": "E",
-    "mustInclude": ["Em7(add9,11,no5)"],
+    "mustInclude": ["Em9(add11,no5)"],
     "preferred": null
   },
   {
