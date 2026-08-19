@@ -1,4 +1,4 @@
-# Documento de Diseño Técnico del Sistema (DTS) — Mástil Escalas
+# Documento de Diseño Técnico del Software (DTS) — Mástil Escalas
 
 > Repositorio: `a01653/mastil_escalas` · Paquete npm: `escalas` · Versión analizada: **6.0.94** (`package.json:4`, `src/App.jsx:303`)
 > Fecha de análisis: 2026-08-17. Documento generado por auditoría directa del código fuente local, basado principalmente en revisión directa del código: lectura de configuración, estructura completa de `src/`, ejecución real de `npm test` y `npm run build`.

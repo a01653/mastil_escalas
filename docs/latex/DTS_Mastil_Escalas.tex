@@ -1,0 +1,1168 @@
+% !TeX program = lualatex
+% Documento de Diseño Técnico del Software — Mástil Escalas
+% Compilar con: lualatex (dos o tres pasadas para índice/referencias)
+\documentclass[a4paper,11pt,oneside]{report}
+
+% ---------------------------------------------------------------------------
+% Fuentes y unicode (LuaLaTeX)
+% ---------------------------------------------------------------------------
+\usepackage{fontspec}
+\setmainfont{TeX Gyre Pagella}
+\setsansfont{TeX Gyre Heros}
+\setmonofont{TeX Gyre Cursor}[Scale=0.92]
+
+\usepackage[spanish,es-noshorthands]{babel}
+\usepackage{microtype}
+
+% ---------------------------------------------------------------------------
+% Geometría de página
+% ---------------------------------------------------------------------------
+\usepackage[a4paper,margin=2.6cm,headheight=23pt,headsep=10pt,footskip=1.1cm]{geometry}
+\raggedbottom
+\setlength{\emergencystretch}{2.5em}
+\hfuzz=2pt % tolerancia estándar para desbordes por debajo del umbral visible (<0.7mm)
+\clubpenalty=10000
+\widowpenalty=10000
+\displaywidowpenalty=10000
+\brokenpenalty=10000
+
+% ---------------------------------------------------------------------------
+% Color
+% ---------------------------------------------------------------------------
+\usepackage{xcolor}
+\definecolor{navybg}{HTML}{0B1D2E}
+\definecolor{graphitebg}{HTML}{1B2027}
+\definecolor{navydeep}{HTML}{123049}
+\definecolor{navytext}{HTML}{123049}
+\definecolor{navylink}{HTML}{144870}
+\definecolor{lightblue}{HTML}{8FD3FE}
+\definecolor{amber}{HTML}{F5A623}
+\definecolor{amberdark}{HTML}{8A5300}
+\definecolor{amberlink}{HTML}{7A4A00}
+\definecolor{softgray}{HTML}{5B6570}
+\colorlet{tblhead}{navydeep!10!white}
+\colorlet{notabg}{lightblue!12!white}
+\colorlet{hallazgobg}{amber!14!white}
+\colorlet{recobg}{navydeep!7!white}
+
+% ---------------------------------------------------------------------------
+% Estructura, títulos
+% ---------------------------------------------------------------------------
+\usepackage{titlesec}
+\setcounter{secnumdepth}{3}
+\setcounter{tocdepth}{2}
+
+% Los tres niveles de título van en bandera (ragged right): al no
+% justificarse no hace falta partir palabras para completar la línea,
+% así que los saltos solo caen entre palabras. \raggedright queda
+% encerrado en el grupo del propio título (argumento entre llaves de
+% \titleformat) y no afecta al resto del documento.
+\titleformat{\chapter}[display]
+  {\normalfont\sffamily\huge\bfseries\color{navytext}}
+  {\filright\small\sffamily\color{softgray}CAPÍTULO \thechapter}
+  {6pt}
+  {\Huge\raggedright}
+\titlespacing*{\chapter}{0pt}{0pt}{28pt}
+
+\titleformat{\section}
+  {\normalfont\sffamily\Large\bfseries\color{navytext}\raggedright}
+  {\thesection}{10pt}{}
+\titlespacing*{\section}{0pt}{18pt}{8pt}
+
+\titleformat{\subsection}
+  {\normalfont\sffamily\large\bfseries\color{navytext}\raggedright}
+  {\thesubsection}{8pt}{}
+\titlespacing*{\subsection}{0pt}{14pt}{6pt}
+
+% ---------------------------------------------------------------------------
+% Cabeceras y pies
+% ---------------------------------------------------------------------------
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[C]{\small\sffamily\color{softgray}Mástil Escalas --- Diseño Técnico del Software}
+\fancyfoot[L]{\small\sffamily\color{softgray}v6.0.94}
+\fancyfoot[R]{\small\sffamily\color{softgray}\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\headrule}{\hbox to\headwidth{\color{navydeep!40!white}\leaders\hrule height \headrulewidth\hfill}}
+\renewcommand{\footrulewidth}{0pt}
+\fancypagestyle{plain}{
+  \fancyhf{}
+  \fancyfoot[L]{\small\sffamily\color{softgray}v6.0.94}
+  \fancyfoot[R]{\small\sffamily\color{softgray}\thepage}
+  \renewcommand{\headrulewidth}{0pt}
+}
+
+% ---------------------------------------------------------------------------
+% Tablas, listas
+% ---------------------------------------------------------------------------
+\usepackage{array}
+\usepackage{longtable}
+\usepackage{booktabs}
+\usepackage{colortbl}
+% El relleno de \rowcolor no llegaba a tocar \toprule/\midrule porque
+% booktabs añade un espacio vertical propio alrededor de esas reglas;
+% se anula ese espacio globalmente (afecta también a las cabeceras
+% repetidas de longtable, que usan las mismas reglas) y se compensa
+% con algo de aire por fila para que las celdas no queden apretadas.
+\setlength{\aboverulesep}{0pt}
+\setlength{\belowrulesep}{0pt}
+\setlength{\extrarowheight}{2pt}
+\renewcommand{\arraystretch}{1.12}
+\usepackage{enumitem}
+\setlist[itemize]{leftmargin=1.4em, itemsep=2pt, topsep=4pt}
+\setlist[enumerate]{leftmargin=1.6em, itemsep=2pt, topsep=4pt}
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
+\newcolumntype{C}[1]{>{\centering\arraybackslash}p{#1}}
+
+% ---------------------------------------------------------------------------
+% Código, rutas, texto monoespaciado
+% ---------------------------------------------------------------------------
+\usepackage{listings}
+\usepackage{seqsplit}
+\lstset{
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  breakatwhitespace=false,
+  columns=fullflexible,
+  keepspaces=true,
+  showstringspaces=false,
+  frame=single,
+  rulecolor=\color{navydeep!35!white},
+  framesep=6pt,
+  backgroundcolor=\color{navydeep!4!white},
+  xleftmargin=2pt,
+  xrightmargin=2pt,
+  aboveskip=8pt,
+  belowskip=8pt,
+  commentstyle=\color{softgray}\itshape,
+}
+
+% ---------------------------------------------------------------------------
+% Cajas de nota / hallazgo / recomendación
+% ---------------------------------------------------------------------------
+\usepackage{amssymb}
+\usepackage[most]{tcolorbox}
+\tcbuselibrary{breakable,skins}
+
+\newtcolorbox{notabox}{
+  enhanced, breakable, colback=notabg, colframe=navydeep,
+  boxrule=0.6pt, arc=2pt, left=7pt, right=7pt, top=5pt, bottom=5pt,
+  fonttitle=\sffamily\bfseries\color{white}, coltitle=white,
+  colbacktitle=navydeep, title={NOTA},
+  attach boxed title to top left={yshift=-2mm,xshift=4mm},
+  boxed title style={boxrule=0pt,arc=1.5pt,left=4pt,right=4pt,top=2pt,bottom=2pt},
+}
+
+\newtcolorbox{hallazgobox}[1]{
+  enhanced, breakable, colback=hallazgobg, colframe=amberdark,
+  boxrule=0.6pt, arc=2pt, left=7pt, right=7pt, top=5pt, bottom=5pt,
+  fonttitle=\sffamily\bfseries\small\color{white}, coltitle=white,
+  colbacktitle=amberdark, title={HALLAZGO #1},
+}
+
+\newtcolorbox{recobox}[1]{
+  enhanced, breakable, colback=recobg, colframe=navydeep,
+  boxrule=0.6pt, arc=2pt, left=7pt, right=7pt, top=5pt, bottom=5pt,
+  fonttitle=\sffamily\bfseries\small\color{white}, coltitle=white,
+  colbacktitle=navydeep, title={RECOMENDACIÓN #1},
+}
+
+% ---------------------------------------------------------------------------
+% Diagramas
+% ---------------------------------------------------------------------------
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,fit,backgrounds,calc,shapes.geometric,shadows.blur}
+\usepackage{pgf-umlsd}
+
+% ---------------------------------------------------------------------------
+% Enlaces
+% ---------------------------------------------------------------------------
+\usepackage[colorlinks=true,linkcolor=navylink,citecolor=navylink,urlcolor=amberlink,
+  bookmarksnumbered=true,bookmarksopen=true,breaklinks=true,
+  pdftitle={Documento de Diseño Técnico del Software -- Mástil Escalas},
+  pdfauthor={Jesús Quevedo Rodríguez},
+  pdfsubject={Documento de Diseño Técnico del Software},
+  pdfcreator={LuaLaTeX}]{hyperref}
+\urlstyle{same}
+
+\newcommand{\Sref}[1]{\S\ref{#1}}
+
+% ---------------------------------------------------------------------------
+\begin{document}
+
+% =============================================================================
+% PORTADA
+% =============================================================================
+\begin{titlepage}
+\newgeometry{margin=0cm}
+\thispagestyle{empty}
+\begin{tikzpicture}[remember picture,overlay]
+  % Fondo
+  \fill[navybg] (current page.south west) rectangle (current page.north east);
+  \shade[top color=navybg,bottom color=graphitebg]
+    ([yshift=9.5cm]current page.south west) rectangle (current page.south east);
+
+  % --- Mástil de guitarra estilizado (banda inferior) -----------------------
+  \begin{scope}
+    \clip (current page.south west) rectangle ([yshift=10cm]current page.south east);
+    \begin{scope}[shift={($(current page.south west)+(-1.5,4.3)$)},rotate=-5]
+      % cuerpo del mástil
+      \draw[lightblue,opacity=0.35,line width=1pt] (0,0) rectangle (25,4.2);
+      % trastes
+      \foreach \x in {0,1.9,3.8,5.9,8.1,10.5,13.1,15.9,18.9,22.1,25}{
+        \draw[white,opacity=0.22,line width=0.5pt] (\x,0) -- (\x,4.2);
+      }
+      % cuerdas
+      \foreach \y in {0.35,1.05,1.75,2.45,3.15,3.85}{
+        \draw[white,opacity=0.30,line width=0.35pt] (0,\y) -- (25,\y);
+      }
+      % marcadores de nota
+      \filldraw[lightblue] (4.8,2.1) circle (0.16);
+      \filldraw[amber]     (9.3,1.05) circle (0.16);
+      \filldraw[white]     (14.5,3.15) circle (0.16);
+      \filldraw[amber]     (17.4,2.45) circle (0.16);
+      \filldraw[lightblue] (21.5,0.7) circle (0.16);
+      \filldraw[white]     (23.8,2.8) circle (0.13);
+    \end{scope}
+  \end{scope}
+
+  % --- Eyebrow ---------------------------------------------------------------
+  \node[anchor=north] at ([yshift=-3.1cm]current page.north) {%
+    \sffamily\bfseries\fontsize{12}{14}\selectfont\color{amber}%
+    \MakeUppercase{Proyecto Mástil Escalas}%
+  };
+
+  % --- Título ------------------------------------------------------------
+  \node[anchor=north,text width=17cm,align=center] at ([yshift=-4.1cm]current page.north) {%
+    \sffamily\bfseries\fontsize{29}{35}\selectfont\color{white}%
+    \hyphenpenalty=10000\exhyphenpenalty=10000\uchyph=0
+    Documento de Diseño Técnico del Software%
+  };
+
+  % --- Subtítulo ---------------------------------------------------------
+  \node[anchor=north,text width=14.5cm,align=center] at ([yshift=-8.15cm]current page.north) {%
+    \sffamily\fontsize{12.5}{16}\selectfont\color{lightblue!85!white}%
+    \hyphenpenalty=10000\exhyphenpenalty=10000\uchyph=0
+    Aplicación interactiva para el estudio de escalas,\\
+    acordes y armonía sobre el mástil de guitarra%
+  };
+
+  % --- Ficha inferior ------------------------------------------------------
+  \node[anchor=south west,text width=13.5cm,align=left] at ([xshift=1.9cm,yshift=0.9cm]current page.south west) {%
+    \sffamily\fontsize{10.5}{15}\selectfont\color{white!92!black}
+    \textcolor{amber}{\bfseries Autor:} Jesús Quevedo Rodríguez\\[2pt]
+    \textcolor{amber}{\bfseries Versión analizada:} 6.0.94\\[2pt]
+    \textcolor{amber}{\bfseries Fecha:} Agosto de 2026\\[2pt]
+    \textcolor{amber}{\bfseries Repositorio:} \url{https://github.com/a01653/mastil_escalas}%
+  };
+\end{tikzpicture}
+\end{titlepage}
+\restoregeometry
+\clearpage
+
+% =============================================================================
+% ÍNDICE
+% =============================================================================
+\pagenumbering{roman}
+\tableofcontents
+\clearpage
+\pagenumbering{arabic}
+\setcounter{page}{1}
+
+% =============================================================================
+\chapter{Objetivo y alcance}
+\label{sec:1}
+
+% --- Ficha del documento ---
+\begin{notabox}
+\textbf{Repositorio:} \lstinline!a01653/mastil_escalas! \quad\textbullet\quad
+\textbf{Paquete npm:} \lstinline!escalas! \quad\textbullet\quad
+\textbf{Versión analizada:} \textbf{6.0.94} (\lstinline!package.json:4!, \lstinline!src/App.jsx:303!)\\[4pt]
+\textbf{Fecha de análisis:} 2026-08-17. Documento generado por auditoría directa del código fuente local, basado principalmente en revisión directa del código: lectura de configuración, estructura completa de \lstinline!src/!, ejecución real de \lstinline!npm test! y \lstinline!npm run build!.
+\end{notabox}
+
+\textbf{Mástil Escalas} es una aplicación web de página única (SPA), en español, para el estudio interactivo del mástil de guitarra: escalas, patrones de digitación (CAGED, 3NPS, cajas de pentatónica), rutas melódicas, construcción y análisis de acordes (voicings), comparación de acordes cercanos con conducción práctica, y consulta de standards de jazz con sus cifrados armónicos (\lstinline!README.md:1-9!).
+
+El objetivo declarado por el propio proyecto (\lstinline!README.md:78-87!) es servir de herramienta de apoyo al estudio de guitarra para: localizar notas en el mástil, entender intervalos y construcción de escalas, relacionar escalas con acordes, estudiar patrones reales de digitación, analizar inversiones/drops/voicings, y trabajar progresiones y acordes cercanos de forma visual.
+
+\textbf{Alcance de este documento}: describe el estado real del código en la rama \lstinline!main! (remoto \url{https://github.com/a01653/mastil_escalas.git}), tomando como base el commit \lstinline!6ec9a1b! \textbf{más los cambios locales sin commitear presentes en el árbol de trabajo en el momento del análisis} --- concretamente la reordenación de «Comparar» en la navegación y el ajuste del botón «Ayuda», en \lstinline!src/App.jsx!, \lstinline!src/components/layout/AppHeader.jsx!, \lstinline!src/music/appStaticData.js! y \lstinline!e2e/mobile-navigation.spec.js! ---, verificado mediante lectura directa de ficheros y ejecución de la suite de tests y del build de producción. No cubre el histórico de decisiones de diseño no documentado en el código, ni funcionalidades planificadas que no tengan código ya implementado.
+
+% =============================================================================
+\chapter{Arquitectura general}
+\label{sec:2}
+
+La aplicación es un \textbf{SPA cliente puro} sin backend propio: todo el cálculo musical (teoría, detección de acordes, generación de voicings, análisis de rutas) ocurre en el navegador, en JavaScript. No hay servidor de aplicación, API REST propia, ni base de datos; la persistencia es exclusivamente \lstinline!localStorage! / \lstinline!sessionStorage! del navegador (\Sref{sec:6}), y los datos «servidos» son ficheros estáticos (JSON de digitaciones, JSON/MusicXML de standards) desplegados junto al bundle.
+
+\section{Capas de código}
+\label{sec:2.1}
+
+El código fuente (\lstinline!src/!) se organiza en \textbf{cuatro capas} con dependencias en una sola dirección (sin ciclos entre capas, aunque sí un caso de importación circular deliberada dentro de la capa de modelo, ver \Sref{sec:7}):
+
+\begin{center}
+\resizebox{\textwidth}{!}{%
+\begin{tikzpicture}[
+  font=\sffamily\small,
+  box/.style={draw=navydeep,thick,rounded corners=2pt,fill=navydeep!6!white,align=center,minimum width=13.5cm,minimum height=1.05cm,inner sep=6pt},
+  data/.style={draw=amberdark,thick,rounded corners=2pt,fill=amber!12!white,align=center,minimum width=13.5cm,minimum height=1.05cm,inner sep=6pt},
+  lbl/.style={font=\sffamily\bfseries\scriptsize,color=softgray}
+]
+\node[box] (app)  at (0,10) {\textbf{Capa 4 --- Orquestador}\\ \texttt{src/App.jsx} (componente raíz, 5534 líneas)};
+\node[box] (comp) at (0,7.6) {\textbf{Capa 3 --- Presentación}\\ \texttt{src/components/**} (29 componentes React)};
+\node[box] (feat) at (0,5.0) {\textbf{Capa 2 --- Lógica de dominio (hooks)}\\ \texttt{src/features/**} --- 12 dominios: chord-builder, chord-detection, chord-catalog,\\ near-chords, route, standards, tonality, harmony, scale-compare, layout, study, config};
+\node[box] (music) at (0,2.2) {\textbf{Capa 1 --- Modelo musical puro (sin React)}\\ \texttt{src/music/**} --- appMusicBasics, chordDetectionEngine, appVoicingStudyCore,\\ appPatternRouteStaffCore, standardsCatalog, jjazzlab*, musicXmlParser,\\ keyAnalysisEngine, harmonyContextRanking, fretsOracle, analyzeFretsCore};
+\node[data] (data) at (0,-0.6) {\textbf{Datos estáticos}\\ \texttt{public/chords-db/*.json} (digitaciones reales) --- \texttt{src/standards-jjazzlab/*.json} (1461 standards)\\ \texttt{src/musicxml/*.musicxml} --- \texttt{src/music/standardsData.json}};
+
+\draw[-{Stealth[length=2.5mm]},thick] (app) -- (comp) node[midway,right,lbl,xshift=2mm]{};
+\draw[-{Stealth[length=2.5mm]},thick] (app.west) .. controls +(-2.4,-0.4) and +(-2.4,0.4) .. (feat.west) node[midway,left,lbl,xshift=-1mm]{};
+\draw[-{Stealth[length=2.5mm]},thick] (comp) -- (feat);
+\draw[-{Stealth[length=2.5mm]},thick] (feat) -- (music);
+\draw[-{Stealth[length=2.5mm]},thick] (comp.east) .. controls +(2.6,-0.6) and +(2.6,0.9) .. (music.east);
+\draw[-{Stealth[length=2.5mm]},thick] (feat) -- (data);
+\draw[dashed,-{Stealth[length=2.5mm]},thick,amberdark] (music) -- (data) node[midway,right,lbl,amberdark,xshift=1mm]{chordCatalogCore.js: fetch + fallback};
+\end{tikzpicture}%
+}
+\end{center}
+
+\begin{itemize}
+\item \textbf{\lstinline!src/music/!} (capa 1): funciones puras de teoría musical y análisis, sin dependencias de React ni del DOM (con la única excepción de \lstinline!appPatternRouteStaffCore.jsx!, que además exporta un componente React \lstinline!MusicStaff!). Es el núcleo testeable de forma aislada y reutilizado por scripts de auditoría (\lstinline!scripts/*.mjs!) fuera del navegador.
+\item \textbf{\lstinline!src/features/!} (capa 2): un hook \lstinline!use<Dominio>Feature.js! por dominio funcional, que envuelve el modelo puro con \lstinline!useState! / \lstinline!useEffect! / \lstinline!useMemo! de React y expone datos «listos para pintar» más acciones. Varios dominios separan explícitamente un fichero \lstinline!*Core.js! puro (testeado con su \lstinline!.test.js! homónimo) del hook con estado.
+\item \textbf{\lstinline!src/components/!} (capa 3): componentes de presentación agrupados por dominio (\lstinline!chords/!, \lstinline!near-chords/!, \lstinline!standards/!, \lstinline!route/!, \lstinline!study/!, \lstinline!tonal/!, \lstinline!config/!, \lstinline!fretboard/!, \lstinline!ui/!, \lstinline!help/!, \lstinline!layout/!). La mayoría no mantiene estado de negocio propio; reciben datos ya calculados por props agrupadas.
+\item \textbf{\lstinline!src/App.jsx!} (capa 4): componente raíz único (\lstinline!FretboardScalesPage!, \lstinline!src/App.jsx:310!) que instancia los 7 hooks de dominio, mantiene el estado que no encaja en ningún hook de \lstinline!features/! (persistencia, tema, presets, navegación), y ensambla el árbol de componentes final.
+\end{itemize}
+
+No existe una carpeta \lstinline!src/hooks/! ni \lstinline!src/services/! convencional: los hooks reutilizables viven dentro de \lstinline!src/features/*/use*.js! (12 hooks de dominio) y dos hooks pequeños en \lstinline!src/components/chords/! (\lstinline!useChordPanelModel.js!, \lstinline!useNearCopyFeedback.js!); el rol de «capa de servicios» lo cumple \lstinline!src/features/chord-catalog/chordCatalogCore.js!, que es el único punto del código que hace \lstinline!fetch()! a recursos externos al bundle.
+
+\section{Patrón arquitectónico observado}
+\label{sec:2.2}
+
+El patrón dominante es \textbf{«God component» orquestador + hooks de dominio + componentes tontos}: \lstinline!App.jsx! concentra 52 \lstinline!useState!, 26 \lstinline!useEffect!, 44 \lstinline!useMemo! y 6 \lstinline!useCallback! propios (recuento directo por grep sobre el fichero), además de desestructurar agresivamente el estado devuelto por los 7 hooks de \lstinline!features/! (p.\,ej. el hook del constructor de acordes se desestructura en 56 identificadores locales, \lstinline!src/App.jsx:403-460!). El resultado se reparte a los paneles hijos como \textbf{objetos de props agrupados por dominio} (p.\,ej. \lstinline!<ChordsPanel layout={...}! \lstinline!chordCtrl={...}! \lstinline!quartalCtrl={...}! \lstinline!guideToneCtrl={...}! \lstinline!uiCls={...}! \lstinline!voicingData={...}! \lstinline!detectArea={...}! \lstinline!renderFns={...}>!, \lstinline!src/App.jsx:5141-5207!).
+
+Dentro de cada dominio de \lstinline!features/! se repite un segundo patrón, más limpio: \textbf{núcleo puro + hook con estado}. Ejemplos verificados: \lstinline!chordDetectionSelectionCore.js! / \lstinline!useChordDetectionFeature.js!, \lstinline!chordCatalogCore.js! (puro, sin hook propio --- el estado de caché lo gestiona \lstinline!App.jsx!), \lstinline!copyToNearSlot.js! / \lstinline!NearChordsPanel.jsx!, \lstinline!scaleResolutionUtils.js! / \lstinline!scaleCompareUtils.js!. Cada núcleo puro tiene un test unitario homónimo.
+
+% =============================================================================
+\chapter{Tecnologías y dependencias}
+\label{sec:3}
+
+Extraído de \lstinline!package.json! (verificado, no inferido):
+
+\begin{center}
+\begin{longtable}{L{4.0cm}L{6.3cm}L{3.4cm}}
+\toprule
+\rowcolor{tblhead}\textbf{Categoría} & \textbf{Tecnología} & \textbf{Versión}\\
+\midrule
+\endfirsthead
+\rowcolor{tblhead}\textbf{Categoría} & \textbf{Tecnología} & \textbf{Versión}\\
+\midrule
+\endhead
+\midrule\multicolumn{3}{r}{\textit{continúa en la página siguiente}}\\
+\endfoot
+\bottomrule
+\endlastfoot
+Framework UI & React + react-dom & \lstinline!^19.2.0!\\
+Build tool & Vite & \lstinline!^7.3.1!\\
+Plugin React (Babel) & \lstinline!@vitejs/plugin-react! & \lstinline!^5.1.1!\\
+CSS & Tailwind CSS (plugin Vite, \textbf{sin} \lstinline!tailwind.config.js! --- configuración CSS-first vía \lstinline!@import "tailwindcss";! en \lstinline!src/index.css:1!) & \lstinline!^4.2.1! (\lstinline!@tailwindcss/vite!)\\
+Iconos & \lstinline!lucide-react! & \lstinline!^0.577.0!\\
+Empaquetado móvil & Capacitor (\lstinline!@capacitor/core!, \lstinline!/android!, \lstinline!/cli!) & \lstinline!^8.4.1!\\
+Testing unitario & Vitest + jsdom & \lstinline!^4.1.5! / \lstinline!^29.1.1!\\
+Testing E2E & Playwright & \lstinline!^1.60.0!\\
+Linter & ESLint 9 (flat config) + \lstinline!eslint-plugin-react-hooks! + \lstinline!eslint-plugin-react-refresh! & \lstinline!^9.39.1!\\
+Otras devDependencies & \lstinline!postcss!, \lstinline!autoprefixer!, \lstinline!puppeteer-core! (usado en \lstinline!scripts/visualReview*.mjs!) & ---\\
+\end{longtable}
+\end{center}
+
+No hay gestor de estado global externo (Redux, Zustand, Context API de React tampoco se usa para estado compartido --- todo el estado cruza por props desde \lstinline!App.jsx!), ni router (aplicación de una sola vista con navegación por pestañas controlada por estado local), ni ORM/backend.
+
+\textbf{Target de build}: \lstinline!es2018! (\lstinline!vite.config.js:22!). \textbf{Base pública}: \lstinline!/mastil_escalas/! para el despliegue web (\lstinline!vite.config.js:9!, GitHub Pages) y \lstinline!./! para el empaquetado Android (\lstinline!vite.config.android.js:9!, WebView de Capacitor sirviendo ficheros locales).
+
+% =============================================================================
+\chapter{Estructura del proyecto}
+\label{sec:4}
+
+\begin{lstlisting}[basicstyle=\ttfamily\footnotesize]
+mastil_escalas/
+|-- src/
+|   |-- App.jsx                  # Componente raiz (5534 lineas), unico punto de entrada visual
+|   |-- main.jsx                 # Bootstrap de React + error boundary + pantalla de carga
+|   |-- App.css / index.css      # Estilos globales; index.css solo importa Tailwind v4
+|   |-- App.smoke.test.jsx       # Test de humo del montaje de App
+|   |-- components/              # 29 componentes de presentacion, agrupados por dominio
+|   |   |-- layout/  fretboard/  ui/  help/  standards/  route/  study/
+|   |   |-- chords/  tonal/  config/  near-chords/  PanelBlock.jsx
+|   |-- features/                # 12 dominios de logica (hooks + nucleos puros)
+|   |   |-- chord-builder/  chord-detection/  chord-catalog/  near-chords/
+|   |   |-- route/  standards/  tonality/  harmony/  scale-compare/
+|   |   |-- layout/  study/  config/
+|   |-- music/                   # Modelo musical puro (17 modulos + tests)
+|   |-- utils/configIo.js        # Serializacion de export/import de configuracion
+|   |-- standards-jjazzlab/      # 1461 ficheros JSON de standards (fuente JJazzLab)
+|   |-- musicxml/                # Cientos de ficheros .musicxml (fuente alternativa)
+|-- public/chords-db/            # Base de datos fisica de digitaciones reales (JSON por nota)
+|-- scripts/                     # Auditorias, generadores y CLIs de analisis (Node, .mjs)
+|-- e2e/                         # 33 specs de Playwright
+|-- android/, capacitor.config.json, vite.config.android.js   # Empaquetado Android
+|-- docs/frets-oracle.md         # Documentacion de la bateria de validacion del lector de voicings
+|-- .github/workflows/deploy-pages.yml   # CI/CD a GitHub Pages
+|-- vite.config.js, eslint.config.js, playwright.config.js
+|-- package.json
+\end{lstlisting}
+
+No existe \lstinline!README! de arquitectura previo a este DTS más allá del \lstinline!README.md! de producto (orientado a usuario final) y \lstinline!docs/frets-oracle.md! (documentación específica de la batería de validación del motor de lectura de voicings).
+
+% =============================================================================
+\chapter{Componentes principales y responsabilidades}
+\label{sec:5}
+
+\section{Layout y navegación}
+\label{sec:5.1}
+
+\begin{center}
+\begin{longtable}{L{5.0cm}L{9.3cm}}
+\toprule
+\rowcolor{tblhead}\textbf{Componente} & \textbf{Responsabilidad}\\
+\midrule
+\endfirsthead
+\rowcolor{tblhead}\textbf{Componente} & \textbf{Responsabilidad}\\
+\midrule
+\endhead
+\bottomrule
+\endlastfoot
+\lstinline!components/layout/AppHeader.jsx! & Cabecera: título, badge de versión, menú hamburguesa móvil, barra de navegación de escritorio (un \lstinline!ToggleButton! por sección), botón de ayuda (abre \lstinline!ManualOverlay!), y el \lstinline!<input type="file">! oculto real para importar configuración (ver \Sref{sec:12}).\\
+\lstinline!components/layout/AppFooter.jsx! & Pie estático con crédito de autoría.\\
+\lstinline!components/help/ManualOverlay.jsx! & Modal de manual de uso, contenido 100\,\% estático en español.\\
+\lstinline!components/help/MobileInfoPopover.jsx! & Popover de ayuda contextual táctil, posicionado dinámicamente junto al icono de origen.\\
+\lstinline!components/PanelBlock.jsx! & Contenedor «átomo de layout» (sección/subsección con cabecera coloreada y cuerpo colapsable) reutilizado por prácticamente todos los paneles.\\
+\end{longtable}
+\end{center}
+
+\section{Mástil y primitivas visuales}
+\label{sec:5.2}
+
+\begin{center}
+\begin{longtable}{L{5.0cm}L{9.3cm}}
+\toprule
+\rowcolor{tblhead}\textbf{Componente} & \textbf{Responsabilidad}\\
+\midrule
+\endfirsthead
+\rowcolor{tblhead}\textbf{Componente} & \textbf{Responsabilidad}\\
+\midrule
+\endhead
+\bottomrule
+\endlastfoot
+\lstinline!components/fretboard/FretboardShared.jsx! & Piezas de mástil de escritorio: nota al pasar el ratón, fila de incrustaciones, cabecera numérica de traste.\\
+\lstinline!components/fretboard/MobileMainFretboard.jsx! & Mástil vertical genérico para layout móvil; el contenido de cada celda se delega en un callback \lstinline!renderCell!, reutilizado por acordes, ruta y acordes cercanos.\\
+\lstinline!components/fretboard/ChordVoicingFretboards.jsx! & \lstinline!ChordFretboard! / \lstinline!GuideToneFretboard!: mástiles especializados en pintar un \textit{voicing} coloreando por rol armónico o por rol de notas guía.\\
+\lstinline!components/fretboard/FretNoteMarker.jsx! & Marcador circular de nota genérico, base de los clústeres superpuestos de Acordes cercanos.\\
+\lstinline!components/ui/AppUiPrimitives.jsx! & \lstinline!ToggleButton!, \lstinline!InfoTitle! --- primitivas compartidas.\\
+\lstinline!components/ui/ColorPickerPopover.jsx! + \lstinline!colorUtils.js! & Selector de color propio (HSV, sin \lstinline!<input type=color>! nativo), con flujo de borrador (Aceptar/Cancelar).\\
+\end{longtable}
+\end{center}
+
+\section{Acordes}
+\label{sec:5.3}
+
+\begin{center}
+\begin{longtable}{L{5.0cm}L{9.3cm}}
+\toprule
+\rowcolor{tblhead}\textbf{Componente} & \textbf{Responsabilidad}\\
+\midrule
+\endfirsthead
+\rowcolor{tblhead}\textbf{Componente} & \textbf{Responsabilidad}\\
+\midrule
+\endhead
+\bottomrule
+\endlastfoot
+\lstinline!components/chords/ChordsPanel.jsx! (933 líneas) & Panel «Acorde»: constructor tonal/cuartal/notas guía, controles de calidad/estructura/forma/inversión/extensiones/omisión, navegador de voicings, mástiles de acorde.\\
+\lstinline!components/chords/ManualChordPanel.jsx! (841 líneas) & Modo Manual («Investigar en mástil»): selección de notas en el mástil, lecturas detectadas agrupadas en principales/avanzadas, lecturas extra del oráculo bajo demanda, reproducción de audio, «Copiar a cercano».\\
+\lstinline!components/chords/useChordPanelModel.js! & Hook de lógica de pantalla del constructor (handlers de tono, suspensión, extensiones, forma).\\
+\lstinline!components/chords/useNearCopyFeedback.js! & Feedback visual temporal (1.5\,s) tras copiar una lectura a un slot cercano.\\
+\end{longtable}
+\end{center}
+
+\section{Acordes cercanos y análisis de tonalidad}
+\label{sec:5.4}
+
+\begin{center}
+\begin{longtable}{L{5.0cm}L{9.3cm}}
+\toprule
+\rowcolor{tblhead}\textbf{Componente} & \textbf{Responsabilidad}\\
+\midrule
+\endfirsthead
+\rowcolor{tblhead}\textbf{Componente} & \textbf{Responsabilidad}\\
+\midrule
+\endhead
+\bottomrule
+\endlastfoot
+\lstinline!components/near-chords/NearChordsPanel.jsx! (637 líneas) & Orquestador: selector de estilo/progresión, toggle «Auto escala», los 4 \lstinline!NearChordSlot!, y el mástil compartido con clústeres de hasta 4 notas superpuestas por celda.\\
+\lstinline!components/near-chords/NearChordSlot.jsx! (793 líneas) & Editor de un slot: bifurca la UI según familia (terciana/cuartal/notas guía), navegador de voicings, distancia máxima, cuerdas al aire.\\
+\lstinline!components/near-chords/KeyProgressionAnalyzer.jsx! (686 líneas) & Acordeón de análisis de tonalidad sobre una progresión pegada por el usuario: tonalidades detectadas, centros modales compatibles.\\
+\end{longtable}
+\end{center}
+
+\section{Contexto tonal, estudio y standards}
+\label{sec:5.5}
+
+\begin{center}
+\begin{longtable}{L{5.0cm}L{9.3cm}}
+\toprule
+\rowcolor{tblhead}\textbf{Componente} & \textbf{Responsabilidad}\\
+\midrule
+\endfirsthead
+\rowcolor{tblhead}\textbf{Componente} & \textbf{Responsabilidad}\\
+\midrule
+\endhead
+\bottomrule
+\endlastfoot
+\lstinline!components/tonal/TonalContextPanel.jsx! & Raíz, notación, escala, armonización, notas extra, cajas de blues.\\
+\lstinline!components/study/StudyPanel.jsx! (974 líneas) & «Modo estudio»: identidad y acorde relativo, reglas de construcción, compatibilidad armónica, función en números romanos, guía de sustituciones (5 pestañas), exportación a PDF.\\
+\lstinline!components/standards/StandardsPanel.jsx! + 6 subcomponentes & Catálogo filtrable, ficha de metadatos, «forma» del tema con cifrado por compás y selección de hasta 4 eventos para enviar a Acordes cercanos.\\
+\lstinline!components/route/RouteLabFretboard.jsx! & Mástil del laboratorio de rutas: escala activa + ruta calculada superpuesta, modo debug con traza paso a paso.\\
+\lstinline!components/config/AppConfigPanel.jsx! & Panel «Configuración» (ver \Sref{sec:12}).\\
+\end{longtable}
+\end{center}
+
+% =============================================================================
+\chapter{Gestión del estado y persistencia}
+\label{sec:6}
+
+\section{Modelo de estado}
+\label{sec:6.1}
+
+No hay \lstinline!useReducer! ni store externo: \textbf{todo el estado es \lstinline!useState! distribuido}, agrupado en 7 hooks de dominio (\lstinline!useTonalityFeature!, \lstinline!useMobileLayoutFeature!, \lstinline!useChordBuilderState!, \lstinline!useChordDetectionFeature!, \lstinline!useRouteFeature!, \lstinline!useHarmonyFeature!, \lstinline!useStandardsFeature!) más el estado propio de \lstinline!App.jsx! para lo que no encaja en ningún dominio (persistencia, tema, presets, colores, comparador de escalas, King Boxes de blues).
+
+\section{Persistencia en navegador}
+\label{sec:6.2}
+
+Tres claves de almacenamiento, definidas en \lstinline!src/App.jsx:298-303!:
+
+\begin{center}
+\begin{longtable}{
+    >{\footnotesize\sloppy\raggedright\arraybackslash}p{3.2cm}
+    >{\footnotesize\centering\arraybackslash}p{2.5cm}
+    >{\footnotesize\sloppy\raggedright\arraybackslash}p{8.6cm}
+  }
+\toprule
+\rowcolor{tblhead}\textbf{Clave} & \textbf{Storage} & \textbf{Contenido}\\
+\midrule
+\endfirsthead
+\rowcolor{tblhead}\textbf{Clave} & \textbf{Storage} & \textbf{Contenido}\\
+\midrule
+\endhead
+\bottomrule
+\endlastfoot
+\texttt{\seqsplit{mastil\_interactivo\_guitarra\_config\_v1}} & \texttt{localStorage} & Payload completo de configuración (\textasciitilde90 campos): escala, notación, King Boxes, acorde principal completo (terciano + cuartal + notas guía), detección de acordes, acorde de referencia, 4 slots de acordes cercanos, key-analyzer, ruta/route-lab, colores y tema.\\
+\texttt{\seqsplit{mastil\_interactivo\_guitarra\_presets\_v1}} & \texttt{localStorage} & Hasta \lstinline!QUICK_PRESET_COUNT! \lstinline!= 3! presets rápidos, cada uno \lstinline!{name, savedAt,! \lstinline!payload}! con el mismo formato que la config principal.\\
+\texttt{\seqsplit{mastil\_interactivo\_guitarra\_status\_v1}} & \texttt{sessionStorage} & Aviso de un solo uso que sobrevive a un \lstinline!reload()! forzado (tras importar, restablecer o cargar un preset), leído y borrado al arrancar.\\
+\end{longtable}
+\normalsize
+\end{center}
+
+\begin{center}
+\resizebox{0.92\textwidth}{!}{%
+\begin{tikzpicture}[
+  font=\sffamily\scriptsize,
+  proc/.style={draw=navydeep,thick,rounded corners=2pt,fill=navydeep!6!white,align=center,minimum width=4.6cm,minimum height=1.1cm,inner sep=4pt},
+  dec/.style={draw=amberdark,thick,fill=amber!14!white,align=center,minimum width=4.4cm,minimum height=1.5cm,inner sep=2pt,shape=diamond,aspect=2.2},
+  arr/.style={-{Stealth[length=2mm]},thick},
+  lbl/.style={font=\sffamily\bfseries\tiny,color=softgray}
+]
+\node[proc] (a) at (0,10)   {Arranque de \texttt{App.jsx}\\\texttt{useEffect deps=[]}};
+\node[dec]  (b) at (0,7.9)  {¿Existe\\\texttt{UI\_STORAGE\_KEY}?};
+\node[proc] (z) at (-5.2,4.6) {\texttt{storageHydrated = true}\\(usa valores por defecto)};
+\node[proc] (c) at (2.6,5.6)  {\texttt{JSON.parse} +\\\texttt{unwrapPersistedPayload}};
+\node[dec]  (d) at (2.6,3.4)  {\texttt{compareAppVersions}\\\texttt{> 0}?};
+\node[proc] (e) at (5.6,1.6)  {\texttt{localStorage.removeItem}\\config descartada};
+\node[proc] (f) at (-0.4,1.6) {Saneado campo a campo\\(\texttt{sanitize*})};
+\node[proc] (g) at (0,-1.0)  {Cada cambio relevante\\\texttt{persistedUiConfig} $\to$ \texttt{localStorage.setItem}};
+
+\draw[arr] (a) -- (b);
+\draw[arr] (b) -- node[lbl,left]{No} (z);
+\draw[arr] (b) -- node[lbl,right]{Sí} (c);
+\draw[arr] (c) -- (d);
+\draw[arr] (d) -- node[lbl,right]{Sí} (e);
+\draw[arr] (d) -- node[lbl,left]{No} (f);
+\draw[arr] (e) |- (g);
+\draw[arr] (f) |- (g);
+\draw[arr] (z) |- (g);
+\end{tikzpicture}%
+}
+\end{center}
+
+Puntos verificados relevantes:
+
+\begin{itemize}
+\item \textbf{Migración por versión de app es «todo o nada»}: si \lstinline!APP_VERSION! (\lstinline!6.0.94!) es mayor que la versión que generó la config guardada, la config \textbf{se borra íntegramente} (\lstinline!src/App.jsx:1108-1112!) --- no hay migración incremental campo a campo entre versiones de la app. La migración incremental sí existe, pero para el campo \lstinline!version! interno del payload (\lstinline!UI_CONFIG_VERSION = 1!, distinto de \lstinline!APP_VERSION!): si difiere, solo se muestra un aviso informativo y se aplica saneado defensivo campo a campo sin descartar nada (\lstinline!src/App.jsx:1116-1298!).
+\item \textbf{Saneado sistemático}: todas las lecturas usan un vocabulario común de validadores puros de \lstinline!src/music/appPatternRouteStaffCore.jsx! (\lstinline!sanitizeBoolValue!, \lstinline!sanitizeNumberValue!, \lstinline!sanitizeOneOf!, \lstinline!sanitizeColorValue!, \lstinline!sanitizeNearSlotValue!, \lstinline!sanitizePresetCollection!), de forma que una config corrupta o de formato antiguo nunca rompe el arranque; en el peor caso cae a valores por defecto campo a campo.
+\item \textbf{Campo no persistido detectado}: \lstinline!chordDetectClickAudio! (mute del sonido al pulsar celdas en el modo Manual) no aparece en la lista de \textasciitilde90 campos de \lstinline!persistedUiConfig! (\lstinline!src/App.jsx:850-953!) --- el estado de mute del audio de detección \textbf{no sobrevive a un recargado de página} (ver también \Sref{sec:11} y \Sref{sec:17}).
+\end{itemize}
+
+% =============================================================================
+\chapter{Modelo musical: notas, intervalos, escalas, patrones y acordes}
+\label{sec:7}
+
+\section{Representación de alturas}
+\label{sec:7.1}
+
+Las clases de altura (\textit{pitch classes}) son enteros \lstinline!0..11! con \lstinline!C = 0!. \lstinline!mod12(n)! (\lstinline!src/music/appMusicBasics.js:25!) normaliza cualquier entero. La enarmonía se controla mediante un flag \lstinline!preferSharps: boolean! que acompaña al pitch class en casi toda la API: \lstinline!pcToName(pc, preferSharps)!, \lstinline!pcToDualName(pc)! (devuelve \lstinline!"C#/Db"! salvo notas naturales), \lstinline!chordUiLetterFromPc(pc, preferSharps)! (letra base para el selector de tono).
+
+\lstinline!pitchAt(sIdx, fret)! (\lstinline!appMusicBasics.js:58!) traduce cuerda+traste a altura MIDI absoluta sumando el traste al MIDI de cuerda al aire (\lstinline!OPEN_MIDI!, \lstinline!appStaticData.js:276!, afinación estándar E2-A2-D3-G3-B3-E4). \lstinline!noteNameToPc(token)! hace el camino inverso, admitiendo dobles alteraciones (\lstinline!F##!, \lstinline!Gbb!).
+
+\begin{notabox}
+El deletreo letra-a-letra real (para mostrar \lstinline!C#! vs \lstinline!Db! correctamente según el contexto) se calcula con \lstinline!spellNoteFromChordInterval! / \lstinline!spellChordNotes! / \lstinline!spellPcWithLetter! (\lstinline!appMusicBasics.js:817-1660!). Estas mismas funciones de deletreo están \textbf{duplicadas} de forma independiente en \lstinline!chordDetectionEngine.js:76-106!, porque ese módulo tiene la restricción arquitectónica de no importar de ningún otro módulo de \lstinline!src/music/! (es la capa 0 explícita del sistema).
+\end{notabox}
+
+\section{Escalas}
+\label{sec:7.2}
+
+\lstinline!SCALE_PRESETS! (\lstinline!appStaticData.js:107!) es un diccionario de \textasciitilde30 escalas $\to$ array de intervalos: pentatónicas mayor/menor, mayor/menor natural, los 7 modos griegos, menor armónica/melódica, mayor armónica, doble armónica/bizantina, frigia mayor, lidia dominante, alterada, húngara menor gitana, 7 escalas bebop de 8 notas, pentatónicas con \textit{blue note}, hirajoshi, tonos enteros, disminuidas H-W/W-H, y «Personalizada» (intervalos libres introducidos por el usuario). La armonización diatónica en tétradas de cada grado se construye con \lstinline!buildHarmonyDegreeChord! (\lstinline!appMusicBasics.js:537!), con una excepción explícita para \textbf{armonía funcional menor} (fuerza V7 en vez de v cuando \lstinline!harmonyMode === "functional_minor"!).
+
+Para escalas cuya cifra diatónica estándar (apilar terceras) no produce resultados musicalmente correctos (pentatónicas, bebop, húngara gitana, doble armónica), existe una tabla de armonizaciones curadas a mano: \lstinline!MANUAL_SCALE_TETRAD_PRESETS! / \lstinline!MANUAL_SCALE_HARMONY_PRESETS! (\lstinline!appStaticData.js:175-263!).
+
+\section{Patrones sobre el mástil (\texttt{appPatternRouteStaffCore.jsx})}
+\label{sec:7.3}
+
+\begin{itemize}
+\item \textbf{3NPS} (\lstinline!build3NpsPatternsMerged! / \lstinline!build3NpsPatternInstances!): para escalas de 7 notas, 3 notas por cuerda, 7 posiciones (una por grado).
+\item \textbf{CAGED} (\lstinline!buildCagedPatternInstances! / \lstinline!pickCagedViewPatterns!): 5 formas ancladas en 4\textsuperscript{a}/5\textsuperscript{a}/6\textsuperscript{a} cuerda según la letra (\lstinline!CAGED_DEFS!), funcional con cualquier escala/modo (no solo mayor), no solo con acordes.
+\item \textbf{Cajas de pentatónica} (\lstinline!buildPentatonicBoxInstances!): ventanas de 5 trastes con offsets predefinidos distintos para pentatónica mayor (\lstinline![0,2,4,7,9]!) y menor (\lstinline![0,3,5,7,10]!).
+\item 2NPS existe en el código (\lstinline!_build2NpsPatternsMerged!) pero no se usa activamente en la ruta principal actual (mantenido por compatibilidad).
+\end{itemize}
+
+\section{Motor de acordes: nombres, sufijos e intervalos}
+\label{sec:7.4}
+
+\lstinline!chordSuffixFromUI(...)! (\lstinline!appMusicBasics.js:140!) traduce el estado de la UI (calidad/suspensión/estructura/extensiones) a un sufijo interno; \lstinline!chordDisplayNameFromUI(...)! (línea 358) compone el nombre final mostrado, con reclasificación de tríada-con-7\textsuperscript{a}-marcada como cuatriada de facto y notación \lstinline!(addN,...)! cuando hace falta representar tensiones sin las intermedias. \lstinline!buildChordIntervals(...)! (línea 1424) calcula el conjunto final de semitonos con un modelo de «slots» para tétradas (7\textsuperscript{a} ocupa 1 slot, cada \textit{add} ocupa 1 slot más, máximo 1-2 según \lstinline!omit!).
+
+\textbf{Catálogos de UI verificados} (\lstinline!appMusicBasics.js:1076-1132!): \lstinline!CHORD_QUALITIES! = \lstinline!maj, dom, min, minmaj7, dim, hdim!; \lstinline!CHORD_STRUCTURES! = \lstinline!triad, tetrad, chord!; \lstinline!CHORD_FAMILIES! = \lstinline!tertian, quartal, guide_tones!; \lstinline!CHORD_INVERSIONS! = \lstinline!root, 1, 2, 3, all!; \lstinline!CHORD_FORMS! = \lstinline!closed, open! + 6 formas drop (\lstinline!drop2_set1/2/3!, \lstinline!drop3_set1/2!, \lstinline!drop24_set1/2!).
+
+\section{Estructuras cuartales y notas guía}
+\label{sec:7.5}
+
+Las estructuras cuartales (\lstinline!fnBuildQuartalPitchSets!, \lstinline!appMusicBasics.js:1219!) se construyen apilando cuartas justas desde la raíz (\lstinline!type="pure"!) o alterando una cuarta a tritono (\lstinline!type="mixed"!), o bien siguiendo la escala activa en pasos de 3 grados diatónicos (\lstinline!reference="scale"!), clasificando el resultado como \lstinline!pure! / \lstinline!mixed! según si algún paso es de 6 semitonos. Las notas guía (\lstinline!guideToneDefinitionFromQuality!, línea 1138) modelan \textit{shells} de 3 notas para \lstinline!min7/dom7/maj6/maj7! (p.\,ej. \lstinline!min7! $\to$ intervalos \lstinline![0,3,10]!, etiquetas \lstinline!1,b3,b7!).
+
+\section{Motor de detección de acordes (\texttt{chordDetectionEngine.js})}
+\label{sec:7.6}
+
+Es el módulo de menor nivel del sistema: no importa de ningún otro módulo de \lstinline!src/music/! (confirmado por lectura completa), y exporta \lstinline!noteNameToPc! / \lstinline!preferSharpsFromMajorTonicPc! consumidos por el resto. Punto de entrada: \lstinline!detectChordReadings(selectedNotes)! (línea 1399), que combina tres generadores de candidatos:
+
+\begingroup
+\sloppy
+\begin{enumerate}
+\item \textbf{Fórmulas catalogadas} (\lstinline!collectFormulaCandidates!, línea 1056): recorre \lstinline!CHORD_DETECT_FORMULAS! (\textasciitilde60 fórmulas, línea 117), exige $\geq$2 (díada) o $\geq$3 coincidencias con tolerancia de 1 grado ausente.
+\item \textbf{Cuartales manuales} (\lstinline!buildQuartalManualCandidates!, línea 613): cadenas de cuartas (pasos de 5-6 semitonos) entre las notas seleccionadas.
+\item \textbf{Heurística terciana general} (\lstinline!buildHeuristicTertianCandidates!, línea 797): deduce calidad por presencia de 3\textsuperscript{a}/5\textsuperscript{a}/7\textsuperscript{a} y compone tensiones (9, 11, 13, \#9, b13, \#11) para conjuntos de notas sin fórmula catalogada exacta, incluyendo el caso de dominante alterada.
+\end{enumerate}
+\endgroup
+
+El \textbf{ranking} (\lstinline!candidateProbabilityScore!, línea 497) combina penalización por complejidad de fórmula, por grados omitidos (+9, +5 extra si es la 3\textsuperscript{a}), por 5\textsuperscript{a} alterada no estructural (+8), y un modelo explícito de peso para bajo tipo \textit{slash} (-8 si tríada exacta con bajo externo). Tras el ranking, un pipeline adicional filtra candidatos contradictorios, colapsa «gemelos enarmónicos» preservando el deletreo con menos alteraciones, deduplica por contenido semántico, filtra bajos «raros» (\lstinline!B#/E#/Cb/Fb!) cuando hay alternativa más limpia, recorta a 12 resultados y decora alias especiales (\textit{Hendrix chord}, \textit{Mystic chord}, \textit{James Bond chord}, \textit{So What chord}).
+
+El módulo también implementa \textbf{continuidad de selección}: \lstinline!pickDefaultChordCandidate! / \lstinline!resolveDetectedCandidateFromContext! mantienen «la misma» lectura seleccionada cuando el usuario modifica ligeramente las notas del mástil (continuidad estructural, de pitch, de movimiento de bajo, de raíz desplazada cromáticamente).
+
+\section{Interpretación por contexto armónico (\texttt{harmonyContextRanking.js})}
+\label{sec:7.7}
+
+Reordena (sin modificar) las lecturas del motor anterior en función de un \textbf{acorde de referencia} fijado manualmente por el usuario (p.\,ej. «estoy tocando sobre un D7»). \lstinline!rankReadingsWithHarmonyContext! puntúa cada lectura por coincidencia de raíz (+2), calidad (+1) y grafía (+0.5); cuando ninguna lectura literal explica bien el contexto, genera \textbf{candidatos sintéticos} (dominante con tensiones reinterpretadas, fragmento sin 7\textsuperscript{a}, \textit{rootless} de \lstinline!maj7!, fragmento 6/9), siempre marcados \lstinline!contextual: true! para que la UI los distinga.
+
+\section{Análisis de tonalidad de progresiones (\texttt{keyAnalysisEngine.js})}
+\label{sec:7.8}
+
+Módulo independiente (no depende de \lstinline!chordDetectionEngine.js!) que, a partir de texto libre de acordes, puntúa cada combinación tónica$\times$escala (Mayor/Menor natural) por ajuste diatónico, dominante funcional y dominante secundario, devuelve hasta 6 tonalidades candidatas, calcula centros modales compatibles (6 modos griegos evaluando qué tónica modal encaja mejor) y detecta intercambio modal (acordes prestados de un modo paralelo) con explicaciones textuales del tipo «Ab $\to$ bVI, prestado de C eólico».
+
+% =============================================================================
+\chapter{Construcción y análisis de voicings}
+\label{sec:8}
+
+Implementado en \lstinline!appVoicingStudyCore.js! (3481 líneas).
+
+\section{Parseo y filtro ergonómico}
+\label{sec:8.1}
+
+\lstinline!parseChordDbFretsString! / \lstinline!buildVoicingFromFretsLH! convierten el formato de 6 caracteres del dataset de digitaciones (Low E$\to$High E, \lstinline!x!=muda, base-36 para trastes >9) en un objeto \lstinline!voicing! completo (notas, bajo real, span, alcance, intervalos relativos). \lstinline!isErgonomicVoicing(v, maxReachLimit=4)! es el \textbf{filtro ergonómico de generación}: descarta digitaciones con alcance >4 trastes o huecos >3 trastes entre dedos consecutivos --- actúa como poda dura durante la enumeración, antes de cualquier puntuación.
+
+\section{Orquestador central}
+\label{sec:8.2}
+
+El diagrama se presenta en dos partes, a tamaño legible sin necesidad de ampliar el PDF: primero la selección del generador según los parámetros de la UI, y después el filtrado y orden final que produce la lista de voicings.
+
+\textbf{Parte 1 --- Selección del generador:}
+
+\begin{center}
+\resizebox{\textwidth}{!}{%
+\begin{tikzpicture}[
+  font=\sffamily\small,
+  topproc/.style={draw=navydeep,thick,rounded corners=2pt,fill=navydeep!6!white,align=center,text width=10cm,minimum height=1.1cm,inner sep=6pt},
+  proc/.style={draw=navydeep,thick,rounded corners=2pt,fill=navydeep!6!white,align=center,text width=4.5cm,minimum height=1.5cm,inner sep=6pt},
+  dec/.style={draw=amberdark,thick,fill=amber!14!white,align=center,text width=2.7cm,minimum height=2.0cm,inner sep=2pt,shape=diamond,aspect=1.6},
+  arr/.style={-{Stealth[length=2.2mm]},thick},
+  lbl/.style={font=\sffamily\bfseries\small,color=amberdark,fill=white,fill opacity=0.85,text opacity=1,inner sep=1pt}
+]
+\node[topproc] (a) at (0,8.6)   {Parámetros UI: \texttt{rootPc}, \texttt{quality}, \texttt{structure}, \texttt{inversion}, \texttt{form}, \texttt{ext6/7/9/11/13}, \texttt{omit}};
+\node[proc]    (b) at (0,6.7)   {\texttt{buildChordEnginePlan}};
+\node[dec]     (c) at (0,4.5)   {\texttt{plan}.\allowbreak\texttt{generator}};
+\node[proc] (d) at (-5.6,1.9)  {\texttt{\seqsplit{generateTriadVoicings}}};
+\node[proc] (e) at (0,1.9)     {\texttt{\seqsplit{generateTetradVoicings}}\\+\ \texttt{\seqsplit{buildOpenSupersetTetradVoicings}}};
+\node[proc] (f) at (5.6,1.9)   {\texttt{\seqsplit{generateDropTetradVoicings}}\\(\texttt{appMusicBasics.js})};
+\node[proc] (g) at (-5.6,-1.7) {\texttt{\seqsplit{generateExactIntervalChordVoicings}}\\(extendidos, notas guía)};
+\node[proc] (h) at (0,-1.7)    {\texttt{\seqsplit{lookupChordCatalogVoicings}}\\(\texttt{chordCatalogCore.js})};
+\node[proc] (i) at (5.6,-1.7)  {\texttt{insufficientNotes = true}\\(combinación inválida)};
+
+\draw[arr] (a) -- (b);
+\draw[arr] (b) -- (c);
+\draw[arr] (c) -- (d) node[lbl,pos=0.52]{triad};
+\draw[arr] (c) -- (e) node[lbl,pos=0.6,right=1pt]{tetrad};
+\draw[arr] (c) -- (f) node[lbl,pos=0.52]{drop};
+\draw[arr] (c) -- (g) node[lbl,pos=0.52]{exact};
+\draw[arr] (c) -- (h) node[lbl,pos=0.6,left=1pt]{json};
+\draw[arr] (c) -- (i) node[lbl,pos=0.52]{none};
+\end{tikzpicture}%
+}
+\end{center}
+
+\textbf{Parte 2 --- Filtrado y orden final} (a partir de los voicings producidos por las rutas \texttt{triad} / \texttt{tetrad} / \texttt{drop} / \texttt{exact} de la parte~1):
+
+\begin{center}
+\begin{tikzpicture}[
+  font=\sffamily\small,
+  proc2/.style={draw=navydeep,thick,rounded corners=2pt,fill=navydeep!6!white,align=center,text width=10.5cm,minimum height=1.1cm,inner sep=6pt},
+  arr/.style={-{Stealth[length=2.2mm]},thick}
+]
+\node[proc2] (p) at (0,6.6) {Voicings generados por \texttt{triad} / \texttt{tetrad} / \texttt{drop} / \texttt{exact}};
+\node[proc2] (q) at (0,5.0) {\texttt{isErgonomicVoicing} (filtro duro)};
+\node[proc2] (r) at (0,3.4) {\texttt{dedupeAndSortVoicings}};
+\node[proc2] (s) at (0,1.8) {\texttt{filterVoicingsByForm} (cerrado / abierto / drop)};
+\node[proc2] (t) at (0,0.0) {Lista final de voicings\\+ \texttt{selectClosestPhysicalVoicingIndex} (mantener zona al cambiar parámetros)};
+\draw[arr] (p) -- (q);
+\draw[arr] (q) -- (r);
+\draw[arr] (r) -- (s);
+\draw[arr] (s) -- (t);
+\end{tikzpicture}
+\end{center}
+
+\lstinline!buildChordEnginePlan(...)! (línea 985) es el orquestador: calcula offsets de 3\textsuperscript{a}/5\textsuperscript{a}/7\textsuperscript{a}/voz superior, el conjunto de intervalos y el bajo, y decide \lstinline!layer! (etiqueta conceptual: \lstinline!triad/tetrad/add/multi_add/extended/drop/chord/unsupported!) y \lstinline!generator! (estrategia real de generación: \lstinline!triad/tetrad/drop/exact/json/none!) según la combinación de estructura, extensiones, \lstinline!omit! y elegibilidad drop.
+
+\section{Selección y estabilidad física («mantener zona»)}
+\label{sec:8.3}
+
+\lstinline!physicalVoicingDistance(reference, candidate)! calcula una distancia ponderada por cuerda (traste, sonoridad, posición central, traste mín/máx, n\textsuperscript{o} de cuerdas sonantes, bajo). \lstinline!selectClosestPhysicalVoicingIndex(reference,! \lstinline!options, {reasonableDistance})! la usa para mantener estable la digitación mostrada al cambiar un parámetro del acorde (\lstinline!chordKeepZone! activado), cayendo a un índice por defecto si ninguna opción está dentro del umbral. Cuando \lstinline!chordKeepZone! está desactivado, se usa en su lugar \lstinline!selectNaturalGuitarVoicingIndex! (raíz en el bajo, traste mínimo bajo, más cuerdas sonantes, menor span).
+
+\section{Formas y drops}
+\label{sec:8.4}
+
+\lstinline!isDropForm! / \lstinline!filterVoicingsByForm! clasifican y filtran por posición cerrada/abierta o forma drop. \lstinline!classifyManualVoicingShape(manualVoicing,! \lstinline!detectedChord)! (probado por \lstinline!classifyVoicingShape.test.js!) identifica si un voicing manual de 4 notas corresponde a una forma drop concreta, probando todas las combinaciones \lstinline!dropKind! $\times$ inversión contra el patrón de alturas esperado.
+
+\section{Filtro «guitarístico» (independiente del ergonómico de generación)}
+\label{sec:8.5}
+
+Al final del fichero (bloque \lstinline!GUITARISTIC VOICING FILTER!, línea 3241) hay un \textbf{segundo sistema de puntuación}, distinto de \lstinline!isErgonomicVoicing!: \lstinline!_guitaristicComponents! calcula \lstinline!score = sonantes×2 + al_aire×3 + (cejilla_limpia?4:0) − mudas_internas×4 − max(0,trasteMín−7) − max(0,span−3)×2!. \lstinline!filterGuitaristicVoicings(level, voicings)! filtra en tres niveles: \lstinline!all! (sin cambio), \lstinline!habitual! (formas de catálogo sin mudas internas), \lstinline!essential! (además \lstinline!trasteMín ≤ 12!, una forma por posición). \lstinline!MAX_VOICING_OPTIONS = 1000! actúa como tope de seguridad tras generar/deduplicar/ordenar.
+
+\section{Digitaciones reales (base de datos física)}
+\label{sec:8.6}
+
+\lstinline!src/features/chord-catalog/chordCatalogCore.js! es el puente entre el constructor de acordes y el dataset físico servido en \lstinline!public/chords-db/<Nota>/<sufijo>.json! (p.\,ej. \lstinline!chords-db/G/major_b.json!). \lstinline!lookupChordCatalogVoicings(...)! valida con \lstinline!chordCanUseJsonCatalog! si la combinación es «buscable» en JSON, construye la lista de sufijos a probar (genérico primero, sufijo de bajo específico \lstinline!_b! como \textit{fallback}) y cachea resultados por \lstinline!"<nota>/<sufijo>"!. \lstinline[basicstyle=\ttfamily\bfseries\small]!fetchChordDbJsonWithFallback! intenta primero la ruta local (\lstinline!import.meta.env.BASE_URL + chords-db/...!) y, si falla, reintenta contra \lstinline!CHORD_DB_PAGES_BASE = "https://a01653.github.io/mastil_pruebas/"! --- un despliegue estático \textbf{externo, en otro repositorio}, usado como \textit{fallback} absoluto (ver riesgo en \Sref{sec:17}).
+
+% =============================================================================
+\chapter{Búsqueda de acordes cercanos y voice leading}
+\label{sec:9}
+
+\lstinline!components/near-chords/NearChordsPanel.jsx! gestiona hasta \textbf{4 slots} de acorde simultáneos (\lstinline!nearSlots!, \lstinline!src/App.jsx:640!), cada uno con su propia familia (terciana/cuartal/notas guía) y parámetros independientes.
+
+\textbf{Mecanismo de «cercanía» verificado en código} (\lstinline!src/App.jsx:2278-2647!): existe una \textbf{ventana de trastes compartida} \lstinline![nearFrom, nearTo]! (por defecto inicio=1, tamaño=6 $\to$ trastes 1-6; controlable con flechas $\blacktriangleleft$/$\blacktriangleright$ y campo «Tamaño»). Para cada slot activo, se generan sus voicings candidatos con el mismo motor de \Sref{sec:8} (\lstinline!buildChordEnginePlan! + generadores de \lstinline!appVoicingStudyCore.js!) y se filtran con:
+
+\begin{lstlisting}
+// src/App.jsx:2642-2647
+const voicingFits = (v) =>
+  isErgonomicVoicing(v, maxSpan) &&
+  (v.notes || []).every((n) => n.fret === 0 ? allowOpenStrings : inNearWindow(n.fret));
+\end{lstlisting}
+
+Es decir: \textbf{la «cercanía» entre los hasta 4 acordes se logra forzando a todos a caber en la misma ventana estrecha de trastes}, no mediante un optimizador de conducción de voces que minimice el movimiento nota-a-nota entre acordes consecutivos. La «conducción de voces práctica» mencionada en el README se traduce, en el código actual, en: (a) la restricción de ventana compartida, y (b) la reutilización del mecanismo de estabilidad física (\lstinline!selectClosestPhysicalVoicingIndex! / \lstinline!chordKeepZone!, \Sref{sec:8.3}) para no saltar de posición al ajustar un slot. \textbf{No se ha encontrado} un algoritmo dedicado que compare pares de voicings entre slots consecutivos y minimice distancia de movimiento entre ellos --- esto se documenta explícitamente como limitación verificada en \Sref{sec:17}, no como suposición.
+
+\textbf{Progresiones predefinidas} (\lstinline!src/music/nearChordsProgressions.js!, 1017 líneas): catálogo estático de \textasciitilde60 progresiones agrupadas en 14 estilos (\lstinline!NEAR_CHORDS_STYLES!), cada una expresada como offsets en semitonos + calidad por grado (\lstinline!resolveProgressionDegrees! los traduce a los 4 slots concretos según la tónica activa). Si la progresión tiene menos de 4 acordes, el 4\textsuperscript{o} slot se completa con un \lstinline!substitute! declarado o repitiendo el último. Este módulo \textbf{no calcula proximidad física ni voice leading}: solo resuelve qué acordes (raíz+calidad) forman la progresión elegida; la cercanía real la impone la ventana de trastes compartida ya descrita.
+
+El toggle \textbf{«Auto escala»} (\lstinline!nearAutoScaleSync!) sincroniza automáticamente los 4 slots según la raíz/escala/armonización del contexto tonal activo cuando está encendido, dejando edición manual por slot cuando está apagado.
+
+% =============================================================================
+\chapter{Generación de rutas sobre el mástil}
+\label{sec:10}
+
+Implementado en \lstinline!src/music/appPatternRouteStaffCore.jsx! y expuesto vía el hook \lstinline!src/features/route/useRouteFeature.js!. Existen \textbf{dos motores paralelos}:
+
+\section{\texttt{computeMusicalRoute} (motor «clásico», modos free/pattern/pos)}
+\label{sec:10.1}
+
+Primero se calcula una \textbf{secuencia de alturas} (\lstinline!buildPitchSequence!) que camina grado a grado por la escala activa desde \lstinline!startPitch! hasta \lstinline!endPitch! (ambos deben pertenecer a la escala; si no, o si no converge en 300-400 iteraciones, devuelve un error explicativo). Después, \lstinline!computeMusicalRoute! traduce esa secuencia a posiciones físicas concretas con una búsqueda tipo Dijkstra/Viterbi sobre un espacio de estados (índice de nota, cuerda, traste, racha en la misma cuerda, instancia de patrón activa, ventana posicional, tendencia).
+
+La \textbf{restricción a un patrón concreto} (mencionada en el comentario \lstinline!App.jsx:261!: «se restringe a posiciones») se implementa en \lstinline!allowedInstancesForCell(cellKey)!: en modo \lstinline!"pattern"! solo se permiten las instancias de patrón (cajas de pentatónica, 3NPS, CAGED) que contienen esa celda, filtrando además por un tipo concreto si \lstinline!fixedPatternIdx! está fijado; en modo \lstinline!"pos"! la restricción es geométrica (ventana deslizante de \lstinline!positionWindowSize! trastes con desplazamiento máximo penalizado por paso).
+
+\section{\texttt{computeRouteLab} (motor del «Laboratorio de rutas»)}
+\label{sec:10.2}
+
+Motor más nuevo, con restricción por \textbf{caja móvil de ancho fijo} (5 trastes para pentatónica/mayor-menor, 6 para bebop) recalculada dinámicamente, en vez de instancias precomputadas. Añade heurísticas de fraseo guitarrístico: notas-por-cuerda «naturales» según familia de escala, penalización por salirse del «corredor» formado por las cajas de inicio/fin/punto medio, y lógica anti-\textit{overshoot} (pasarse del traste objetivo).
+
+\begin{hallazgobox}{Deuda técnica}
+\lstinline!computeRouteLab! (\lstinline!appPatternRouteStaffCore.jsx:1455!) \textbf{no desestructura el parámetro \lstinline!tuning!} en su firma pese a que sí lo reciben \lstinline!evaluateRouteLabFixedTest! / \lstinline!evaluateRouteLabBenchmarkCase!, y pese a que \lstinline!useRouteFeature.js! construye y persiste en \lstinline!App.jsx! (líneas 1256-1260) un objeto completo \lstinline!routeLabCurrentTuning! con 5 sliders de UI (\lstinline!switchWhenSameStringForwardPenalty!, \lstinline!worseThanSameStringGoalBase/Scale!, \lstinline!corridorPenalty!, \lstinline!overshootNearEndAlt!). Como JavaScript ignora silenciosamente propiedades no desestructuradas, \textbf{esos 5 sliders de la UI actualmente no tienen ningún efecto} sobre el algoritmo real: todos los pesos de coste están hardcodeados inline en el cuerpo de la función. Ver \Sref{sec:17}.
+\end{hallazgobox}
+
+\section{Selección automática de modo}
+\label{sec:10.3}
+
+\lstinline!useRouteFeature.js! no llama a un único modo fijo: \lstinline!pickBest(modes)! prueba una lista de modos candidatos (\lstinline!["penta","pos","free"]! si la escala es pentatónica, \lstinline!["nps","pos","free"]! si es heptatónica, \lstinline!["pos","free"]! en otro caso) y se queda con el de menor coste total (coste del camino + \lstinline!modePenalty!, que favorece patrones sobre posición libre).
+
+\section{Pentagrama}
+\label{sec:10.4}
+
+\lstinline!buildMusicStaffRenderState! calcula el layout compartido (ancho de compás, dirección de plicas, alteraciones respecto a la armadura, \textit{bounding box}), reutilizado tanto por el componente React \lstinline!MusicStaff! (interactivo) como por \lstinline!buildMusicStaffSvgMarkup! (string SVG para exportación PDF/HTML desde \lstinline!StudyPanel.jsx!).
+
+% =============================================================================
+\chapter{Sistema de audio}
+\label{sec:11}
+
+\textbf{Motor verificado por lectura completa}: \texttt{\seqsplit{src/features/chord-detection/chordDetectAudioCore.js}} (32 líneas) usa \textbf{Web Audio API pura} --- \lstinline!AudioContext! / \lstinline!OscillatorNode!, no \lstinline!<audio>! / \lstinline!Audio()! ni muestras de sonido:
+
+\begin{lstlisting}
+// src/features/chord-detection/chordDetectAudioCore.js
+export function midiToFreq(vMidi) { return 440 * Math.pow(2, (vMidi - 69) / 12); }
+
+export function scheduleChordDetectMidi(vCtx, vMidi, vStartTime, vDuration = 1.2) {
+  const vOsc = vCtx.createOscillator();   // tipo "triangle"
+  const vGain = vCtx.createGain();        // envolvente ADSR simplificada (4 rampas exponenciales)
+  // ... osc.connect(gain).connect(vCtx.destination); osc.start/stop
+}
+\end{lstlisting}
+
+\texttt{\seqsplit{src/features/chord-detection/useChordDetectionAudio.js}} gestiona un único \lstinline!AudioContext! (creado perezosamente, reanudado con \lstinline!.resume()! si está \lstinline!suspended! por la política de autoplay del navegador) y expone tres acciones:
+
+\begingroup
+\setlength{\emergencystretch}{5em}
+\begin{itemize}
+\item \lstinline!playChordDetectNote(sIdx,! \lstinline!fret)! --- una nota suelta al pulsar una celda (si \lstinline!chordDetectClickAudio! está activo).
+\item \lstinline!playChordDetectSelection()! --- la selección completa \textbf{en arpegio} (paso de 0.14\,s, 0.5\,s por nota), con resaltado visual secuencial de la tecla que suena.
+\item \lstinline!playChordDetectVoicingTogether()! --- todas las notas \textbf{simultáneas} (1.25\,s).
+\end{itemize}
+\endgroup
+
+Este motor solo se usa en el modo Manual («Investigar en mástil», \lstinline!components/chords/ManualChordPanel.jsx!); no hay reproducción de audio en el resto de la aplicación (constructor de acordes principal, acordes cercanos, rutas, standards). No hay control granular de volumen expuesto al usuario (los niveles de ganancia están hardcodeados); el único control es el toggle mute (\lstinline!chordDetectClickAudio!), que --- como se documenta en \Sref{sec:6.2} --- \textbf{no se persiste} entre recargas.
+
+% =============================================================================
+\chapter{Importación y exportación de configuración}
+\label{sec:12}
+
+Implementado entre \lstinline!src/App.jsx:1341-1393! y \lstinline!src/utils/configIo.js!.
+
+\begingroup
+\sloppy
+\raggedright
+\setlength{\emergencystretch}{5em}
+
+\textbf{Exportar} (\lstinline!exportUiConfig!): serializa el payload completo (\lstinline!JSON.stringify(persistedUiPayload,! \lstinline!null, 2)!), crea un \lstinline!Blob!, dispara descarga vía \lstinline!URL.createObjectURL! + \lstinline!<a download>! efímero, y libera el objeto URL. El nombre de fichero lo genera \lstinline!buildConfigExportFilename()! (\texttt{\seqsplit{utils/configIo.js:3-6}}): \texttt{\seqsplit{mastil\_interactivo\_config\_AAAAMMDD\_HHMMSS.json}}.
+
+\textbf{Importar} (función \texttt{\seqsplit{importUiConfigFromFile}}): lee el fichero con \texttt{FileReader}, llama a \texttt{\seqsplit{parseImportedConfigText(raw, \{uiConfigVersion, appVersion\})}} (\texttt{\seqsplit{utils/configIo.js:17-19}}), que delega en \lstinline!buildImportedPayload! $\to$ \lstinline!unwrapPersistedPayload! (\texttt{\seqsplit{appPatternRouteStaffCore.jsx:762}}) para normalizar tanto el formato versionado actual como el formato «plano» legacy. \textbf{El fichero importado siempre se re-etiqueta con la \lstinline!version! / \lstinline!appVersion! actuales del código en ejecución}, no con los del propio fichero. El resultado se escribe directamente en \lstinline!UI_STORAGE_KEY! y se fuerza \lstinline!window.location.reload()!.
+\endgroup
+
+El disparador de UI (\lstinline!<input type="file">!) vive físicamente en \texttt{\seqsplit{components/layout/AppHeader.jsx:89-90}} (recibe la \lstinline!ref! como prop), no en \lstinline!AppConfigPanel.jsx!: el botón «Importar config» de \texttt{\seqsplit{components/config/AppConfigPanel.jsx:187-193}} solo hace \lstinline!importConfigInputRef.current.click()!.
+
+\textbf{Presets rápidos}: \lstinline!saveQuickPreset! / \lstinline!loadQuickPreset! (\lstinline!App.jsx:1395-1431!) guardan/restauran uno de los 3 slots (\lstinline!quickPresets!, persistidos en \lstinline!UI_PRESETS_STORAGE_KEY!), cada uno con \lstinline!{name, savedAt, payload}!. \textbf{Restablecer} (\lstinline!resetUiConfig!) pide confirmación (\lstinline!window.confirm!), borra \lstinline!UI_STORAGE_KEY! y recarga.
+
+\lstinline!components/config/AppConfigPanel.jsx! es deliberadamente «tonto»: no contiene lógica propia de export/import/preset, solo recibe por props agrupadas (\lstinline!view, theme, colorState, presets, actions, layout, ui!) construidas en \lstinline!App.jsx:4578-4588! (\lstinline!configPanelProps()!), y despacha las acciones recibidas. Además del bloque de export/import, el panel incluye: preset rápido, toggles de vista (Notas/Intervalos), rango de trastes (12/15/18/21/24), toggle «Ver todo» (\lstinline!showNonScale!), toggle Debug, 5 selectores de color de tema, y los swatches de color por rol armónico/extensión.
+
+% =============================================================================
+\chapter{Niveles de interfaz y comportamiento asociado}
+\label{sec:13}
+
+La navegación distingue \textbf{tres media queries independientes} (\texttt{\seqsplit{src/features/layout/useMobileLayoutFeature.js}}): \lstinline!isMobileLayout!, \lstinline!isNarrowBoardLayout!, \lstinline!isCompactLayout! (breakpoints en \lstinline!appStaticData.js:7-10!).
+
+\begin{itemize}
+\item \textbf{Escritorio ancho}: \lstinline!showBoards! (\lstinline!App.jsx:355!) es un objeto de banderas booleanas por sección --- permite ver \textbf{varias secciones simultáneamente} apiladas («acordeón» de paneles), normalizado con \lstinline!normalizeBoardVisibility!.
+\item \textbf{Móvil/compacto}: \lstinline!mobileActiveSection! (dentro de \lstinline!layoutFeature.navigation!) mantiene \textbf{una única sección activa}, con navegación por barra inferior (\lstinline!MOBILE_BOTTOM_NAV_OPTIONS!, 6 opciones: Escala/Ruta/Acordes/Cercanos/Comparar/Standards) o por \textbf{gestos de swipe horizontal} (\lstinline!handleMobileSectionPointerDown/Move/End/Cancel!, con umbral de arrastre, distinción de scroll vertical vs. swipe, y supresión del click fantasma tras un swipe).
+\end{itemize}
+
+Ambos convergen en \lstinline!effectiveBoards! (\lstinline!App.jsx:4174-4184!). El panel de «Configuración» tiene comportamiento asimétrico: en escritorio ancho (\lstinline!xl:!) se muestra inline junto a los demás paneles; en cualquier otro layout se abre como modal a pantalla completa (\lstinline!mobileMenuOpen!). Los overlays móviles (contexto tonal, editor de acorde, editor de acorde cercano, popover de info) bloquean el scroll del documento con la técnica \lstinline!position: fixed! + compensación de \lstinline!scrollY! (compatibilidad iOS).
+
+\lstinline!StudyPanel! («Modo estudio») es compartido entre las secciones «Acordes» y «Acordes cercanos» (se monta si \lstinline!boardVisibility.chords || boardVisibility.nearChords!), seleccionando su objetivo de estudio (\lstinline!studyTarget!) según cuál de las dos secciones lo abrió.
+
+% =============================================================================
+\chapter{Flujo de datos entre módulos}
+\label{sec:14}
+
+\section{\texorpdfstring{Flujo «Investigar en mástil» $\to$ detección $\to$ copia / audio / estudio}{Flujo «Investigar en mástil» -> detección -> copia / audio / estudio}}
+\label{sec:14.1}
+
+\begin{center}
+\resizebox{\textwidth}{!}{%
+\begin{tikzpicture}[
+  actor/.style={draw=navydeep,thick,rounded corners=1.5pt,fill=navydeep!8!white,minimum width=1.55cm,minimum height=0.7cm,align=center,font=\sffamily\bfseries\scriptsize},
+  lifeline/.style={dashed,navydeep!55!white,thin},
+  arr/.style={-{Stealth[length=2mm]},thick,navydeep},
+  lbl/.style={font=\sffamily\tiny,color=softgray,align=center},
+  optframe/.style={dashed,amberdark,thick},
+  opttag/.style={fill=amber!25!white,draw=amberdark,thick,font=\sffamily\bfseries\tiny,inner sep=2pt,anchor=north west}
+]
+\node[actor] (u0)    at (0,0)    {U};
+\node[actor] (mp0)   at (1.9,0)  {MP};
+\node[actor] (sel0)  at (3.8,0)  {SEL};
+\node[actor] (cde0)  at (5.7,0)  {CDE};
+\node[actor] (hcr0)  at (7.6,0)  {HCR};
+\node[actor] (aud0)  at (9.5,0)  {AUD};
+\node[actor] (copy0) at (11.4,0) {COPY};
+\node[actor] (cb0)   at (13.3,0) {CB};
+\node[actor] (near0) at (15.2,0) {NEAR};
+
+\foreach \x in {0,1.9,3.8,5.7,7.6,9.5,11.4,13.3,15.2}{
+  \draw[lifeline] (\x,-0.35) -- (\x,-15.6);
+}
+
+% --- marcos opt (dibujados antes de los mensajes para que queden detras) ---
+\draw[optframe] (-0.3,-6.30) rectangle (10.0,-9.15);
+\node[opttag] at (-0.3,-6.30) {opt: audio activo};
+\draw[optframe] (-0.3,-9.35) rectangle (13.8,-12.20);
+\node[opttag] at (-0.3,-9.35) {opt: Copiar en Acorde};
+\draw[optframe] (-0.3,-12.40) rectangle (15.7,-15.25);
+\node[opttag] at (-0.3,-12.40) {opt: Copiar a cercano};
+
+\draw[arr] (0,-1.00) -- (1.9,-1.00) node[midway,above,lbl]{clic en celda del mástil};
+\draw[arr] (1.9,-1.85) -- (3.8,-1.85) node[midway,above,lbl]{applyChordDetectCellToggle(selectedKeys, sIdx, fret)};
+\draw[arr] (3.8,-2.70) -- (1.9,-2.70) node[midway,above,lbl]{nuevas claves (o rejected: \texttt{span\_limit})};
+\draw[arr] (1.9,-3.55) -- (5.7,-3.55) node[midway,above,lbl]{analyzeSelectedNotes(noteNames, bassName)};
+\draw[arr] (5.7,-4.40) -- (1.9,-4.40) node[midway,above,lbl]{readings[] rankeadas + primary};
+\draw[arr] (1.9,-5.25) -- (7.6,-5.25) node[midway,above,lbl]{rankReadingsWithHarmonyContext(readings, ctx)};
+\draw[arr] (7.6,-6.10) -- (1.9,-6.10) node[midway,above,lbl]{readings reordenadas (+ sintéticas)};
+
+\draw[arr] (0,-7.10) -- (1.9,-7.10) node[midway,above,lbl]{pulsar Play};
+\draw[arr] (1.9,-7.95) -- (9.5,-7.95) node[midway,above,lbl]{playChordDetectSelection() / VoicingTogether()};
+\draw[arr] (9.5,-8.80) -- (0,-8.80) node[midway,above,lbl]{sonido (osciladores Web Audio)};
+
+\draw[arr] (0,-10.15) -- (1.9,-10.15) node[midway,above,lbl]{clic «Copiar»};
+\draw[arr] (1.9,-11.00) -- (11.4,-11.00) node[midway,above,lbl]{buildChordBuilderPatchFromDetectedCandidate(candidate)};
+\draw[arr] (11.4,-11.85) -- (13.3,-11.85) node[midway,above,lbl]{patch de estado (familia + parámetros + voicing)};
+
+\draw[arr] (0,-13.20) -- (1.9,-13.20) node[midway,above,lbl]{clic «Copiar a cercano»};
+\draw[arr] (1.9,-14.05) -- (15.2,-14.05) node[midway,above,lbl]{buildNearSlotPatchFromDetectedCandidate(candidate)};
+\draw[arr] (15.2,-14.90) -- (1.9,-14.90) node[midway,above,lbl]{patch de slot (sin posición física fija)};
+\end{tikzpicture}%
+}
+\end{center}
+
+\begin{center}
+\small
+\begin{tabular}{@{}p{4.9cm}p{4.9cm}p{4.9cm}@{}}
+\textbf{U} = Usuario & \textbf{MP} = \texttt{\seqsplit{ManualChordPanel.jsx}} & \textbf{SEL} = \texttt{\seqsplit{chordDetectionSelectionCore.js}}\\[3pt]
+\textbf{CDE} = \texttt{\seqsplit{chordDetectionEngine.js}} & \textbf{HCR} = \texttt{\seqsplit{harmonyContextRanking.js}} & \textbf{AUD} = \texttt{\seqsplit{useChordDetectionAudio.js}}\\[3pt]
+\textbf{COPY} = \texttt{\seqsplit{chordDetectionCopyCore.js}} & \textbf{CB} = \texttt{\seqsplit{useChordBuilderState.js}} & \textbf{NEAR} = \texttt{\seqsplit{copyToNearSlot.js}}\\
+\end{tabular}
+\end{center}
+
+\section{Flujo de datos de un standard de jazz}
+\label{sec:14.2}
+
+\lstinline!useStandardsFeature.js! $\to$ carga perezosa del índice (\lstinline!jjazzlabCatalog.js!, \lstinline!import.meta.glob! sin \lstinline!eager!) $\to$ selección de un ítem $\to$ carga bajo demanda del standard completo (\lstinline!loadJJazzLabStandardFromPath!) $\to$ \lstinline!jjazzlabParser.js! convierte el \lstinline!.sng! embebido (parseo por regex, no XML real) al formato interno \lstinline!{realForm: {sections}}! $\to$ \lstinline!components/standards/StandardRealChartSections.jsx! lo renderiza $\to$ selección de hasta 4 eventos de acorde $\to$ \texttt{\seqsplit{standardsCatalog.js: buildNearSlotsFromChordSymbols()}} los traduce a slots $\to$ \lstinline!onApplyToNearChords! (callback inyectado desde \lstinline!App.jsx!) los carga en el panel de Acordes cercanos.
+
+Fuente alternativa: \lstinline!musicXmlParser.js! parsea ficheros \lstinline!.musicxml! de \lstinline!src/musicxml/!, con lógica adicional de expansión de repeticiones/finales alternativos (ausente en el flujo JJazzLab, que ya llega «reproducible»), produciendo la misma forma de salida \lstinline!{realForm, phrases}! --- ambos parsers son agnósticos entre sí para el resto de la app.
+
+% =============================================================================
+\chapter{Estrategia de pruebas y comandos disponibles}
+\label{sec:15}
+
+\section{Comandos (verificados en \texttt{package.json})}
+\label{sec:15.1}
+
+\begin{lstlisting}
+npm run dev                    # Vite dev server
+npm run build                  # Build de produccion -> dist/
+npm run preview                # Preview del build (puerto 4185 fijo)
+npm run lint                   # ESLint (flat config)
+npm test                       # vitest run (todos los tests unitarios)
+npm run test:e2e               # Playwright (33 specs en e2e/)
+npm run test:e2e:chord-matrix  # Solo e2e/chord-matrix.slow.spec.js (matriz parametrica lenta)
+npm run audit:chords           # scripts/auditChordDetection.mjs
+npm run audit:copy-readings    # scripts/auditCopyReadings.mjs
+npm run audit:chord-ui-matrix  # scripts/auditChordUiMatrix.mjs
+npm run audit:study            # scripts/auditStudy.mjs (12 casos de Modo estudio en C Mayor)
+npm run analyze:frets[:json]   # scripts/analyzeFrets.mjs
+npm run generate:frets-oracle / compare:frets-oracle[:golden]
+\end{lstlisting}
+
+\section{Ejecución real realizada para este DTS}
+\label{sec:15.2}
+
+\begin{lstlisting}
+npm test    -> Test Files  60 passed (60) | Tests  1488 passed (1488) | Duration 13.76s
+npm run build -> 3274 modulos transformados, built in 49.88s, exit 0
+\end{lstlisting}
+
+\begin{hallazgobox}{Recuento de tests}
+El repositorio contiene \textbf{44} ficheros \lstinline!*.test.*! reales bajo \lstinline!src/! / \lstinline!scripts/! (confirmado por \lstinline!find!), pero \lstinline!vitest run! reporta \textbf{60} ficheros ejecutados. La diferencia (16 ficheros) proviene de copias de tests alojadas en directorios auxiliares de trabajo ajenos al árbol fuente de la aplicación (dos directorios, cada uno con una copia parcial de 8 ficheros de test de \lstinline!src/!), que \textbf{no están excluidos} por \lstinline!vite.config.js:6-8! (\lstinline!test.exclude! solo cubre \lstinline!e2e/**! y \lstinline!node_modules/**!). No afecta a la corrección del resultado (son copias idénticas que también pasan), pero infla el recuento reportado y ejecuta trabajo redundante. Ver recomendación en \Sref{sec:18}.
+\end{hallazgobox}
+
+\section{Organización de la suite}
+\label{sec:15.3}
+
+\begin{itemize}
+\item \textbf{Unitarios (Vitest + jsdom)}: 44 ficheros reales, mayoritariamente en \lstinline!src/music/*.test.js! (motor de detección, voicings, patrones, standards, key analysis) y \lstinline!src/features/**/*.test.js! (núcleos puros de cada dominio). Patrón dominante: cada \lstinline!*Core.js! puro tiene su \lstinline!.test.js! homónimo. Hay tests de regresión explícitos (\lstinline!referenceRegression.test.js!, \lstinline!appVoicingStudyRegression.test.js!, \lstinline!detectionInvariants.test.js!, \lstinline!goldenCases.test.js!) y de paridad CLI$\leftrightarrow$UI (\lstinline!analyzeFretsParity.test.js!, \lstinline!analyzeFretsCliJson.test.js!).
+\item \textbf{E2E (Playwright)}: 33 specs en \lstinline!e2e/!, \lstinline!baseURL: http://localhost:4185/mastil_escalas/! (requiere \lstinline!npm run preview! corriendo), Chrome de escritorio headless, sin reintentos (\lstinline!retries: 0!). Cubren smoke de navegación (\lstinline!smoke.spec.js!, 6 pestañas + layouts responsive), persistencia (\lstinline!chords-persist.spec.js!, \lstinline!config-version-invalidation.spec.js!), comparador de escalas, ruta, y una matriz extensa de casos de Acordes cercanos/detección/copia (\lstinline!near-chords-*.spec.js!, \lstinline!chord-*.spec.js!, \lstinline!frets-oracle-golden.spec.js!).
+\item \textbf{Auditorías CLI (\lstinline!scripts/*.mjs!)}: no son tests de Vitest sino scripts Node standalone que ejercitan miles de combinaciones paramétricas contra el motor real (\lstinline!auditChordDetection.mjs! genera todas las combinaciones de notas/díadas/tríadas sobre afinación estándar; \lstinline!auditChordUiMatrix.mjs! recorre el espacio de parámetros del constructor de acordes). Documentadas con invariantes explícitas ERROR/WARNING en sus cabeceras (p.\,ej. \lstinline!minor-no-b3!, \lstinline!slash-mismatch!, \lstinline!dedup-failure!).
+\item \textbf{Oráculo de voicings} (\lstinline!docs/frets-oracle.md!): batería independiente de dos capas (oráculo exhaustivo sin usar el motor de producción + comparador contra el motor real) con tres niveles de exigencia por lectura (\lstinline!mustInclude! / \lstinline!mayInclude! / \lstinline!informational!) y un conjunto de casos dorados estrictos (\lstinline!src/music/fretsOracleGoldenCases.json!) que sí fallan el proceso si se rompen.
+\end{itemize}
+
+No hay integración de tests en el pipeline de CI (ver \Sref{sec:17}).
+
+% =============================================================================
+\chapter{Construcción y despliegue}
+\label{sec:16}
+
+\section{Build web}
+\label{sec:16.1}
+
+\begingroup\sloppy
+\lstinline!vite.config.js! define \lstinline!manualChunks!: \lstinline!react-vendor! (React/ReactDOM/scheduler), \lstinline!icons! (lucide-react), \lstinline!music-core! (todo \lstinline!src/music/!), \lstinline!standards-index! (solo \lstinline!jjazzlabStandardsIndex.json!, aislado para no arrastrar el resto de \lstinline!music-core!). Los \textbf{1461 ficheros JSON individuales} de \lstinline!src/standards-jjazzlab/! se cargan vía \lstinline!import.meta.glob! sin \lstinline!eager! (\lstinline!jjazzlabCatalog.js!), por lo que Rollup los trocea automáticamente en un chunk lazy por standard (2-70\,kB cada uno, verificado en el build real).\endgroup
+
+\textbf{Resultado del build verificado} (\lstinline!npm run build!, exit 0, 49.88\,s, 3274 módulos):
+
+\begin{center}
+\begin{longtable}{L{4.4cm}C{3.0cm}C{3.0cm}}
+\toprule
+\rowcolor{tblhead}\textbf{Chunk} & \textbf{Tamaño} & \textbf{Gzip}\\
+\midrule
+\endfirsthead
+\rowcolor{tblhead}\textbf{Chunk} & \textbf{Tamaño} & \textbf{Gzip}\\
+\midrule
+\endhead
+\bottomrule
+\endlastfoot
+\lstinline!music-core! & 450.03\,kB & 112.94\,kB\\
+\lstinline!App! (bundle de \lstinline!App.jsx! + dependencias no compartidas) & 388.09\,kB & 104.11\,kB\\
+\lstinline!standards-index! & 368.84\,kB & 51.74\,kB\\
+\lstinline!react-vendor! & 192.67\,kB & 60.37\,kB\\
+CSS (Tailwind compilado) & 47.13\,kB & 9.19\,kB\\
+\lstinline!icons! & 5.22\,kB & 2.21\,kB\\
+\textasciitilde1461 chunks individuales por standard & 1.6-70\,kB cada uno & ---\\
+\end{longtable}
+\end{center}
+
+\section{Despliegue web (CI/CD)}
+\label{sec:16.2}
+
+\lstinline!.github/workflows/deploy-pages.yml!: en cada \lstinline!push! a \lstinline!main! (o \lstinline!workflow_dispatch!), ejecuta \lstinline!npm ci \&\& npm run build! sobre Ubuntu/Node 20, y publica \lstinline!dist/! a GitHub Pages vía \lstinline!actions/upload-pages-artifact! + \lstinline!actions/deploy-pages!. \textbf{El pipeline no ejecuta \lstinline!npm test!, \lstinline!npm run lint! ni \lstinline!npm run test:e2e! antes de desplegar} --- el build es la única puerta de calidad automática en CI (ver \Sref{sec:17}).
+
+\section{Empaquetado Android (Capacitor)}
+\label{sec:16.3}
+
+\lstinline!vite.config.android.js! (build separado, \lstinline!base: "./"!, \lstinline!outDir: dist-android/!) + \lstinline!capacitor.config.json! (\lstinline!appId: com.jqbit.mastilescalas!, \lstinline!minSdkVersion: 24!). Verificado en \lstinline!package.json!: script \lstinline!build:android! (\lstinline!vite build --config! \lstinline!vite.config.android.js!), \lstinline!cap:sync! (\lstinline!npx cap sync android!) y \lstinline!cap:build:debug! (encadena ambos). El paso final de generación del \lstinline!.apk! (\lstinline!gradlew assembleDebug!, vía Android Studio/Gradle) no está documentado en ningún fichero del repositorio ni expuesto como script de npm --- no se pudo verificar documentalmente; solo se confirma la existencia del artefacto resultante en \lstinline!releases/mastil-escalas-v6.0.94.apk!.
+
+% =============================================================================
+\chapter{Limitaciones, deuda técnica y riesgos detectados}
+\label{sec:17}
+
+Todo lo listado aquí está \textbf{verificado directamente en el código o en la ejecución real}, no es especulación.
+
+\begin{hallazgobox}{1 --- Índice de secciones de \texttt{App.jsx} obsoleto}
+El comentario \lstinline!ÍNDICE RÁPIDO DEL FICHERO! (\lstinline!App.jsx:264-282!) describe 8 secciones, pero las secciones 1-7 (catálogos, mástil/afinación, notación, motor de acordes, detección, comparador de escalas, ruta musical) ya no existen como código en \lstinline!App.jsx!: fueron extraídas a \lstinline!src/music/! y \lstinline!src/features/! en algún momento de la evolución del proyecto, y solo quedan sus imports/desestructuraciones (líneas 1-253). Solo la sección «8. Componente principal» (94\,\% del fichero) es fiel a la realidad actual.
+\end{hallazgobox}
+
+\begin{hallazgobox}{2 --- \texttt{computeRouteLab} ignora su parámetro \texttt{tuning}}
+Los 5 sliders de ajuste fino del Laboratorio de rutas, expuestos en la UI y persistidos en \lstinline!localStorage! (\lstinline!routeLabCurrentTuning!), no tienen ningún efecto real: la función no desestructura ese parámetro y usa constantes hardcodeadas inline (\lstinline!appPatternRouteStaffCore.jsx:1455!). Es una funcionalidad de UI que aparenta ser configurable y no lo es.
+\end{hallazgobox}
+
+\begin{hallazgobox}{3 --- \texttt{chordDetectClickAudio} (mute del audio de detección) no se persiste}
+No aparece en los \textasciitilde90 campos de \lstinline!persistedUiConfig! (\lstinline!App.jsx:850-953!); el usuario debe reactivar/silenciar el sonido en cada sesión.
+\end{hallazgobox}
+
+\begin{hallazgobox}{4 --- Migración de configuración «todo o nada» entre versiones de app}
+Cualquier subida de \lstinline!APP_VERSION! descarta la config guardada completa (\lstinline!App.jsx:1108-1112!) en vez de migrar campo a campo; solo el formato interno (\lstinline!UI_CONFIG_VERSION!) tiene saneado incremental.
+\end{hallazgobox}
+
+\begin{hallazgobox}{5 --- Dependencia de un despliegue externo del mismo autor como fallback de producción}
+\lstinline!chordCatalogCore.js! reintenta contra \lstinline!https://a01653.github.io/mastil_pruebas/! (un repositorio de GitHub Pages distinto, del mismo autor, aparentemente un entorno de pruebas) cuando la ruta local del chords-db falla. Si ese despliegue deja de existir o cambia, el \textit{fallback} de digitaciones reales deja de funcionar silenciosamente en los entornos donde se dispare (sandbox/preview según el comentario en código).
+\end{hallazgobox}
+
+\begin{hallazgobox}{6 --- «Acordes cercanos» no implementa un optimizador de voice leading nota-a-nota}
+La proximidad entre los 4 slots se logra restringiendo a todos a la misma ventana de trastes (\lstinline!nearFrom! / \lstinline!nearTo!), no comparando distancia de movimiento entre voicings consecutivos. Es una aproximación razonable pero distinta de lo que el término «voice leading» sugiere técnicamente al README.
+\end{hallazgobox}
+
+\begin{hallazgobox}{7 --- CI no ejecuta pruebas antes de desplegar}
+\lstinline!deploy-pages.yml! solo corre \lstinline!npm run build!; una regresión que pase el build pero rompa \lstinline!npm test! / \lstinline!npm run test:e2e! se desplegaría igualmente a producción sin bloqueo automático.
+\end{hallazgobox}
+
+\begin{hallazgobox}{8 --- Recuento de tests inflado por directorios auxiliares de trabajo no excluidos}
+\lstinline!vitest run! ejecuta 60 ficheros en vez de los 44 reales del proyecto porque copias de test alojadas en directorios auxiliares ajenos al árbol fuente de la aplicación (con 8 tests cada uno) no están excluidas en \lstinline!vite.config.js! (\lstinline!test.exclude! solo cubre \lstinline!e2e/**! / \lstinline!node_modules/**!). No afecta a la corrección, pero es ruido operativo y trabajo redundante en cada \lstinline!npm test!.
+\end{hallazgobox}
+
+\begin{hallazgobox}{9 --- \texttt{App.jsx} como «God component»}
+5534 líneas, 52 \lstinline!useState! + 26 \lstinline!useEffect! + 44 \lstinline!useMemo! propios más el estado desestructurado de 7 hooks de dominio; funciones de render pasadas como props a componentes hijos (\lstinline!renderFns!, \lstinline!App.jsx:5193-5206!), acoplando fuertemente \lstinline!ChordsPanel! a closures del padre en vez de ser autocontenido. Dificulta el testeo aislado de la UI raíz (de ahí que solo exista un test de humo, \lstinline!App.smoke.test.jsx!) y el \textit{code splitting} fino del propio chunk \lstinline!App! (388\,kB / 104\,kB gzip, el segundo más pesado tras \lstinline!music-core!).
+\end{hallazgobox}
+
+\begin{hallazgobox}{10 --- Duplicación deliberada de funciones de deletreo}
+\lstinline!spellChordNotes! / \lstinline!spellNoteFromChordInterval! / \lstinline!spellPcWithLetter! / \lstinline!chordDegreeNumberFromInterval! existen por duplicado en \lstinline!appMusicBasics.js! y en \lstinline!chordDetectionEngine.js!, con defaults de \lstinline!preferSharps! ligeramente distintos (línea 76-106 de este último). Es una decisión arquitectónica consciente (mantener \lstinline!chordDetectionEngine.js! sin dependencias), pero implica el riesgo estándar de dos copias que pueden divergir con el tiempo si una se corrige y la otra no.
+\end{hallazgobox}
+
+% =============================================================================
+\chapter{Posibles líneas de evolución}
+\label{sec:18}
+
+Recomendaciones derivadas directamente de los hallazgos de \Sref{sec:17}, priorizadas de mayor a menor relación impacto/esfuerzo. Son propuestas, no cambios ya decididos ni implementados.
+
+\begin{recobox}{1 --- Excluir los directorios auxiliares de trabajo ajenos al árbol fuente}
+De \lstinline!vite.config.js: test.exclude! (junto a \lstinline!e2e/**! / \lstinline!node_modules/**!). Corrige de inmediato el recuento inflado de tests (\Sref{sec:15.2}) y evita ejecutar trabajo redundante en cada \lstinline!npm test!; es un cambio de una línea sin riesgo, siempre que se identifiquen dichos directorios en cada entorno de trabajo.
+\end{recobox}
+
+\begin{recobox}{2 --- Conectar \texttt{routeLabCurrentTuning} a \texttt{computeRouteLab}}
+O, si se decide que los 5 sliders ya no son necesarios, retirarlos de la UI y de la persistencia. Tal como está hoy, el usuario puede mover controles que no producen ningún cambio observable, lo cual es confuso y contradice la filosofía de «todo cambio debe hacer sentido musical/funcional» del propio proyecto.
+\end{recobox}
+
+\begin{recobox}{3 --- Persistir \texttt{chordDetectClickAudio}}
+Añadiéndolo a \lstinline!persistedUiConfig! (\lstinline!App.jsx:850-953!), igual que el resto de toggles de UI --- es un cambio pequeño y acotado, con test E2E ya existente como referencia (\lstinline!config-version-invalidation.spec.js!) para verificar que no rompe el saneado de config.
+\end{recobox}
+
+\begin{recobox}{4 --- Actualizar el índice de 8 secciones de \texttt{App.jsx}}
+(\lstinline!App.jsx:264-282!) para reflejar que las secciones 1-7 fueron extraídas a \lstinline!src/music/! / \lstinline!src/features/!, o sustituirlo por un mapa de imports/hooks. Reduce el riesgo de que futuras sesiones (humanas o de IA) busquen lógica musical en \lstinline!App.jsx! donde ya no vive.
+\end{recobox}
+
+\begin{recobox}{5 --- Evaluar la dependencia del fallback externo}
+\lstinline!https://a01653.github.io/mastil_pruebas/!. Si ese despliegue no es una infraestructura de producción mantenida a largo plazo, documentar explícitamente su propósito (¿solo para entornos sandbox sin acceso a rutas relativas?) o sustituirlo por un mecanismo que no dependa de un despliegue externo separado para una funcionalidad «core» como las digitaciones reales.
+\end{recobox}
+
+\begin{recobox}{6 --- Añadir un paso \texttt{npm test} al workflow de CI}
+(y opcionalmente \lstinline!npm run lint!) antes de \lstinline!npm run build!/despliegue, para que una regresión detectable por la suite existente bloquee el despliegue automático a GitHub Pages en vez de solo detectarse manualmente.
+\end{recobox}
+
+\begin{recobox}{7 --- Voice leading real en «Acordes cercanos»}
+Si se desea ir más allá de la ventana de trastes compartida, sería un desarrollo nuevo: una función que, dado el voicing elegido en un slot, puntúe los candidatos de los slots siguientes por distancia de movimiento nota-a-nota (reutilizando como base conceptual \lstinline!physicalVoicingDistance! de \lstinline!appVoicingStudyCore.js!, hoy usada solo intra-slot para «mantener zona»). Esto es una propuesta de nueva funcionalidad, no una corrección de algo roto --- el mecanismo actual (ventana compartida) es una aproximación pedagógicamente razonable y ya documentada como tal.
+\end{recobox}
+
+\begin{recobox}{8 --- Reducir el tamaño del chunk \texttt{App}}
+(388\,kB / 104\,kB gzip) extrayendo funciones de render actualmente cerradas sobre el scope de \lstinline!App.jsx! (\lstinline!renderFns!, \lstinline!configPanelProps()!, \lstinline!buildTonalContextProps()!) hacia los propios componentes que las consumen, en línea con el patrón «núcleo puro + hook» ya usado con éxito en \lstinline!src/features/!. Este es un refactor de mantenibilidad, no una necesidad de rendimiento urgente (el bundle total gzip del punto de entrada sigue siendo razonable para una SPA de este alcance).
+\end{recobox}
+
+% =============================================================================
+\chapter*{Apéndice --- Qué se verificó y qué no fue posible confirmar}
+\addcontentsline{toc}{chapter}{Apéndice --- Qué se verificó y qué no fue posible confirmar}
+\label{sec:apendice}
+
+\begin{notabox}
+\small
+\textbf{Verificado directamente} (lectura de código fuente + ejecución real, no inferencia):
+
+\begin{itemize}[itemsep=1pt,topsep=3pt]
+\item \textbf{Configuración y build}: \lstinline!src/!, \lstinline!package.json!, \lstinline!vite.config.js!, \lstinline!vite.config.android.js!, \lstinline!eslint.config.js!, \lstinline!playwright.config.js!, \lstinline!capacitor.config.json!, \texttt{\seqsplit{.github/workflows/deploy-pages.yml}}, \lstinline!README.md!, \texttt{\seqsplit{docs/frets-oracle.md}}.
+\item \textbf{Contenido íntegro} de \lstinline!src/App.jsx!, \lstinline!src/main.jsx!, \texttt{\seqsplit{src/utils/configIo.js}}, \texttt{\seqsplit{src/components/config/AppConfigPanel.jsx}}, \texttt{\seqsplit{src/components/PanelBlock.jsx}}, \texttt{\seqsplit{src/components/chords/useChordPanelModel.js}}, \texttt{\seqsplit{src/features/chord-detection/chordDetectAudioCore.js}}, \texttt{\seqsplit{src/features/chord-detection/useChordDetectionAudio.js}}.
+\item \textbf{Contenido íntegro de \lstinline!src/music/!}: \lstinline!appMusicBasics.js!, \lstinline!chordDetectionEngine.js!, \lstinline!appStaticData.js!, \lstinline!appVoicingStudyCore.js!, \lstinline!appPatternRouteStaffCore.jsx!, \lstinline!standardsCatalog.js!, \lstinline!jjazzlabCatalog.js!, \lstinline!jjazzlabParser.js!, \lstinline!musicXmlParser.js!, \lstinline!chordDbCatalog.js!, \lstinline!nearChordsProgressions.js!, \lstinline!keyAnalysisEngine.js!, \lstinline!harmonyContextRanking.js!, \lstinline!studyRelativeChord.js!, \lstinline!fretsOracle.js!, \lstinline!analyzeFretsCore.js!, \lstinline!parseRefChord.js!, \lstinline!parseFretString.js!.
+\item Los 29 componentes de \lstinline!src/components/**! y los 33 ficheros de \lstinline!src/features/**!.
+\item \textbf{Ejecución real}: \lstinline!npm test! (60 ficheros / 1488 tests, todos pasando) y \lstinline!npm run build! (exit 0, 49.88\,s). Lectura de \lstinline!e2e/smoke.spec.js! y \texttt{\seqsplit{e2e/helpers/appVersion.js}} como muestra representativa de la suite E2E.
+\end{itemize}
+\end{notabox}
+
+\begingroup
+\small
+\textbf{No verificado / fuera del alcance efectivo de este análisis} (mencionado por referencia cruzada desde otros módulos, pero sin lectura completa línea a línea):
+
+\begin{itemize}[itemsep=0.5pt,topsep=2pt,parsep=0pt]
+\item El contenido íntegro de los 32 ficheros E2E restantes (\lstinline!e2e/*.spec.js! distintos de \lstinline!smoke.spec.js!) --- se infirió su propósito por el nombre de fichero, no por lectura completa de cada uno.
+\item \texttt{\seqsplit{scripts/generate-jjazzlab-standards.mjs}}, \texttt{\seqsplit{scripts/sync-musicxml-standards.mjs}}, \texttt{\seqsplit{scripts/enrich-jjazzlab-standard-years.mjs}}, \texttt{\seqsplit{scripts/generateManual.mjs}}, \texttt{\seqsplit{scripts/visualReview.mjs}} / \texttt{\seqsplit{visualReview2.mjs}}, \texttt{\seqsplit{scripts/generateFretsOracle.mjs}}, \texttt{\seqsplit{scripts/compareFretsOracle.mjs}}, \texttt{\seqsplit{scripts/summarizeFretsOracleDiscrepancies.mjs}}, \texttt{\seqsplit{scripts/reportFretsMayInclude.mjs}}, \texttt{\seqsplit{scripts/validateResolution.mjs}}, \texttt{\seqsplit{scripts/debugResolution.mjs}} --- no se leyeron; se citan solo por su nombre en \lstinline!package.json! / \texttt{\seqsplit{docs/frets-oracle.md}}.
+\item El contenido del APK (\lstinline!releases/mastil-escalas-v6.0.94.apk!) y del proyecto Gradle bajo \lstinline!android/! no se auditaron (fuera del alcance de «código de la app»); solo se confirmó su existencia y la configuración de Capacitor que los genera.
+\item \lstinline!src/music/mastilDebug.js! (API de depuración \lstinline!window.mastilDebug!) se confirmó su existencia y punto de carga condicional en \lstinline!main.jsx:6-8!, pero no se leyó su implementación completa.
+\item No se ejecutó \lstinline!npm run lint!, \lstinline!npm run test:e2e!, \lstinline!npm run test:e2e:chord-matrix! ni ninguno de los scripts de auditoría (\lstinline!audit:chords!, \lstinline!audit:copy-readings!, \lstinline!audit:chord-ui-matrix!, \lstinline!audit:study!) durante esta auditoría --- el encargo pedía analizar el repositorio y validar con tests/build, no producir una entrega de código sujeta al flujo de validación completo que aplica a cambios de código del repositorio (no a la creación de este documento).
+\item No se pudo determinar desde el código quién genera/actualiza \texttt{\seqsplit{src/music/jjazzlabStandardsIndex.json}} y \lstinline!form! dentro de él en tiempo de build/offline (probablemente \lstinline!scripts/generate-jjazzlab-standards.mjs!, no leído).
+\end{itemize}
+\endgroup
+
+\end{document}
