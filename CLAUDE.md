@@ -1,331 +1,370 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Este fichero define la forma de trabajo permanente para este repositorio.
 
-## Commands
+## 1. Idioma y comunicación
 
-```bash
-npm run dev        # Start Vite dev server
-npm run build      # Production build (output to dist/)
-npm run preview    # Preview production build
-npm run lint       # ESLint
-npm run test       # Run all Vitest tests (no watch)
-npm run test:e2e              # Run Playwright E2E tests
-npm run test:e2e:chord-matrix # Run slow/parametric chord matrix E2E tests on demand
-npm run audit:chords          # Audit chord detection / naming regressions
-npm run audit:copy-readings   # Audit Investigar en mástil → Copiar en Acorde flow
-npm run audit:chord-ui-matrix # Audit chord builder UI/state/voicing consistency matrix
-```
+- Comunícate siempre con el usuario en español.
+- Comunícate siempre en español de España, usando tuteo. No utilices voseo ni formas propias del español latinoamericano, salvo que el usuario las solicite expresamente.
+- Explica con claridad qué vas a cambiar, qué has comprobado y qué queda pendiente.
+- No des por correcto un resultado solo porque compile o se vea bien manualmente.
+- Si una petición presenta ambigüedad musical, funcional o de experiencia de usuario, detente antes de modificar el código y plantea una o dos alternativas razonadas.
 
-Run a single test file:
-```bash
-npx vitest run src/music/standardsCatalog.test.js
-```
+## 2. Principios generales
 
-### Launching the preview server
+1. Cada trabajo debe realizarse en una rama propia.
+2. Una rama debe contener un único objetivo; no mezcles cambios no relacionados.
+3. Durante el desarrollo ejecuta pruebas dirigidas y rápidas sobre lo modificado.
+4. La batería completa se ejecuta una sola vez cuando el usuario confirme que el resultado funcional es correcto y antes de fusionar con `main`.
+5. Nunca fusiones ni publiques si alguna validación obligatoria falla.
+6. No modifiques la versión, no crees tags y no publiques durante las iteraciones.
+7. No descartes, sobrescribas ni incluyas cambios previos ajenos a la tarea.
+8. `docs/DTS.md` es la fuente de verdad de la arquitectura y del diseño técnico; evita duplicar aquí información que pueda quedar obsoleta.
 
-Always use the Bash tool with `run_in_background: true`:
-```bash
-npm run preview
-```
-Then read the output file to obtain the URL (it will say `Local: http://localhost:XXXX/mastil_escalas/`).
-Do NOT use shell-specific constructs like `&`, `Start-Process`, or PowerShell cmdlets to launch the preview — they cause exit 127 or spawn failures in the sandbox environment.
+## 3. Inicio obligatorio de cada trabajo
 
-## Architecture
+Antes de editar:
 
-**Mástil Escalas** is a single-page React app (Spanish UI) for interactive guitar fretboard study: scales, chord voicings, jazz standards, and scale patterns (CAGED, 3NPS, pentatonic boxes).
-
-### App structure
-
-`src/App.jsx` is a single monolithic component (~475 KB). It imports everything from `src/music/` and renders the full UI. The file has an internal index comment at the top (~line 248) listing its 8 logical sections.
-
-Six sections drive navigation (web panel tabs / mobile bottom nav):
-- `scale` — fretboard scale display with root/3rd/5th highlighting
-- `patterns` — 3NPS, CAGED, and pentatonic box patterns
-- `route` — musical route through the scale (ordered by pitch, restricted to patterns)
-- `chords` — chord builder with voicing generation and investigation mode
-- `nearChords` — up to 4 chord slots searched within a fret window, sorted by proximity
-- `standards` — jazz standards chord charts with measure-by-measure chord loading
-
-### Music modules (`src/music/`)
-
-| File | Responsibility |
-|------|----------------|
-| `appStaticData.js` | UI constants, fretboard layout dimensions, scale/chord presets, info text strings |
-| `appMusicBasics.js` | Core music theory: pitch classes, interval spelling, scale construction, chord naming |
-| `appVoicingStudyCore.js` | Voicing generation (triads, tetrads, drop forms, quartal), study mode analysis, dominant/substitution info |
-| `appPatternRouteStaffCore.jsx` | 3NPS patterns, CAGED shapes, pentatonic boxes, musical route computation, SVG staff rendering, PDF export helpers |
-| `chordDetectionEngine.js` | Detects chord readings from a set of selected pitches; also exports `noteNameToPc` and `preferSharpsFromMajorTonicPc` used by other modules |
-| `standardsCatalog.js` | Parses chord symbols (`Bb6`, `F7`, etc.) into internal slot objects; parses standard chart sections/measures |
-| `jjazzlabCatalog.js` | Lazy-loads JJazzLab JSON standards via `import.meta.glob`; caches promises |
-| `jjazzlabParser.js` | Converts raw JJazzLab JSON format to internal chart structure |
-| `musicXmlParser.js` | Parses MusicXML files from `src/musicxml/` |
-| `chordDbCatalog.js` | Maps pitch class → chord DB folder key name |
-| `studyRelativeChord.js` | Describes relative tertian chords for study mode |
-
-### Data
-
-- `src/standards-jjazzlab/*.json` — Hundreds of jazz standards in JJazzLab-derived JSON format, lazy-loaded per standard
-- `src/music/jjazzlabStandardsIndex.json` — Index of all JJazzLab standards (lazy-loaded as its own chunk)
-- `src/musicxml/*.musicxml` — MusicXML files for standards
-- `src/music/standardsData.json` — Curated pedagogical standards with phrase/section structure
-
-### Build chunking (vite.config.js)
-
-The Vite build splits output into: `react-vendor`, `icons` (lucide-react), `music-core` (all `src/music/` files), and `standards-index`. JJazzLab standard JSON files are each split into their own chunk via `import.meta.glob` lazy loading.
-
-### Pitch class conventions
-
-Pitches are represented as integers 0–11 (C=0). Enharmonic spelling is tracked with a `preferSharps: boolean` field alongside the pitch class. The `chordDetectionEngine.js` module is the lowest-level pure module; other modules import from it but it does not import from other app modules.
-
-## Development workflow
-
-- Make all changes locally first.
-- Before considering a delivery done, validate locally: run `npm run build`.
-- Before running `npm run preview`, increment `APP_VERSION` in `src/App.jsx` so the version shown locally already reflects the change.
-- At the start of each session, if a local preview hasn't been launched yet in this workspace, run the full build + preview flow once automatically even if the user hasn't asked.
-- Do not change `APP_VERSION` between the local `preview` and publication — if the user asks to publish, reuse the same number.
-
-## Mandatory validation after any code change
-
-After any code change, especially in `src/App.jsx`, `src/music/chordDetectionEngine.js`, or any file related to chords, scales, notes, intervals, or musical UI, run:
+1. Ejecuta `git status --short` y comprueba la rama actual.
+2. Si existen cambios ajenos o sin identificar, no los borres, no uses `git reset --hard`, `git checkout --` ni un `stash` automático. Informa al usuario y separa el trabajo de forma segura.
+3. Si el árbol está limpio, parte de `main` actualizado mediante una actualización *fast-forward*:
 
 ```bash
-npm test
-npm run build
+git switch main
+git pull --ff-only origin main
 ```
 
-If the change affects formatting, imports, or general structure, also run:
+4. Crea una rama nueva antes de efectuar cualquier cambio:
+
+```bash
+git switch -c <tipo>/<descripcion-breve>
+```
+
+Prefijos recomendados:
+
+- `feat/` — funcionalidad nueva.
+- `fix/` — corrección de un error.
+- `refactor/` — reorganización sin cambio funcional previsto.
+- `docs/` — documentación.
+- `test/` — pruebas.
+- `chore/` — mantenimiento, dependencias o configuración.
+
+Los nombres deben estar en minúsculas, usar guiones y describir una sola tarea. Ejemplos: `feat/filtro-voicings`, `fix/navegacion-movil`, `docs/dts-latex`.
+
+Si ya estás en una rama creada para la misma tarea, continúa en ella. Una petición distinta requiere otra rama.
+
+## 4. Análisis antes de implementar
+
+Antes de tocar el código:
+
+- Localiza los módulos, componentes y pruebas relacionados.
+- Revisa `docs/DTS.md` cuando el cambio afecte arquitectura, persistencia, navegación, lógica musical, construcción, despliegue o pruebas.
+- Define el comportamiento esperado y los casos límite.
+- Para un bug, crea o actualiza primero una prueba que reproduzca el fallo siempre que sea viable.
+- Para lógica musical, verifica teoría, nomenclatura, digitaciones, inversiones, tensiones, omisiones y coherencia con el resto de la aplicación.
+
+No implementes directamente si la propuesta:
+
+- contradice la teoría musical o la lógica interna existente;
+- arregla un caso rompiendo otros;
+- introduce un nombre musical engañoso;
+- tiene varias interpretaciones válidas que producen comportamientos diferentes;
+- es técnicamente posible, pero pedagógica o funcionalmente confusa.
+
+## 5. Ciclo rápido de desarrollo en la rama
+
+El objetivo de esta fase es iterar con rapidez. No ejecutes automáticamente la batería completa después de cada modificación.
+
+### 5.1 Pruebas dirigidas
+
+Después de cada cambio coherente, ejecuta únicamente las comprobaciones directamente relacionadas:
+
+- Lógica unitaria: `npx vitest run <fichero.test.js>`.
+- Flujo visual: `npx playwright test <spec-relacionado>`.
+- Importaciones, configuración de Vite o estructura del bundle: `npm run build`.
+- Archivos con cambios susceptibles de lint: ESLint dirigido sobre dichos archivos o `npm run lint` si no es posible limitarlo con seguridad.
+- Interfaz: levanta una vista previa cuando haya una versión estable que el usuario pueda revisar, no al inicio automático de cada sesión.
+
+### 5.2 Regresiones
+
+- Un bug de lógica debe quedar cubierto por una prueba unitaria.
+- Un bug de interfaz o estado debe quedar cubierto por una prueba E2E cuando sea razonable.
+- Un problema de detección, copia o nomenclatura debe añadir o actualizar el caso correspondiente en las auditorías.
+- Una revisión manual no sustituye una prueba automatizada reproducible.
+
+### 5.3 Commits de trabajo
+
+- Se permiten commits locales en la rama como puntos de control, con mensajes claros y sin mezclar asuntos.
+- No hagas push, merge, tag ni cambies `APP_VERSION` durante esta fase.
+- No incorpores residuos de otras tareas, capturas temporales, cachés o resultados locales de pruebas.
+
+## 6. Entrega para revisión del usuario
+
+Cuando la implementación esté lista:
+
+1. Ejecuta las pruebas dirigidas correspondientes.
+2. Ejecuta `npm run build` si el cambio afecta código de la aplicación.
+3. Inicia o reutiliza la vista previa y proporciona su URL.
+4. Resume:
+   - rama activa;
+   - archivos modificados;
+   - comportamiento implementado;
+   - pruebas dirigidas ejecutadas y resultado;
+   - aspectos que el usuario debe comprobar visual o musicalmente;
+   - limitaciones o decisiones abiertas.
+5. Espera la confirmación del usuario. No ejecutes todavía la batería final ni fusiones con `main`.
+
+Si el usuario solicita ajustes, continúa en la misma rama y repite el ciclo rápido.
+
+## 7. Confirmación y congelación del alcance
+
+Expresiones como «está correcto», «queda bien», «publícalo», «súbelo» o equivalentes autorizan a iniciar el cierre de la tarea:
+
+1. Congela el alcance: después de este punto no añadas mejoras no solicitadas.
+2. Integra cualquier avance nuevo de `origin/main` en la rama antes de validar. Si aparecen conflictos relevantes, informa al usuario; no los resuelvas ocultando o descartando cambios.
+3. Decide si corresponde actualizar el DTS según el apartado 8.
+4. Si es una publicación versionada de la aplicación, actualiza la versión antes de ejecutar la batería final, para que las pruebas se realicen sobre el candidato exacto que se publicará.
+5. Ejecuta la batería final aplicable del apartado 9.
+
+Si algo falla, no hagas merge ni push. Corrige en la rama, ejecuta primero la prueba afectada y después repite toda la batería final aplicable.
+
+Una vez superada la batería completa, la confirmación anterior autoriza el merge y el push sin pedir una segunda confirmación, siempre que no haya cambiado el alcance.
+
+## 8. Mantenimiento del DTS y del informe LaTeX
+
+### 8.1 Fuente de verdad
+
+- `docs/DTS.md` es el documento técnico principal.
+- Si existen `docs/latex/DTS_Mastil_Escalas.tex` y `docs/latex/DTS_Mastil_Escalas.pdf`, son representaciones derivadas del Markdown y deben mantenerse coherentes con él.
+- No modifiques primero el LaTeX de forma que el Markdown quede desactualizado.
+
+### 8.2 Cuándo actualizarlo
+
+Actualiza el DTS dentro de la misma rama cuando el cambio altere de forma material alguno de estos elementos:
+
+- arquitectura, módulos o responsabilidades;
+- dependencias o herramientas;
+- modelo de estado o persistencia;
+- lógica musical o comportamiento funcional documentado;
+- navegación o flujos principales;
+- importación, exportación o audio;
+- construcción, despliegue, Capacitor o CI;
+- comandos o estrategia de pruebas;
+- limitaciones, riesgos o recomendaciones descritos en el DTS.
+
+No es obligatorio actualizar el DTS por:
+
+- correcciones ortográficas;
+- cambios puramente cosméticos;
+- ajustes menores que no modifican el diseño ni el comportamiento documentado;
+- tests añadidos sin cambio de estrategia;
+- refactors internos que no cambian responsabilidades ni interfaces relevantes.
+
+Actualizar el Markdown, LaTeX y PDF en cada retoque pequeño produciría ruido y ralentizaría el proyecto. Cuando no aplique, indícalo expresamente en el resumen final: `DTS: no requiere actualización`.
+
+### 8.3 Regeneración del PDF
+
+Cuando `docs/DTS.md` cambie de forma material:
+
+1. Actualiza o regenera el `.tex` a partir del Markdown.
+2. Compila el PDF hasta resolver índice y referencias.
+3. Renderiza el PDF y revisa visualmente portada, índice, tablas, diagramas, código, cabeceras, pies, saltos y márgenes.
+4. Corrige errores de composición y avisos relevantes como `Overfull \\hbox`.
+5. Incluye `.md`, `.tex` y `.pdf` en la misma rama y validación final.
+
+La versión indicada en el DTS representa la revisión técnica realmente analizada; no debe cambiarse mecánicamente si el contenido técnico no se ha revisado.
+
+## 9. Batería final antes del merge
+
+La batería final se ejecuta después de la aprobación del usuario y sobre el estado exacto que se va a fusionar.
+
+### 9.1 Cambios de código de la aplicación
+
+Obligatorio para cualquier publicación con cambios en `src/`, configuración de build o dependencias:
 
 ```bash
 npm run lint
-```
-
-E2E validation
-
-If the change affects any UI flow or visual state, run:
-```bash
-npm run test:e2e
-```
-
-This is mandatory for changes involving:
-
-src/App.jsx
-chord builder UI
-"Investigar en mástil"
-"Copiar en Acorde"
-"Modo estudio"
-chord chips
-chord names
-fretboard note rendering
-checkboxes for extensions or omissions
-selects for tone, quality, structure, form, inversion, distance
-mobile/desktop layout behavior
-
-Manual preview does not replace E2E tests.
-
-Musical audits
-
-If the change affects chord detection, naming, ranking, omissions, extensions, voicings, fret-pattern analysis, or copying detected readings into the chord builder, run:
-
-```bash
-npm run audit:chords
-npm run audit:copy-readings
-```
-
-If the change affects the chord builder UI, voicing generation, inversion selector, form/structure/distance filters, extension/omit checkboxes, chord chips, bass label, title naming, insufficient-note messages, or formula-vs-voicing consistency, also run:
-
-```bash
-npm run audit:chord-ui-matrix
-```
-
-Expected result for `audit:chord-ui-matrix`: 0 FAIL and 0 WARN, unless the user explicitly accepts a documented limitation.
-
-The matrix audit must catch at least:
-
-- FORMULA_VOICING_MISMATCH
-- OMIT_NOT_PRESERVED
-- TITLE_STATE_MISMATCH
-- INSUFFICIENT_NOTES_MESSAGE_MISMATCH
-- INVERSION_LABEL_MISMATCH
-- BASS_REAL_MISMATCH
-- FUNCTIONAL_LABEL_MISMATCH
-- CHECKBOX_CHIP_MISMATCH
-
-The copy-readings audit must distinguish between:
-
-physical fret patterns, such as 1x22x3
-direct note sets, such as ["D","F","A","E"]
-
-If a test case declares a fret pattern, notes must be derived from the same analysis core used by scripts/analyzeFrets.mjs.
-
-Do not replace a physical pattern with hardcoded notes unless the case is explicitly marked as a note-set test.
-
-Slow chord matrix E2E
-
-If the change deeply affects Acordes, inversions, omissions, extensions, chord chips, title naming, real bass, or copying readings, run:
-
-```bash
-npm run test:e2e:chord-matrix
-```
-
-This does not replace `npm run test:e2e`; it complements it.
-
-Regression tests
-
-When fixing a bug:
-
-Add or update a test that fails before the fix and passes after it.
-For UI/state bugs, add or update a Playwright E2E test.
-For music logic bugs, add or update unit tests.
-For detection/copy/naming bugs, add or update the relevant audit case.
-
-Do not claim a bug is fixed only because the app works manually.
-
-Preview
-
-If the change affects the interface, run:
-```bash
-npm run preview
-```
-
-Use the Bash tool with run_in_background: true.
-
-Do not use shell-specific constructs like &, Start-Process, or PowerShell cmdlets.
-
-Read the preview output and report the URL.
-
-Manual preview is useful for confirmation, but it does not replace:
-```bash
-npm run test:e2e
-```
-
-
-
-Work is not done if any of these commands fail.
-
-Recommended validation flow
-
-General changes:
-
-```bash
-npm test
-npm run build
-```
-
-Music/chord/detection/naming/voicing changes:
-
-```bash
-npm run audit:chord-ui-matrix
-npm run audit:copy-readings
-npm run audit:chords
 npm test
 npm run build
 npm run test:e2e
 ```
 
-Deep chord builder changes (Acordes, inversions, omit, extensions, chips, title, real bass, copy readings):
+La vista previa manual complementa estas pruebas, pero no las sustituye.
+
+### 9.2 Auditorías musicales condicionales
+
+Si afecta detección, nombres, ranking, omisiones, extensiones, voicings o análisis físico:
+
+```bash
+npm run audit:chords
+npm run audit:copy-readings
+```
+
+Si afecta constructor de acordes, inversión, forma, estructura, distancia, extensiones, omisiones, chips, bajo real, título o coherencia fórmula-voicing:
 
 ```bash
 npm run audit:chord-ui-matrix
-npm run audit:copy-readings
-npm run audit:chords
+```
+
+Resultado esperado: `0 FAIL` y `0 WARN`, salvo limitación aceptada y documentada expresamente por el usuario.
+
+Si afecta Modo estudio:
+
+```bash
 npm run audit:study
-npm test
-npm run build
-npm run test:e2e
+```
+
+Si modifica profundamente Acordes, inversiones, omisiones, extensiones, copia de lecturas o generación de voicings:
+
+```bash
 npm run test:e2e:chord-matrix
 ```
 
-`npm run audit:chords -- --no-cache` is reserved for deeper chord-detection or physical-voicing changes because it can be slower.
+`npm run audit:chords -- --no-cache` se reserva para cambios profundos del motor de detección o del análisis físico de voicings.
 
-If the change affects chord detection, chord naming, ranking, or visual legend:
-1. Add or update tests before validating.
-2. Run `npm test`.
-3. Run `npm run build`.
-4. Review visually in preview: `npm run preview`.
+Las auditorías condicionales complementan la batería base; no la sustituyen.
 
-At the end of each delivery, report: which files were modified, which tests were added or changed, result of `npm test`, result of `npm run build`, result of `npm run test:e2e` when applicable, result of `npm run test:e2e:chord-matrix` when applicable, result of `npm run audit:chords` when applicable, result of `npm run audit:copy-readings` when applicable, result of `npm run audit:chord-ui-matrix` when applicable, whether `npm run lint` and `npm run preview` were run, the preview URL if active, any open preview/shells, and the updated `APP_VERSION`.
+### 9.3 Cambios solo documentales
 
-## Publication
+Para una rama que únicamente modifica documentación:
 
-- Never commit, tag, or push automatically after finishing a change.
-- Only publish when the user asks explicitly with an order like "súbelo", "publícalo", "haz el push", or equivalent.
-- When such an explicit order is given, treat it as full authorization to execute the entire publication flow without further confirmations: update version files, `git add`, create the commit, create the annotated tag, and push `main` and the tag.
+- No ejecutes toda la batería de la aplicación salvo que el documento dependa de resultados que deban volver a verificarse.
+- Valida enlaces, rutas, comandos y referencias mencionadas.
+- Si hay LaTeX/PDF, compila, renderiza y revisa visualmente todas las páginas.
 
-### Version files to update when publishing
+### 9.4 Cambios de workflows, dependencias o empaquetado
 
-- `src/App.jsx` → `APP_VERSION`
-- `package.json` → `version`
-- `package-lock.json` → `version`
+Además de las pruebas base, valida específicamente el flujo modificado. No afirmes que Android, Pages o un workflow funcionan si no se han ejecutado o si no puede comprobarse su resultado real.
 
-Version format: `2.93`, `2.94`, `2.95`, … Reuse the version already shown in the local preview; do not increment again.
+## 10. Versionado y publicación
 
-### Commit and tag format
+### 10.1 Cuándo cambiar la versión
 
+- No incrementes la versión para documentación, limpieza, pruebas o cambios que no publiquen una aplicación distinta.
+- En una publicación funcional de la aplicación, incrementa el último componente siguiendo el esquema actual del proyecto, por ejemplo `6.0.94` → `6.0.95`.
+- Actualiza de forma coherente:
+  - `src/App.jsx` → `APP_VERSION`;
+  - `package.json` → `version`;
+  - `package-lock.json` → `version`.
+- Haz el incremento una sola vez y antes de la batería final.
+
+Atención: actualmente una subida de `APP_VERSION` puede invalidar la configuración persistida del usuario. No incrementes versiones innecesariamente y no ocultes este efecto cuando una publicación vaya a producirlo.
+
+### 10.2 Merge
+
+Tras superar la batería final:
+
+1. Comprueba que la rama solo contiene cambios de la tarea.
+2. Crea los commits finales necesarios en la rama.
+3. Cambia a `main` y actualízala mediante *fast-forward* desde el remoto.
+4. Fusiona la rama conservando claramente el límite de la tarea:
+
+```bash
+git switch main
+git pull --ff-only origin main
+git merge --no-ff <rama> -m "merge: <resumen de la tarea>"
 ```
-vX.XX - <short summary>
+
+5. Si la fusión cambia el resultado respecto de lo validado, repite las comprobaciones afectadas antes del push.
+
+### 10.3 Tag y push
+
+- Para una publicación versionada, crea un tag anotado `vX.Y.Z` sobre el commit de merge.
+- Para cambios no versionados, no crees tag.
+- Empuja `main` y, cuando exista, el tag:
+
+```bash
+git push origin main
+git push origin vX.Y.Z
 ```
 
-Annotated tag: `vX.XX`. Then push `main` and the tag.
+- No declares la publicación completada hasta confirmar el resultado del push.
+- Si el push a `main` activa GitHub Pages, comprueba el resultado del workflow antes de dar por cerrado el despliegue.
+- Elimina la rama local solo después de confirmar el merge y el push. No elimines una rama remota sin autorización expresa.
 
-## Priority order
+## 11. Android
 
-1. Musical correctness
-2. Consistency with the app's internal logic
-3. Clarity for the user
-4. Visual and functional consistency
-5. Technical simplicity
-6. Literal user preference, if it conflicts with any of the above
+No generes el APK por una modificación exclusivamente documental.
 
-## Critical thinking and musical validation
+Para una publicación versionada con cambios en la aplicación:
 
-Every change to this project must make musical sense, be functionally coherent within the app, and be consistent with the existing style — not just technically work.
+```bash
+npm run build:android
+npm run cap:sync
+```
 
-Before implementing any change related to chords, scales, intervals, harmonization, fingerings, inversions, voicings, quartal structures, guide tones, tensions, or nomenclature:
+Ejecuta después la construcción Gradle con JDK 21 y Android SDK configurados. La ruta de Java depende de la máquina; no presupongas una ruta de Windows fija sin comprobarla.
 
-- Verify the proposal is musically correct.
-- Verify the nomenclature is consistent with the theory used elsewhere in the app.
-- Verify the result will be understandable to a guitarist, not just technically possible.
-- Verify the logic fits how other concepts are already displayed in the app.
-- If there are several valid musical interpretations, state which one you'll use and why.
-- If the user's proposal is theoretically dubious or incorrect, stop and warn before touching code.
+Verifica la existencia y fecha del APK resultante antes de declararlo generado. Si el proyecto todavía no ofrece un script reproducible para el paso Gradle, indícalo en vez de inventar una validación.
 
-**Do not implement directly** if any of these apply:
-- The request contradicts basic music theory or the internal logic already used in the app.
-- The requested name for an option could cause musical confusion.
-- The solution fixes one case but breaks others.
-- There is real ambiguity about the expected behavior.
-- The implementation is technically possible but musically, pedagogically, or UX-wise wrong.
-- The user is asking for something theoretically incorrect or confusing.
+## 12. Servidores de preview
 
-In those cases, explain the problem first, then propose 1 or 2 reasonable alternatives.
+- No inicies build y preview automáticamente al comienzo de cada sesión.
+- Inicia el preview cuando exista una versión revisable o cuando el usuario lo solicite.
+- Utiliza el mecanismo de proceso en segundo plano disponible; no uses construcciones incompatibles con el entorno.
+- Reutiliza el servidor si sirve exactamente la compilación actual; de lo contrario, reinícialo.
+- Informa de la URL y de los procesos que queden activos al finalizar.
 
-### Response format for changes affecting musical or functional logic
+## 13. Comandos del proyecto
 
-When a request affects music theory, nomenclature, visualization, UX, or core behavior, respond in this order:
+```bash
+npm run dev
+npm run build
+npm run preview
+npm run lint
+npm test
+npm run test:e2e
+npm run test:e2e:chord-matrix
+npm run audit:chords
+npm run audit:copy-readings
+npm run audit:chord-ui-matrix
+npm run audit:study
+npm run build:android
+npm run cap:sync
+```
 
-1. What you understand is being asked.
-2. What musical, conceptual, or consistency problem you detect, if any.
-3. What option you recommend and why.
-4. Only then, the concrete code changes.
+Para pruebas concretas:
 
-### Consistency with the existing app
+```bash
+npx vitest run <fichero.test.js>
+npx playwright test <fichero.spec.js>
+```
 
-Before implementing any change:
-- Check how the concept is already handled in the app.
-- Keep consistency with nomenclature, visual structure, states, help texts, combos, and user flow.
-- Avoid introducing a local solution that contradicts other areas of the page.
-- Prioritize global consistency over solving only the specific case.
-- If the requested change breaks existing patterns, say so and propose a more coherent alternative.
+## 14. Arquitectura
 
-### Prohibitions
+Consulta `docs/DTS.md` para la arquitectura, los módulos, los flujos, la persistencia, la estrategia de pruebas, la construcción, el despliegue, las limitaciones y las líneas de evolución vigentes.
 
-- Do not be compliant.
-- Do not hide real doubts.
-- Do not say something is correct if it isn't.
-- Do not implement something musically incorrect without warning first.
-- Do not force a technical solution that leaves an inconsistent UX.
-- Do not present a convention as correct when it is really just an approximation.
-- Do not change the global logic of the app to resolve an isolated case without explaining it.
-- Do not close an important discussion with an overly confident answer if there are reasonable doubts.
+Como orientación estable, Mástil Escalas es una SPA React/Vite en español, sin backend propio, con lógica musical en `src/music/`, lógica de dominio en `src/features/`, presentación en `src/components/` y orquestación principal en `src/App.jsx`.
+
+Si el código contradice al DTS, toma el código y las pruebas como realidad, informa de la discrepancia y actualiza la documentación si el cambio es material.
+
+## 15. Prioridades de decisión
+
+1. Corrección musical y ausencia de regresiones.
+2. Comportamiento confirmado por el usuario.
+3. Coherencia con el modelo interno de la aplicación.
+4. Claridad pedagógica para guitarristas.
+5. Consistencia funcional y visual.
+6. Simplicidad técnica y mantenibilidad.
+
+Si una preferencia concreta entra en conflicto con la corrección musical o puede producir una regresión, no la ignores ni la implementes silenciosamente: explica el conflicto y pide una decisión informada.
+
+## 16. Informe final obligatorio
+
+Al cerrar una tarea, informa de:
+
+- rama utilizada;
+- commits y commit de merge;
+- archivos modificados;
+- pruebas añadidas o actualizadas;
+- pruebas dirigidas realizadas durante el desarrollo;
+- resultados de `lint`, unitarios, build, E2E y auditorías aplicables;
+- estado del DTS: actualizado o no requerido, con motivo;
+- versión anterior y nueva, si aplica;
+- tag creado, si aplica;
+- resultado del push y del workflow de despliegue;
+- APK generado o motivo por el que no aplicaba;
+- URL del preview y procesos que continúen activos;
+- residuos o cambios ajenos que hayan quedado fuera.
+
+No declares «completado», «publicado» o «desplegado» si falta alguna comprobación obligatoria o no se ha confirmado el resultado real.
