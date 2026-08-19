@@ -62,9 +62,6 @@ export default function AppHeader({
           <ToggleButton active={effectiveBoards.scale} onClick={() => selectBoardView("scale")} title="Muestra el mástil de la escala" testId="nav-scale">
             <NavIconLabel icon={Music} label="Escala" />
           </ToggleButton>
-          <ToggleButton active={effectiveBoards.scaleCompare} onClick={() => selectBoardView("scaleCompare")} title="Comparador de escalas" testId="nav-scale-compare">
-            <NavIconLabel icon={Layers2} label="Comparar" />
-          </ToggleButton>
           <ToggleButton active={effectiveBoards.route} onClick={() => selectBoardView("route")} title="Muestra el mástil de ruta" testId="nav-route">
             <NavIconLabel icon={Route} label="Ruta" />
           </ToggleButton>
@@ -74,17 +71,19 @@ export default function AppHeader({
           <ToggleButton active={effectiveBoards.nearChords} onClick={() => selectBoardView("nearChords")} title="Muestra el panel de acordes cercanos" testId="nav-near-chords">
             <NavIconLabel icon={Waypoints} label="Acordes cercanos" />
           </ToggleButton>
+          <ToggleButton active={effectiveBoards.scaleCompare} onClick={() => selectBoardView("scaleCompare")} title="Comparador de escalas" testId="nav-scale-compare">
+            <NavIconLabel icon={Layers2} label="Comparar" />
+          </ToggleButton>
           <ToggleButton active={effectiveBoards.standards} onClick={() => selectBoardView("standards")} title="Muestra la sección de standards de jazz" testId="nav-standards">
             <NavIconLabel icon={BookOpen} label="Standards" />
           </ToggleButton>
           <ToggleButton active={effectiveBoards.configuration} onClick={() => selectBoardView("configuration")} title="Muestra u oculta la configuración general" testId="nav-configuration">
             <NavIconLabel icon={Settings} label="Configuración" />
           </ToggleButton>
-          <button type="button" className={UI_BTN_SM + " inline-flex w-auto items-center gap-1.5 px-3"} onClick={() => setManualOpen(true)}>
-            <HelpCircle className="h-4 w-4 shrink-0" aria-hidden="true" />
-            <span>Ayuda</span>
-          </button>
         </div>
+        <button type="button" className={UI_BTN_SM + " ml-auto inline-flex h-8 w-8 shrink-0 items-center justify-center"} onClick={() => setManualOpen(true)} title="Ayuda">
+          <HelpCircle className="h-4 w-4 shrink-0" aria-hidden="true" />
+        </button>
       </div>
       <input
         ref={importConfigInputRef}

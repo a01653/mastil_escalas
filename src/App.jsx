@@ -284,10 +284,10 @@ const {
 
 const MOBILE_BOTTOM_NAV_OPTIONS = [
   { value: "scale", label: "Escala", icon: Music },
-  { value: "scaleCompare", label: "Comparar", icon: Layers2 },
   { value: "route", label: "Ruta", icon: Route },
   { value: "chords", label: "Acordes", icon: ChordDiagramIcon },
   { value: "nearChords", label: "Cercanos", icon: Waypoints },
+  { value: "scaleCompare", label: "Comparar", icon: Layers2 },
   { value: "standards", label: "Standards", icon: BookOpen },
 ];
 

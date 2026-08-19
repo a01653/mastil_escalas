@@ -10,10 +10,10 @@ export const COMPACT_LAYOUT_WIDTH_MEDIA_QUERY = "(max-width: 1279px)";
 export const NARROW_BOARD_LAYOUT_WIDTH_MEDIA_QUERY = "(max-width: 1151px)";
 export const MOBILE_SECTION_OPTIONS = [
   { value: "scale", label: "Escala" },
-  { value: "scaleCompare", label: "Comparar" },
   { value: "route", label: "Ruta" },
   { value: "chords", label: "Acordes" },
   { value: "nearChords", label: "Acordes cercanos" },
+  { value: "scaleCompare", label: "Comparar" },
   { value: "standards", label: "Standards" },
 ];
 export const MOBILE_SECTION_SWIPE_COMMIT_RATIO = 0.5;
