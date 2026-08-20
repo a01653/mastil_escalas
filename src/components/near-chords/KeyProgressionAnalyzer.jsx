@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef } from "react";
+import React, { useState, useCallback } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { analyzeProgression } from "../../music/keyAnalysisEngine.js";
 
@@ -19,14 +19,12 @@ export default function KeyProgressionAnalyzer({
   setModalSectionOpen,
 }) {
   const [result, setResult] = useState(null);
-  const autoAnalyzedRef = useRef(false);
+  const [autoAnalyzed, setAutoAnalyzed] = useState(false);
 
-  useEffect(() => {
-    if (!autoAnalyzedRef.current && input.trim()) {
-      autoAnalyzedRef.current = true;
-      setResult(analyzeProgression(input));
-    }
-  }, [input]); // eslint-disable-line react-hooks/exhaustive-deps
+  if (!autoAnalyzed && input.trim()) {
+    setAutoAnalyzed(true);
+    setResult(analyzeProgression(input));
+  }
 
   const handleToggle = useCallback(() => setOpen((p) => !p), [setOpen]);
 
