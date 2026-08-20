@@ -67,7 +67,6 @@ import {
   findNearProgression,
   getProgressionsForStyle,
   getProgressionParallelLabel,
-  getStyleById,
   resolveProgressionDegrees,
 } from "./music/nearChordsProgressions.js";
 import { compareAppVersions } from "./features/config/configVersionUtils.js";
