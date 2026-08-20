@@ -39,3 +39,9 @@ reports/frets-oracle*.md
 # Informe generado de mayInclude (derivado del oraculo; no versionar)
 reports/frets-mayinclude-report.json
 reports/frets-mayinclude-report.md
+
+# Resultados de ejecución de Playwright (cache local, se regenera en cada run)
+/test-results/
+
+# Capturas de revisiones visuales manuales (generadas ad hoc, no versionar)
+/reports/*.png
