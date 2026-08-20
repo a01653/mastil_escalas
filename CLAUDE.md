@@ -23,10 +23,12 @@ Este fichero define la forma de trabajo permanente para este repositorio.
 
 ## 3. Inicio obligatorio de cada trabajo
 
+Está prohibido modificar cualquier archivo directamente sobre `main`, incluidos documentación, configuración y cambios pequeños. En `main` solo se permiten operaciones de lectura, comprobación y actualización (`status`, `diff`, `log`, `fetch`, `pull --ff-only`). Esta regla no tiene excepciones por tratarse de documentación, cambios mínimos o correcciones urgentes.
+
 Antes de editar:
 
 1. Ejecuta `git status --short` y comprueba la rama actual.
-2. Si existen cambios ajenos o sin identificar, no los borres, no uses `git reset --hard`, `git checkout --` ni un `stash` automático. Informa al usuario y separa el trabajo de forma segura.
+2. Si existen cambios ajenos o sin identificar, detente: muéstralos y determina con el usuario cómo tratarlos antes de seguir. No los descartes, no los muevas, no los incluyas en la tarea, no uses `stash` ni los comitees por iniciativa propia.
 3. Si el árbol está limpio, parte de `main` actualizado mediante una actualización *fast-forward*:
 
 ```bash
@@ -40,6 +42,8 @@ git pull --ff-only origin main
 git switch -c <tipo>/<descripcion-breve>
 ```
 
+5. Confirma que la rama activa no es `main`. Solo entonces empieza a modificar archivos.
+
 Prefijos recomendados:
 
 - `feat/` — funcionalidad nueva.
@@ -52,6 +56,8 @@ Prefijos recomendados:
 Los nombres deben estar en minúsculas, usar guiones y describir una sola tarea. Ejemplos: `feat/filtro-voicings`, `fix/navegacion-movil`, `docs/dts-latex`.
 
 Si ya estás en una rama creada para la misma tarea, continúa en ella. Una petición distinta requiere otra rama.
+
+Crear la rama después de haber empezado a modificar archivos no cumple este flujo, aunque el resultado se fusione correctamente después: la rama debe existir *antes* del primer cambio. Si se descubre que se ha modificado algo directamente sobre `main`, detén el trabajo de inmediato, informa del error y corrige la situación (crea la rama y traslada los cambios) antes de continuar.
 
 ## 4. Análisis antes de implementar
 
