@@ -393,7 +393,7 @@ Empaquetado móvil & Capacitor (\lstinline!@capacitor/core!, \lstinline!/android
 Testing unitario & Vitest + jsdom & \lstinline!^4.1.5! / \lstinline!^29.1.1!\\
 Testing E2E & Playwright & \lstinline!^1.60.0!\\
 Linter & ESLint 9 (flat config) + \lstinline!eslint-plugin-react-hooks! + \lstinline!eslint-plugin-react-refresh! & \lstinline!^9.39.1!\\
-Otras devDependencies & \lstinline!postcss!, \lstinline!autoprefixer!, \lstinline!puppeteer-core! (usado en \lstinline!scripts/visualReview*.mjs!) & ---\\
+Otras devDependencies & \lstinline!postcss!, \lstinline!autoprefixer!, \lstinline!puppeteer-core! (usado en \lstinline!scripts/generateManual.mjs!) & ---\\
 \end{longtable}
 \end{center}
 
@@ -1011,12 +1011,12 @@ npm run generate:frets-oracle / compare:frets-oracle[:golden]
 \label{sec:15.2}
 
 \begin{lstlisting}
-npm test    -> Test Files  60 passed (60) | Tests  1488 passed (1488) | Duration 13.76s
+npm test    -> Test Files  44 passed (44) | Tests  1370 passed (1370) | Duration ~13s
 npm run build -> 3274 modulos transformados, built in 49.88s, exit 0
 \end{lstlisting}
 
-\begin{hallazgobox}{Recuento de tests}
-El repositorio contiene \textbf{44} ficheros \lstinline!*.test.*! reales bajo \lstinline!src/! / \lstinline!scripts/! (confirmado por \lstinline!find!), pero \lstinline!vitest run! reporta \textbf{60} ficheros ejecutados. La diferencia (16 ficheros) proviene de copias de tests alojadas en directorios auxiliares de trabajo ajenos al árbol fuente de la aplicación (dos directorios, cada uno con una copia parcial de 8 ficheros de test de \lstinline!src/!), que \textbf{no están excluidos} por \lstinline!vite.config.js:6-8! (\lstinline!test.exclude! solo cubre \lstinline!e2e/**! y \lstinline!node_modules/**!). No afecta a la corrección del resultado (son copias idénticas que también pasan), pero infla el recuento reportado y ejecuta trabajo redundante. Ver recomendación en \Sref{sec:18}.
+\begin{hallazgobox}{Recuento de tests (RESUELTO)}
+La auditoría original de este documento ejecutó \lstinline!vitest run! y obtuvo \textbf{60} ficheros / \textbf{1488} tests, frente a los \textbf{44} ficheros \lstinline!*.test.*! reales del proyecto (confirmado por \lstinline!find! bajo \lstinline!src/! / \lstinline!scripts/!). La diferencia (16 ficheros, 8 por directorio) provenía de dos \textit{worktrees} auxiliares de Claude Code alojados en \lstinline!.claude/worktrees/!, cada uno con una copia parcial de tests de \lstinline!src/!. La causa técnica era doble: Vitest no respeta \lstinline!.gitignore! para descubrir tests (aunque \lstinline!.claude/! ya estaba ignorado por git), y \lstinline!vite.config.js! definía \lstinline!test.exclude! de forma explícita (\lstinline!["e2e/**", "node_modules/**"]!), lo que \textbf{reemplazaba} --- en vez de ampliar --- las exclusiones predeterminadas de Vitest (\lstinline!configDefaults.exclude!: \lstinline!**/node_modules/**!, \lstinline!**/.git/**!). Se corrigió construyendo \lstinline!exclude! a partir de \lstinline![...configDefaults.exclude, "e2e/**", ".claude/worktrees/**"]! (importado de \lstinline!vitest/config!), sin sustituir manualmente ninguna exclusión predeterminada. Resultado verificado tras la corrección: \textbf{44} ficheros / \textbf{1370} tests, y se comprobó que un worktree auxiliar simulado en \lstinline!.claude/worktrees/! sigue ignorado. Recomendación 1 de \Sref{sec:18} resuelta.
 \end{hallazgobox}
 
 \section{Organización de la suite}
@@ -1108,8 +1108,8 @@ La proximidad entre los 4 slots se logra restringiendo a todos a la misma ventan
 \lstinline!deploy-pages.yml! solo corre \lstinline!npm run build!; una regresión que pase el build pero rompa \lstinline!npm test! / \lstinline!npm run test:e2e! se desplegaría igualmente a producción sin bloqueo automático.
 \end{hallazgobox}
 
-\begin{hallazgobox}{8 --- Recuento de tests inflado por directorios auxiliares de trabajo no excluidos}
-\lstinline!vitest run! ejecuta 60 ficheros en vez de los 44 reales del proyecto porque copias de test alojadas en directorios auxiliares ajenos al árbol fuente de la aplicación (con 8 tests cada uno) no están excluidas en \lstinline!vite.config.js! (\lstinline!test.exclude! solo cubre \lstinline!e2e/**! / \lstinline!node_modules/**!). No afecta a la corrección, pero es ruido operativo y trabajo redundante en cada \lstinline!npm test!.
+\begin{hallazgobox}{8 --- (RESUELTO) Recuento de tests inflado por directorios auxiliares de trabajo no excluidos}
+Ver detalle técnico y resolución en \Sref{sec:15.2}. Corregido excluyendo \lstinline!.claude/worktrees/**! y construyendo \lstinline!test.exclude! a partir de \lstinline!configDefaults.exclude! de \lstinline!vitest/config! en vez de sustituir las exclusiones predeterminadas de Vitest. Recomendación 1 de \Sref{sec:18} resuelta.
 \end{hallazgobox}
 
 \begin{hallazgobox}{9 --- \texttt{App.jsx} como «God component»}
@@ -1126,8 +1126,8 @@ La proximidad entre los 4 slots se logra restringiendo a todos a la misma ventan
 
 Recomendaciones derivadas directamente de los hallazgos de \Sref{sec:17}, priorizadas de mayor a menor relación impacto/esfuerzo. Son propuestas, no cambios ya decididos ni implementados.
 
-\begin{recobox}{1 --- Excluir los directorios auxiliares de trabajo ajenos al árbol fuente}
-De \lstinline!vite.config.js: test.exclude! (junto a \lstinline!e2e/**! / \lstinline!node_modules/**!). Corrige de inmediato el recuento inflado de tests (\Sref{sec:15.2}) y evita ejecutar trabajo redundante en cada \lstinline!npm test!; es un cambio de una línea sin riesgo, siempre que se identifiquen dichos directorios en cada entorno de trabajo.
+\begin{recobox}{1 --- (RESUELTA) Excluir los directorios auxiliares de trabajo ajenos al árbol fuente}
+Implementado construyendo \lstinline!exclude! a partir de \lstinline!configDefaults.exclude! (\lstinline!vitest/config!) más \lstinline!e2e/**! y \lstinline!.claude/worktrees/**!, sin sustituir las exclusiones predeterminadas de Vitest. Corrige el recuento inflado de tests (\Sref{sec:15.2}): de 60 ficheros/1488 tests a los 44/1370 reales. Ver también \Sref{sec:17}.
 \end{recobox}
 
 \begin{recobox}{2 --- Conectar \texttt{routeLabCurrentTuning} a \texttt{computeRouteLab}}
@@ -1182,7 +1182,7 @@ Si se desea ir más allá de la ventana de trastes compartida, sería un desarro
 
 \begin{itemize}[itemsep=0.5pt,topsep=2pt,parsep=0pt]
 \item El contenido íntegro de los 32 ficheros E2E restantes (\lstinline!e2e/*.spec.js! distintos de \lstinline!smoke.spec.js!) --- se infirió su propósito por el nombre de fichero, no por lectura completa de cada uno.
-\item \texttt{\seqsplit{scripts/generate-jjazzlab-standards.mjs}}, \texttt{\seqsplit{scripts/sync-musicxml-standards.mjs}}, \texttt{\seqsplit{scripts/enrich-jjazzlab-standard-years.mjs}}, \texttt{\seqsplit{scripts/generateManual.mjs}}, \texttt{\seqsplit{scripts/visualReview.mjs}} / \texttt{\seqsplit{visualReview2.mjs}}, \texttt{\seqsplit{scripts/generateFretsOracle.mjs}}, \texttt{\seqsplit{scripts/compareFretsOracle.mjs}}, \texttt{\seqsplit{scripts/summarizeFretsOracleDiscrepancies.mjs}}, \texttt{\seqsplit{scripts/reportFretsMayInclude.mjs}}, \texttt{\seqsplit{scripts/validateResolution.mjs}}, \texttt{\seqsplit{scripts/debugResolution.mjs}} --- no se leyeron; se citan solo por su nombre en \lstinline!package.json! / \texttt{\seqsplit{docs/frets-oracle.md}}.
+\item \texttt{\seqsplit{scripts/generate-jjazzlab-standards.mjs}}, \texttt{\seqsplit{scripts/sync-musicxml-standards.mjs}}, \texttt{\seqsplit{scripts/enrich-jjazzlab-standard-years.mjs}}, \texttt{\seqsplit{scripts/generateManual.mjs}}, \texttt{\seqsplit{scripts/generateFretsOracle.mjs}}, \texttt{\seqsplit{scripts/compareFretsOracle.mjs}}, \texttt{\seqsplit{scripts/summarizeFretsOracleDiscrepancies.mjs}}, \texttt{\seqsplit{scripts/reportFretsMayInclude.mjs}}, \texttt{\seqsplit{scripts/validateResolution.mjs}}, \texttt{\seqsplit{scripts/debugResolution.mjs}} --- no se leyeron; se citan solo por su nombre en \lstinline!package.json! / \texttt{\seqsplit{docs/frets-oracle.md}}.
 \item El contenido del APK (\lstinline!releases/mastil-escalas-v6.0.94.apk!) y del proyecto Gradle bajo \lstinline!android/! no se auditaron (fuera del alcance de «código de la app»); solo se confirmó su existencia y la configuración de Capacitor que los genera.
 \item \lstinline!src/music/mastilDebug.js! (API de depuración \lstinline!window.mastilDebug!) se confirmó su existencia y punto de carga condicional en \lstinline!main.jsx:6-8!, pero no se leyó su implementación completa.
 \item No se ejecutó \lstinline!npm run lint!, \lstinline!npm run test:e2e!, \lstinline!npm run test:e2e:chord-matrix! ni ninguno de los scripts de auditoría (\lstinline!audit:chords!, \lstinline!audit:copy-readings!, \lstinline!audit:chord-ui-matrix!, \lstinline!audit:study!) durante esta auditoría --- el encargo pedía analizar el repositorio y validar con tests/build, no producir una entrega de código sujeta al flujo de validación completo que aplica a cambios de código del repositorio (no a la creación de este documento).

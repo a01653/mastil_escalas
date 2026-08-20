@@ -83,7 +83,7 @@ Extraído de `package.json` (verificado, no inferido):
 | Testing unitario | Vitest + jsdom | `^4.1.5` / `^29.1.1` |
 | Testing E2E | Playwright | `^1.60.0` |
 | Linter | ESLint 9 (flat config) + `eslint-plugin-react-hooks` + `eslint-plugin-react-refresh` | `^9.39.1` |
-| Otras devDependencies | `postcss`, `autoprefixer`, `puppeteer-core` (usado en `scripts/visualReview*.mjs`) | — |
+| Otras devDependencies | `postcss`, `autoprefixer`, `puppeteer-core` (usado en `scripts/generateManual.mjs`) | — |
 
 No hay gestor de estado global externo (Redux, Zustand, Context API de React tampoco se usa para estado compartido — todo el estado cruza por props desde `App.jsx`), ni router (aplicación de una sola vista con navegación por pestañas controlada por estado local), ni ORM/backend.
 
@@ -485,11 +485,11 @@ npm run generate:frets-oracle / compare:frets-oracle[:golden]   # batería de va
 ### 15.2 Ejecución real realizada para este DTS
 
 ```
-npm test    → Test Files  60 passed (60) | Tests  1488 passed (1488) | Duration 13.76s
+npm test    → Test Files  44 passed (44) | Tests  1370 passed (1370) | Duration ~13s
 npm run build → 3274 módulos transformados, built in 49.88s, exit 0
 ```
 
-**Hallazgo verificado sobre el recuento de tests**: el repositorio contiene **44** ficheros `*.test.*` reales bajo `src/`/`scripts/` (confirmado por `find`), pero `vitest run` reporta **60** ficheros ejecutados. La diferencia (16 ficheros) proviene de copias de tests alojadas en directorios auxiliares de trabajo ajenos al árbol fuente de la aplicación (dos directorios, cada uno con una copia parcial de 8 ficheros de test de `src/`), que **no están excluidos** por `vite.config.js:6-8` (`test.exclude` solo cubre `e2e/**` y `node_modules/**`). No afecta a la corrección del resultado (son copias idénticas que también pasan), pero infla el recuento reportado y ejecuta trabajo redundante. Ver recomendación en §18.
+**Historial del hallazgo sobre el recuento de tests (RESUELTO)**: la auditoría original de este documento ejecutó `vitest run` y obtuvo **60** ficheros / **1488** tests, frente a los **44** ficheros `*.test.*` reales del proyecto (confirmado por `find` bajo `src/`/`scripts/`). La diferencia (16 ficheros, 8 por directorio) provenía de dos *worktrees* auxiliares de Claude Code alojados en `.claude/worktrees/`, cada uno con una copia parcial de tests de `src/`. La causa técnica era doble: Vitest no respeta `.gitignore` para descubrir tests (aunque `.claude/` ya estaba ignorado por git), y `vite.config.js` definía `test.exclude` de forma explícita (`["e2e/**", "node_modules/**"]`), lo que **reemplazaba** —en vez de ampliar— las exclusiones predeterminadas de Vitest (`configDefaults.exclude`: `**/node_modules/**`, `**/.git/**`). Se corrigió construyendo `exclude` a partir de `[...configDefaults.exclude, "e2e/**", ".claude/worktrees/**"]` (importado de `vitest/config`), sin sustituir manualmente ninguna exclusión predeterminada. Resultado verificado tras la corrección: **44** ficheros / **1370** tests, y se comprobó que un worktree auxiliar simulado en `.claude/worktrees/` sigue ignorado. Recomendación 1 de §18 resuelta.
 
 ### 15.3 Organización de la suite
 
@@ -548,7 +548,7 @@ Todo lo listado aquí está **verificado directamente en el código o en la ejec
 
 7. **CI no ejecuta pruebas antes de desplegar.** `deploy-pages.yml` solo corre `npm run build`; una regresión que pase el build pero rompa `npm test`/`npm run test:e2e` se desplegaría igualmente a producción sin bloqueo automático.
 
-8. **Recuento de tests inflado por directorios auxiliares de trabajo no excluidos.** `vitest run` ejecuta 60 ficheros en vez de los 44 reales del proyecto porque copias de test alojadas en directorios auxiliares ajenos al árbol fuente de la aplicación (con 8 tests cada uno) no están excluidas en `vite.config.js` (`test.exclude` solo cubre `e2e/**`/`node_modules/**`). No afecta a la corrección, pero es ruido operativo y trabajo redundante en cada `npm test`.
+8. **(RESUELTO) Recuento de tests inflado por directorios auxiliares de trabajo no excluidos.** Ver detalle técnico y resolución en §15.2. Corregido excluyendo `.claude/worktrees/**` y construyendo `test.exclude` a partir de `configDefaults.exclude` de `vitest/config` en vez de sustituir las exclusiones predeterminadas de Vitest. Recomendación 1 de §18 resuelta.
 
 9. **`App.jsx` como "God component".** 5534 líneas, 52 `useState` + 26 `useEffect` + 44 `useMemo` propios más el estado desestructurado de 7 hooks de dominio; funciones de render pasadas como props a componentes hijos (`renderFns`, `App.jsx:5193-5206`), acoplando fuertemente `ChordsPanel` a closures del padre en vez de ser autocontenido. Dificulta el testeo aislado de la UI raíz (de ahí que solo exista un test de humo, `App.smoke.test.jsx`) y el *code splitting* fino del propio chunk `App` (388 kB / 104 kB gzip, el segundo más pesado tras `music-core`).
 
@@ -560,7 +560,7 @@ Todo lo listado aquí está **verificado directamente en el código o en la ejec
 
 Recomendaciones derivadas directamente de los hallazgos de §17, priorizadas de mayor a menor relación impacto/esfuerzo. Son propuestas, no cambios ya decididos ni implementados:
 
-1. **Excluir los directorios auxiliares de trabajo ajenos al árbol fuente** de `vite.config.js: test.exclude` (junto a `e2e/**`/`node_modules/**`). Corrige de inmediato el recuento inflado de tests (§15.2) y evita ejecutar trabajo redundante en cada `npm test`; es un cambio de una línea sin riesgo, siempre que se identifiquen dichos directorios en cada entorno de trabajo.
+1. **(RESUELTA) Excluir los directorios auxiliares de trabajo ajenos al árbol fuente de `vite.config.js: test.exclude`.** Implementado construyendo `exclude` a partir de `configDefaults.exclude` (`vitest/config`) más `e2e/**` y `.claude/worktrees/**`, sin sustituir las exclusiones predeterminadas de Vitest. Corrige el recuento inflado de tests (§15.2): de 60 ficheros/1488 tests a los 44/1370 reales. Ver también §17.8.
 2. **Conectar `routeLabCurrentTuning` a `computeRouteLab`** o, si se decide que los 5 sliders ya no son necesarios, retirarlos de la UI y de la persistencia. Tal como está hoy, el usuario puede mover controles que no producen ningún cambio observable, lo cual es confuso y contradice la filosofía de "todo cambio debe hacer sentido musical/funcional" del propio proyecto.
 3. **Persistir `chordDetectClickAudio`** añadiéndolo a `persistedUiConfig` (`App.jsx:850-953`), igual que el resto de toggles de UI — es un cambio pequeño y acotado, con test E2E ya existente como referencia (`config-version-invalidation.spec.js`) para verificar que no rompe el saneado de config.
 4. **Actualizar el índice de 8 secciones de `App.jsx`** (`App.jsx:264-282`) para reflejar que las secciones 1-7 fueron extraídas a `src/music/`/`src/features/`, o sustituirlo por un mapa de imports/hooks. Reduce el riesgo de que futuras sesiones (humanas o de IA) busquen lógica musical en `App.jsx` donde ya no vive.
@@ -578,7 +578,7 @@ Recomendaciones derivadas directamente de los hallazgos de §17, priorizadas de 
 **No verificado / fuera del alcance efectivo de este análisis** (mencionado por referencia cruzada desde otros módulos, pero sin lectura completa línea a línea):
 
 - El contenido íntegro de los 32 ficheros E2E restantes (`e2e/*.spec.js` distintos de `smoke.spec.js`) — se infirió su propósito por el nombre de fichero, no por lectura completa de cada uno.
-- `scripts/generate-jjazzlab-standards.mjs`, `scripts/sync-musicxml-standards.mjs`, `scripts/enrich-jjazzlab-standard-years.mjs`, `scripts/generateManual.mjs`, `scripts/visualReview.mjs`/`visualReview2.mjs`, `scripts/generateFretsOracle.mjs`, `scripts/compareFretsOracle.mjs`, `scripts/summarizeFretsOracleDiscrepancies.mjs`, `scripts/reportFretsMayInclude.mjs`, `scripts/validateResolution.mjs`, `scripts/debugResolution.mjs` — no se leyeron; se citan solo por su nombre en `package.json`/`docs/frets-oracle.md`.
+- `scripts/generate-jjazzlab-standards.mjs`, `scripts/sync-musicxml-standards.mjs`, `scripts/enrich-jjazzlab-standard-years.mjs`, `scripts/generateManual.mjs`, `scripts/generateFretsOracle.mjs`, `scripts/compareFretsOracle.mjs`, `scripts/summarizeFretsOracleDiscrepancies.mjs`, `scripts/reportFretsMayInclude.mjs`, `scripts/validateResolution.mjs`, `scripts/debugResolution.mjs` — no se leyeron; se citan solo por su nombre en `package.json`/`docs/frets-oracle.md`.
 - El contenido del APK (`releases/mastil-escalas-v6.0.94.apk`) y del proyecto Gradle bajo `android/` no se auditaron (fuera del alcance de "código de la app"); solo se confirmó su existencia y la configuración de Capacitor que los genera.
 - `src/music/mastilDebug.js` (API de depuración `window.mastilDebug`) se confirmó su existencia y punto de carga condicional en `main.jsx:6-8`, pero no se leyó su implementación completa.
 - No se ejecutó `npm run lint`, `npm run test:e2e`, `npm run test:e2e:chord-matrix` ni ninguno de los scripts de auditoría (`audit:chords`, `audit:copy-readings`, `audit:chord-ui-matrix`, `audit:study`) durante esta auditoría — el encargo pedía analizar el repositorio y validar con tests/build, no producir una entrega de código sujeta al flujo de validación completo que aplica a cambios de código del repositorio (no a la creación de este documento).
