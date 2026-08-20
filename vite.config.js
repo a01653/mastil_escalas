@@ -1,10 +1,13 @@
 import { defineConfig } from "vite";
+import { configDefaults } from "vitest/config";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
   test: {
-    exclude: ["e2e/**", "node_modules/**"],
+    // .claude/worktrees/** excluye las copias de trabajo que crean los worktrees de
+    // Claude Code dentro del repo (contienen duplicados de src/**/*.test.js).
+    exclude: [...configDefaults.exclude, "e2e/**", ".claude/worktrees/**"],
   },
   base: "/mastil_escalas/",
   preview: { port: 4185, strictPort: true },
