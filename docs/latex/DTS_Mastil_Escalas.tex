@@ -206,24 +206,49 @@
   % --- Mástil de guitarra estilizado (banda inferior) -----------------------
   \begin{scope}
     \clip (current page.south west) rectangle ([yshift=10cm]current page.south east);
-    \begin{scope}[shift={($(current page.south west)+(-1.5,4.3)$)},rotate=-5]
-      % cuerpo del mástil
-      \draw[lightblue,opacity=0.35,line width=1pt] (0,0) rectangle (25,4.2);
-      % trastes
-      \foreach \x in {0,1.9,3.8,5.9,8.1,10.5,13.1,15.9,18.9,22.1,25}{
+    \begin{scope}[shift={($(current page.south west)+(-0.4,4.3)$)},rotate=-5,scale=0.75]
+      % cuerpo del mástil: arranca en x=0 (cejuela) y llega hasta x=30.
+      % Con este desplazamiento, x=0 cae fuera del borde izquierdo del folio
+      % para cualquier y del mástil, así que la cejuela y el hueco anterior
+      % al traste 1 quedan completamente fuera de la página: no se dibuja
+      % ninguna línea de cejuela. El borde derecho (30) cae, comprobado con
+      % la misma transformación, fuera del borde derecho del folio para
+      % cualquier y (más allá incluso del traste 19).
+      \draw[lightblue,opacity=0.35,line width=1pt] (0,0) rectangle (30,4.2);
+      % trastes 1-19: separación real de temperamento igual (d(n)=L(1-2^{-n/12}),
+      % L=43.14 constante), espaciado que se estrecha progresivamente hacia la
+      % derecha sin excepción (el hueco del traste 12 es claramente más
+      % estrecho que el del traste 1). Se dibujan hasta el 19 para que los
+      % trastes 16, 17 y 18 queden completos dentro del folio y el corte del
+      % mástil por el borde derecho ocurra de forma natural, sin trastes sin
+      % dibujar antes del borde.
+      \foreach \x in {2.4215,4.7057,6.8637,8.9008,10.822,12.633,14.347,15.965,17.489,18.928,20.287,21.570,22.771,23.908,25.000,26.024,26.984,27.885,28.746}{
         \draw[white,opacity=0.22,line width=0.5pt] (\x,0) -- (\x,4.2);
       }
-      % cuerdas
+      % cuerdas (numeradas 6=grave/abajo ... 1=aguda/arriba), a lo largo de
+      % todo el mástil, recortadas de forma natural por los bordes del folio
       \foreach \y in {0.35,1.05,1.75,2.45,3.15,3.85}{
-        \draw[white,opacity=0.30,line width=0.35pt] (0,\y) -- (25,\y);
+        \draw[white,opacity=0.30,line width=0.35pt] (0,\y) -- (30,\y);
       }
-      % marcadores de nota
-      \filldraw[lightblue] (4.8,2.1) circle (0.16);
-      \filldraw[amber]     (9.3,1.05) circle (0.16);
-      \filldraw[white]     (14.5,3.15) circle (0.16);
-      \filldraw[amber]     (17.4,2.45) circle (0.16);
-      \filldraw[lightblue] (21.5,0.7) circle (0.16);
-      \filldraw[white]     (23.8,2.8) circle (0.13);
+      % incrustaciones reales (puntos, no números), centradas entre los dos
+      % trastes metálicos correspondientes, nunca sobre la línea de un
+      % traste: sencillas en 3, 5, 7, 9, 15 y 17; doble en 12. Más pequeñas
+      % que las notas del acorde para no confundirse con ellas.
+      \filldraw[lightblue,opacity=0.85] (5.785,2.1)  circle (0.13); % traste 3
+      \filldraw[lightblue,opacity=0.85] (9.861,2.1)  circle (0.13); % traste 5
+      \filldraw[lightblue,opacity=0.85] (13.490,2.1) circle (0.13); % traste 7
+      \filldraw[lightblue,opacity=0.85] (16.727,2.1) circle (0.13); % traste 9
+      \filldraw[lightblue,opacity=0.85] (20.929,1.4) circle (0.12); % traste 12 (doble)
+      \filldraw[lightblue,opacity=0.85] (20.929,2.8) circle (0.12); % traste 12 (doble)
+      \filldraw[lightblue,opacity=0.85] (24.454,2.1) circle (0.13); % traste 15
+      \filldraw[lightblue,opacity=0.85] (26.504,2.1) circle (0.13); % traste 17
+      % La m real, digitación x-x-7-x-5-8: 6ª y 5ª cuerda silenciadas/no se
+      % tocan, 3ª cuerda también silenciada. 4ª cuerda (D) traste 7 =
+      % fundamental (La); 2ª cuerda (B) traste 5 = 5ª (Mi); 1ª cuerda (e)
+      % traste 8 = 3ª menor (Do)
+      \filldraw[amber] (13.490,1.75) circle (0.18); % 4ª cuerda, traste 7: fundamental (La)
+      \filldraw[white] (9.861,3.15)  circle (0.18); % 2ª cuerda, traste 5: 5ª (Mi)
+      \filldraw[white] (15.156,3.85) circle (0.18); % 1ª cuerda, traste 8: 3ª menor (Do)
     \end{scope}
   \end{scope}
 
