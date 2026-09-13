@@ -61,6 +61,18 @@ const UI_LABEL_SM = "block text-[11px] font-semibold text-slate-700";
 const UI_SELECT_SM_TONE = "h-7 w-[60px] rounded-xl border border-slate-200 bg-white px-1 text-xs shadow-sm hover:bg-sky-50 disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed";
 const UI_EXT_GRID = "mt-1 grid grid-cols-3 gap-x-3 gap-y-1 text-xs";
 
+// ── Texto de ayuda del selector "Forma" (Drop 2 / Drop 3 / Drop 2+4 / Set) ──────
+const CHORD_FORM_INFO_CONTENT = (
+  <div className="space-y-1.5">
+    <p><strong>Cerrado:</strong> apila las 4 notas de la cuatriada en el orden más compacto.</p>
+    <p><strong>Abierto:</strong> reparte una voz para dar más amplitud.</p>
+    <p><strong>Drop 2:</strong> baja una octava la 2ª voz desde arriba del acorde cerrado; es la forma drop más habitual, con las 4 notas en 4 cuerdas consecutivas.</p>
+    <p><strong>Drop 3:</strong> baja la 3ª voz desde arriba; deja una cuerda muda justo después del bajo, antes de las otras 3 notas.</p>
+    <p><strong>Drop 2+4:</strong> baja a la vez la 2ª voz y la 4ª (el bajo); la cuerda muda queda en medio del voicing, no junto al bajo como en Drop 3.</p>
+    <p><strong>Set:</strong> numera los grupos de cuerdas donde cabe cada forma drop, de más agudo (Set 1) a más grave. Drop 2 cabe en 3 sets; Drop 3 y Drop 2+4, limitados por su cuerda muda, caben en 2.</p>
+  </div>
+);
+
 export default function ChordsPanel({
   layout,
   chordCtrl,
@@ -596,7 +608,9 @@ const modeToggle = (
           </div>
 
           <div className={isMobileLayout ? "min-w-0 order-4" : "min-w-0"}>
-            <label className={UI_LABEL_SM}>Forma</label>
+            <label className={UI_LABEL_SM}>
+              <InfoTitle label="Forma" info={CHORD_FORM_INFO_CONTENT} alwaysShow />
+            </label>
             {chordEnginePlan.ui.usesManualForm ? (
               <select
                 className={chordAutoSelectClass + " mt-1"}
