@@ -38,6 +38,13 @@ export const CHORD_EDITOR_INFO_TEXT = [
   "Estructura, Forma e Inversión ajustan cuántas voces usas y cómo se reparten en el voicing.",
   "Las casillas 6, 7, 9, 11 y 13 añaden o quitan extensiones según la estructura activa.",
 ].join("\n");
+export const CHORD_FORM_INFO_TEXT = [
+  "Cerrado apila las 4 notas de la cuatriada en el orden más compacto; Abierto reparte una voz para dar más amplitud.",
+  "Drop 2 baja una octava la 2ª voz desde arriba del acorde cerrado: es la forma drop más habitual, con las 4 notas en 4 cuerdas consecutivas.",
+  "Drop 3 baja la 3ª voz desde arriba: deja una cuerda muda justo después del bajo, antes de las otras 3 notas.",
+  "Drop 2+4 baja a la vez la 2ª voz y la 4ª (el bajo): la cuerda muda queda en medio del voicing, no junto al bajo como en Drop 3.",
+  "Set numera los grupos de cuerdas donde cabe cada forma drop, de más agudo (Set 1) a más grave. Drop 2 cabe en 3 sets; Drop 3 y Drop 2+4, limitados por su cuerda muda, caben en 2.",
+].join("\n");
 export const CHORD_STUDY_INFO_TEXT = [
   "Modo estudio analiza el acorde activo, el voicing actual y sus tensiones.",
   "Ver análisis abre o cierra el detalle del estudio.",

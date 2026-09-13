@@ -10,6 +10,7 @@ import { useChordPanelModel } from "./useChordPanelModel.js";
 const {
   CHORDS_SECTION_INFO_TEXT,
   CHORD_EDITOR_INFO_TEXT,
+  CHORD_FORM_INFO_TEXT,
   LETTERS,
 } = AppStaticData;
 const {
@@ -596,7 +597,9 @@ const modeToggle = (
           </div>
 
           <div className={isMobileLayout ? "min-w-0 order-4" : "min-w-0"}>
-            <label className={UI_LABEL_SM}>Forma</label>
+            <label className={UI_LABEL_SM}>
+              <InfoTitle label="Forma" info={CHORD_FORM_INFO_TEXT} alwaysShow />
+            </label>
             {chordEnginePlan.ui.usesManualForm ? (
               <select
                 className={chordAutoSelectClass + " mt-1"}
