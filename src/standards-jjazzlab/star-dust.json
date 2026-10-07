@@ -39,7 +39,7 @@
             "chordEvents": [
               {
                 "display": "Gb7#11",
-                "load": "Gb7"
+                "load": "Gb7#11"
               }
             ],
             "repeat": false
@@ -52,7 +52,7 @@
             "chordEvents": [
               {
                 "display": "F7b9",
-                "load": "F7"
+                "load": "F7b9"
               }
             ],
             "repeat": false
@@ -163,7 +163,7 @@
             "chordEvents": [
               {
                 "display": "Gb7#11",
-                "load": "Gb7"
+                "load": "Gb7#11"
               }
             ],
             "repeat": false
@@ -176,7 +176,7 @@
             "chordEvents": [
               {
                 "display": "F7b9",
-                "load": "F7"
+                "load": "F7b9"
               }
             ],
             "repeat": false
@@ -261,7 +261,7 @@
               },
               {
                 "display": "Db7+",
-                "load": "Db7"
+                "load": "Db7+"
               }
             ],
             "repeat": false
@@ -308,7 +308,7 @@
             "chordEvents": [
               {
                 "display": "Gb-M7",
-                "load": "Gbm"
+                "load": "GbmM7"
               }
             ],
             "repeat": false
@@ -442,7 +442,7 @@
               },
               {
                 "display": "Eo",
-                "load": "Edim7"
+                "load": "Edim"
               }
             ],
             "repeat": false
@@ -574,7 +574,7 @@
             "chordEvents": [
               {
                 "display": "Gb-M7",
-                "load": "Gbm"
+                "load": "GbmM7"
               }
             ],
             "repeat": false
@@ -823,7 +823,7 @@
           "chordEvents": [
             {
               "display": "Gb7#11",
-              "load": "Gb7"
+              "load": "Gb7#11"
             }
           ],
           "chords": [
@@ -836,7 +836,7 @@
           "chordEvents": [
             {
               "display": "F7b9",
-              "load": "F7"
+              "load": "F7b9"
             }
           ],
           "chords": [
@@ -961,7 +961,7 @@
           "chordEvents": [
             {
               "display": "Gb7#11",
-              "load": "Gb7"
+              "load": "Gb7#11"
             }
           ],
           "chords": [
@@ -974,7 +974,7 @@
           "chordEvents": [
             {
               "display": "F7b9",
-              "load": "F7"
+              "load": "F7b9"
             }
           ],
           "chords": [
@@ -1065,7 +1065,7 @@
             },
             {
               "display": "Db7+",
-              "load": "Db7"
+              "load": "Db7+"
             }
           ],
           "chords": [
@@ -1112,7 +1112,7 @@
           "chordEvents": [
             {
               "display": "Gb-M7",
-              "load": "Gbm"
+              "load": "GbmM7"
             }
           ],
           "chords": [
@@ -1258,7 +1258,7 @@
             },
             {
               "display": "Eo",
-              "load": "Edim7"
+              "load": "Edim"
             }
           ],
           "chords": [
@@ -1398,7 +1398,7 @@
           "chordEvents": [
             {
               "display": "Gb-M7",
-              "load": "Gbm"
+              "load": "GbmM7"
             }
           ],
           "chords": [

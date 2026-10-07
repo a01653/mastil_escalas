@@ -9,50 +9,49 @@ Cada cambio debe mantener sentido musical, coherencia funcional dentro de la app
 
 ## Flujo Normal
 
-- Primero se hacen los cambios en local.
-- Antes de dar una entrega por buena, hay que validar el resultado en local.
-- La validación local debe incluir `npm run build`.
-- Antes de levantar `npm run preview`, hay que incrementar `APP_VERSION` en `src/App.jsx` para que la versión visible en local ya refleje el cambio.
-- En la primera intervención de cada sesión, si todavía no se ha levantado un `preview` local en este workspace, debe ejecutarse ese flujo automáticamente una vez aunque el usuario no lo pida de forma explícita.
-- Si hace falta revisar la interfaz o el resultado final, se puede levantar `npm run preview` y mostrar la URL local.
-- Entre el `preview` local y la publicación no se debe cambiar ese `APP_VERSION`: si luego el usuario pide publicar, se usa exactamente el mismo número.
+- Primero se hacen los cambios en local, en una rama propia de la tarea.
+- Durante las iteraciones se aplican pruebas dirigidas (ver «Estrategia de validación»); la batería completa queda para el cierre acordado.
+- Antes de probar la interfaz o de revisar el preview hay que ejecutar `npm run build`: el preview sirve `dist/`.
+- El preview se levanta cuando hay una versión revisable o cuando el usuario lo pide; no se inicia automáticamente al comienzo de cada sesión.
+- Levantar o reutilizar un preview no incrementa la versión: la versión se fija una vez por entrega y se conserva durante los ajustes y la validación.
+- Si luego el usuario pide publicar, se usa exactamente la versión fijada para la entrega.
 
 ---
 
 ## Publicación
 
-- No se debe hacer commit, tag ni push automáticamente al terminar un cambio.
-- Solo se publica cuando el usuario lo pida explícitamente con una orden tipo "súbelo".
-- Cuando el usuario dé una orden explícita de publicación como `súbelo`, `publícalo`, `haz el push` o equivalente, esa orden debe interpretarse como autorización completa para ejecutar sin confirmaciones intermedias todo el flujo de publicación necesario en el repo.
-- Esa autorización incluye, si aplica, actualizar versiones según estas reglas, hacer `git add`, crear el `commit`, crear el `tag` anotado y hacer `push` de `main` y del tag correspondiente.
+- No se hace commit, fusión, tag, push ni publicación sin una orden expresa del usuario.
+- La aprobación funcional («está correcto», «queda bien» o equivalentes) permite preparar el cierre técnico (congelar el alcance, decidir si se actualiza el DTS y ejecutar la batería final), pero no autoriza commit, fusión, tag, push ni publicación.
+- Una orden expresa que nombre esas acciones («haz el commit», «fusiona con main», «haz el push») autoriza solo lo que nombra.
+- Una orden explícita de publicación como `súbelo` o `publícalo` autoriza a ejecutar sin confirmaciones intermedias todo el flujo de publicación: commits finales en la rama, fusión con `main`, tag anotado y push de `main` y del tag. Nunca con alguna validación obligatoria fallida ni sobre un alcance distinto del validado.
 
 ---
 
-## Versionado al Publicar
+## Versionado
 
-- La versión visible en `preview` debe seguir la secuencia `2.93`, `2.94`, `2.95`, etc.
-- Cuando el usuario pida publicar, hay que reutilizar esa misma versión ya mostrada en local; no se incrementa otra vez.
-- La versión debe actualizarse en:
+- La versión se fija una sola vez por entrega y se conserva durante los ajustes, el preview y la validación. Levantar o reutilizar un preview no la incrementa.
+- En una entrega funcional de la aplicación se incrementa el último componente siguiendo el esquema del proyecto (por ejemplo, `6.0.95` → `6.0.96`). No se incrementa por documentación, limpieza o pruebas.
+- Al publicar se reutiliza la versión fijada para la entrega; no se incrementa otra vez.
+- La versión debe actualizarse de forma coherente en:
   - `src/App.jsx` en `APP_VERSION`
   - `package.json` en `version`
   - `package-lock.json` en `version`
 
 ---
 
-## Commit y Tag al Publicar
+## Commit, Fusión y Tag al Publicar
 
-- Cuando el usuario pida publicar, el commit debe usar este formato:
-  - `vX.XX - <resumen corto>`
-- También hay que crear un tag anotado con este formato:
-  - `vX.XX`
-- Después hay que hacer push de `main` y del tag.
+- Con orden expresa, los commits se hacen en la rama de la tarea, con mensajes claros y sin mezclar asuntos.
+- La fusión con `main` conserva el límite de la tarea: `git merge --no-ff <rama> -m "merge: <resumen de la tarea>"`.
+- En una publicación versionada se crea un tag anotado `vX.Y.Z` sobre el commit de merge.
+- Después se hace push de `main` y del tag.
 
 ---
 
 ## Nota Importante
 
-- El número de versión y el resumen corto no son fijos.
-- Se generan en cada publicación según el cambio real que se haya hecho.
+- El resumen del merge no es fijo: se redacta según el cambio real.
+- El número de versión es el fijado para la entrega.
 
 ---
 
@@ -160,102 +159,63 @@ En este proyecto, el orden de prioridad es:
 6. Preferencia literal del usuario, si entra en conflicto con lo anterior
 
 
-## Validación obligatoria tras cualquier cambio
+## Estrategia de validación
 
-Después de cualquier modificación de código hay que ejecutar obligatoriamente:
+### Durante los ajustes
 
-npm test
-npm run build
+- Ejecuta las pruebas del comportamiento modificado y de sus consumidores afectados. No ejecutes automáticamente todas las pruebas unitarias, los E2E ni las auditorías en cada iteración.
+- Incluye siempre una prueba de regresión que reproduzca el fallo: unitaria para lógica musical; E2E para interfaz o estado cuando sea razonable.
+- Selecciona por comportamiento, no solo por los archivos de tests modificados: busca los consumidores de las funciones, componentes o datos cambiados y las pruebas que los cubren. Amplía a nombres, voicings, copia o persistencia solo cuando el cambio alcance esas funciones.
+- Usa archivos concretos y filtros:
 
-No se puede dar el trabajo por terminado si alguno de estos comandos falla.
+npx vitest run <fichero.test.js> -t "<patrón>"
+npx playwright test <fichero.spec.js> -g "<patrón>"
 
-Si el cambio afecta a formato, imports, estructura general o puede provocar warnings de calidad, ejecutar también:
+- Verifica que cada filtro selecciona los casos esperados antes de dar el resultado por bueno:
+
+npx vitest list <fichero.test.js> -t "<patrón>"
+npx playwright test <fichero.spec.js> -g "<patrón>" --list
+
+  Un filtro que no selecciona ningún caso, o que selecciona otros, no valida nada.
+- Mientras la rama no tenga commits, `git diff HEAD` mezcla todas las iteraciones. Al empezar cada iteración guarda fuera del repositorio una instantánea de los archivos modificados con su hash (`git status --porcelain` y `git hash-object`) y compárala al terminar para distinguir los archivos de la iteración del diff acumulado.
+- Ejecuta `npm run build` antes de probar la interfaz (E2E o revisión manual): el preview sirve `dist/` y podría mostrar una compilación anterior.
+- Pasa ESLint sobre los archivos tocados (`npx eslint <ficheros>`), o `npm run lint` si no se puede acotar con seguridad.
+
+### Auditorías
+
+Ejecútalas solo cuando el cambio afecte a sus invariantes y en el cierre:
+
+- `npm run audit:chords` y `npm run audit:copy-readings`: detección de acordes, nomenclatura/canonicalName, ranking de candidatos, omisiones no3/no5/no1, extensiones (6, 9, 11, 13, b2, b9…), copia desde Investigar en mástil, generación de voicings o análisis de patrones de trastes.
+- `npm run audit:chord-ui-matrix`: constructor de Acordes, generación de voicings, select de inversión, forma, estructura, distancia o filtros de voicing, checkboxes de extensiones u omisiones, chips, notas, bajo, título o nombres, coherencia entre fórmula solicitada y voicing real, mensajes de ausencia de voicings o notas insuficientes.
+- `npm run audit:study`: Modo estudio.
+
+Reglas:
+
+- Si hace falta acotar una auditoría durante una iteración, añade filtros manteniendo la ejecución completa como comportamiento por defecto y sin sobrescribir los informes completos de `reports/` con resultados parciales.
+- `npm run audit:chords -- --no-cache` queda reservado para cambios que lo justifiquen (motor de detección o análisis físico de voicings), porque es más lento.
+- La auditoría de copy-readings debe validar patrones físicos reales cuando el caso indique un patrón de trastes. No debe sustituir un patrón por una lista de notas hardcodeada salvo que el caso esté marcado explícitamente como noteSet.
+- Resultado mínimo de `audit:chord-ui-matrix`: 0 FAIL y 0 WARN, salvo que el usuario acepte expresamente una limitación documentada. Debe detectar, como mínimo: FORMULA_VOICING_MISMATCH, OMIT_NOT_PRESERVED, TITLE_STATE_MISMATCH, INSUFFICIENT_NOTES_MESSAGE_MISMATCH, INVERSION_LABEL_MISMATCH, BASS_REAL_MISMATCH, FUNCTIONAL_LABEL_MISMATCH y CHECKBOX_CHIP_MISMATCH.
+- No se debe ocultar un fallo con un fallback silencioso ni cambiar etiquetas solo para que pase un caso aislado.
+
+### E2E
+
+- `npm run test:e2e` ya incluye `e2e/chord-matrix.slow.spec.js`. No ejecutes además `npm run test:e2e:chord-matrix` en la misma validación; úsalo solo como prueba dirigida cuando no se ejecute la batería E2E completa.
+- La revisión manual en preview no sustituye a los E2E.
+
+### Batería final
+
+Cuando el usuario confirme que han terminado los ajustes, ejecuta una sola vez la batería final aplicable sobre el estado exacto que se va a fusionar:
 
 npm run lint
-
-## Validación E2E obligatoria
-
-Si el cambio afecta a cualquiera de estos puntos:
-
-- src/App.jsx
-- UI de Acordes
-- Investigar en mástil
-- Copiar en Acorde
-- Modo estudio
-- checkboxes de extensiones u omisiones
-- selects de tono, calidad, estructura, forma o inversión
-- visualización de chips, notas, nombres o voicings
-
-hay que ejecutar obligatoriamente:
-
+npm test
+npm run build
 npm run test:e2e
 
-No basta con revisar manualmente en preview.
+más las auditorías cuyos invariantes haya afectado la rama.
 
-## Auditorías musicales obligatorias
+Si aparecen fallos, corrige y valida lo necesario: la prueba afectada y las partes de la batería que la corrección puede alcanzar (toda la batería si toca lógica compartida). No declares pruebas completas sobre un estado distinto del comprobado: indica qué validaciones cubren el estado final exacto.
 
-Si el cambio afecta a:
-
-- detección de acordes
-- nomenclatura/canonicalName
-- ranking de candidatos
-- omisiones no3/no5/no1
-- extensiones 6, 9, 11, 13, b2, b9, etc.
-- copia desde Investigar en mástil
-- generación de voicings
-- análisis de patrones de trastes
-
-hay que ejecutar además:
-
-npm run audit:chords
-npm run audit:copy-readings
-
-La auditoría de copy-readings debe validar patrones físicos reales cuando el caso indique un patrón de trastes. No debe sustituir un patrón por una lista de notas hardcodeada salvo que el caso esté marcado explícitamente como noteSet.
-
-## Auditoría masiva de UI de Acordes
-
-Si el cambio afecta a cualquiera de estos puntos:
-
-- constructor de Acordes
-- generación de voicings
-- select de inversión
-- forma, estructura, distancia o filtros de voicing
-- checkboxes de extensiones u omisiones
-- chips, notas, bajo, título o nombres de acordes
-- coherencia entre fórmula solicitada y voicing real
-- mensajes de ausencia de voicings o notas insuficientes
-
-hay que ejecutar obligatoriamente:
-
-npm run audit:chord-ui-matrix
-
-Resultado mínimo aceptable:
-
-- 0 FAIL
-- 0 WARN, salvo que el usuario acepte expresamente una limitación documentada
-
-Esta auditoría debe detectar, como mínimo:
-
-- FORMULA_VOICING_MISMATCH
-- OMIT_NOT_PRESERVED
-- TITLE_STATE_MISMATCH
-- INSUFFICIENT_NOTES_MESSAGE_MISMATCH
-- INVERSION_LABEL_MISMATCH
-- BASS_REAL_MISMATCH
-- FUNCTIONAL_LABEL_MISMATCH
-- CHECKBOX_CHIP_MISMATCH
-
-No se debe ocultar un fallo con un fallback silencioso ni cambiar etiquetas solo para que pase un caso aislado.
-
-## E2E lento de matriz de acordes
-
-Si el cambio afecta de forma profunda a Acordes, inversiones, omit, extensiones, chips, títulos, bajo real o copia de lecturas, hay que ejecutar también:
-
-npm run test:e2e:chord-matrix
-
-Este test no sustituye a `npm run test:e2e`; lo complementa.
-
-## Tests nuevos o modificados
+### Tests nuevos o modificados
 
 Si se corrige un bug, antes de darlo por cerrado hay que añadir o actualizar al menos un test que falle antes del cambio y pase después.
 
@@ -263,69 +223,32 @@ Para bugs de UI, añadir o actualizar test E2E.
 
 Para bugs de lógica musical, añadir o actualizar test unitario y, si aplica, auditoría.
 
-## Flujo recomendado de validación
+### Preview
 
-Cambios generales:
+- Inicia el preview cuando haya una versión revisable, después de `npm run build`, y comprueba que sirve la compilación actual.
+- El preview no sustituye a `npm run test:e2e`.
 
-1. npm test
-2. npm run build
+### Informe de cada entrega
 
-Cambios en música, acordes, detección, naming o voicings:
-
-1. npm run audit:chord-ui-matrix
-2. npm run audit:copy-readings
-3. npm run audit:chords
-4. npm test
-5. npm run build
-6. npm run test:e2e
-
-Cambios fuertes en Acordes, inversiones, omit, extensiones, chips, título, bajo real o copiar lecturas:
-
-1. npm run audit:chord-ui-matrix
-2. npm run audit:copy-readings
-3. npm run audit:chords
-4. npm run audit:study
-5. npm test
-6. npm run build
-7. npm run test:e2e
-8. npm run test:e2e:chord-matrix
-
-`npm run audit:chords -- --no-cache` queda reservado para cambios profundos en el motor de detección o análisis físico de voicings, porque puede ser más lento.
-
-## Preview
-
-Si el cambio afecta visualmente a la interfaz, ejecutar:
-
-npm run preview
-
-y revisar manualmente el caso cambiado.
-
-El preview no sustituye a:
-
-npm run test:e2e
+Indica qué pruebas seleccionaste, por qué y sus resultados (archivo, filtro y número de casos seleccionados), y separa los archivos cambiados en la iteración del diff acumulado contra HEAD.
 
 ## Versión
 
-Después de cualquier cambio funcional hay que incrementar APP_VERSION en src/App.jsx y la versión en package.json si aplica.
+La versión se fija una vez por entrega (ver «Versionado») y no se incrementa por cada cambio funcional, por cada preview ni durante los ajustes o la validación.
 
-No incrementar versión dos veces para el mismo cambio.
+No incrementar versión dos veces para la misma entrega.
 
 ## Entrega final obligatoria
 
 Codex debe indicar al final de cada entrega:
 
-- Versión entregada.
-- Ficheros modificados.
+- Versión de la entrega (la fijada; no cambia durante los ajustes).
+- Ficheros modificados: los de la iteración y, por separado, el diff acumulado si la rama no tiene commits.
 - Qué tests añadió o cambió.
-- Resultado de npm test.
-- Resultado de npm run build.
-- Resultado de npm run test:e2e, si aplica.
-- Resultado de npm run test:e2e:chord-matrix, si aplica.
-- Resultado de npm run audit:chords, si aplica.
-- Resultado de npm run audit:copy-readings, si aplica.
-- Resultado de npm run audit:chord-ui-matrix, si aplica.
-- Resultado de npm run audit:study, si aplica.
-- Si ejecutó npm run lint o no.
+- Pruebas seleccionadas en cada iteración, por qué y su resultado (`npm run test:e2e` ya incluye la matriz lenta de acordes).
+- En el cierre acordado, resultado de la batería final: npm run lint, npm test, npm run build y npm run test:e2e.
+- En el cierre, resultado de las auditorías aplicables: npm run audit:chords, npm run audit:copy-readings, npm run audit:chord-ui-matrix y npm run audit:study.
+- Si ejecutó npm run lint o ESLint dirigido.
 - Si ejecutó npm run preview o no.
 - URL del preview si está activo.
 - Si quedan shells/previews abiertos.

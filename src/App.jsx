@@ -12,6 +12,8 @@ import {
   ChordFretboard as ChordFretboardImpl,
   GuideToneFretboard as GuideToneFretboardImpl,
 } from "./components/fretboard/ChordVoicingFretboards.jsx";
+import ChordFretboardHeader from "./components/chords/ChordFretboardHeader.jsx";
+import { computeFretWindow, voicingFitsFretWindow, FRET_WINDOW_MAX_SIZE, FULL_NECK_WINDOW } from "./features/fret-window/fretWindowCore.js";
 import {
   HoverCellNote as HoverCellNoteImpl,
   FretInlayRow as FretInlayRowImpl,
@@ -35,7 +37,7 @@ import {
   lookupChordCatalogVoicings,
 } from "./features/chord-catalog/chordCatalogCore.js";
 
-import { buildNearSlotsFromChordSymbols } from "./music/standardsCatalog.js";
+import { resolveNearSlotsFromChordSymbols } from "./music/standardsCatalog.js";
 import { useStandardsFeature } from "./features/standards/useStandardsFeature.js";
 import { buildStudyData } from "./features/study/buildStudyData.js";
 import { useRouteFeature } from "./features/route/useRouteFeature.js";
@@ -168,6 +170,7 @@ const {
   clampChordMaxDistForReach,
   generateDropTetradVoicings,
   CHORD_QUALITIES,
+  CHORD_STORED_QUALITY_VALUES,
   CHORD_STRUCTURES,
   CHORD_FAMILIES,
   CHORD_QUARTAL_TYPES,
@@ -186,9 +189,8 @@ const {
   fnGenerateQuartalVoicings,
   CHORD_INVERSIONS,
   CHORD_FORMS,
-  buildChordIntervals,
+  buildChordToneDefinition,
   chordCanUseJsonCatalog,
-  seventhOffsetForQuality,
   intervalToChordToken,
   spellChordNotes,
   normalizeScaleName,
@@ -222,14 +224,18 @@ const {
   symmetricRootCandidatesForPlan,
   normalizeGeneratedVoicingForDisplay,
   isStrictFourNoteDropEligible,
-  hasEffectiveSeventh,
   buildChordEnginePlan,
   actualInversionLabelFromVoicing,
   selectClosestPhysicalVoicingIndex,
   deriveDetectedCandidateCopyInversion,
   guitaristicBreakdown,
+  buildChordStateNormalizationPatch,
+  spellPlanInterval,
+  chordTooManyNotesMessage,
   MAX_VOICING_OPTIONS,
 } = AppVoicingStudyCore;
+
+import { CHORD_FIFTH_VALUES, CHORD_NINTH_VALUES, defaultChordFifth } from "./music/chordAlterations.js";
 
 import * as AppPatternRouteStaffCore from "./music/appPatternRouteStaffCore.jsx";
 const {
@@ -299,7 +305,7 @@ const UI_PRESETS_STORAGE_KEY = "mastil_interactivo_guitarra_presets_v1";
 const UI_STATUS_SESSION_KEY = "mastil_interactivo_guitarra_status_v1";
 const QUICK_PRESET_COUNT = 3;
 const UI_CONFIG_VERSION = 1;
-const APP_VERSION = "6.0.95";
+const APP_VERSION = "6.0.96";
 
 
 // ─── Acorde de referencia (bloque "Investigar en mástil") ────────────────────
@@ -398,7 +404,7 @@ export default function FretboardScalesPage() {
   // ------------------------
   // Acordes (panel opcional) — estado en useChordBuilderState
   // ------------------------
-  const { state: chordBuilderState, refs: chordBuilderRefs } = useChordBuilderState({ maxFret });
+  const { state: chordBuilderState, refs: chordBuilderRefs } = useChordBuilderState({ maxFret, applyFretWindow: !isMobileLayout });
   const {
     chordRootPc, setChordRootPc,
     chordSpellPreferSharps, setChordSpellPreferSharps,
@@ -415,6 +421,8 @@ export default function FretboardScalesPage() {
     chordExt11, setChordExt11,
     chordExt13, setChordExt13,
     chordOmit, setChordOmit,
+    chordFifth, setChordFifth,
+    chordNinth, setChordNinth,
     chordCopyNotice, setChordCopyNotice,
     chordCopiedEntry, setChordCopiedEntry,
     chordQuartalType, setChordQuartalType,
@@ -434,6 +442,14 @@ export default function FretboardScalesPage() {
     chordMaxDist, setChordMaxDist,
     chordAllowOpenStrings, setChordAllowOpenStrings,
     chordKeepZone, setChordKeepZone,
+    chordWindowStart, setChordWindowStart,
+    chordWindowSize, setChordWindowSize,
+    chordWindowSizeRaw, setChordWindowSizeRaw,
+    resetChordWindowToFullNeck,
+    chordFretWindow,
+    chordFretWindowFilter,
+    chordQuartalVoicingsOutOfRange,
+    guideToneVoicingsOutOfRange,
     // Derivados Ola 1
     chordPreferSharps,
     chordQuartalPitchSets,
@@ -702,7 +718,7 @@ export default function FretboardScalesPage() {
     [nearSlots]
   );
   const nearSlotsQualitySignature = useMemo(
-    () => nearSlots.map((s) => `${s?.family || "tertian"}|${s?.quality}|${s?.structure}|${s?.ext7 ? 1 : 0}`).join(";"),
+    () => nearSlots.map((s) => `${s?.family || "tertian"}|${s?.quality}|${s?.suspension}|${s?.structure}|${s?.ext7 ? 1 : 0}|${s?.ext6 ? 1 : 0}|${s?.ext9 ? 1 : 0}|${s?.ext11 ? 1 : 0}|${s?.ext13 ? 1 : 0}|${s?.omit}|${s?.fifth}|${s?.ninth}`).join(";"),
     [nearSlots]
   );
 
@@ -734,12 +750,14 @@ export default function FretboardScalesPage() {
       const next = prev.map((slot) => {
         if (!slot) return slot;
         if (String(slot.family || "tertian") !== "tertian") return slot;
-        let quality = slot.quality;
-        if (quality === "hdim" && slot.structure === "triad" && !slot.ext7) quality = "dim";
-        if (quality === "dom" && slot.structure === "triad" && !slot.ext7) quality = "maj";
-        if (quality !== slot.quality) {
+        // Misma regla que Acordes: alteraciones y 6/13 de dim7 coherentes con lo visible.
+        // Solo hace explícito lo que ya suena, así que conserva la digitación elegida.
+        // La calidad base no se degrada (Semidisminuido/Dominante sin 7ª): el combo
+        // muestra la tríada y la base conserva el tipo de 7ª para cuando vuelva.
+        const normalization = buildChordStateNormalizationPatch(slot);
+        if (Object.keys(normalization).length) {
           changed = true;
-          return { ...slot, quality, selFrets: null };
+          return { ...slot, ...normalization };
         }
         return slot;
       });
@@ -894,11 +912,15 @@ export default function FretboardScalesPage() {
     chordExt11,
     chordExt13,
     chordOmit,
+    chordFifth,
+    chordNinth,
     chordVoicingIdx,
     chordSelectedFrets,
     chordMaxDist,
     chordAllowOpenStrings,
     chordKeepZone,
+    chordWindowStart,
+    chordWindowSize,
     chordVoicingFilterLevel,
     chordDetectMode,
     chordDetectSelectedKeys,
@@ -997,11 +1019,15 @@ export default function FretboardScalesPage() {
     chordExt11,
     chordExt13,
     chordOmit,
+    chordFifth,
+    chordNinth,
     chordVoicingIdx,
     chordSelectedFrets,
     chordMaxDist,
     chordAllowOpenStrings,
     chordKeepZone,
+    chordWindowStart,
+    chordWindowSize,
     chordVoicingFilterLevel,
     chordDetectMode,
     chordDetectSelectedKeys,
@@ -1158,7 +1184,7 @@ export default function FretboardScalesPage() {
       if ("guideToneInversion" in saved) setGuideToneInversion(sanitizeOneOf(saved.guideToneInversion, CHORD_GUIDE_TONE_INVERSIONS.map((x) => x.value), "all"));
       if ("guideToneVoicingIdx" in saved) setGuideToneVoicingIdx(sanitizeNumberValue(saved.guideToneVoicingIdx, 0, 0, 999));
       if ("guideToneSelectedFrets" in saved) setGuideToneSelectedFrets(typeof saved.guideToneSelectedFrets === "string" ? saved.guideToneSelectedFrets : null);
-      if ("chordQuality" in saved) setChordQuality(sanitizeOneOf(saved.chordQuality, CHORD_QUALITIES.map((q) => q.value), "maj"));
+      if ("chordQuality" in saved) setChordQuality(sanitizeOneOf(saved.chordQuality, CHORD_STORED_QUALITY_VALUES, "maj"));
       if ("chordSuspension" in saved) setChordSuspension(sanitizeOneOf(saved.chordSuspension, ["none", "sus2", "sus4"], "none"));
       if ("chordStructure" in saved) setChordStructure(sanitizeOneOf(saved.chordStructure, CHORD_STRUCTURES.map((s) => s.value), "triad"));
       if ("chordInversion" in saved) setChordInversion(sanitizeOneOf(saved.chordInversion, CHORD_INVERSIONS.map((x) => x.value), "root"));
@@ -1178,6 +1204,17 @@ export default function FretboardScalesPage() {
       if ("chordExt11" in saved) setChordExt11(sanitizeBoolValue(saved.chordExt11, false));
       if ("chordExt13" in saved) setChordExt13(sanitizeBoolValue(saved.chordExt13, false));
       if ("chordOmit" in saved) setChordOmit(sanitizeOneOf(saved.chordOmit, ["none", "1", "3", "5"], "none"));
+      // Alteraciones: ausentes en configuraciones antiguas → valores por defecto de la calidad
+      // (E6 las normaliza contra calidad, estructura y omisión ya restauradas).
+      {
+        // Sin el campo (formato anterior) la quinta es la propia de la calidad
+        // guardada: un Semidisminuido antiguo sigue siendo m7(b5), no m7.
+        const savedQuality = sanitizeOneOf(saved.chordQuality, CHORD_STORED_QUALITY_VALUES, "maj");
+        const savedSuspension = sanitizeOneOf(saved.chordSuspension, ["none", "sus2", "sus4"], "none");
+        const qualityFifth = defaultChordFifth(savedQuality, savedSuspension);
+        setChordFifth("chordFifth" in saved ? sanitizeOneOf(saved.chordFifth, CHORD_FIFTH_VALUES, qualityFifth) : qualityFifth);
+      }
+      if ("chordNinth" in saved) setChordNinth(sanitizeOneOf(saved.chordNinth, CHORD_NINTH_VALUES, "9"));
       if ("chordVoicingIdx" in saved) setChordVoicingIdx(sanitizeNumberValue(saved.chordVoicingIdx, 0, 0, 999));
       if ("chordSelectedFrets" in saved) {
         const restored = typeof saved.chordSelectedFrets === "string" || saved.chordSelectedFrets == null ? saved.chordSelectedFrets : null;
@@ -1187,6 +1224,10 @@ export default function FretboardScalesPage() {
       if ("chordMaxDist" in saved) setChordMaxDist(sanitizeOneOf(Number(saved.chordMaxDist), [4, 5, 6], 4));
       if ("chordAllowOpenStrings" in saved) setChordAllowOpenStrings(sanitizeBoolValue(saved.chordAllowOpenStrings, false));
       if ("chordKeepZone" in saved) setChordKeepZone(sanitizeBoolValue(saved.chordKeepZone, true));
+      // Rango de trastes de Acordes. Sin estos campos (configuraciones antiguas) se
+      // conserva el valor inicial: todo el mástil visible, como antes.
+      if ("chordWindowStart" in saved) setChordWindowStart(sanitizeNumberValue(saved.chordWindowStart, FULL_NECK_WINDOW.start, 0, 24));
+      if ("chordWindowSize" in saved) setChordWindowSize(sanitizeNumberValue(saved.chordWindowSize, FULL_NECK_WINDOW.size, 1, FRET_WINDOW_MAX_SIZE));
       if ("chordVoicingFilterLevel" in saved) setChordVoicingFilterLevel(sanitizeOneOf(saved.chordVoicingFilterLevel, ["all", "habitual", "essential"], "all"));
       if ("chordDetectMode" in saved) setChordDetectMode(sanitizeBoolValue(saved.chordDetectMode, false));
       if ("chordDetectSelectedKeys" in saved && Array.isArray(saved.chordDetectSelectedKeys)) {
@@ -1550,12 +1591,16 @@ export default function FretboardScalesPage() {
 
     if (!chordCanUseJsonCatalog({
       quality: chordQuality,
+      suspension: chordSuspension,
       structure: chordStructure,
       ext7: chordExt7,
       ext6: chordExt6,
       ext9: chordExt9,
       ext11: chordExt11,
       ext13: chordExt13,
+      omit: chordOmit,
+      fifth: chordFifth,
+      ninth: chordNinth,
     })) {
       setChordDb(null);
       setChordDbKey(null);
@@ -1601,7 +1646,7 @@ export default function FretboardScalesPage() {
     return () => {
       alive = false;
     };
-  }, [showBoards.chords, chordRootPc, chordQuality, chordSuffix, chordStructure, chordExt7, chordExt6, chordExt9, chordExt11, chordExt13, chordDbExpectedKey]);
+  }, [showBoards.chords, chordRootPc, chordQuality, chordSuspension, chordSuffix, chordStructure, chordExt7, chordExt6, chordExt9, chordExt11, chordExt13, chordOmit, chordFifth, chordNinth, chordDbExpectedKey]);
 
   // "skipped" ocurre cuando el acorde anterior no usaba catálogo JSON (ej. m(maj7) -> menor/dim).
   // En ese render chordDb=null pero el nuevo plan ya exige json, por lo que hay que inhibir el
@@ -1632,12 +1677,16 @@ export default function FretboardScalesPage() {
       if (s.structure !== "chord") continue;
       if (!chordCanUseJsonCatalog({
         quality: s.quality,
+        suspension: s.suspension || "none",
         structure: s.structure,
         ext7: !!s.ext7,
         ext6: !!s.ext6,
         ext9: !!s.ext9,
         ext11: !!s.ext11,
         ext13: !!s.ext13,
+        omit: s.omit || "none",
+        fifth: s.fifth,
+        ninth: s.ninth,
       })) continue;
 
       const suffix = chordSuffixFromUI({
@@ -1912,6 +1961,7 @@ export default function FretboardScalesPage() {
   const {
     chordVoicingsDisplay,
     chordVoicingsFiltered,
+    chordVoicingsOutOfRange,
     chordResolvedSelection,
     activeChordVoicing,
   } = useChordBuilderTertianSelectionBlock({
@@ -1930,6 +1980,8 @@ export default function FretboardScalesPage() {
     pendingChordRestoreRef,
     chordKeepZone,
     chordVoicingFilterLevel,
+    // En móvil (sin controles de rango) no se filtra por rango.
+    chordFretWindow: chordFretWindowFilter,
   });
 
   // Voicing de vista previa: mientras la chord DB carga asíncronamente y activeChordVoicing es null,
@@ -1969,6 +2021,8 @@ export default function FretboardScalesPage() {
     chordExt11,
     chordExt13,
     chordOmit,
+    chordFifth,
+    chordNinth,
     chordBassPc,
     maxFret,
     ensureChordDbCatalogVoicings,
@@ -2139,6 +2193,9 @@ export default function FretboardScalesPage() {
     setChordExt11(patch.ext11);
     setChordExt13(patch.ext13);
     setChordOmit(patch.omit);
+    // Alteraciones de la lectura copiada (sin campos → valores por defecto de la calidad).
+    setChordFifth(patch.fifth ?? defaultChordFifth(patch.quality, patch.suspension));
+    setChordNinth(patch.ninth ?? "9");
     if (patch.maxDist != null && patch.maxDist !== chordMaxDist) {
       setChordMaxDist(patch.maxDist);
     }
@@ -2227,6 +2284,8 @@ export default function FretboardScalesPage() {
         ext11: chordExt11,
         ext13: chordExt13,
         omit: chordOmit,
+        fifth: chordFifth,
+        ninth: chordNinth,
       });
 
   const chordSectionDisplayName = buildChordHeaderSummary({
@@ -2274,20 +2333,15 @@ export default function FretboardScalesPage() {
     });
   }, [chordDetectWindowAllowedStartMax, chordDetectWindowStartMin, setChordDetectWindowStart]);
 
-  const nearFrom = useMemo(
-    () => Math.max(0, Math.min(maxFret, Math.floor(Number(nearWindowStart) || 0))),
-    [nearWindowStart, maxFret]
+  // Ventana de trastes de Acordes cercanos: mismo cálculo de límites que Acordes
+  // (fretWindowCore), con estado propio.
+  const nearFretWindow = useMemo(
+    () => computeFretWindow({ start: nearWindowStart, size: nearWindowSize, maxFret }),
+    [nearWindowStart, nearWindowSize, maxFret]
   );
-
-  const nearTo = useMemo(() => {
-    const size = Math.max(1, Math.floor(Number(nearWindowSize) || 1));
-    return Math.max(nearFrom, Math.min(maxFret, nearFrom + size - 1));
-  }, [nearFrom, nearWindowSize, maxFret]);
-
-  const nearStartMax = useMemo(
-    () => Math.max(0, maxFret - (Math.max(1, Math.floor(Number(nearWindowSize) || 1)) - 1)),
-    [nearWindowSize, maxFret]
-  );
+  const nearFrom = nearFretWindow.from;
+  const nearTo = nearFretWindow.to;
+  const nearStartMax = nearFretWindow.startMax;
 
   function updateNearSlot(idx, patch) {
     setNearSlots((prev) => prev.map((slot, i) => {
@@ -2330,6 +2384,8 @@ export default function FretboardScalesPage() {
       ext9: false,
       ext11: false,
       ext13: false,
+      fifth: "5",
+      ninth: "9",
       quartalType: "pure",
       quartalVoices: "4",
       quartalSpread: "closed",
@@ -2358,15 +2414,23 @@ export default function FretboardScalesPage() {
     }
 
     try {
-      const parsedSlots = buildNearSlotsFromChordSymbols(loadedSymbols, 4);
+      // Cada cifrado se traduce por separado: los que la app no puede construir
+      // exactamente dejan su hueco desactivado y se avisan; nunca se sustituyen
+      // por otro acorde (p. ej. F7#11 no se carga como F7).
+      const resolved = resolveNearSlotsFromChordSymbols(loadedSymbols, 4);
+      const unsupported = resolved.filter((item) => !item.slot);
+      if (unsupported.length === resolved.length) {
+        return { type: "error", text: `No pude cargar ${label}: ${unsupported.map((item) => item.error).join(" ")}` };
+      }
       pendingNearRestoreRef.current = Array.from({ length: 4 }, () => ({ active: true, frets: null }));
       setNearAutoScaleSync(false);
       setNearSlots((prev) => prev.map((slot, idx) => {
-        if (idx < parsedSlots.length) {
+        const parsed = resolved[idx]?.slot || null;
+        if (parsed) {
           return sanitizeNearSlotValue(
             {
-              ...buildEmptyNearSlot(parsedSlots[idx].rootPc, parsedSlots[idx].spellPreferSharps),
-              ...parsedSlots[idx],
+              ...buildEmptyNearSlot(parsed.rootPc, parsed.spellPreferSharps),
+              ...parsed,
               enabled: true,
               selFrets: null,
             },
@@ -2375,9 +2439,12 @@ export default function FretboardScalesPage() {
         }
         return sanitizeNearSlotValue(buildEmptyNearSlot(rootPc, preferSharps), slot);
       }));
+      const unsupportedText = unsupported.length
+        ? ` Sin cargar (su hueco queda desactivado): ${unsupported.map((item) => item.error).join(" ")}`
+        : "";
       return {
-        type: "success",
-        text: `${title} · ${label}: cargado en Acordes cercanos. Auto escala se ha desactivado para respetar la armonía del standard.${truncated ? " Solo se han cargado los 4 primeros cambios porque Acordes cercanos admite 4." : ""}`,
+        type: unsupported.length ? "warning" : "success",
+        text: `${title} · ${label}: cargado en Acordes cercanos. Auto escala se ha desactivado para respetar la armonía del standard.${truncated ? " Solo se han cargado los 4 primeros cambios porque Acordes cercanos admite 4." : ""}${unsupportedText}`,
       };
     } catch (e) {
       return { type: "error", text: `No pude cargar ${label}: ${String(e?.message || e)}` };
@@ -2426,7 +2493,8 @@ export default function FretboardScalesPage() {
 
     const rootPc = mod12(slot?.rootPc || 0);
     const preferSharps = slot?.spellPreferSharps ?? preferSharpsFromMajorTonicPc(rootPc);
-    const intervals = buildChordIntervals({
+    // Definición común: grados funcionales (#9, #5, bb7...) y deletreo por grado.
+    const definition = buildChordToneDefinition({
       quality: slot?.quality,
       suspension: slot?.suspension || "none",
       structure: slot?.structure,
@@ -2436,15 +2504,13 @@ export default function FretboardScalesPage() {
       ext11: !!slot?.ext11,
       ext13: !!slot?.ext13,
       omit: slot?.omit || "none",
+      fifth: slot?.fifth,
+      ninth: slot?.ninth,
     });
-    const degreeLabels = intervals.map((interval) => intervalToChordToken(interval, {
-      ext6: !!slot?.ext6,
-      ext9: !!slot?.ext9 && slot?.structure !== "triad",
-      ext11: !!slot?.ext11 && slot?.structure !== "triad",
-      ext13: !!slot?.ext13 && slot?.structure !== "triad",
-    }));
-    const notes = spellChordNotes({ rootPc, chordIntervals: intervals, preferSharps });
-    return { family, rootPc, preferSharps, intervals, degreeLabels, notes };
+    const intervals = definition.intervals;
+    const degreeLabels = definition.degreeLabels;
+    const notes = spellChordNotes({ rootPc, chordIntervals: intervals, preferSharps, degreeLabels });
+    return { family, rootPc, preferSharps, intervals, degreeLabels, notes, definition };
   }, [buildNearSlotQuartalPitchSets, nearSlotFamilyOf]);
 
   const buildNearSlotStudyEntry = useCallback((slot, plan, voicing, idx) => {
@@ -2552,6 +2618,8 @@ export default function FretboardScalesPage() {
       ext11: slot?.ext11,
       ext13: slot?.ext13,
       omit: slot?.omit || "none",
+      fifth: slot?.fifth,
+      ninth: slot?.ninth,
     });
 
     const slashBassName = slot?.slashBassPc != null
@@ -2573,6 +2641,7 @@ export default function FretboardScalesPage() {
           structure: plan.structure,
           ext7: plan.ext7, ext6: plan.ext6,
           ext9: plan.ext9, ext11: plan.ext11, ext13: plan.ext13,
+          fifth: plan.fifth, ninth: plan.ninth,
         },
       });
       if (invDerived != null) effectiveInversionValue = invDerived;
@@ -2588,9 +2657,9 @@ export default function FretboardScalesPage() {
       plan,
       voicing,
       positionForm: slot?.positionForm || positionFormFromEffectiveForm(slot?.form, "closed"),
-      bassName: voicing
-        ? spellNoteFromChordInterval(noteMeta.rootPc, mod12(voicing.bassPc - noteMeta.rootPc), noteMeta.preferSharps)
-        : spellNoteFromChordInterval(noteMeta.rootPc, plan?.bassInterval || 0, noteMeta.preferSharps),
+      bassName: plan
+        ? spellPlanInterval(plan, voicing ? mod12(voicing.bassPc - noteMeta.rootPc) : (plan.bassInterval || 0), noteMeta.preferSharps)
+        : spellNoteFromChordInterval(noteMeta.rootPc, voicing ? mod12(voicing.bassPc - noteMeta.rootPc) : 0, noteMeta.preferSharps),
       inversionLabel: (voicing && slot?.slashBassPc != null)
         ? actualInversionLabelFromVoicing(plan, voicing)
         : CHORD_INVERSIONS.find((item) => item.value === (slot?.inversion || "root"))?.label || "Fundamental",
@@ -2637,10 +2706,9 @@ export default function FretboardScalesPage() {
       const family = nearSlotFamilyOf(slot);
       const maxSpan = slot.maxDist || 4;
       const allowOpenStrings = !!slot.allowOpenStrings;
-      const inNearWindow = (fret) => fret >= nearFrom && fret <= nearTo;
       const voicingFits = (v) => {
         if (!v || !isErgonomicVoicing(v, maxSpan)) return false;
-        return (v.notes || []).every((n) => (n.fret === 0 ? allowOpenStrings : inNearWindow(n.fret)));
+        return voicingFitsFretWindow(v, { from: nearFrom, to: nearTo, allowOpenStrings });
       };
 
       const dedupeWindowed = (list) => dedupeAndSortVoicings(list).filter(voicingFits);
@@ -2741,6 +2809,8 @@ export default function FretboardScalesPage() {
         ext11: !!slot.ext11,
         ext13: !!slot.ext13,
         omit: slot.omit || "none",
+        fifth: slot.fifth,
+        ninth: slot.ninth,
       });
       const selectedBassIntervals = bassIntervalsForSelection(plan);
       const rootCandidates = symmetricRootCandidatesForPlan(plan);
@@ -2791,6 +2861,10 @@ export default function FretboardScalesPage() {
         const filtered = ranked.filter((v) => mod12(v.bassPc ?? 0) === target);
         return filtered.length ? filtered : ranked;
       };
+
+      if (plan.tooManyNotes) {
+        return { plan, ranked: [], err: chordTooManyNotesMessage(plan) };
+      }
 
       if (plan.generator === "triad") {
         const list = rootCandidates.flatMap((rootCandidate) =>
@@ -3009,7 +3083,7 @@ export default function FretboardScalesPage() {
     chordFamily,
     chordRootPc, chordPreferSharps,
     chordQuality, chordSuspension, chordStructure,
-    chordExt7, chordExt6, chordExt9, chordExt11, chordExt13, chordOmit,
+    chordExt7, chordExt6, chordExt9, chordExt11, chordExt13, chordOmit, chordFifth, chordNinth,
     chordIntervals, chordDegreeLabels, chordEnginePlan, activeChordVoicing,
     chordBassPc, chordInversion, chordPositionForm, maxFret,
     chordQuartalPitchSets, activeQuartalVoicing, chordQuartalCurrentRootPc,
@@ -3018,7 +3092,7 @@ export default function FretboardScalesPage() {
     guideToneDef, activeGuideToneVoicing, guideToneDisplayName,
     guideToneForm, guideToneInversion, guideToneQuality, guideToneBassNote,
     nearSlots, nearComputed, buildNearSlotStudyEntry,
-  }), [studyTarget, chordDetectMode, chordDetectSelectedCandidate, chordDetectSelectedNotes, chordFamily, chordRootPc, chordPreferSharps, chordQuality, chordSuspension, chordStructure, chordExt7, chordExt6, chordExt9, chordExt11, chordExt13, chordOmit, chordIntervals, chordDegreeLabels, chordEnginePlan, activeChordVoicing, chordBassPc, chordInversion, chordPositionForm, maxFret, chordQuartalPitchSets, activeQuartalVoicing, chordQuartalCurrentRootPc, chordQuartalDisplayName, chordQuartalSpread, chordQuartalType, chordQuartalReference, chordQuartalScaleName, guideToneDef, activeGuideToneVoicing, guideToneDisplayName, guideToneForm, guideToneInversion, guideToneQuality, guideToneBassNote, nearSlots, nearComputed, buildNearSlotStudyEntry]);
+  }), [studyTarget, chordDetectMode, chordDetectSelectedCandidate, chordDetectSelectedNotes, chordFamily, chordRootPc, chordPreferSharps, chordQuality, chordSuspension, chordStructure, chordExt7, chordExt6, chordExt9, chordExt11, chordExt13, chordOmit, chordFifth, chordNinth, chordIntervals, chordDegreeLabels, chordEnginePlan, activeChordVoicing, chordBassPc, chordInversion, chordPositionForm, maxFret, chordQuartalPitchSets, activeQuartalVoicing, chordQuartalCurrentRootPc, chordQuartalDisplayName, chordQuartalSpread, chordQuartalType, chordQuartalReference, chordQuartalScaleName, guideToneDef, activeGuideToneVoicing, guideToneDisplayName, guideToneForm, guideToneInversion, guideToneQuality, guideToneBassNote, nearSlots, nearComputed, buildNearSlotStudyEntry]);
 
   // --------------------------------------------------------------------------
   // COMPONENTES UI INTERNOS: PANEL DE ESTUDIO
@@ -3287,18 +3361,16 @@ export default function FretboardScalesPage() {
   }
 
   // Acorde principal
+  // Rol (color) de cada nota según la definición común del acorde: la #9 es novena
+  // aunque comparta altura con una b3, la #5 es quinta y la bb7 de dim7 es séptima.
   function chordRoleOfPc(pc) {
     const interval = mod12(pc - chordRootPc);
-    const seventh = chordExt7 ? seventhOffsetForQuality(chordQuality) : null;
-
+    const idx = (chordEnginePlan.intervals || []).findIndex((x) => mod12(x) === interval);
+    const role = idx >= 0 ? chordEnginePlan.toneRoles?.[idx] : null;
+    if (role) return role;
     if (interval === 0) return "root";
     if (interval === chordThirdOffset) return "third";
     if (interval === chordFifthOffset) return "fifth";
-    if (hasEffectiveSeventh({ structure: chordStructure, ext7: chordExt7, ext6: chordExt6, ext9: chordExt9, ext11: chordExt11, ext13: chordExt13 }) && seventh != null && interval === mod12(seventh)) return "seventh";
-    if (chordExt13 && interval === 9) return "thirteenth";
-    if (chordExt11 && interval === 5) return "eleventh";
-    if (chordExt9 && interval === 2) return "ninth";
-    if (chordExt6 && interval === 9) return "sixth";
     return "other";
   }
 
@@ -3618,68 +3690,50 @@ export default function FretboardScalesPage() {
   // COMPONENTES UI INTERNOS: ACORDES Y DETECCIÓN
   // --------------------------------------------------------------------------
 
-  function renderChordKeepZoneToggle(className = "") {
-    if (chordFamily !== "tertian" && chordFamily !== "quartal" && chordFamily !== "guide_tones") return null;
-    return (
-      <label
-        className={`inline-flex items-center gap-2 text-xs font-semibold text-slate-700 ${className}`.trim()}
-        title="Si está activado, al cambiar acorde la app elige el voicing físicamente más cercano al anterior (continuidad de posición). Si está desactivado, elige el mejor voicing según el ranking natural."
-      >
-        <span className="relative flex h-4 w-4 flex-shrink-0 items-center justify-center">
-          <input
-            type="checkbox"
-            data-testid="toggle-keep-zone"
-            checked={chordKeepZone}
-            onChange={(e) => setChordKeepZone(e.target.checked)}
-            className="absolute inset-0 h-4 w-4 cursor-pointer opacity-0"
-          />
-          <span
-            aria-hidden="true"
-            className={`pointer-events-none flex h-4 w-4 items-center justify-center rounded-[6px] border text-[10px] font-bold shadow-sm ${chordKeepZone ? "border-sky-600 bg-sky-600 text-white" : "border-slate-300 bg-white text-transparent"}`}
-          >
-            ✓
-          </span>
-        </span>
-        <span>Mantener zona anterior</span>
-      </label>
-    );
+  // Cuerdas al aire: al cambiar se descarta la posición elegida de la familia
+  // activa para que se vuelva a resolver con la nueva regla del traste 0.
+  function handleChordAllowOpenStringsChange(checked) {
+    setChordAllowOpenStrings(checked);
+    if (chordFamily === "quartal") {
+      setChordQuartalSelectedFrets(null);
+      setChordQuartalVoicingIdx(0);
+    } else if (chordFamily === "guide_tones") {
+      setGuideToneSelectedFrets(null);
+      setGuideToneVoicingIdx(0);
+    } else {
+      setChordSelectedFrets(null);
+      setChordVoicingIdx(0);
+    }
   }
 
-  function renderChordAllowOpenStringsToggle(className = "") {
+  // Cabecera del mástil de Acordes: interruptores con icono y rango de trastes.
+  function renderChordFretboardHeader() {
+    const openStringsHelp = chordFamily === "quartal"
+      ? "Incluye cuerdas al aire (traste 0) en la búsqueda de voicings cuartales, aunque queden fuera del rango."
+      : chordFamily === "guide_tones"
+        ? "Incluye cuerdas al aire (traste 0) en la búsqueda de shells de notas guía, aunque queden fuera del rango."
+        : "Permite el traste 0 en las posiciones, aunque quede fuera del rango. La distancia se calcula solo con las notas pisadas.";
     return (
-      <label
-        className={`inline-flex items-center gap-2 text-xs font-semibold text-slate-700 ${className}`.trim()}
-        title={chordFamily === "quartal" ? "Incluye cuerdas al aire en la búsqueda de voicings cuartales." : chordFamily === "guide_tones" ? "Incluye cuerdas al aire en la búsqueda de shells de notas guía." : "Permite usar cuerdas al aire como opción de voicing. La distancia se calcula solo con las notas pisadas."}
-      >
-        <span className="relative flex h-4 w-4 flex-shrink-0 items-center justify-center">
-          <input
-            type="checkbox"
-            data-testid="toggle-allow-open-strings"
-            checked={chordAllowOpenStrings}
-            onChange={(e) => {
-              setChordAllowOpenStrings(e.target.checked);
-              if (chordFamily === "quartal") {
-                setChordQuartalSelectedFrets(null);
-                setChordQuartalVoicingIdx(0);
-              } else if (chordFamily === "guide_tones") {
-                setGuideToneSelectedFrets(null);
-                setGuideToneVoicingIdx(0);
-              } else {
-                setChordSelectedFrets(null);
-                setChordVoicingIdx(0);
-              }
-            }}
-            className="absolute inset-0 h-4 w-4 cursor-pointer opacity-0"
-          />
-          <span
-            aria-hidden="true"
-            className={`pointer-events-none flex h-4 w-4 items-center justify-center rounded-[6px] border text-[10px] font-bold shadow-sm ${chordAllowOpenStrings ? "border-sky-600 bg-sky-600 text-white" : "border-slate-300 bg-white text-transparent"}`}
-          >
-            ✓
-          </span>
-        </span>
-        <span>Permitir cuerdas al aire</span>
-      </label>
+      <ChordFretboardHeader
+        InfoTitle={InfoTitle}
+        allowOpenStrings={chordAllowOpenStrings}
+        onAllowOpenStringsChange={handleChordAllowOpenStringsChange}
+        openStringsHelp={openStringsHelp}
+        keepZone={chordKeepZone}
+        onKeepZoneChange={setChordKeepZone}
+        fretWindow={chordFretWindow}
+        sizeValue={chordWindowSizeRaw ?? String(chordFretWindow.effectiveSize)}
+        onSizeChange={(rawValue) => {
+          setChordWindowSizeRaw(rawValue);
+          const n = parseInt(rawValue, 10);
+          if (Number.isFinite(n) && n >= 1) setChordWindowSize(Math.min(FRET_WINDOW_MAX_SIZE, n));
+        }}
+        onSizeBlur={() => setChordWindowSizeRaw(null)}
+        onMoveLeft={() => { if (chordFretWindow.canMoveLeft) setChordWindowStart(chordFretWindow.from - 1); }}
+        onMoveRight={() => { if (chordFretWindow.canMoveRight) setChordWindowStart(chordFretWindow.from + 1); }}
+        onResetWindow={resetChordWindowToFullNeck}
+        showRange={!isMobileLayout}
+      />
     );
   }
 
@@ -3712,6 +3766,7 @@ export default function FretboardScalesPage() {
         roleForPc={roleForPc} labelForPc={labelForPc} noteNameForPc={noteNameForPc}
         maxFret={maxFret} isNarrowBoardLayout={isNarrowBoardLayout} showNonScale={showNonScale}
         colors={colors} HoverCellNote={HoverCellNote} MobileMainFretboard={MobileMainFretboard}
+        windowRange={chordFretWindowFilter}
       />
     );
   }
@@ -3748,6 +3803,7 @@ export default function FretboardScalesPage() {
         HoverCellNote={HoverCellNote} MobileMainFretboard={MobileMainFretboard}
         guideToneRoleOfPc={guideToneRoleOfPc} labelForGuideTonePc={labelForGuideTonePc}
         chordRootPc={chordRootPc} labelForCellAt={labelForCellAt}
+        windowRange={chordFretWindowFilter}
       />
     );
   }
@@ -4433,6 +4489,7 @@ export default function FretboardScalesPage() {
         <label className={UI_LABEL_SM}>Dist.</label>
         <select
           className={chordSelectClass + " mt-1"}
+          data-testid="select-dist"
           value={chordMaxDist}
           onChange={(e) => setChordMaxDist(parseInt(e.target.value, 10))}
         >
@@ -4531,11 +4588,9 @@ export default function FretboardScalesPage() {
             {renderMainChordVoicingPicker()}
             {renderMainChordDistControl("shrink-0")}
           </div>
-          {/* Permitir cuerdas al aire + Mantener zona anterior + Estudiar */}
+          {/* Estudiar (cuerdas al aire y zona anterior están en la cabecera del mástil) */}
           <div className="mt-2 rounded-xl border border-slate-200 px-3 py-2">
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-              {renderChordAllowOpenStringsToggle()}
-              {renderChordKeepZoneToggle()}
               <button
                 type="button"
                 className={`${UI_BTN_SM} ml-auto inline-flex items-center justify-center`}
@@ -5157,6 +5212,8 @@ export default function FretboardScalesPage() {
               chordExt11, setChordExt11,
               chordExt13, setChordExt13,
               chordOmit, setChordOmit,
+              chordFifth, setChordFifth,
+              chordNinth, setChordNinth,
               chordEnginePlan,
               chordControlsTitle,
               chordBaseDisplayName,
@@ -5186,6 +5243,7 @@ export default function FretboardScalesPage() {
               quartalRoleOfPc, labelForQuartalPc, quartalNoteNameForPc,
               activeGuideToneVoicing, guideToneVoicingIdx, guideToneVoicings,
               activeChordVoicing: chordActiveVoicingDisplay, chordVoicingIdx, chordVoicingsDisplay,
+              chordFretWindow, chordVoicingsOutOfRange, chordQuartalVoicingsOutOfRange, guideToneVoicingsOutOfRange,
               chordDbError, chordVoicingsResolving,
             }}
             detectArea={{ chordDetectInvestigationAreaRef, chordDetectClearMinHeight }}
@@ -5195,8 +5253,7 @@ export default function FretboardScalesPage() {
               renderMainChordDistControl,
               renderMobileChordSummaryCard,
               renderChordInvestigationFretboard,
-              renderChordAllowOpenStringsToggle,
-              renderChordKeepZoneToggle,
+              renderChordFretboardHeader,
               renderChordVoicingFilterSelector,
               openMainChordStudy,
               InfoTitle,

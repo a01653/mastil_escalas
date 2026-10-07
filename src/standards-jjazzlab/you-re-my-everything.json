@@ -132,7 +132,7 @@
             "chordEvents": [
               {
                 "display": "F-M7",
-                "load": "Fm"
+                "load": "FmM7"
               }
             ],
             "repeat": false
@@ -285,7 +285,7 @@
             "chordEvents": [
               {
                 "display": "F#7#11",
-                "load": "F#7"
+                "load": "F#7#11"
               }
             ],
             "repeat": false
@@ -368,7 +368,7 @@
             "chordEvents": [
               {
                 "display": "E7b9",
-                "load": "E7"
+                "load": "E7b9"
               }
             ],
             "repeat": false
@@ -626,7 +626,7 @@
           "chordEvents": [
             {
               "display": "F-M7",
-              "load": "Fm"
+              "load": "FmM7"
             }
           ],
           "chords": [
@@ -792,7 +792,7 @@
           "chordEvents": [
             {
               "display": "F#7#11",
-              "load": "F#7"
+              "load": "F#7#11"
             }
           ],
           "chords": [
@@ -882,7 +882,7 @@
           "chordEvents": [
             {
               "display": "E7b9",
-              "load": "E7"
+              "load": "E7b9"
             }
           ],
           "chords": [

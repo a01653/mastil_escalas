@@ -6,6 +6,7 @@
  * CVI-3  6.0.9 → 6.0.10 detectado correctamente como upgrade (no lexicográfico)
  * CVI-4  Sin versión guardada → arranca con defaults, guarda versión actual
  * CVI-5  Claves ajenas a la app no se borran
+ * CVI-6  Un preset guardado con una versión anterior sobrevive al upgrade y se puede cargar
  */
 
 import { test, expect } from "@playwright/test";
@@ -202,4 +203,52 @@ test("CVI-5: la invalidación de config no borra claves ajenas a la app", async 
   // La clave de presets también debe seguir intacta (presets son datos del usuario).
   const presetsValue = await readLocalStorage(page, UI_PRESETS_STORAGE_KEY);
   expect(presetsValue).not.toBeNull();
+});
+
+// ── CVI-6: los presets sobreviven al upgrade y siguen siendo cargables ──────────
+// Al arrancar, los presets se re-etiquetan con la versión actual: cargar uno guardado
+// por una versión anterior aplica su configuración en lugar de restablecerla. Sin
+// campos de quinta/novena, el acorde entra con la quinta y la novena por defecto.
+test("CVI-6: preset de una versión anterior se conserva y se carga tras el upgrade", async ({ page }) => {
+  await gotoApp(page);
+  await page.evaluate(([pk]) => {
+    window.localStorage.setItem(pk, JSON.stringify([
+      {
+        name: "Antiguo",
+        savedAt: "2026-09-01T10:00:00.000Z",
+        payload: { version: 1, appVersion: "0.0.1", config: { chordRootPc: 7, chordQuality: "dom", chordStructure: "tetrad", chordExt7: true } },
+      },
+      null,
+      null,
+    ]));
+  }, [UI_PRESETS_STORAGE_KEY]);
+  await writeConfigWithVersion(page, "0.0.1", { chordRootPc: 2, chordQuality: "min" });
+
+  await page.reload();
+  await page.waitForLoadState("networkidle");
+
+  // La configuración principal antigua se descarta... (se comprueba en el
+  // almacenamiento: el aviso «Configuración restablecida» se oculta a los 3,5 s y
+  // con la batería en paralelo podía desaparecer antes de leerlo).
+  const discarded = JSON.parse(await readLocalStorage(page, UI_STORAGE_KEY) || "null");
+  expect(discarded?.config?.chordQuality).not.toBe("min");
+  expect(discarded?.appVersion).not.toBe("0.0.1");
+  // ...pero el preset sigue ahí, ya con la versión actual.
+  const presets = JSON.parse(await readLocalStorage(page, UI_PRESETS_STORAGE_KEY));
+  expect(presets[0]?.name).toBe("Antiguo");
+  expect(presets[0]?.payload?.appVersion).toBe(await readStoredAppVersion(page));
+
+  await page.getByTestId("nav-configuration").click();
+  const restore = page.locator("button", { hasText: /^Restaurar$/ }).first();
+  await expect(restore).toBeEnabled();
+  await restore.click();
+  await page.waitForLoadState("networkidle");
+
+  const stored = JSON.parse(await readLocalStorage(page, UI_STORAGE_KEY));
+  expect(stored.config.chordRootPc).toBe(7);
+  expect(stored.config.chordQuality).toBe("dom");
+  expect(stored.config.chordFifth).toBe("5");
+  expect(stored.config.chordNinth).toBe("9");
+  await page.getByTestId("nav-chords").click();
+  await expect(page.getByTestId("chord-title")).toContainText("G7");
 });

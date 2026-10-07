@@ -81,14 +81,14 @@
 \pagestyle{fancy}
 \fancyhf{}
 \fancyhead[C]{\small\sffamily\color{softgray}Mástil Escalas --- Diseño Técnico del Software}
-\fancyfoot[L]{\small\sffamily\color{softgray}v6.0.94}
+\fancyfoot[L]{\small\sffamily\color{softgray}v6.0.94 · revisión parcial 6.0.96}
 \fancyfoot[R]{\small\sffamily\color{softgray}\thepage}
 \renewcommand{\headrulewidth}{0.4pt}
 \renewcommand{\headrule}{\hbox to\headwidth{\color{navydeep!40!white}\leaders\hrule height \headrulewidth\hfill}}
 \renewcommand{\footrulewidth}{0pt}
 \fancypagestyle{plain}{
   \fancyhf{}
-  \fancyfoot[L]{\small\sffamily\color{softgray}v6.0.94}
+  \fancyfoot[L]{\small\sffamily\color{softgray}v6.0.94 · revisión parcial 6.0.96}
   \fancyfoot[R]{\small\sffamily\color{softgray}\thepage}
   \renewcommand{\headrulewidth}{0pt}
 }
@@ -187,6 +187,9 @@
 \urlstyle{same}
 
 \newcommand{\Sref}[1]{\S\ref{#1}}
+% Alteraciones en texto corrido (la fuente principal no tiene los glifos ♭/♯).
+\newcommand{\flt}{\ensuremath{\flat}}
+\newcommand{\shp}{\ensuremath{\sharp}}
 
 % ---------------------------------------------------------------------------
 \begin{document}
@@ -277,8 +280,8 @@
   \node[anchor=south west,text width=13.5cm,align=left] at ([xshift=1.9cm,yshift=0.9cm]current page.south west) {%
     \sffamily\fontsize{10.5}{15}\selectfont\color{white!92!black}
     \textcolor{amber}{\bfseries Autor:} Jesús Quevedo Rodríguez\\[2pt]
-    \textcolor{amber}{\bfseries Versión analizada:} 6.0.94\\[2pt]
-    \textcolor{amber}{\bfseries Fecha:} Agosto de 2026\\[2pt]
+    \textcolor{amber}{\bfseries Versión analizada:} 6.0.94 · revisión parcial 6.0.96 (acordes y mástil)\\[2pt]
+    \textcolor{amber}{\bfseries Fecha:} Agosto de 2026 · revisión: octubre de 2026\\[2pt]
     \textcolor{amber}{\bfseries Repositorio:} \url{https://github.com/a01653/mastil_escalas}%
   };
 \end{tikzpicture}
@@ -304,7 +307,8 @@
 \textbf{Repositorio:} \lstinline!a01653/mastil_escalas! \quad\textbullet\quad
 \textbf{Paquete npm:} \lstinline!escalas! \quad\textbullet\quad
 \textbf{Versión analizada:} \textbf{6.0.94} (\lstinline!package.json:4!, \lstinline!src/App.jsx:303!)\\[4pt]
-\textbf{Fecha de análisis:} 2026-08-17. Documento generado por auditoría directa del código fuente local, basado principalmente en revisión directa del código: lectura de configuración, estructura completa de \lstinline!src/!, ejecución real de \lstinline!npm test! y \lstinline!npm run build!.
+\textbf{Fecha de análisis:} 2026-08-17. Documento generado por auditoría directa del código fuente local, basado principalmente en revisión directa del código: lectura de configuración, estructura completa de \lstinline!src/!, ejecución real de \lstinline!npm test! y \lstinline!npm run build!.\\[4pt]
+\textbf{Revisión parcial 6.0.96} (2026-10-07, rama \lstinline!feat/alteraciones-quinta-novena!, cierre técnico de la entrega): se revisaron y actualizaron las partes afectadas por los cambios de esta entrega --- \textbf{variantes de quinta (\flt5/5/\shp5) y novena (\flt9/9/\shp9)}, \textbf{calidad visible y opción Aumentada}, \textbf{suspensión que conserva quinta y séptima}, \textbf{lecturas \flt9 y \shp5 del detector}, \textbf{explicaciones de opciones deshabilitadas consultables en móvil} y \textbf{cabecera del mástil de Acordes con rango de trastes} --- en \Sref{sec:4}, \Sref{sec:5.1}-\ref{sec:5.4}, \Sref{sec:6.2}, \Sref{sec:7.4} (\Sref{sec:7.4.1}), \Sref{sec:7.6}, \Sref{sec:8.3}, \Sref{sec:8.7} (nuevo), \Sref{sec:9}, \Sref{sec:12}, \Sref{sec:13}, \Sref{sec:14.2}, \Sref{sec:15}, \Sref{sec:16.1}, \Sref{sec:17} y \Sref{sec:18}. El resto del documento sigue describiendo la revisión 6.0.94 analizada originalmente; las cifras de líneas de ficheros no revisados no se han recalculado.
 \end{notabox}
 
 \textbf{Mástil Escalas} es una aplicación web de página única (SPA), en español, para el estudio interactivo del mástil de guitarra: escalas, patrones de digitación (CAGED, 3NPS, cajas de pentatónica), rutas melódicas, construcción y análisis de acordes (voicings), comparación de acordes cercanos con conducción práctica, y consulta de standards de jazz con sus cifrados armónicos (\lstinline!README.md:1-9!).
@@ -408,24 +412,24 @@ No hay gestor de estado global externo (Redux, Zustand, Context API de React tam
 \begin{lstlisting}[basicstyle=\ttfamily\footnotesize]
 mastil_escalas/
 |-- src/
-|   |-- App.jsx                  # Componente raiz (5534 lineas), unico punto de entrada visual
+|   |-- App.jsx                  # Componente raiz (5590 lineas en 6.0.96), unico punto de entrada visual
 |   |-- main.jsx                 # Bootstrap de React + error boundary + pantalla de carga
 |   |-- App.css / index.css      # Estilos globales; index.css solo importa Tailwind v4
 |   |-- App.smoke.test.jsx       # Test de humo del montaje de App
-|   |-- components/              # 29 componentes de presentacion, agrupados por dominio
+|   |-- components/              # 33 componentes de presentacion, agrupados por dominio
 |   |   |-- layout/  fretboard/  ui/  help/  standards/  route/  study/
 |   |   |-- chords/  tonal/  config/  near-chords/  PanelBlock.jsx
-|   |-- features/                # 12 dominios de logica (hooks + nucleos puros)
+|   |-- features/                # 13 dominios de logica (hooks + nucleos puros)
 |   |   |-- chord-builder/  chord-detection/  chord-catalog/  near-chords/
 |   |   |-- route/  standards/  tonality/  harmony/  scale-compare/
-|   |   |-- layout/  study/  config/
-|   |-- music/                   # Modelo musical puro (17 modulos + tests)
+|   |   |-- layout/  study/  config/  fret-window/ (6.0.96)
+|   |-- music/                   # Modelo musical puro (20 modulos + tests; chordAlterations.js desde 6.0.96)
 |   |-- utils/configIo.js        # Serializacion de export/import de configuracion
 |   |-- standards-jjazzlab/      # 1461 ficheros JSON de standards (fuente JJazzLab)
 |   |-- musicxml/                # Cientos de ficheros .musicxml (fuente alternativa)
 |-- public/chords-db/            # Base de datos fisica de digitaciones reales (JSON por nota)
 |-- scripts/                     # Auditorias, generadores y CLIs de analisis (Node, .mjs)
-|-- e2e/                         # 33 specs de Playwright
+|-- e2e/                         # 34 specs de Playwright (+ helpers/appVersion.js)
 |-- android/, capacitor.config.json, vite.config.android.js   # Empaquetado Android
 |-- docs/frets-oracle.md         # Documentacion de la bateria de validacion del lector de voicings
 |-- .github/workflows/deploy-pages.yml   # CI/CD a GitHub Pages
@@ -456,7 +460,7 @@ No existe \lstinline!README! de arquitectura previo a este DTS más allá del \l
 \lstinline!components/layout/AppHeader.jsx! & Cabecera: título, badge de versión, menú hamburguesa móvil, barra de navegación de escritorio (un \lstinline!ToggleButton! por sección), botón de ayuda (abre \lstinline!ManualOverlay!), y el \lstinline!<input type="file">! oculto real para importar configuración (ver \Sref{sec:12}).\\
 \lstinline!components/layout/AppFooter.jsx! & Pie estático con crédito de autoría.\\
 \lstinline!components/help/ManualOverlay.jsx! & Modal de manual de uso, contenido 100\,\% estático en español.\\
-\lstinline!components/help/MobileInfoPopover.jsx! & Popover de ayuda contextual táctil, posicionado dinámicamente junto al icono de origen.\\
+\lstinline!components/help/MobileInfoPopover.jsx! & Popover de ayuda contextual táctil, posicionado dinámicamente junto al icono de origen. Desde 6.0.96 se pinta por encima de los editores modales y de los overlays (\lstinline!z-[130]! / \lstinline!z-[131]!), de modo que la ayuda abierta desde un editor móvil se ve y se puede cerrar.\\
 \lstinline!components/PanelBlock.jsx! & Contenedor «átomo de layout» (sección/subsección con cabecera coloreada y cuerpo colapsable) reutilizado por prácticamente todos los paneles.\\
 \end{longtable}
 \end{center}
@@ -477,7 +481,8 @@ No existe \lstinline!README! de arquitectura previo a este DTS más allá del \l
 \endlastfoot
 \lstinline!components/fretboard/FretboardShared.jsx! & Piezas de mástil de escritorio: nota al pasar el ratón, fila de incrustaciones, cabecera numérica de traste.\\
 \lstinline!components/fretboard/MobileMainFretboard.jsx! & Mástil vertical genérico para layout móvil; el contenido de cada celda se delega en un callback \lstinline!renderCell!, reutilizado por acordes, ruta y acordes cercanos.\\
-\lstinline!components/fretboard/ChordVoicingFretboards.jsx! & \lstinline!ChordFretboard! / \lstinline!GuideToneFretboard!: mástiles especializados en pintar un \textit{voicing} coloreando por rol armónico o por rol de notas guía.\\
+\lstinline!components/fretboard/ChordVoicingFretboards.jsx! & \lstinline!ChordFretboard! / \lstinline!GuideToneFretboard!: mástiles especializados en pintar un \textit{voicing} coloreando por rol armónico o por rol de notas guía; desde 6.0.96 sombrean el rango de trastes activo (solo visual, \Sref{sec:8.7}).\\
+\texttt{\seqsplit{components/fretboard/FretWindowControls.jsx}} & Controles de la ventana de trastes «Rango, flechas, Tamaño, desde--hasta» (y, si se le pasa, «Todo el mástil»), compartidos por los mástiles de Acordes y Acordes cercanos; cada panel aporta su propio estado (\Sref{sec:8.7}).\\
 \lstinline!components/fretboard/FretNoteMarker.jsx! & Marcador circular de nota genérico, base de los clústeres superpuestos de Acordes cercanos.\\
 \lstinline!components/ui/AppUiPrimitives.jsx! & \lstinline!ToggleButton!, \lstinline!InfoTitle! --- primitivas compartidas.\\
 \lstinline!components/ui/ColorPickerPopover.jsx! + \lstinline!colorUtils.js! & Selector de color propio (HSV, sin \lstinline!<input type=color>! nativo), con flujo de borrador (Aceptar/Cancelar).\\
@@ -498,10 +503,13 @@ No existe \lstinline!README! de arquitectura previo a este DTS más allá del \l
 \endhead
 \bottomrule
 \endlastfoot
-\lstinline!components/chords/ChordsPanel.jsx! (933 líneas) & Panel «Acorde»: constructor tonal/cuartal/notas guía, controles de calidad/estructura/forma/inversión/extensiones/omisión, navegador de voicings, mástiles de acorde.\\
+\lstinline!components/chords/ChordsPanel.jsx! (959 líneas) & Panel «Acorde»: constructor tonal/cuartal/notas guía, controles de calidad, estructura, forma, inversión, extensiones, quinta, novena y omisión con botón de información de explicaciones, navegador de voicings, cabecera del mástil (\Sref{sec:8.7}) y mástiles de acorde, aviso explícito cuando el acorde tiene más de 6 notas distintas o cuando el rango deja fuera todas las posiciones.\\
 \lstinline!components/chords/ManualChordPanel.jsx! (841 líneas) & Modo Manual («Investigar en mástil»): selección de notas en el mástil, lecturas detectadas agrupadas en principales/avanzadas, lecturas extra del oráculo bajo demanda, reproducción de audio, «Copiar a cercano».\\
-\lstinline!components/chords/useChordPanelModel.js! & Hook de lógica de pantalla del constructor (handlers de tono, suspensión, extensiones, forma).\\
+\lstinline!components/chords/useChordPanelModel.js! & Hook de lógica de pantalla del constructor (handlers de tono, calidad, suspensión, extensiones, forma) y opciones de los combos Calidad y Sus con sus explicaciones.\\
 \lstinline!components/chords/useNearCopyFeedback.js! & Feedback visual temporal (1.5\,s) tras copiar una lectura a un slot cercano.\\
+\texttt{\seqsplit{components/chords/ChordAlterationSelects.jsx}} & Selectores compartidos \textbf{Quinta} (\flt5/5/\shp5) y \textbf{Novena} (\flt9/9/\shp9) usados por Acorde y por cada slot de Acordes cercanos (escritorio y móvil). No contienen política propia: muestran las opciones, el estado habilitado y el texto de ayuda que devuelve \lstinline!chordAlterations.js! (\Sref{sec:7.4.1}).\\
+\lstinline!components/chords/ChordHintList.jsx! & Lista de explicaciones de las opciones deshabilitadas de un control (un término en negrita por línea), que Acorde y cada slot cercano muestran en el botón de información de «Calidad / Sus», «Quinta / Novena» y «Extensiones» (\Sref{sec:7.4.1}).\\
+\texttt{\seqsplit{components/chords/ChordFretboardHeader.jsx}} & Cabecera del mástil de Acordes: «Mástil» con su botón de información, interruptores con icono de cuerdas al aire y zona anterior, y controles de rango con «Todo el mástil»; en móvil solo «Mástil» y los iconos (\Sref{sec:8.7}).\\
 \end{longtable}
 \end{center}
 
@@ -519,8 +527,8 @@ No existe \lstinline!README! de arquitectura previo a este DTS más allá del \l
 \endhead
 \bottomrule
 \endlastfoot
-\lstinline!components/near-chords/NearChordsPanel.jsx! (637 líneas) & Orquestador: selector de estilo/progresión, toggle «Auto escala», los 4 \lstinline!NearChordSlot!, y el mástil compartido con clústeres de hasta 4 notas superpuestas por celda.\\
-\lstinline!components/near-chords/NearChordSlot.jsx! (793 líneas) & Editor de un slot: bifurca la UI según familia (terciana/cuartal/notas guía), navegador de voicings, distancia máxima, cuerdas al aire.\\
+\lstinline!components/near-chords/NearChordsPanel.jsx! (614 líneas) & Orquestador: selector de estilo/progresión, toggle «Auto escala», los 4 \lstinline!NearChordSlot!, y el mástil compartido con clústeres de hasta 4 notas superpuestas por celda; la ventana de trastes usa \lstinline!FretWindowControls! y \lstinline!computeFretWindow! (\Sref{sec:8.7}, \Sref{sec:9}).\\
+\lstinline!components/near-chords/NearChordSlot.jsx! (830 líneas) & Editor de un slot: bifurca la UI según familia (terciana/cuartal/notas guía), combos de Calidad y Sus y selectores de quinta/novena con la misma política y las mismas explicaciones que Acorde, navegador de voicings, distancia máxima, cuerdas al aire.\\
 \lstinline!components/near-chords/KeyProgressionAnalyzer.jsx! (686 líneas) & Acordeón de análisis de tonalidad sobre una progresión pegada por el usuario: tonalidades detectadas, centros modales compatibles.\\
 \end{longtable}
 \end{center}
@@ -617,8 +625,11 @@ Tres claves de almacenamiento, definidas en \lstinline!src/App.jsx:298-303!:
 Puntos verificados relevantes:
 
 \begin{itemize}
-\item \textbf{Migración por versión de app es «todo o nada»}: si \lstinline!APP_VERSION! (\lstinline!6.0.94!) es mayor que la versión que generó la config guardada, la config \textbf{se borra íntegramente} (\lstinline!src/App.jsx:1108-1112!) --- no hay migración incremental campo a campo entre versiones de la app. La migración incremental sí existe, pero para el campo \lstinline!version! interno del payload (\lstinline!UI_CONFIG_VERSION = 1!, distinto de \lstinline!APP_VERSION!): si difiere, solo se muestra un aviso informativo y se aplica saneado defensivo campo a campo sin descartar nada (\lstinline!src/App.jsx:1116-1298!).
+\item \textbf{Migración por versión de app es «todo o nada»}: si \lstinline!APP_VERSION! (\lstinline!6.0.96! en esta revisión) es mayor que la versión que generó la config guardada, la config \textbf{se borra íntegramente} (\lstinline!src/App.jsx:1118-1124!) --- no hay migración incremental campo a campo entre versiones de la app. La migración incremental sí existe, pero para el campo \lstinline!version! interno del payload (\lstinline!UI_CONFIG_VERSION = 1!, distinto de \lstinline!APP_VERSION!): si difiere, solo se muestra un aviso informativo y se aplica saneado defensivo campo a campo sin descartar nada (\lstinline!src/App.jsx:1116-1298!).
 \item \textbf{Saneado sistemático}: todas las lecturas usan un vocabulario común de validadores puros de \lstinline!src/music/appPatternRouteStaffCore.jsx! (\lstinline!sanitizeBoolValue!, \lstinline!sanitizeNumberValue!, \lstinline!sanitizeOneOf!, \lstinline!sanitizeColorValue!, \lstinline!sanitizeNearSlotValue!, \lstinline!sanitizePresetCollection!), de forma que una config corrupta o de formato antiguo nunca rompe el arranque; en el peor caso cae a valores por defecto campo a campo.
+\item \textbf{Alteraciones de quinta y novena (6.0.96)}: el acorde principal persiste \lstinline!chordFifth! (\lstinline!"b5" | "5" | "#5"!) y \lstinline!chordNinth! (\lstinline!"b9" | "9" | "#9"!), saneados con \lstinline!sanitizeOneOf! contra \lstinline!CHORD_FIFTH_VALUES! / \lstinline!CHORD_NINTH_VALUES!; cada slot cercano persiste \lstinline!fifth! / \lstinline!ninth! mediante \lstinline!sanitizeNearSlotValue!. Una configuración, preset o exportación \textbf{sin estos campos} (formato anterior) carga con la quinta propia de la calidad y la novena natural, es decir, con el mismo acorde que antes; los slots \textbf{no heredan} la alteración del acorde principal ni de otro slot. Tras cargar, una alteración incompatible con el resto del estado vuelve al valor por defecto mediante \lstinline!buildChordStateNormalizationPatch! (nunca se reinterpreta como otra alteración). La subida a 6.0.96 descarta la config guardada por la regla «todo o nada» del punto anterior. Los presets rápidos, en cambio, se conservan: al arrancar, \lstinline!sanitizePresetCollection! los re-etiqueta con la versión actual, de modo que cargar uno guardado con una versión anterior aplica su configuración (con quinta y novena por defecto) en lugar de restablecerla (E2E \lstinline!CVI-6!). La exportación/importación explícita también conserva las alteraciones (cubierto por E2E).
+\item \textbf{Calidad y suspensión (6.0.96)}: «Aumentada» no se guarda nunca (es una etiqueta del combo): el estado guarda Mayor o Dominante con \lstinline!chordFifth = "#5"! y la restauración solo admite \texttt{\seqsplit{CHORD\_STORED\_QUALITY\_VALUES}} (\lstinline!maj, dom, min, minmaj7, dim, hdim!). Una configuración con Disminuido + suspensión + 7\textsuperscript{a} (no alcanzable desde la interfaz) se normaliza conservando la \flt\flt7 y recuperando la 3\textsuperscript{a}.
+\item \textbf{Rango de trastes de Acordes (6.0.96)}: \lstinline!chordWindowStart! (0-24) y \lstinline!chordWindowSize! (1-24) se guardan con \lstinline!sanitizeNumberValue!. Sin estos campos (configuraciones, presets o ficheros anteriores) se usa \lstinline!FULL_NECK_WINDOW! (inicio 1, tamaño 24, recortado al último traste configurado), es decir, todo el mástil, como antes. «Todo el mástil» vuelve a ese mismo estado y se guarda con la persistencia habitual. En móvil el rango no se aplica pero tampoco se modifica (\Sref{sec:8.7}). Es independiente de \lstinline!nearWindowStart! / \lstinline!nearWindowSize!.
 \item \textbf{Campo no persistido detectado}: \lstinline!chordDetectClickAudio! (mute del sonido al pulsar celdas en el modo Manual) no aparece en la lista de \textasciitilde90 campos de \lstinline!persistedUiConfig! (\lstinline!src/App.jsx:850-953!) --- el estado de mute del audio de detección \textbf{no sobrevive a un recargado de página} (ver también \Sref{sec:11} y \Sref{sec:17}).
 \end{itemize}
 
@@ -657,9 +668,83 @@ Para escalas cuya cifra diatónica estándar (apilar terceras) no produce result
 \section{Motor de acordes: nombres, sufijos e intervalos}
 \label{sec:7.4}
 
-\lstinline!chordSuffixFromUI(...)! (\lstinline!appMusicBasics.js:140!) traduce el estado de la UI (calidad/suspensión/estructura/extensiones) a un sufijo interno; \lstinline!chordDisplayNameFromUI(...)! (línea 358) compone el nombre final mostrado, con reclasificación de tríada-con-7\textsuperscript{a}-marcada como cuatriada de facto y notación \lstinline!(addN,...)! cuando hace falta representar tensiones sin las intermedias. \lstinline!buildChordIntervals(...)! (línea 1424) calcula el conjunto final de semitonos con un modelo de «slots» para tétradas (7\textsuperscript{a} ocupa 1 slot, cada \textit{add} ocupa 1 slot más, máximo 1-2 según \lstinline!omit!).
+\lstinline!chordSuffixFromUI(...)! (\lstinline!appMusicBasics.js:150!) traduce el estado de la UI (calidad/suspensión/estructura/extensiones/alteraciones) a un sufijo interno, que también es la clave de la base de datos JSON; \lstinline!chordDisplayNameFromUI(...)! (línea 592) compone el nombre final mostrado, con reclasificación de tríada-con-7\textsuperscript{a}-marcada como cuatriada de facto y notación \lstinline!(addN,...)! cuando hace falta representar tensiones sin las intermedias.
 
-\textbf{Catálogos de UI verificados} (\lstinline!appMusicBasics.js:1076-1132!): \lstinline!CHORD_QUALITIES! = \lstinline!maj, dom, min, minmaj7, dim, hdim!; \lstinline!CHORD_STRUCTURES! = \lstinline!triad, tetrad, chord!; \lstinline!CHORD_FAMILIES! = \lstinline!tertian, quartal, guide_tones!; \lstinline!CHORD_INVERSIONS! = \lstinline!root, 1, 2, 3, all!; \lstinline!CHORD_FORMS! = \lstinline!closed, open! + 6 formas drop (\lstinline!drop2_set1/2/3!, \lstinline!drop3_set1/2!, \lstinline!drop24_set1/2!).
+Desde 6.0.96 hay \textbf{una única definición de las notas del acorde}: \lstinline!buildChordToneDefinition(...)! (línea 1623) devuelve los grados \lstinline!{interval, label, role}! (además de \lstinline!intervals!, \lstinline!degreeLabels!, \lstinline!roles! y los offsets de 3\textsuperscript{a}/5\textsuperscript{a}/7\textsuperscript{a}/9\textsuperscript{a}) a partir del estado normalizado por \texttt{\seqsplit{normalizeChordUiSpec(...)}} (línea 1591). La consumen el nombre (\lstinline!chordDisplaySuffixFromSpec!, que lee las extensiones \textbf{de los grados realmente presentes}, no de los checkboxes), los chips, las inversiones y el bajo, el mástil, el deletreo (\lstinline!spellChordNotes! con \lstinline!degreeLabels!), el plan de voicings (\Sref{sec:8.2}), Acordes cercanos y el Modo estudio. \lstinline!buildChordIntervals(...)! (línea 1704) es ahora un envoltorio que devuelve \lstinline!definition.intervals!. Se mantiene el modelo de «slots» para tétradas (7\textsuperscript{a} ocupa 1 slot, cada \textit{add} ocupa 1 slot más, máximo 1-2 según \lstinline!omit!); si dos grados comparten clase de altura prevalece el primero en orden estructural (excepción: con 6 y 13 marcadas prevalece la 13), y la omisión se aplica al final.
+
+La definición \textbf{conserva el grado junto al semitono}: \shp9 no se convierte en \flt3, \shp5 no se convierte en \flt13 y \flt\flt7 (dim7) no se convierte en 6, aunque compartan altura. Por eso el deletreo, las etiquetas de bajo (\lstinline!Bajo b9!, \lstinline!Bajo bb7!) y el estudio usan la etiqueta funcional y no la del semitono (p.\,ej. \lstinline!G7(#9)! deletrea la \shp9 como \lstinline!A#!, no \lstinline!Bb!; \lstinline!Fdim7! deletrea la \flt\flt7 como \lstinline!Ebb!).
+
+\textbf{Catálogos de UI verificados} (\lstinline!appMusicBasics.js:1231-1560!): \lstinline!CHORD_QUALITIES! = \lstinline!maj, dom, aug, min, minmaj7, dim, hdim! (\lstinline!aug! = «Aumentada», solo etiqueta del combo: se guarda como \lstinline!maj! / \lstinline!dom! con \shp5; las calidades guardables son \texttt{\seqsplit{CHORD\_STORED\_QUALITY\_VALUES}}); \lstinline!CHORD_STRUCTURES! = \lstinline!triad, tetrad, chord!; \lstinline!CHORD_FAMILIES! = \lstinline!tertian, quartal, guide_tones!; \lstinline!CHORD_INVERSIONS! = \lstinline!root, 1, 2, 3, all!; \lstinline!CHORD_FORMS! = \lstinline!closed, open! + 6 formas drop (\lstinline!drop2_set1/2/3!, \lstinline!drop3_set1/2!, \lstinline!drop24_set1/2!).
+
+\subsection{Quinta, novena, calidad visible y suspensión (\texttt{chordAlterations.js}, 6.0.96)}
+\label{sec:7.4.1}
+
+El estado del acorde (principal y de cada slot cercano) añade dos campos explícitos a los booleanos existentes de calidad, suspensión y extensiones, que \textbf{no cambian de significado}:
+
+\begin{center}
+\begin{longtable}{L{1.8cm}L{3.4cm}C{1.7cm}L{7.0cm}}
+\toprule
+\rowcolor{tblhead}\textbf{Campo} & \textbf{Valores} & \textbf{Semitonos} & \textbf{Efecto}\\
+\midrule
+\endfirsthead
+\rowcolor{tblhead}\textbf{Campo} & \textbf{Valores} & \textbf{Semitonos} & \textbf{Efecto}\\
+\midrule
+\endhead
+\bottomrule
+\endlastfoot
+\lstinline!fifth! & \lstinline!"b5"!, \lstinline!"5"!, \lstinline!"#5"! & 6, 7, 8 & \textbf{Sustituye} a la quinta de la calidad (no se añade).\\
+\lstinline!ninth! & \lstinline!"b9"!, \lstinline!"9"!, \lstinline!"#9"! & 1, 2, 3 & Solo actúa con \lstinline!ext9!; \textbf{sustituye} a la novena natural.\\
+\end{longtable}
+\end{center}
+
+\lstinline!src/music/chordAlterations.js! es un módulo de capa 0 (no importa de ningún otro) y concentra \textbf{toda la política} de calidad, quinta, novena y suspensión, para poder ampliarla sin tocar los consumidores:
+
+\begin{itemize}
+\item \textbf{Calidad base, teórica y mostrada.} \lstinline!quality! del estado es la calidad \textit{base} elegida: fija la 3\textsuperscript{a} y el tipo de 7\textsuperscript{a} (Mayor/m(maj7) $\to$ 7\textsuperscript{a} mayor; Dominante/Menor/Semidisminuido $\to$ \flt7; Disminuido $\to$ \flt\flt7) y cambiar la quinta o la novena nunca la reescribe. \texttt{\seqsplit{resolveTheoryChordQuality}} da la calidad \textit{teórica} que usan nombre, notas, sufijo del catálogo, plan, voicings, inversiones y estudio (Menor + 7 + \flt5 = \lstinline!hdim!; Menor + \flt5 sin 7\textsuperscript{a} = \lstinline!dim!; nunca \lstinline!Adim7! desde Menor). \texttt{\seqsplit{resolveDisplayChordQuality}} da la que muestra el combo, siempre a partir de las notas reales: m7 + \flt5 $\to$ m7(b5); ø + 5 o \shp5 $\to$ Menor (\lstinline!Am7!, \lstinline!Am7(#5)!; nunca m7(b5) con \shp5); 3\textsuperscript{a} mayor + \shp5 $\to$ \textbf{Aumentada} (\lstinline!Caug!, \lstinline!C7(#5)!, \lstinline!Cmaj7(#5)!). \lstinline!normalizeChordUiSpec! devuelve las tres (\lstinline!quality!, \lstinline!uiQuality!, \lstinline!displayQuality!) y \texttt{\seqsplit{buildChordStateNormalizationPatch}} solo escribe de vuelta la base.
+\item \textbf{La calidad no bloquea los selectores.} \lstinline!allowedChordFifths! ofrece \flt5/5/\shp5 mientras exista el grado 5 y no esté omitido, en cualquier calidad y también con suspensión (en dim7 la quinta justa se nombra $\natural$5). \lstinline!allowedChordNinths! ofrece \flt9/9/\shp9 con la extensión 9 activa (no en tríada); con 3\textsuperscript{a} menor la \shp9 coincide en altura con la \flt3 y no añadiría ninguna nota, así que esa opción concreta se deshabilita con su explicación (limitación del constructor, que trabaja por clases de altura).
+\item \textbf{Aumentada} es una opción del combo, no un valor guardado: \texttt{\seqsplit{buildChordQualityChangePatch(state,"aug")}} guarda Mayor o Dominante con \shp5 conservando el tipo de 7\textsuperscript{a} (\texttt{\seqsplit{storedQualityForAugmented}}: Cm7 $\to$ \lstinline!C7(#5)!, Cm(maj7) $\to$ \lstinline!Cmaj7(#5)!). \texttt{\seqsplit{chordAugmentedOptionState}} la deshabilita con su explicación cuando no puede conservar la séptima ---Disminuido con 7\textsuperscript{a} pediría 1--3--\shp5--\flt\flt7, un acorde válido que el constructor aún no representa--- o con «Omitir 5» (no hay quinta que aumentar); en esos casos el patch es vacío y el acorde no cambia. Sin 7\textsuperscript{a}, Disminuido $\to$ Aumentada da \lstinline!Caug! y, si después se activa la 7, \lstinline!C7(#5)!.
+\item \textbf{Suspensión.} sus2/sus4 solo sustituyen la 3\textsuperscript{a}: \texttt{\seqsplit{buildChordSuspensionChangePatch}} no toca calidad base, quinta, séptima ni extensiones, y al quitar la suspensión vuelve el acorde exacto (\lstinline!Cm7(b5)! $\rightleftarrows$ \lstinline!C7sus4(b5)! = C--F--G\flt--B\flt; \lstinline!Cm9(b5)! $\rightleftarrows$ \lstinline!C9sus4(b5)!; \lstinline!Cdim! $\rightleftarrows$ \lstinline!Csus4(b5)!). \texttt{\seqsplit{chordSuspensionOptionState}} deshabilita sus2/sus4 con su explicación en Disminuido con 7\textsuperscript{a} (1--4--\flt5--\flt\flt7 no se representa ni se nombra; nunca se sustituye por otra séptima) y con «Omitir 3» (no hay tercera que sustituir). Con Disminuido suspendido la 7 no se puede activar (\texttt{\seqsplit{chordSeventhBlockedBySuspension}} en \texttt{\seqsplit{buildChordUiRestrictions}}) y entrar en Cuatriada no la activa. Elegir Disminuido o Semidisminuido en el combo sigue quitando la suspensión, porque es una elección de 3\textsuperscript{a}.
+\item \textbf{Explicaciones consultables.} \texttt{\seqsplit{buildChordControlHints(state)}} (\lstinline!appVoicingStudyCore.js!) agrupa las explicaciones de lo deshabilitado por control (Calidad / Sus, Quinta / Novena, Extensiones). Acorde y cada slot cercano las muestran en el botón de información de cada etiqueta (\lstinline!ChordHintList.jsx! + \lstinline!InfoTitle! $\to$ \lstinline!MobileInfoPopover!), que solo aparece si hay algo deshabilitado y se consulta pulsando, también en móvil; cada opción conserva además su \lstinline!title!.
+\item \lstinline!normalizeChordAlterations(...)! devuelve al valor por defecto cualquier alteración que el estado no admita; \textbf{nunca la reinterpreta como otra}. Las transiciones de la UI pasan por \texttt{\seqsplit{buildChordQualityChangePatch}}, \texttt{\seqsplit{buildChordSuspensionChangePatch}}, \texttt{\seqsplit{buildChordExtensionTogglePatch}} y \texttt{\seqsplit{buildChordStateNormalizationPatch}} (\lstinline!appVoicingStudyCore.js!), compartidos por Acorde y Acordes cercanos. Al elegir otra calidad, la quinta implícita de Disminuido/Semidisminuido no se arrastra como alteración, mientras que una quinta elegida explícitamente se conserva si con ella el combo sigue mostrando la opción elegida. Elegir «Dominante (7)» en estructura Acorde activa la 7\textsuperscript{a} en los dos paneles.
+\end{itemize}
+
+\textbf{Nombre canónico} (verificado con \lstinline!chordDisplayNameFromUI!):
+
+\begin{center}
+\begin{longtable}{L{5.4cm}L{3.9cm}L{5.0cm}}
+\toprule
+\rowcolor{tblhead}\textbf{Estado} & \textbf{Nombre} & \textbf{Grados}\\
+\midrule
+\endfirsthead
+\rowcolor{tblhead}\textbf{Estado} & \textbf{Nombre} & \textbf{Grados}\\
+\midrule
+\endhead
+\bottomrule
+\endlastfoot
+Mayor, tríada, \shp5 / \flt5 & \lstinline!Caug! / \lstinline!C(b5)! & \lstinline!1,3,#5! / \lstinline!1,3,b5!\\
+Mayor, cuatriada, \shp5 / \flt5 & \lstinline!Cmaj7(#5)! / \lstinline!Cmaj7(b5)! & \lstinline!1,3,#5,7! / \lstinline!1,3,b5,7!\\
+Dominante, cuatriada, \shp5 / \flt5 & \lstinline!G7(#5)! / \lstinline!C7(b5)! & \lstinline!1,3,#5,b7! / \lstinline!1,3,b5,b7!\\
+Dominante, Acorde, 9 = \flt9 / \shp9 & \lstinline!D7(b9)! / \lstinline!E7(#9)! & \lstinline!1,b9,3,5,b7! / \lstinline!1,#9,3,5,b7!\\
+Dominante, \shp5 + \flt9 (= G+7(\flt9)) & \lstinline!G7(#5,b9)! & \lstinline!1,b9,3,#5,b7!\\
+Dominante, \shp5 + 9 natural & \lstinline!C9(#5)! & \lstinline!1,9,3,#5,b7!\\
+Cuatriada dominante, Omitir 5, 9 = \flt9 / \shp9 & \lstinline!D7(b9,no5)! / \lstinline!E7(#9,no5)! & \lstinline!1,b9,3,b7! / \lstinline!1,#9,3,b7!\\
+m7(\flt5) / con 9 & \lstinline!Am7(b5)! / \lstinline!Am9(b5)! & \lstinline!1,b3,b5,b7! / \lstinline!1,9,b3,b5,b7!\\
+dim7 / con 9 & \lstinline!Fdim7! / \lstinline!Fdim7(add9)! & \lstinline!1,b3,b5,bb7! / \lstinline!1,9,b3,b5,bb7!\\
+Menor + \flt5 sin 7\textsuperscript{a} / con 7\textsuperscript{a} & \lstinline!Adim! / \lstinline!Am7(b5)! & \lstinline!1,b3,b5! / \lstinline!1,b3,b5,b7!\\
+Disminuido sin 7\textsuperscript{a} + 6 / + 9 + 11 & \lstinline!Adim(add6)! / \lstinline!Adim(add9,11)! & \lstinline!1,b3,b5,6! / \lstinline!1,9,b3,11,b5!\\
+Dominante sus4 / con 9 / con \flt9 & \lstinline!D7sus4! / \lstinline!D9sus4! / \lstinline!D7sus4(b9)! & \lstinline!1,4,5,b7! / \lstinline!1,9,4,5,b7! / \lstinline!1,b9,4,5,b7!\\
+Menor + \shp5: tríada / con 7\textsuperscript{a} / m(maj7) & \lstinline!Cm(#5)! / \lstinline!Am7(#5)! / \lstinline!Cm(maj7,#5)! & \lstinline!1,b3,#5! / \lstinline!1,b3,#5,b7! / \lstinline!1,b3,#5,7!\\
+Menor, m7(\flt5) y dim7 con \flt9 & \lstinline!Am7(b9)! / \lstinline!Am7(b5,b9)! / \lstinline!Adim7(b9)! & \lstinline!1,b9,b3,5,b7! / \lstinline!1,b9,b3,b5,b7! / \lstinline!1,b9,b3,b5,bb7!\\
+Mayor con 7\textsuperscript{a}, 9 = \shp9 / \flt9 & \lstinline!Cmaj7(#9)! / \lstinline!Cmaj7(b9)! & \lstinline!1,#9,3,5,7! / \lstinline!1,b9,3,5,7!\\
+m(maj7) + \flt5 / dim7 + 5 justa & \lstinline!Am(maj7,b5)! / \texttt{Adim7($\natural$5)} & \lstinline!1,b3,b5,7! / \lstinline!1,b3,5,bb7!\\
+Aumentada desde Cm7 / desde Cm(maj7) & \lstinline!C7(#5)! / \lstinline!Cmaj7(#5)! & \lstinline!1,3,#5,b7! / \lstinline!1,3,#5,7!\\
+ø + sus4 / + sus2; Disminuido tríada + sus4 & \lstinline!C7sus4(b5)! / \lstinline!C7sus2(b5)!; \lstinline!Csus4(b5)! & \lstinline!1,4,b5,b7! / \lstinline!1,2,b5,b7!; \lstinline!1,4,b5!\\
+\end{longtable}
+\end{center}
+
+Las alteraciones se escriben entre paréntesis detrás del sufijo base, la quinta antes que la novena; la \shp9 conserva la 3\textsuperscript{a} mayor. Una quinta justa que sustituye a la \flt5 propia de dim7 se escribe $\natural$5 (\texttt{Adim7($\natural$5)}, que conserva su \flt\flt7 y no se reinterpreta como \lstinline!Am6!). Con suspensión la base solo aporta el tipo de 7\textsuperscript{a}: Menor y Dominante convergen en el mismo sufijo (\lstinline!Dm7(sus4)! se nombra \lstinline!D7sus4!, no \lstinline!Dm7(add11)!) y el semidisminuido suspendido es \lstinline!7sus4(b5)!. Sin 7\textsuperscript{a}, Disminuido con 6 o con varias extensiones añadidas conserva \lstinline!dim! en el nombre (\lstinline!Adim(add6)!, \lstinline!Adim(add9,11)!; antes salían \lstinline!A6! y \lstinline!Aadd9,11!, nombres de otros acordes). En dim7 las extensiones 6 y 13 se deshabilitan con explicación: coinciden en altura con la \flt\flt7 y el modelo de grados de la app no puede representar dos funciones en la misma clase de altura (limitación de representación, no regla musical).
+
+\textbf{Generación}: cualquier acorde con quinta o novena alterada devuelve \texttt{false} en \texttt{\seqsplit{chordCanUseJsonCatalog}} y usa el \textbf{generador exacto} por intervalos (\Sref{sec:8.2}), porque la base de datos JSON no garantiza esas fórmulas. Un acorde con más de 6 notas distintas no se fuerza a una forma menor: el plan lo marca (\lstinline!tooManyNotes!) y la UI explica que hay que usar «Omitir» o desactivar alguna extensión.
 
 \section{Estructuras cuartales y notas guía}
 \label{sec:7.5}
@@ -681,6 +766,19 @@ Es el módulo de menor nivel del sistema: no importa de ningún otro módulo de 
 \endgroup
 
 El \textbf{ranking} (\lstinline!candidateProbabilityScore!, línea 497) combina penalización por complejidad de fórmula, por grados omitidos (+9, +5 extra si es la 3\textsuperscript{a}), por 5\textsuperscript{a} alterada no estructural (+8), y un modelo explícito de peso para bajo tipo \textit{slash} (-8 si tríada exacta con bajo externo). Tras el ranking, un pipeline adicional filtra candidatos contradictorios, colapsa «gemelos enarmónicos» preservando el deletreo con menos alteraciones, deduplica por contenido semántico, filtra bajos «raros» (\lstinline!B#/E#/Cb/Fb!) cuando hay alternativa más limpia, recorta a 12 resultados y decora alias especiales (\textit{Hendrix chord}, \textit{Mystic chord}, \textit{James Bond chord}, \textit{So What chord}).
+
+\textbf{Cambios de 6.0.96 (quinta/novena alteradas)}:
+
+\begin{itemize}
+\item Fórmulas nuevas o revisadas en \lstinline!CHORD_DETECT_FORMULAS! con su \lstinline!ui! completo (incluidos \lstinline!fifth! / \lstinline!ninth!), de modo que la lectura sea copiable sin perder notas: \lstinline!7(b9)!, \lstinline!7(#9)!, \lstinline!7(#5,b9)!, \lstinline!7(#5,#9)!, \lstinline!7(b5,b9)!, \lstinline!7(b5,#9)!, \lstinline!9(#5)!, \lstinline!9(b5)!, \lstinline!7sus4(b9)!, \lstinline!9sus4!, \lstinline!maj7(#5)!, \lstinline!maj7(b5)!, \lstinline!7(#5)!, \lstinline!7(b5)!, \lstinline!(b5)!, \lstinline!m9(b5)! y las variantes sin quinta \lstinline!7(#9,no5)! / \lstinline!7(b9,no5)!. Catorce de ellas (\lstinline!aug!, \lstinline!(b5)!, \lstinline!9sus4!, \lstinline!7sus4(b9)!, \lstinline!7(b9)!, las cuatro dobles alteraciones, \lstinline!9(#5)!, \lstinline!9(b5)!, \lstinline!maj7(b5)!, \lstinline!7(b9,no5)! y \lstinline!m9(b5)!) llevan \lstinline!requireExact!: no generan lecturas parciales con grados ausentes (evita regresiones como \lstinline!D#9(b5,no3)! sobre voicings ajenos).
+\item Nomenclatura: con 7\textsuperscript{a}, la \flt2 se nombra \flt9 en cualquier calidad (\lstinline!D7(b9)!, \lstinline!Am7(b9)!, \lstinline!Am7(b5,b9)!, \lstinline!Cmaj7(b9)!); sin 7\textsuperscript{a} sigue siendo un añadido (\lstinline!Am(addb2)!, no se renombra toda \flt2 como \flt9). Una 3\textsuperscript{a} menor junto a la 3\textsuperscript{a} mayor es \shp9; sin 5\textsuperscript{a} justa la \flt6 de un dominante se lee \shp5 (\lstinline!C7(#5,#9)! en lugar de \lstinline!C7(#9,b13,no5)!), y con 5\textsuperscript{a} justa presente sigue siendo \flt13. Sin 5\textsuperscript{a} justa, la lectura con \flt13 y \lstinline!no5! se conserva como \textbf{alternativa} de la misma raíz (\lstinline!C7(#5)! $\to$ \lstinline!C7(b13,no5)!, \lstinline!C7(#5,#9)! $\to$ \lstinline!C7(#9,b13,no5)!, \lstinline!C7(#5,b9)! $\to$ \lstinline!C7(b9,b13,no5)!, \lstinline!C9(#5)! $\to$ \lstinline!C7(b13,add9,no5)!): va siempre justo detrás de la lectura con \shp5 (\texttt{\seqsplit{placeFlatThirteenthAfterSharpFifth}}, aunque la \shp5 tenga una grafía rara como B\shp{} en \lstinline!E7(#5)!), desaparece si esa lectura no está, no es copiable (el constructor no representa \flt13; el botón explica que no es compatible) y nunca se convierte en \shp5. En \lstinline!maj7! sin 5\textsuperscript{a} justa solo se ofrece \shp5. La deduplicación, el filtro de bajos raros, la auditoría y el invariante de alias tratan la pareja como alternativa intencionada. En dim7 la 6 se nombra \flt\flt7. La heurística solo emite \lstinline!uiPatch! (lectura copiable) cuando el constructor puede reproducir exactamente las notas; si no, la lectura se muestra pero no se copia y se penaliza en el ranking.
+\item \textbf{Copias que habilita el constructor (6.0.96)}: la \flt9 se copia en cualquier calidad y la \shp9 solo sin 3\textsuperscript{a} menor (\lstinline!Cmaj7(#9)!, \lstinline!C7(#9)!), porque con ella coincidiría con la \flt3. 3\textsuperscript{a} menor + \flt5 + 7\textsuperscript{a} mayor sin 5\textsuperscript{a} justa se lee \lstinline!m(maj7,b5)! (antes \lstinline!dim(add7)!) y se copia como m(maj7) con \flt5; conserva la puntuación que tenía para no cambiar el orden de las lecturas, y con 5\textsuperscript{a} justa además de la \flt5 se mantiene la lectura disminuida. Frente al motor anterior a este cambio, sobre todos los conjuntos de 3-5 notas con cada bajo: 222 lecturas solo cambian de nombre (\flt2 $\to$ \flt9), los conjuntos de lecturas no cambian, no hay regresiones de lectura canónica y aparecen 642 lecturas copiables nuevas sin perder ninguna. En las 12 tónicas \lstinline!m7(b9)! es la primera lectura salvo en D\flt, E\flt\ y A\flt, donde queda segunda por el orden previo de las grafías con bemoles (sigue siendo copiable).
+\item \textbf{Alternativas menores con \shp5 (6.0.96)}: \lstinline!m(#5)!, \lstinline!m7(#5)! y \lstinline!m(maj7,#5)! son fórmulas exactas marcadas \texttt{\seqsplit{sharpFifthAlternative}} que se ofrecen además de la lectura con \flt13/\flt6 de las mismas notas (\lstinline!Cm(addb13,no5)!, \lstinline!Cm7(b13,no5)!, \lstinline!Cm(maj7,addb6,no5)!), inmediatamente detrás de ella (\texttt{\seqsplit{placeSharpFifthAfterFlatThirteenth}}), con nombre, grafía (\lstinline!C Eb G#!, \lstinline!A C E# G!) y copia propios. Solo aparecen con exactamente esas notas, sin 5\textsuperscript{a} justa (tampoco en el bajo) y con el bajo dentro del acorde; no intervienen en los filtros ni en las penalizaciones de las demás lecturas y no cuentan para el tope de 12 (\lstinline!limitChordReadings!), de modo que la lectura principal, el orden relativo y la lectura \flt13 no cambian, y la \flt13 nunca se convierte en \shp5. Verificado en 12\,144 combinaciones de 3-6 notas y bajo: 0 cambios en las lecturas existentes y 132 alternativas (las tres variantes en las 12 tónicas con todos sus bajos), todas copiables con las mismas notas, grados y nombre a Acorde y a Acordes cercanos.
+\item \textbf{Hendrix}: \lstinline!(#9,no5)! solo cuando la quinta realmente falta (\lstinline!x7678x!, \lstinline!076780!, \lstinline!x3234x! $\to$ \lstinline!E7(#9,no5)! / \lstinline!C7(#9,no5)!); con la quinta sonando (\lstinline!x76787!, \lstinline!x32343!) el nombre es \lstinline!E7(#9)! / \lstinline!C7(#9)!. El alias \textit{Hendrix chord} se mantiene en ambos casos y no se aplica si hay más alteraciones (p.\,ej. \shp5).
+\item La deduplicación conserva la puntuación de ranking más favorable solo para fórmulas \lstinline!requireExact!, para no promover lecturas parciales de otras fórmulas.
+\item \textbf{Quinta aumentada y ranking}: la fórmula \lstinline!aug! (nueva; antes \lstinline!C E G#! no tenía ninguna lectura) no recibe la bonificación de tríada sobre bajo externo, porque la tríada aumentada es simétrica y sobre un bajo ajeno la explica mejor una cuatriada (\lstinline!Cm(maj7)! no se lee \lstinline!Baug/C!; \lstinline!1x422x! sigue siendo \lstinline!Gbm(maj7)/F!). La heurística solo trata la \flt6 como \shp5 en acordes con 7\textsuperscript{a} (\lstinline!7(#5)!, \lstinline!maj7(#5)! y sus tensiones), y un \lstinline!maj7(#5)! heurístico con tensiones recibe +1,5 para no adelantar a la lectura canónica (\lstinline!C7(b13)/G!, \lstinline!Cm(maj9)/Eb!). Una tensión alterada sin sufijo base va entre paréntesis (\lstinline!C(#11)!, antes el ambiguo \lstinline!C#11!).
+\item \textbf{Comparación sistemática con \lstinline!main!} (verificación de esta revisión): sobre los 2475 conjuntos de 3-5 notas con raíz C y cada bajo posible, todas las diferencias de 3-4 notas con cambio de raíz son mejoras (tríada aumentada, \lstinline!7(#5)!, \lstinline!maj7(#5)! reconocidos en lugar de lecturas \lstinline!addb6!); sobre 780 inversiones de 47 tipos de acorde habituales en 4 tonalidades, 25 lecturas mejoran y ninguna empeora, salvo un caso simétrico (\lstinline!C D E G# Bb! sobre B\flt{} se lee \lstinline!Bb9(b5)!, igual de válido que \lstinline!C9(#5)/Bb!). Los tests «Ranking con quinta aumentada» (\lstinline!chordDetectionEngine.test.js!) y los casos ALT-12..ALT-14 de \lstinline!audit:copy-readings! fijan estas lecturas.
+\end{itemize}
 
 El módulo también implementa \textbf{continuidad de selección}: \lstinline!pickDefaultChordCandidate! / \lstinline!resolveDetectedCandidateFromContext! mantienen «la misma» lectura seleccionada cuando el usuario modifica ligeramente las notas del mástil (continuidad estructural, de pitch, de movimiento de bajo, de raíz desplazada cromáticamente).
 
@@ -764,12 +862,14 @@ El diagrama se presenta en dos partes, a tamaño legible sin necesidad de amplia
 \end{tikzpicture}
 \end{center}
 
-\lstinline!buildChordEnginePlan(...)! (línea 985) es el orquestador: calcula offsets de 3\textsuperscript{a}/5\textsuperscript{a}/7\textsuperscript{a}/voz superior, el conjunto de intervalos y el bajo, y decide \lstinline!layer! (etiqueta conceptual: \lstinline!triad/tetrad/add/multi_add/extended/drop/chord/unsupported!) y \lstinline!generator! (estrategia real de generación: \lstinline!triad/tetrad/drop/exact/json/none!) según la combinación de estructura, extensiones, \lstinline!omit! y elegibilidad drop.
+\lstinline!buildChordEnginePlan(...)! (línea 1069) es el orquestador: calcula offsets de 3\textsuperscript{a}/5\textsuperscript{a}/7\textsuperscript{a}/voz superior, el conjunto de intervalos y el bajo, y decide \lstinline!layer! (etiqueta conceptual: \lstinline!triad/tetrad/add/multi_add/extended/drop/chord/unsupported!) y \lstinline!generator! (estrategia real de generación: \lstinline!triad/tetrad/drop/exact/json/none!) según la combinación de estructura, extensiones, \lstinline!omit! y elegibilidad drop.
+
+Desde 6.0.96 el plan se construye a partir de \lstinline!buildChordToneDefinition! (\Sref{sec:7.4}) y expone además \lstinline!fifth!, \lstinline!ninth!, \lstinline!ninthOffset!, \lstinline!degreeLabels!, \lstinline!toneRoles! y \lstinline!tooManyNotes! (más de 6 clases de altura). Con quinta o novena alterada el generador nunca es \lstinline!json! (\Sref{sec:7.4.1}); las inversiones, la etiqueta del bajo (\lstinline!labelForInversionBass!: p.\,ej. \lstinline!Bajo b9!, \lstinline!Bajo bb7!), la huella de copia (\lstinline!buildChordCopyFingerprint!, que incluye \lstinline!fifth|ninth!) y el análisis de voicings frente al plan usan las etiquetas funcionales del plan. \lstinline!chordTooManyNotesMessage(plan)! (línea 1182) genera el aviso que Acorde y Acordes cercanos muestran cuando no hay posiciones por exceso de notas.
 
 \section{Selección y estabilidad física («mantener zona»)}
 \label{sec:8.3}
 
-\lstinline!physicalVoicingDistance(reference, candidate)! calcula una distancia ponderada por cuerda (traste, sonoridad, posición central, traste mín/máx, n\textsuperscript{o} de cuerdas sonantes, bajo). \lstinline!selectClosestPhysicalVoicingIndex(reference,! \lstinline!options, {reasonableDistance})! la usa para mantener estable la digitación mostrada al cambiar un parámetro del acorde (\lstinline!chordKeepZone! activado), cayendo a un índice por defecto si ninguna opción está dentro del umbral. Cuando \lstinline!chordKeepZone! está desactivado, se usa en su lugar \lstinline!selectNaturalGuitarVoicingIndex! (raíz en el bajo, traste mínimo bajo, más cuerdas sonantes, menor span).
+\lstinline!physicalVoicingDistance(reference, candidate)! calcula una distancia ponderada por cuerda (traste, sonoridad, posición central, traste mín/máx, n\textsuperscript{o} de cuerdas sonantes, bajo). \lstinline!selectClosestPhysicalVoicingIndex(reference,! \lstinline!options, {reasonableDistance})! la usa para mantener estable la digitación mostrada al cambiar un parámetro del acorde (\lstinline!chordKeepZone! activado), cayendo a un índice por defecto si ninguna opción está dentro del umbral. Cuando \lstinline!chordKeepZone! está desactivado, se usa en su lugar \lstinline!selectNaturalGuitarVoicingIndex! (raíz en el bajo, traste mínimo bajo, más cuerdas sonantes, menor span). Con el rango de trastes de Acordes (\Sref{sec:8.7}) la lista ya llega filtrada: «Mantener zona anterior» busca la posición más cercana entre las que admite el rango y nunca mueve el rango.
 
 \section{Formas y drops}
 \label{sec:8.4}
@@ -786,19 +886,31 @@ Al final del fichero (bloque \lstinline!GUITARISTIC VOICING FILTER!, línea 3241
 
 \lstinline!src/features/chord-catalog/chordCatalogCore.js! es el puente entre el constructor de acordes y el dataset físico servido en \lstinline!public/chords-db/<Nota>/<sufijo>.json! (p.\,ej. \lstinline!chords-db/G/major_b.json!). \lstinline!lookupChordCatalogVoicings(...)! valida con \lstinline!chordCanUseJsonCatalog! si la combinación es «buscable» en JSON, construye la lista de sufijos a probar (genérico primero, sufijo de bajo específico \lstinline!_b! como \textit{fallback}) y cachea resultados por \lstinline!"<nota>/<sufijo>"!. \lstinline[basicstyle=\ttfamily\bfseries\small]!fetchChordDbJsonWithFallback! intenta primero la ruta local (\lstinline!import.meta.env.BASE_URL + chords-db/...!) y, si falla, reintenta contra \lstinline!CHORD_DB_PAGES_BASE = "https://a01653.github.io/mastil_pruebas/"! --- un despliegue estático \textbf{externo, en otro repositorio}, usado como \textit{fallback} absoluto (ver riesgo en \Sref{sec:17}).
 
+\section{Rango de trastes del mástil de Acordes (6.0.96)}
+\label{sec:8.7}
+
+\lstinline!src/features/fret-window/fretWindowCore.js! contiene la lógica de ventana compartida por Acordes y Acordes cercanos: \texttt{\seqsplit{computeFretWindow(\{start,size,maxFret\})}} devuelve \lstinline!from!, \lstinline!to!, \lstinline!startMax!, el tamaño efectivo y si la ventana se puede mover a cada lado, y \texttt{\seqsplit{voicingFitsFretWindow}} aplica la regla de pertenencia: todas las notas pisadas caen en \lstinline![from, to]! y el traste 0 entra solo con «Permitir cuerdas al aire», aunque quede fuera del rango. Cada panel conserva su estado: Acordes guarda \lstinline!chordWindowStart! / \lstinline!chordWindowSize! en \lstinline!useChordBuilderState! (por defecto \lstinline!FULL_NECK_WINDOW!: inicio 1 y tamaño 24, recortado al último traste configurado, es decir, todo el mástil) y Acordes cercanos sigue con \lstinline!nearWindowStart! / \lstinline!nearWindowSize! (1--6). El cálculo de Acordes cercanos da exactamente los mismos límites que antes (comprobado en todas las combinaciones de inicio, tamaño y \lstinline!maxFret!).
+
+En Acordes el rango \textbf{filtra las posiciones disponibles}, no solo el dibujo: la lista terciana pasa primero por el rango y después por el filtro «Voicings» (\texttt{\seqsplit{useChordBuilderTertianSelectionBlock}}), y las listas cuartal y de notas guía se filtran antes del tope de seguridad. El voicing copiado desde el detector no se filtra, igual que con «Voicings». Si hay posiciones pero ninguna cabe, el mástil lo explica («No hay posiciones de este acorde entre los trastes X y Y. Mueve el rango o amplía su tamaño.»). Tamaño es el número de trastes de la ventana y no sustituye a Dist.
+
+La cabecera \texttt{\seqsplit{ChordFretboardHeader.jsx}}, encima del mástil y sin superponerse a los trastes, reúne «Mástil» con su botón de información, los interruptores «Permitir cuerdas al aire» (círculo / círculo tachado) y «Mantener zona anterior» (diana / diana tachada) y los controles \lstinline!FretWindowControls! con «Todo el mástil», que vuelve a \lstinline!FULL_NECK_WINDOW! sin tocar el acorde, Dist ni los interruptores. Cada interruptor es una casilla real cubierta por el botón visual (nombre accesible, estado y teclado nativos, mismos \lstinline!data-testid! que antes) con ayuda al pasar el cursor o recibir el foco (\lstinline!role="tooltip"!); en móvil se consulta con el botón de información. Los interruptores ya no están en el panel de configuración ni en la tarjeta móvil. En móvil (\lstinline!isMobileLayout!) no hay fila de rango ni filtro por rango (\texttt{\seqsplit{useChordBuilderState(\{applyFretWindow:false\})}}): se muestran las posiciones de todo el mástil con los demás filtros, y el rango guardado se conserva y vuelve a aplicarse en escritorio. El rango activo se sombrea en el mástil de escritorio (solo visual).
+
 % =============================================================================
 \chapter{Búsqueda de acordes cercanos y voice leading}
 \label{sec:9}
 
 \lstinline!components/near-chords/NearChordsPanel.jsx! gestiona hasta \textbf{4 slots} de acorde simultáneos (\lstinline!nearSlots!, \lstinline!src/App.jsx:640!), cada uno con su propia familia (terciana/cuartal/notas guía) y parámetros independientes.
 
-\textbf{Mecanismo de «cercanía» verificado en código} (\lstinline!src/App.jsx:2278-2647!): existe una \textbf{ventana de trastes compartida} \lstinline![nearFrom, nearTo]! (por defecto inicio=1, tamaño=6 $\to$ trastes 1-6; controlable con flechas $\blacktriangleleft$/$\blacktriangleright$ y campo «Tamaño»). Para cada slot activo, se generan sus voicings candidatos con el mismo motor de \Sref{sec:8} (\lstinline!buildChordEnginePlan! + generadores de \lstinline!appVoicingStudyCore.js!) y se filtran con:
+\textbf{Mecanismo de «cercanía» verificado en código} (\lstinline!src/App.jsx:2278-2647!): existe una \textbf{ventana de trastes compartida} \lstinline![nearFrom, nearTo]! (por defecto inicio=1, tamaño=6 $\to$ trastes 1-6; controlable con flechas $\blacktriangleleft$/$\blacktriangleright$ y campo «Tamaño»), calculada desde 6.0.96 con \lstinline!computeFretWindow! y la misma regla de pertenencia que el rango de Acordes (\Sref{sec:8.7}). Para cada slot activo, se generan sus voicings candidatos con el mismo motor de \Sref{sec:8} (\lstinline!buildChordEnginePlan! + generadores de \lstinline!appVoicingStudyCore.js!) y se filtran con:
 
 \begin{lstlisting}
-// src/App.jsx:2642-2647
-const voicingFits = (v) =>
-  isErgonomicVoicing(v, maxSpan) &&
-  (v.notes || []).every((n) => n.fret === 0 ? allowOpenStrings : inNearWindow(n.fret));
+// src/App.jsx (6.0.96)
+const voicingFits = (v) => {
+  if (!v || !isErgonomicVoicing(v, maxSpan)) return false;
+  return voicingFitsFretWindow(v, {
+    from: nearFrom, to: nearTo, allowOpenStrings,
+  });
+};
 \end{lstlisting}
 
 Es decir: \textbf{la «cercanía» entre los hasta 4 acordes se logra forzando a todos a caber en la misma ventana estrecha de trastes}, no mediante un optimizador de conducción de voces que minimice el movimiento nota-a-nota entre acordes consecutivos. La «conducción de voces práctica» mencionada en el README se traduce, en el código actual, en: (a) la restricción de ventana compartida, y (b) la reutilización del mecanismo de estabilidad física (\lstinline!selectClosestPhysicalVoicingIndex! / \lstinline!chordKeepZone!, \Sref{sec:8.3}) para no saltar de posición al ajustar un slot. \textbf{No se ha encontrado} un algoritmo dedicado que compare pares de voicings entre slots consecutivos y minimice distancia de movimiento entre ellos --- esto se documenta explícitamente como limitación verificada en \Sref{sec:17}, no como suposición.
@@ -885,6 +997,8 @@ Implementado entre \lstinline!src/App.jsx:1341-1393! y \lstinline!src/utils/conf
 \textbf{Importar} (función \texttt{\seqsplit{importUiConfigFromFile}}): lee el fichero con \texttt{FileReader}, llama a \texttt{\seqsplit{parseImportedConfigText(raw, \{uiConfigVersion, appVersion\})}} (\texttt{\seqsplit{utils/configIo.js:17-19}}), que delega en \lstinline!buildImportedPayload! $\to$ \lstinline!unwrapPersistedPayload! (\texttt{\seqsplit{appPatternRouteStaffCore.jsx:762}}) para normalizar tanto el formato versionado actual como el formato «plano» legacy. \textbf{El fichero importado siempre se re-etiqueta con la \lstinline!version! / \lstinline!appVersion! actuales del código en ejecución}, no con los del propio fichero. El resultado se escribe directamente en \lstinline!UI_STORAGE_KEY! y se fuerza \lstinline!window.location.reload()!.
 \endgroup
 
+Las alteraciones \lstinline!chordFifth! / \lstinline!chordNinth! y \lstinline!fifth! / \lstinline!ninth! de cada slot cercano viajan en el mismo payload; un fichero exportado por una versión anterior (sin esos campos) se importa con la quinta y la novena por defecto (\Sref{sec:6.2}). El rango de trastes de Acordes (\lstinline!chordWindowStart! / \lstinline!chordWindowSize!) viaja en el mismo payload; un fichero sin él carga el mástil completo. Los presets rápidos usan el mismo formato y el mismo saneado; además se re-etiquetan con la versión actual al arrancar, por lo que sobreviven a una subida de versión (\Sref{sec:6.2}).
+
 El disparador de UI (\lstinline!<input type="file">!) vive físicamente en \texttt{\seqsplit{components/layout/AppHeader.jsx:89-90}} (recibe la \lstinline!ref! como prop), no en \lstinline!AppConfigPanel.jsx!: el botón «Importar config» de \texttt{\seqsplit{components/config/AppConfigPanel.jsx:187-193}} solo hace \lstinline!importConfigInputRef.current.click()!.
 
 \textbf{Presets rápidos}: \lstinline!saveQuickPreset! / \lstinline!loadQuickPreset! (\lstinline!App.jsx:1395-1431!) guardan/restauran uno de los 3 slots (\lstinline!quickPresets!, persistidos en \lstinline!UI_PRESETS_STORAGE_KEY!), cada uno con \lstinline!{name, savedAt, payload}!. \textbf{Restablecer} (\lstinline!resetUiConfig!) pide confirmación (\lstinline!window.confirm!), borra \lstinline!UI_STORAGE_KEY! y recarga.
@@ -902,7 +1016,7 @@ La navegación distingue \textbf{tres media queries independientes} (\texttt{\se
 \item \textbf{Móvil/compacto}: \lstinline!mobileActiveSection! (dentro de \lstinline!layoutFeature.navigation!) mantiene \textbf{una única sección activa}, con navegación por barra inferior (\lstinline!MOBILE_BOTTOM_NAV_OPTIONS!, 6 opciones: Escala/Ruta/Acordes/Cercanos/Comparar/Standards) o por \textbf{gestos de swipe horizontal} (\lstinline!handleMobileSectionPointerDown/Move/End/Cancel!, con umbral de arrastre, distinción de scroll vertical vs. swipe, y supresión del click fantasma tras un swipe).
 \end{itemize}
 
-Ambos convergen en \lstinline!effectiveBoards! (\lstinline!App.jsx:4174-4184!). El panel de «Configuración» tiene comportamiento asimétrico: en escritorio ancho (\lstinline!xl:!) se muestra inline junto a los demás paneles; en cualquier otro layout se abre como modal a pantalla completa (\lstinline!mobileMenuOpen!). Los overlays móviles (contexto tonal, editor de acorde, editor de acorde cercano, popover de info) bloquean el scroll del documento con la técnica \lstinline!position: fixed! + compensación de \lstinline!scrollY! (compatibilidad iOS).
+Ambos convergen en \lstinline!effectiveBoards! (\lstinline!App.jsx:4174-4184!). El panel de «Configuración» tiene comportamiento asimétrico: en escritorio ancho (\lstinline!xl:!) se muestra inline junto a los demás paneles; en cualquier otro layout se abre como modal a pantalla completa (\lstinline!mobileMenuOpen!). Los overlays móviles (contexto tonal, editor de acorde, editor de acorde cercano, popover de info) bloquean el scroll del documento con la técnica \lstinline!position: fixed! + compensación de \lstinline!scrollY! (compatibilidad iOS); desde 6.0.96 el popover de info queda por encima de los editores. En \lstinline!isMobileLayout! el mástil de Acordes no muestra la fila de rango ni filtra por rango (\Sref{sec:8.7}).
 
 \lstinline!StudyPanel! («Modo estudio») es compartido entre las secciones «Acordes» y «Acordes cercanos» (se monta si \lstinline!boardVisibility.chords || boardVisibility.nearChords!), seleccionando su objetivo de estudio (\lstinline!studyTarget!) según cuál de las dos secciones lo abrió.
 
@@ -980,9 +1094,13 @@ Ambos convergen en \lstinline!effectiveBoards! (\lstinline!App.jsx:4174-4184!). 
 \section{Flujo de datos de un standard de jazz}
 \label{sec:14.2}
 
-\lstinline!useStandardsFeature.js! $\to$ carga perezosa del índice (\lstinline!jjazzlabCatalog.js!, \lstinline!import.meta.glob! sin \lstinline!eager!) $\to$ selección de un ítem $\to$ carga bajo demanda del standard completo (\lstinline!loadJJazzLabStandardFromPath!) $\to$ \lstinline!jjazzlabParser.js! convierte el \lstinline!.sng! embebido (parseo por regex, no XML real) al formato interno \lstinline!{realForm: {sections}}! $\to$ \lstinline!components/standards/StandardRealChartSections.jsx! lo renderiza $\to$ selección de hasta 4 eventos de acorde $\to$ \texttt{\seqsplit{standardsCatalog.js: buildNearSlotsFromChordSymbols()}} los traduce a slots $\to$ \lstinline!onApplyToNearChords! (callback inyectado desde \lstinline!App.jsx!) los carga en el panel de Acordes cercanos.
+\lstinline!useStandardsFeature.js! $\to$ carga perezosa del índice (\lstinline!jjazzlabCatalog.js!, \lstinline!import.meta.glob! sin \lstinline!eager!) $\to$ selección de un ítem $\to$ carga bajo demanda del standard completo (\lstinline!loadJJazzLabStandardFromPath!) $\to$ \lstinline!jjazzlabParser.js! convierte el \lstinline!.sng! embebido (parseo por regex, no XML real) al formato interno \lstinline!{realForm: {sections}}! $\to$ \lstinline!components/standards/StandardRealChartSections.jsx! lo renderiza $\to$ selección de hasta 4 eventos de acorde $\to$ \texttt{\seqsplit{standardsCatalog.js: resolveNearSlotsFromChordSymbols()}} los traduce a slots $\to$ \lstinline!onApplyToNearChords! (callback inyectado desde \lstinline!App.jsx!) los carga en el panel de Acordes cercanos.
 
 Fuente alternativa: \lstinline!musicXmlParser.js! parsea ficheros \lstinline!.musicxml! de \lstinline!src/musicxml/!, con lógica adicional de expansión de repeticiones/finales alternativos (ausente en el flujo JJazzLab, que ya llega «reproducible»), produciendo la misma forma de salida \lstinline!{realForm, phrases}! --- ambos parsers son agnósticos entre sí para el resto de la app.
+
+\textbf{Gramática única de cifrados (6.0.96)}: \lstinline!parseStandardChordSuffix! (\lstinline!standardsCatalog.js:107!) traduce un sufijo a estado del constructor con una tabla de bases (\lstinline!CHORD_SUFFIX_BASES!: \lstinline!m(maj9)!, \lstinline!m7b5!, \lstinline!m9b5!, \lstinline!m11!, \lstinline!maj9!, \lstinline!dim7!, \lstinline!dim!, \lstinline!aug!, \lstinline!13sus4!, \lstinline!9sus4!, \lstinline!7sus4!, \lstinline!13!, \lstinline!9!, \lstinline!7!, \lstinline!69!, \lstinline!6!, \lstinline!add9!\ldots) seguida de alteraciones de quinta/novena (\lstinline!b5!, \lstinline!#5!, \lstinline!b9!, \lstinline!#9!, con o sin paréntesis), tras normalizar alias ($\Delta$, \lstinline!-!, ø, °, \lstinline!+!, \lstinline!M7!, \lstinline!6/9!, \lstinline!2!\ldots). Las alteraciones pasan por la misma política del selector (\Sref{sec:7.4.1}). Lo que la app no puede construir exactamente (\lstinline!#11!, \lstinline!b13!, \lstinline!alt!, \flt9 y \shp9 a la vez, \shp9 sobre 3\textsuperscript{a} menor) \textbf{no se simplifica}: \lstinline!describeUnsupportedChordSuffix! da el motivo y \lstinline!resolveNearSlotsFromChordSymbols! devuelve ese símbolo sin slot, de modo que los demás se cargan, el slot correspondiente queda desactivado y el panel muestra un aviso de tipo \lstinline!warning! (p.\,ej. \lstinline!A7alt! nunca se carga como \lstinline!A7!).
+
+En los parsers (\lstinline!jjazzlabParser.js!, \lstinline!musicXmlParser.js!), \lstinline!EXACT_SUFFIX_MAP! dejó de reducir cifrados (antes \lstinline!7susb9!, \lstinline!9sus4!, \lstinline!M7#5!, \lstinline!m+! o \lstinline!2! se cargaban como acordes distintos) y desapareció \lstinline!inferFallbackLoadSuffix!: el campo \lstinline!load! de cada evento es el sufijo exacto o el sufijo original, nunca una simplificación. Los 1461 JSON de \lstinline!src/standards-jjazzlab/! se regeneraron: 1226 cambian, siempre en el campo \lstinline!load! (p.\,ej. \lstinline!A7alt! deja de cargarse como \lstinline!A7! y \lstinline!Ebo! como \lstinline!Ebdim7!), sin tocar metadatos ni cifrado visible, salvo los 5 ficheros con deriva previa citados a continuación. Antes se comprobó que regenerar sin cambios de código no producía diferencias de contenido (las 638 diferencias observadas eran solo de fin de línea y se restauraron; 5 ficheros mostraban deriva previa por eventos con bajo \textit{slash}). Validación sobre todos los eventos al cierre: 69\,409 eventos, 67\,003 traducibles con nombre, carga y notas coherentes, 2406 no traducibles con aviso y 0 incoherencias (antes 66\,985 y 2424: ahora se cargan también \lstinline!m#5! / \lstinline!m+! como Menor con \shp5 y \lstinline!mM7b5! como m(maj7) con \flt5, 18 eventos). Ningún cifrado con \lstinline!b13! se carga como \lstinline!#5! (\lstinline!C7b13!, \lstinline!C7(#9,b13)! o \lstinline!C7b9b13! se rechazan con el motivo «\flt13»); solo \lstinline!#5!, \lstinline!+7!, \lstinline!aug7! y \lstinline!+! se cargan como quinta aumentada, que es lo que escriben. Con \flt5 en Menor se cargan también \lstinline!m(b5)! / \lstinline!mb5! (= dim), \lstinline!m7(b5)! y \lstinline!m11b5! (= ø), con el mismo resultado que sus equivalentes; ningún standard del repositorio usa esas grafías, así que el recuento de no traducibles no cambia.
 
 % =============================================================================
 \chapter{Estrategia de pruebas y comandos disponibles}
@@ -997,15 +1115,17 @@ npm run build                  # Build de produccion -> dist/
 npm run preview                # Preview del build (puerto 4185 fijo)
 npm run lint                   # ESLint (flat config)
 npm test                       # vitest run (todos los tests unitarios)
-npm run test:e2e               # Playwright (33 specs en e2e/)
-npm run test:e2e:chord-matrix  # Solo e2e/chord-matrix.slow.spec.js (matriz parametrica lenta)
+npm run test:e2e               # Playwright (34 specs en e2e/, incluida la matriz lenta)
+npm run test:e2e:chord-matrix  # Solo la matriz lenta (no repetir tras test:e2e)
 npm run audit:chords           # scripts/auditChordDetection.mjs
 npm run audit:copy-readings    # scripts/auditCopyReadings.mjs
 npm run audit:chord-ui-matrix  # scripts/auditChordUiMatrix.mjs
-npm run audit:study            # scripts/auditStudy.mjs (12 casos de Modo estudio en C Mayor)
+npm run audit:study            # scripts/auditStudy.mjs (18 casos de Modo estudio en C Mayor)
 npm run analyze:frets[:json]   # scripts/analyzeFrets.mjs
 npm run generate:frets-oracle / compare:frets-oracle[:golden]
 \end{lstlisting}
+
+\textbf{Estrategia de validación (6.0.96, \lstinline!AGENTS.md! y \lstinline!CLAUDE.md!)}: durante las iteraciones se ejecutan pruebas dirigidas al comportamiento modificado y a sus consumidores (archivos concretos y filtros \lstinline!vitest run -t! / \lstinline!playwright test -g!, comprobando con \lstinline!vitest list! / \lstinline!--list! que seleccionan los casos esperados), con \lstinline!npm run build! antes de probar la interfaz porque el preview sirve \lstinline!dist/!. La batería completa (lint, unitarios, build, E2E completo y las auditorías aplicables) se ejecuta una sola vez en el cierre acordado; las auditorías masivas se reservan para cambios que afectan a sus invariantes y \lstinline!audit:chords -- --no-cache! para cambios del motor de detección o del análisis físico.
 
 \section{Ejecución real realizada para este DTS}
 \label{sec:15.2}
@@ -1019,13 +1139,44 @@ npm run build -> 3274 modulos transformados, built in 49.88s, exit 0
 La auditoría original de este documento ejecutó \lstinline!vitest run! y obtuvo \textbf{60} ficheros / \textbf{1488} tests, frente a los \textbf{44} ficheros \lstinline!*.test.*! reales del proyecto (confirmado por \lstinline!find! bajo \lstinline!src/! / \lstinline!scripts/!). La diferencia (16 ficheros, 8 por directorio) provenía de dos \textit{worktrees} auxiliares de Claude Code alojados en \lstinline!.claude/worktrees/!, cada uno con una copia parcial de tests de \lstinline!src/!. La causa técnica era doble: Vitest no respeta \lstinline!.gitignore! para descubrir tests (aunque \lstinline!.claude/! ya estaba ignorado por git), y \lstinline!vite.config.js! definía \lstinline!test.exclude! de forma explícita (\lstinline!["e2e/**", "node_modules/**"]!), lo que \textbf{reemplazaba} --- en vez de ampliar --- las exclusiones predeterminadas de Vitest (\lstinline!configDefaults.exclude!: \lstinline!**/node_modules/**!, \lstinline!**/.git/**!). Se corrigió construyendo \lstinline!exclude! a partir de \lstinline![...configDefaults.exclude, "e2e/**", ".claude/worktrees/**"]! (importado de \lstinline!vitest/config!), sin sustituir manualmente ninguna exclusión predeterminada. Resultado verificado tras la corrección: \textbf{44} ficheros / \textbf{1370} tests, y se comprobó que un worktree auxiliar simulado en \lstinline!.claude/worktrees/! sigue ignorado. Recomendación 1 de \Sref{sec:18} resuelta.
 \end{hallazgobox}
 
+\textbf{Batería final del cierre de 6.0.96} (2026-10-07, rama \lstinline!feat/alteraciones-quinta-novena!, estado definitivo, Windows 11, Node local). La matriz lenta va incluida en \lstinline!test:e2e! y no se ejecutó aparte:
+
+\begin{lstlisting}
+Comando (npm run ...)   Resultado
+lint                    exit 0, 0 problemas
+test (vitest)           47 ficheros, 1633 tests correctos
+build                   3280 modulos, 1m 38s, exit 0
+                        music-core 477.80 kB (120.50 kB gzip)
+                        App 400.38 kB (108.77 kB gzip)
+test:e2e                419 passed (34 specs, 14.3 min),
+                        incluidos los 14 de chord-matrix.slow
+audit:chords            0 errores, 0 warnings; 21.540 voicings,
+                        53.455 candidatos, 7.681 lecturas alteradas
+                        y 818 alternativas #5 menores
+audit:copy-readings     49/49 casos correctos
+audit:chord-ui-matrix   13.923 combinaciones (10.032 alteradas),
+                        0 FAIL, 0 WARN; 2.622 sincronizaciones de
+                        calidad, 13.920 opciones Aumentada y
+                        14.400 idas y vueltas sus2/sus4
+audit:study             18/18 casos
+\end{lstlisting}
+
+\lstinline!audit:chords -- --no-cache! se ejecutó tras el último cambio del motor de detección (alternativas menores con \shp5): 0 errores y 0 warnings sobre los 21.540 voicings físicos. El motor no ha cambiado desde entonces, así que no se repitió en el cierre. La batería final no dio ningún fallo, por lo que no hubo que corregir ni repetir pruebas.
+
+\begin{hallazgobox}{Tests intermitentes en la batería completa (6.0.96, RESUELTO)}
+Los 19 tests de \texttt{\seqsplit{scripts/analyzeProgression.test.js}} lanzan la CLI real (\lstinline!node scripts/analyzeProgression.mjs!) como proceso hijo, que importa todo el núcleo musical, y tardan 0,6-2\,s aislados; con la batería completa en paralelo (46 ficheros repartidos entre \textit{workers}) superaban de forma intermitente el \textit{timeout} por defecto de Vitest (5\,s) por contención de CPU, sin fallo funcional. Pasar aislados no demostraba nada sobre la batería: el fallo se reprodujo ejecutando la batería completa y se corrigió con un \textit{timeout} explícito de 15\,s (\lstinline!DEFAULT_CLI_TIMEOUT!), el mismo criterio que ya aplicaba \lstinline!analyzeFretsCliJson.test.js!. El nuevo test de invariante de copia sobre 1000 selecciones (\lstinline!chordAlterationsCopy.test.js!) declara su propio \textit{timeout} de 60\,s por el mismo motivo. Tras el cambio, la batería completa se ejecutó varias veces seguidas sin fallos.
+
+\smallskip
+En E2E, la primera ejecución completa de esta revisión dio 349 correctos y 4 fallos, ninguno visible al ejecutar solo los specs nuevos: (1) \lstinline!chord-ui! 57 y 59 seguían esperando \lstinline!Fdim7(add13,no1)! y «Bajo 13», comportamiento cambiado a propósito (en dim7 la 13 se deshabilita y el bajo es la \flt\flt7); se actualizaron como CM-08; (2) \lstinline!chord-ui! 72 destapó la regresión de ranking \lstinline!1x422x! $\to$ \lstinline!Dbaug(add11)/F! corregida en \Sref{sec:7.6}; (3) \lstinline!chord-catalog-infra! 83 falló por tiempo: medido aislado, el catálogo \lstinline!C/major.json! se pide una sola vez y las digitaciones aparecen a \textasciitilde1,6\,s (1,5\,s de retardo artificial), pero con varios \textit{workers} arrancando en frío superaba los 5\,s del sondeo. El test ahora exige además una única petición y da 15\,s de margen. Las dos pasadas siguientes (352 + 1 y 351 + 2 fallos) mostraron el mismo patrón en otros tests previos a esta revisión: \lstinline!copy-readings! 49 leía el selector durante la fase intermedia «(C dist 1)», que también existe en \lstinline!main! (comprobado con un build de \lstinline!main!: misma doble petición del catálogo y misma fase); \lstinline!chord-ui! 65 contaba las digitaciones de E9 sin esperar al catálogo; \lstinline!copy-readings! 41 recarga la app tres veces y tardaba 15-31\,s con un límite de 30\,s. Se corrigieron esperando al estado resuelto (o con un límite propio en el 41) y la pasada siguiente dio 353/353; tras añadir la alternativa \flt13 y el test CVI-6 dio 354/354, y tras admitir \flt5 en Menor (8 E2E nuevos) la batería de aquella fase dio 362/362 (la del cierre se recoge arriba). Durante la tercera pasada se ejecutó además, por error, una medición de rendimiento que cargó la CPU; por eso esa pasada no se tomó como válida y se repitió completa sin interferencias.
+\end{hallazgobox}
+
 \section{Organización de la suite}
 \label{sec:15.3}
 
 \begin{itemize}
-\item \textbf{Unitarios (Vitest + jsdom)}: 44 ficheros reales, mayoritariamente en \lstinline!src/music/*.test.js! (motor de detección, voicings, patrones, standards, key analysis) y \lstinline!src/features/**/*.test.js! (núcleos puros de cada dominio). Patrón dominante: cada \lstinline!*Core.js! puro tiene su \lstinline!.test.js! homónimo. Hay tests de regresión explícitos (\lstinline!referenceRegression.test.js!, \lstinline!appVoicingStudyRegression.test.js!, \lstinline!detectionInvariants.test.js!, \lstinline!goldenCases.test.js!) y de paridad CLI$\leftrightarrow$UI (\lstinline!analyzeFretsParity.test.js!, \lstinline!analyzeFretsCliJson.test.js!).
-\item \textbf{E2E (Playwright)}: 33 specs en \lstinline!e2e/!, \lstinline!baseURL: http://localhost:4185/mastil_escalas/! (requiere \lstinline!npm run preview! corriendo), Chrome de escritorio headless, sin reintentos (\lstinline!retries: 0!). Cubren smoke de navegación (\lstinline!smoke.spec.js!, 6 pestañas + layouts responsive), persistencia (\lstinline!chords-persist.spec.js!, \lstinline!config-version-invalidation.spec.js!), comparador de escalas, ruta, y una matriz extensa de casos de Acordes cercanos/detección/copia (\lstinline!near-chords-*.spec.js!, \lstinline!chord-*.spec.js!, \lstinline!frets-oracle-golden.spec.js!).
-\item \textbf{Auditorías CLI (\lstinline!scripts/*.mjs!)}: no son tests de Vitest sino scripts Node standalone que ejercitan miles de combinaciones paramétricas contra el motor real (\lstinline!auditChordDetection.mjs! genera todas las combinaciones de notas/díadas/tríadas sobre afinación estándar; \lstinline!auditChordUiMatrix.mjs! recorre el espacio de parámetros del constructor de acordes). Documentadas con invariantes explícitas ERROR/WARNING en sus cabeceras (p.\,ej. \lstinline!minor-no-b3!, \lstinline!slash-mismatch!, \lstinline!dedup-failure!).
+\item \textbf{Unitarios (Vitest + jsdom)}: 47 ficheros reales en 6.0.96 (44 en 6.0.94; se añadieron \texttt{\seqsplit{src/music/chordAlterations.test.js}} ---política, calidad visible, Aumentada, suspensión, normalización, nombres, grados, deletreo y transiciones---, \texttt{\seqsplit{src/features/chord-detection/chordAlterationsCopy.test.js}} ---copia detector $\to$ Acordes/cercanos sin pérdida de alteraciones, incluidas \flt9 y las alternativas \shp5 menores en las 12 tónicas--- y \texttt{\seqsplit{src/features/fret-window/fretWindowCore.test.js}} ---límites y regla del rango de trastes---), mayoritariamente en \lstinline!src/music/*.test.js! (motor de detección, voicings, patrones, standards, key analysis) y \lstinline!src/features/**/*.test.js! (núcleos puros de cada dominio). Patrón dominante: cada \lstinline!*Core.js! puro tiene su \lstinline!.test.js! homónimo. Hay tests de regresión explícitos (\lstinline!referenceRegression.test.js!, \lstinline!appVoicingStudyRegression.test.js!, \lstinline!detectionInvariants.test.js!, \lstinline!goldenCases.test.js!) y de paridad CLI$\leftrightarrow$UI (\lstinline!analyzeFretsParity.test.js!, \lstinline!analyzeFretsCliJson.test.js!).
+\item \textbf{E2E (Playwright)}: 34 specs en \lstinline!e2e/! (32 en 6.0.94; se añadieron \texttt{\seqsplit{chord-alterations.spec.js}} y \texttt{\seqsplit{chord-fretboard-window.spec.js}}), \lstinline!baseURL: http://localhost:4185/mastil_escalas/! (requiere \lstinline!npm run preview! corriendo), Chrome de escritorio headless, sin reintentos (\lstinline!retries: 0!). Cubren smoke de navegación (\lstinline!smoke.spec.js!, 6 pestañas + layouts responsive), persistencia (\lstinline!chords-persist.spec.js!, \lstinline!config-version-invalidation.spec.js!), comparador de escalas, ruta, y una matriz extensa de casos de Acordes cercanos/detección/copia (\lstinline!near-chords-*.spec.js!, \lstinline!chord-*.spec.js!, \lstinline!frets-oracle-golden.spec.js!). \lstinline!config-version-invalidation.spec.js! añade \lstinline!CVI-6! (un preset de una versión anterior sobrevive al upgrade y se carga). \lstinline!chord-alterations.spec.js! (6.0.96) cubre los dos órdenes de Menor + \flt5 en Acorde (cuatriada y Acorde), en Acordes cercanos y en móvil, y su equivalencia de digitaciones con Semidisminuido en abierto y drop 2; además cubre la tabla de aceptación de quinta/novena en escritorio y móvil, transiciones y selectores, omisión y bajo, copia desde el detector a Acordes y a Acordes cercanos, slots cercanos, persistencia, configuración antigua, exportación/importación, presets y carga de standards con avisos; \lstinline!chord-matrix.slow.spec.js! añade CM-11..CM-14 (inversiones con \shp5/\flt5 y \flt9/\shp9 con selector y resumen coherentes). Al cierre, \texttt{\seqsplit{chord-alterations.spec.js}} cubre además el recorrido \flt5 $\to$ \shp5 $\to$ 5 $\to$ \flt5 desde Menor y Semidisminuido, Aumentada (selección directa, idas y vueltas y su bloqueo con \flt\flt7), sus2/sus4 desde ø y Disminuido en los dos paneles, las explicaciones consultables pulsando en móvil y la copia de \lstinline!Am7(b9)!, \lstinline!Bm7(b9)!, \lstinline!Am7(#5)!, \lstinline!Cm(#5)! y \lstinline!Cm(maj7,#5)! desde el detector; \texttt{\seqsplit{chord-fretboard-window.spec.js}} cubre la cabecera del mástil (alineación en escritorio y móvil, accesibilidad de los iconos, filtrado al mover y redimensionar, zona anterior sin mover el rango, caso sin posiciones, traste 0 con cuerdas al aire, «Todo el mástil», persistencia, configuración antigua, independencia de Acordes cercanos y ausencia de rango en móvil).
+\item \textbf{Auditorías CLI (\lstinline!scripts/*.mjs!)}: no son tests de Vitest sino scripts Node standalone que ejercitan miles de combinaciones paramétricas contra el motor real (\lstinline!auditChordDetection.mjs! genera todas las combinaciones de notas/díadas/tríadas sobre afinación estándar; \lstinline!auditChordUiMatrix.mjs! recorre el espacio de parámetros del constructor de acordes). Documentadas con invariantes explícitas ERROR/WARNING en sus cabeceras (p.\,ej. \lstinline!minor-no-b3!, \lstinline!slash-mismatch!, \lstinline!dedup-failure!). En 6.0.96 las cuatro auditorías recorren la quinta y la novena alteradas: \lstinline!auditChordUiMatrix.mjs! añade la dimensión quinta$\times$novena (estado de alteración inválido, título frente a estado, etiquetas funcionales, chips frente a checkboxes, alterado servido desde JSON, verificación de \lstinline!tooManyNotes! y la invariante \texttt{\seqsplit{MINOR\_FLAT5\_EQUIVALENCE}}, que compara cada combinación de Menor + \flt5 con su ø/dim equivalente); \lstinline!auditCopyReadings.mjs! añade los casos ALT-1..ALT-15 y la invariante global \lstinline!ALTERATION_LOST! (toda lectura copiable reproduce exactamente sus notas en el constructor); \lstinline!auditChordDetection.mjs! añade \lstinline!altered-copy-loss!, \lstinline!dominant-addb2!, \lstinline!altered-label-mismatch! y \lstinline!altered-name-mismatch! sobre todas las lecturas copiables; \lstinline!auditStudy.mjs! pasa de 12 a 18 casos con planes reales del motor (G7(\flt9), G7(\shp9), G7(\shp5,\flt9), Bm7(\flt5), Bdim7, D7sus4), comprobando que \shp9/\shp5/\flt9/\flt\flt7 no se leen como \flt3/\flt13/\flt2/6. Al cierre: \texttt{\seqsplit{auditChordUiMatrix.mjs}} recorre también Semidisminuido y Disminuido con sus2/sus4 y añade \lstinline!QUALITY_SYNC_EQUIVALENCE! (la opción mostrada en el combo es exactamente ese acorde), \lstinline!FIFTH_LOCKED! / \lstinline!NINTH_LOCKED! (la calidad no bloquea los selectores), \lstinline!AUG_SEVENTH_CONSERVED! (Aumentada conserva la 7\textsuperscript{a} o queda deshabilitada sin cambiar nada) y \lstinline!SUSPENSION_ROUND_TRIP! (sus2/sus4 solo sustituyen la 3\textsuperscript{a} y la vuelta deja el estado idéntico); \texttt{\seqsplit{auditCopyReadings.mjs}} llega a ALT-24 con las comprobaciones opcionales \lstinline!expectFollows! y \texttt{\seqsplit{expectNoCandidateMatching}}; \texttt{\seqsplit{auditChordDetection.mjs}} comprueba cada alternativa \shp5 menor (colocación tras su lectura \flt13, nunca principal, sin 5\textsuperscript{a} justa y copiable con \shp5).
 \item \textbf{Oráculo de voicings} (\lstinline!docs/frets-oracle.md!): batería independiente de dos capas (oráculo exhaustivo sin usar el motor de producción + comparador contra el motor real) con tres niveles de exigencia por lectura (\lstinline!mustInclude! / \lstinline!mayInclude! / \lstinline!informational!) y un conjunto de casos dorados estrictos (\lstinline!src/music/fretsOracleGoldenCases.json!) que sí fallan el proceso si se rompen.
 \end{itemize}
 
@@ -1041,7 +1192,7 @@ No hay integración de tests en el pipeline de CI (ver \Sref{sec:17}).
 \begingroup\sloppy
 \lstinline!vite.config.js! define \lstinline!manualChunks!: \lstinline!react-vendor! (React/ReactDOM/scheduler), \lstinline!icons! (lucide-react), \lstinline!music-core! (todo \lstinline!src/music/!), \lstinline!standards-index! (solo \lstinline!jjazzlabStandardsIndex.json!, aislado para no arrastrar el resto de \lstinline!music-core!). Los \textbf{1461 ficheros JSON individuales} de \lstinline!src/standards-jjazzlab/! se cargan vía \lstinline!import.meta.glob! sin \lstinline!eager! (\lstinline!jjazzlabCatalog.js!), por lo que Rollup los trocea automáticamente en un chunk lazy por standard (2-70\,kB cada uno, verificado en el build real).\endgroup
 
-\textbf{Resultado del build verificado} (\lstinline!npm run build!, exit 0, 49.88\,s, 3274 módulos):
+\textbf{Resultado del build verificado} (6.0.96, cierre: \lstinline!npm run build!, exit 0, 1\,min 38\,s, 3280 módulos; en 6.0.94 eran 49.88\,s y 3274 módulos):
 
 \begin{center}
 \begin{longtable}{L{4.4cm}C{3.0cm}C{3.0cm}}
@@ -1054,12 +1205,12 @@ No hay integración de tests en el pipeline de CI (ver \Sref{sec:17}).
 \endhead
 \bottomrule
 \endlastfoot
-\lstinline!music-core! & 450.03\,kB & 112.94\,kB\\
-\lstinline!App! (bundle de \lstinline!App.jsx! + dependencias no compartidas) & 388.09\,kB & 104.11\,kB\\
+\lstinline!music-core! & 477.80\,kB & 120.50\,kB\\
+\lstinline!App! (bundle de \lstinline!App.jsx! + dependencias no compartidas) & 400.38\,kB & 108.77\,kB\\
 \lstinline!standards-index! & 368.84\,kB & 51.74\,kB\\
 \lstinline!react-vendor! & 192.67\,kB & 60.37\,kB\\
-CSS (Tailwind compilado) & 47.13\,kB & 9.19\,kB\\
-\lstinline!icons! & 5.22\,kB & 2.21\,kB\\
+CSS (Tailwind compilado) & 48.32\,kB & 9.32\,kB\\
+\lstinline!icons! & 6.21\,kB & 2.50\,kB\\
 \textasciitilde1461 chunks individuales por standard & 1.6-70\,kB cada uno & ---\\
 \end{longtable}
 \end{center}
@@ -1093,7 +1244,7 @@ No aparece en los \textasciitilde90 campos de \lstinline!persistedUiConfig! (\ls
 \end{hallazgobox}
 
 \begin{hallazgobox}{4 --- Migración de configuración «todo o nada» entre versiones de app}
-Cualquier subida de \lstinline!APP_VERSION! descarta la config guardada completa (\lstinline!App.jsx:1108-1112!) en vez de migrar campo a campo; solo el formato interno (\lstinline!UI_CONFIG_VERSION!) tiene saneado incremental.
+Cualquier subida de \lstinline!APP_VERSION! descarta la config guardada completa (\lstinline!App.jsx:1118-1124! en 6.0.96) en vez de migrar campo a campo; solo el formato interno (\lstinline!UI_CONFIG_VERSION!) tiene saneado incremental.
 \end{hallazgobox}
 
 \begin{hallazgobox}{5 --- Dependencia de un despliegue externo del mismo autor como fallback de producción}
@@ -1113,11 +1264,65 @@ Ver detalle técnico y resolución en \Sref{sec:15.2}. Corregido excluyendo \lst
 \end{hallazgobox}
 
 \begin{hallazgobox}{9 --- \texttt{App.jsx} como «God component»}
-5534 líneas, 52 \lstinline!useState! + 26 \lstinline!useEffect! + 44 \lstinline!useMemo! propios más el estado desestructurado de 7 hooks de dominio; funciones de render pasadas como props a componentes hijos (\lstinline!renderFns!, \lstinline!App.jsx:5193-5206!), acoplando fuertemente \lstinline!ChordsPanel! a closures del padre en vez de ser autocontenido. Dificulta el testeo aislado de la UI raíz (de ahí que solo exista un test de humo, \lstinline!App.smoke.test.jsx!) y el \textit{code splitting} fino del propio chunk \lstinline!App! (388\,kB / 104\,kB gzip, el segundo más pesado tras \lstinline!music-core!).
+5534 líneas (5590 en 6.0.96), 52 \lstinline!useState! + 26 \lstinline!useEffect! + 44 \lstinline!useMemo! propios más el estado desestructurado de 7 hooks de dominio; funciones de render pasadas como props a componentes hijos (\lstinline!renderFns!, \lstinline!App.jsx:5193-5206!), acoplando fuertemente \lstinline!ChordsPanel! a closures del padre en vez de ser autocontenido. Dificulta el testeo aislado de la UI raíz (de ahí que solo exista un test de humo, \lstinline!App.smoke.test.jsx!) y el \textit{code splitting} fino del propio chunk \lstinline!App! (400\,kB / 109\,kB gzip en 6.0.96, el segundo más pesado tras \lstinline!music-core!).
 \end{hallazgobox}
 
 \begin{hallazgobox}{10 --- Duplicación deliberada de funciones de deletreo}
 \lstinline!spellChordNotes! / \lstinline!spellNoteFromChordInterval! / \lstinline!spellPcWithLetter! / \lstinline!chordDegreeNumberFromInterval! existen por duplicado en \lstinline!appMusicBasics.js! y en \lstinline!chordDetectionEngine.js!, con defaults de \lstinline!preferSharps! ligeramente distintos (línea 76-106 de este último). Es una decisión arquitectónica consciente (mantener \lstinline!chordDetectionEngine.js! sin dependencias), pero implica el riesgo estándar de dos copias que pueden divergir con el tiempo si una se corrige y la otra no.
+\end{hallazgobox}
+
+\noindent Limitaciones verificadas en la revisión 6.0.96:
+
+\begin{hallazgobox}{11 --- Alcance de las alteraciones}
+La quinta (\flt5/5/\shp5) y la novena (\flt9/9/\shp9) ya se pueden elegir en cualquier calidad. Siguen sin construirse \shp11, \flt13 y \lstinline!alt!, \flt9 y \shp9 a la vez, la \shp9 sobre 3\textsuperscript{a} menor (coincide en altura con la \flt3; opción deshabilitada con su explicación) y los acordes que combinan 3\textsuperscript{a} mayor o suspensión con la \flt\flt7 de Disminuido (1--3--\shp5--\flt\flt7, 1--4--\flt5--\flt\flt7): Aumentada y sus2/sus4 se deshabilitan con su explicación en lugar de cambiar la séptima. Son limitaciones del constructor, no imposibilidades musicales.
+\end{hallazgobox}
+
+\begin{hallazgobox}{12 --- Standards con cifrados no construibles}
+2406 de 69\,409 eventos de acorde (\textasciitilde3,5\,\%, en 566 de los 1461 standards) no se pueden construir: 1597 por \shp11 (\lstinline!7#11!, \lstinline!maj7#11!, \lstinline!9#11!, \lstinline!13#11!\ldots), 545 por \flt13 (\lstinline!7b13!, \lstinline!7b9b13!, \lstinline!7susb13!\ldots), 188 \lstinline!alt!, 5 con \flt9 y \shp9 a la vez y 71 sin motivo específico (\lstinline!madd b6!, \lstinline!7susadd3!). El cifrado visible y el campo \lstinline!load! se conservan tal cual; al enviarlos a Acordes cercanos el hueco de ese acorde queda desactivado, los demás se cargan y el panel muestra un aviso con el motivo (o «Aún no sé traducir\ldots» si no hay uno específico), sin sustituirlos por un acorde más simple. Si ninguno de los acordes seleccionados se puede construir, no se carga nada y se muestra un error.
+\end{hallazgobox}
+
+\begin{hallazgobox}{13 --- 6 junto a 7 en «Acorde» (problema previo, tarea separada)}
+Con 6 y 7 marcadas el acorde suena \lstinline!1,3,5,6,7! pero se nombra \lstinline!Cmaj7! (o \lstinline!C7!, \lstinline!Cm7!): el nombre no refleja la 6. No forma parte de esta revisión.
+\end{hallazgobox}
+
+\begin{hallazgobox}{14 --- Colisiones de clase de altura con suspensión}
+En sus2 la 9 coincide con la 2 y en sus4 la 11 coincide con la 4; prevalece el grado estructural y el nombre no muestra la extensión porque no suena como nota distinta (\lstinline!Cm11(b5)! + sus4 suena como \lstinline!C9sus4(b5)!); la extensión sigue guardada y vuelve al quitar la suspensión. En dim7 la 6/13 coincide con la \flt\flt7 y por eso se deshabilita (\Sref{sec:7.4.1}).
+\end{hallazgobox}
+
+\begin{hallazgobox}{15 --- (RESUELTO en 6.0.96) Dominante sin 7ª en un slot cercano}
+Elegir «Dominante (7)» en estructura Acorde activa la 7\textsuperscript{a} en los dos paneles, con la misma regla compartida; la novena se elige en cualquier caso con la 9 activa.
+\end{hallazgobox}
+
+\begin{hallazgobox}{16 --- Acordes de más de 6 notas}
+No tienen posiciones en una guitarra de 6 cuerdas: la app muestra el motivo y propone «Omitir» o desactivar extensiones, sin forzar el acorde a una forma de menos notas.
+\end{hallazgobox}
+
+\begin{hallazgobox}{17 --- Invalidación de configuración al publicar 6.0.96}
+Por la regla del hallazgo 4, la configuración principal guardada por 6.0.95 o anterior (clave \texttt{\seqsplit{mastil\_interactivo\_guitarra\_config\_v1}}: escala, notación, acorde principal, detección, acorde de referencia, los 4 slots de Acordes cercanos, ruta, colores y tema) se descarta al cargar 6.0.96 y aparece el aviso «Actualizado a v6.0.96. Configuración restablecida.». No se pierden: los 3 presets rápidos (se re-etiquetan con la versión actual y se pueden cargar; verificado en navegador y con el E2E \lstinline!CVI-6!), los ficheros exportados (la importación los re-etiqueta) ni las claves ajenas a la app. Los presets y ficheros anteriores entran con la quinta y la novena por defecto.
+\end{hallazgobox}
+
+\begin{hallazgobox}{18 --- Clústeres de 5 notas con quinta aumentada y tensiones}
+En dos conjuntos exóticos (\lstinline!C E F G# B! y \lstinline!C Eb F# G B!, con cualquier bajo) la lectura \lstinline!maj7(#5,add11)! cede ante otra igual de forzada (\lstinline!Eaddb2,addb6/C!, \lstinline!Baddb2,addb6/G!), efecto de la penalización de \lstinline!maj7(#5)! heurístico (\Sref{sec:7.6}). No afecta a acordes habituales; se deja documentado en lugar de añadir reglas específicas.
+\end{hallazgobox}
+
+\begin{hallazgobox}{19 --- E2E que leen el selector de digitaciones sin esperar al catálogo}
+Muchos specs anteriores a esta revisión (\lstinline!chord-ui!, \lstinline!chord-keep-zone!\ldots) leen las opciones del selector inmediatamente; cuando el acorde sale del catálogo JSON (carga asíncrona) el resultado depende de la carga de la máquina. Se corrigieron los cuatro que fallaron (\Sref{sec:15.2}), pero el patrón sigue presente en otros tests que hoy pasan.
+\end{hallazgobox}
+
+\begin{hallazgobox}{20 --- Alternativas \shp5 menores acotadas}
+Solo se ofrecen \lstinline!m(#5)!, \lstinline!m7(#5)! y \lstinline!m(maj7,#5)! con exactamente esas notas y detrás de su lectura \flt13; con tensiones añadidas (p.\,ej. C--E\flt--G\shp--B\flt--D) no hay alternativa \shp5 y la lectura con \flt6/\flt13 sigue sin copiarse.
+\end{hallazgobox}
+
+\begin{hallazgobox}{21 --- Rango de trastes de Acordes}
+El voicing copiado desde el detector se muestra aunque quede fuera del rango (como con el filtro «Voicings»); en móvil no hay rango y se ven las posiciones de todo el mástil; en Acordes las flechas se deshabilitan en los extremos, mientras que en Acordes cercanos conservan su comportamiento anterior.
+\end{hallazgobox}
+
+\begin{hallazgobox}{22 --- Calidad mostrada con suspensión}
+Con sus2/sus4 el combo sigue mostrando la calidad base (p.\,ej. «m7(b5)» junto a sus4 para \lstinline!C7sus4(b5)!), igual que Menor + sus4 ya mostraba «Menor» para \lstinline!C7sus4!.
+\end{hallazgobox}
+
+\begin{hallazgobox}{23 --- Grafías con bemoles en m7(\flt9)}
+En D\flt, E\flt\ y A\flt\ la lectura \lstinline!m7(b9)! queda segunda por el orden previo de las grafías; sigue siendo copiable.
 \end{hallazgobox}
 
 % =============================================================================
@@ -1155,7 +1360,27 @@ Si se desea ir más allá de la ventana de trastes compartida, sería un desarro
 \end{recobox}
 
 \begin{recobox}{8 --- Reducir el tamaño del chunk \texttt{App}}
-(388\,kB / 104\,kB gzip) extrayendo funciones de render actualmente cerradas sobre el scope de \lstinline!App.jsx! (\lstinline!renderFns!, \lstinline!configPanelProps()!, \lstinline!buildTonalContextProps()!) hacia los propios componentes que las consumen, en línea con el patrón «núcleo puro + hook» ya usado con éxito en \lstinline!src/features/!. Este es un refactor de mantenibilidad, no una necesidad de rendimiento urgente (el bundle total gzip del punto de entrada sigue siendo razonable para una SPA de este alcance).
+(400\,kB / 109\,kB gzip en 6.0.96) extrayendo funciones de render actualmente cerradas sobre el scope de \lstinline!App.jsx! (\lstinline!renderFns!, \lstinline!configPanelProps()!, \lstinline!buildTonalContextProps()!) hacia los propios componentes que las consumen, en línea con el patrón «núcleo puro + hook» ya usado con éxito en \lstinline!src/features/!. Este es un refactor de mantenibilidad, no una necesidad de rendimiento urgente (el bundle total gzip del punto de entrada sigue siendo razonable para una SPA de este alcance).
+\end{recobox}
+
+\begin{recobox}{9 --- Ampliar la política de alteraciones}
+(Hallazgo 11.) \flt9/\shp9 en otras calidades y \flt5/\shp5 en menor ya están hechas (6.0.96); quedan \shp11/\flt13 como campos explícitos con la misma pauta (grado conservado junto al semitono, política centralizada en \lstinline!chordAlterations.js!, generador exacto). Cada ampliación reduce directamente los 2406 eventos de standards no traducibles (hallazgo 12).
+\end{recobox}
+
+\begin{recobox}{10 --- Nombrar la 6 junto a la 7}
+En «Acorde» (hallazgo 13), como tarea independiente con sus propias pruebas de nombre, chips e inversiones.
+\end{recobox}
+
+\begin{recobox}{11 --- Migración incremental de configuración}
+(Hallazgos 4 y 17.) Ahora que los campos nuevos tienen valores por defecto seguros, una configuración de una versión anterior podría sanearse campo a campo en lugar de descartarse, como ya ocurre de hecho con los presets rápidos.
+\end{recobox}
+
+\begin{recobox}{12 --- Esperar al estado resuelto en los E2E del selector de digitaciones}
+(Hallazgo 19.) Un \textit{helper} común que espere a que el catálogo JSON haya sustituido al voicing provisional evitaría fallos intermitentes como los observados en esta revisión.
+\end{recobox}
+
+\begin{recobox}{13 --- Representar la \flt\flt7 con 3ª mayor o con suspensión}
+(Hallazgo 11.) Si se decide un nombre claro para 1--3--\shp5--\flt\flt7 y 1--4--\flt5--\flt\flt7; hasta entonces Aumentada y sus2/sus4 quedan deshabilitadas y explicadas en Disminuido con 7\textsuperscript{a}.
 \end{recobox}
 
 % =============================================================================
@@ -1188,6 +1413,8 @@ Si se desea ir más allá de la ventana de trastes compartida, sería un desarro
 \item No se ejecutó \lstinline!npm run lint!, \lstinline!npm run test:e2e!, \lstinline!npm run test:e2e:chord-matrix! ni ninguno de los scripts de auditoría (\lstinline!audit:chords!, \lstinline!audit:copy-readings!, \lstinline!audit:chord-ui-matrix!, \lstinline!audit:study!) durante esta auditoría --- el encargo pedía analizar el repositorio y validar con tests/build, no producir una entrega de código sujeta al flujo de validación completo que aplica a cambios de código del repositorio (no a la creación de este documento).
 \item No se pudo determinar desde el código quién genera/actualiza \texttt{\seqsplit{src/music/jjazzlabStandardsIndex.json}} y \lstinline!form! dentro de él en tiempo de build/offline (probablemente \lstinline!scripts/generate-jjazzlab-standards.mjs!, no leído).
 \end{itemize}
+
+\textbf{Revisión parcial 6.0.96}: se revisaron y modificaron los módulos afectados por los cambios de la entrega (\lstinline!chordAlterations.js!, \lstinline!appMusicBasics.js!, \lstinline!appVoicingStudyCore.js!, \lstinline!chordDetectionEngine.js!, \lstinline!standardsCatalog.js!, \lstinline!jjazzlabParser.js!, \lstinline!musicXmlParser.js!, \lstinline!useChordBuilderState.js!, \lstinline!fretWindowCore.js!, \lstinline!App.jsx! en persistencia/cercanos/estudio/cabecera del mástil, los paneles de Acorde, Acordes cercanos, Standards y Estudio, \lstinline!ChordHintList.jsx!, \texttt{\seqsplit{ChordFretboardHeader.jsx}}, \texttt{\seqsplit{FretWindowControls.jsx}}, \texttt{\seqsplit{MobileInfoPopover.jsx}} y las cuatro auditorías), y en el cierre técnico se ejecutó la batería final (lint, unitarios, build, E2E completo con la matriz lenta incluida y las cuatro auditorías; resultados en \Sref{sec:15.2}). No se volvieron a auditar los apartados ajenos a acordes (rutas, audio, comparador de escalas, Android), que siguen reflejando la revisión 6.0.94.
 \endgroup
 
 \end{document}

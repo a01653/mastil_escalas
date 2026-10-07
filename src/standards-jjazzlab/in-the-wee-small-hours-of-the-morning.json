@@ -49,7 +49,7 @@
               },
               {
                 "display": "C+",
-                "load": "C"
+                "load": "Caug"
               }
             ],
             "repeat": false
@@ -67,7 +67,7 @@
               },
               {
                 "display": "C+",
-                "load": "C"
+                "load": "Caug"
               }
             ],
             "repeat": false
@@ -211,7 +211,7 @@
               },
               {
                 "display": "C+",
-                "load": "C"
+                "load": "Caug"
               }
             ],
             "repeat": false
@@ -260,7 +260,7 @@
               },
               {
                 "display": "D#o7",
-                "load": "D#dim7"
+                "load": "D#°7"
               }
             ],
             "repeat": false
@@ -305,7 +305,7 @@
             "chordEvents": [
               {
                 "display": "Ab7#11",
-                "load": "Ab7"
+                "load": "Ab7#11"
               },
               {
                 "display": "G7",
@@ -383,7 +383,7 @@
             },
             {
               "display": "C+",
-              "load": "C"
+              "load": "Caug"
             }
           ],
           "chords": [
@@ -401,7 +401,7 @@
             },
             {
               "display": "C+",
-              "load": "C"
+              "load": "Caug"
             }
           ],
           "chords": [
@@ -551,7 +551,7 @@
             },
             {
               "display": "C+",
-              "load": "C"
+              "load": "Caug"
             }
           ],
           "chords": [
@@ -607,7 +607,7 @@
             },
             {
               "display": "D#o7",
-              "load": "D#dim7"
+              "load": "D#°7"
             }
           ],
           "chords": [
@@ -652,7 +652,7 @@
           "chordEvents": [
             {
               "display": "Ab7#11",
-              "load": "Ab7"
+              "load": "Ab7#11"
             },
             {
               "display": "G7",

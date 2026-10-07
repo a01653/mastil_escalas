@@ -20,55 +20,35 @@ function splitBassSuffix(rawSuffix) {
 
 const EXACT_SUFFIX_MAP = Object.freeze({
   "": { displaySuffix: "", loadSuffix: "" },
-  "2": { displaySuffix: "add9", loadSuffix: "" },
+  "2": { displaySuffix: "add9", loadSuffix: "add9" },
   "6": { displaySuffix: "6", loadSuffix: "6" },
-  "69": { displaySuffix: "6/9", loadSuffix: "6" },
+  "69": { displaySuffix: "6/9", loadSuffix: "69" },
   "7": { displaySuffix: "7", loadSuffix: "7" },
   "9": { displaySuffix: "9", loadSuffix: "9" },
   "13": { displaySuffix: "13", loadSuffix: "13" },
-  "+": { displaySuffix: "+", loadSuffix: "" },
+  "+": { displaySuffix: "+", loadSuffix: "aug" },
   "sus": { displaySuffix: "sus4", loadSuffix: "sus4" },
   "7sus": { displaySuffix: "7sus4", loadSuffix: "7sus4" },
-  "7susb9": { displaySuffix: "7sus4b9", loadSuffix: "7sus4" },
-  "9sus": { displaySuffix: "9sus", loadSuffix: "7sus4" },
-  "13sus": { displaySuffix: "13sus", loadSuffix: "7sus4" },
+  "7susb9": { displaySuffix: "7sus4b9", loadSuffix: "7sus4b9" },
+  "9sus": { displaySuffix: "9sus", loadSuffix: "9sus4" },
+  "13sus": { displaySuffix: "13sus", loadSuffix: "13sus4" },
   "M7": { displaySuffix: "Δ7", loadSuffix: "maj7" },
-  "M9": { displaySuffix: "Δ9", loadSuffix: "maj7" },
-  "M7#5": { displaySuffix: "Δ7#5", loadSuffix: "maj7" },
-  "M7#11": { displaySuffix: "Δ7#11", loadSuffix: "maj7" },
-  "M9#11": { displaySuffix: "Δ9#11", loadSuffix: "maj7" },
+  "M9": { displaySuffix: "Δ9", loadSuffix: "maj9" },
+  "M7#5": { displaySuffix: "Δ7#5", loadSuffix: "maj7#5" },
+  "M7#11": { displaySuffix: "Δ7#11", loadSuffix: "maj7#11" },
+  "M9#11": { displaySuffix: "Δ9#11", loadSuffix: "maj9#11" },
   "m": { displaySuffix: "-", loadSuffix: "m" },
-  "m+": { displaySuffix: "-+", loadSuffix: "m" },
+  "m+": { displaySuffix: "-+", loadSuffix: "m#5" },
   "m6": { displaySuffix: "-6", loadSuffix: "m6" },
   "m7": { displaySuffix: "-7", loadSuffix: "m7" },
   "m9": { displaySuffix: "-9", loadSuffix: "m9" },
   "m11": { displaySuffix: "-11", loadSuffix: "m11" },
-  "m69": { displaySuffix: "-6/9", loadSuffix: "m6" },
+  "m69": { displaySuffix: "-6/9", loadSuffix: "m69" },
   "m7b5": { displaySuffix: "-7b5", loadSuffix: "m7b5" },
-  "m7M": { displaySuffix: "-Δ7", loadSuffix: "m" },
-  "dim": { displaySuffix: "o", loadSuffix: "dim7" },
+  "m7M": { displaySuffix: "-Δ7", loadSuffix: "mmaj7" },
+  "dim": { displaySuffix: "o", loadSuffix: "dim" },
   "dim7": { displaySuffix: "o7", loadSuffix: "o7" },
 });
-
-function inferFallbackLoadSuffix(rawSuffix) {
-  const suffix = String(rawSuffix || "").trim();
-  if (!suffix) return "";
-  if (/^M/.test(suffix)) return "maj7";
-  if (/^m7b5/.test(suffix)) return "m7b5";
-  if (/^m11/.test(suffix)) return "m11";
-  if (/^m9/.test(suffix)) return "m9";
-  if (/^m7/.test(suffix)) return "m7";
-  if (/^m6/.test(suffix)) return "m6";
-  if (/^m/.test(suffix)) return "m";
-  if (/^dim7/.test(suffix)) return "o7";
-  if (/^dim/.test(suffix)) return "dim7";
-  if (/sus/i.test(suffix)) return /^7|^9|^13/.test(suffix) ? "7sus4" : "sus4";
-  if (/^13/.test(suffix)) return "13";
-  if (/^9/.test(suffix)) return "9";
-  if (/^7/.test(suffix)) return "7";
-  if (/^6/.test(suffix)) return "6";
-  return "";
-}
 
 function normalizeDisplaySuffix(rawSuffix) {
   const suffix = String(rawSuffix || "").trim();
@@ -97,7 +77,10 @@ function normalizeChordEventSymbol(rawSymbol) {
   const { suffix, bass } = splitBassSuffix(rawSuffix);
   const exact = EXACT_SUFFIX_MAP[suffix];
   const displaySuffix = exact?.displaySuffix || normalizeDisplaySuffix(suffix);
-  const loadSuffix = exact?.loadSuffix ?? inferFallbackLoadSuffix(suffix);
+  // Sin entrada exacta, el load conserva el sufijo del cifrado (sin bajo): si la
+  // app no puede construirlo exactamente, al cargarlo se avisa en vez de
+  // simplificarlo a otro acorde.
+  const loadSuffix = exact?.loadSuffix ?? suffix;
   const bassSuffix = bass ? `/${bass}` : "";
 
   return {

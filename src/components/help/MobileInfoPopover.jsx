@@ -1,18 +1,20 @@
 import { X } from "lucide-react";
 
+// Por encima de los editores modales (z-50) y de los overlays de manual y standards
+// (z-[120]/z-[125]): la ayuda abierta desde un editor debe verse y cerrarse en móvil.
 export default function MobileInfoPopover({ mobileInfoPopover, onClose }) {
   if (!mobileInfoPopover) return null;
 
   return (
     <>
       <div
-        className="fixed inset-0 z-40 touch-none overscroll-contain bg-slate-900/35"
+        className="fixed inset-0 z-[130] touch-none overscroll-contain bg-slate-900/35"
         onClick={onClose}
         onTouchMove={(e) => e.preventDefault()}
         onWheel={(e) => e.preventDefault()}
       />
       <div
-        className="fixed z-50 rounded-2xl border border-slate-300 bg-white shadow-2xl"
+        className="fixed z-[131] rounded-2xl border border-slate-300 bg-white shadow-2xl"
         style={{ left: `${mobileInfoPopover.left}px`, top: `${mobileInfoPopover.top}px`, width: `${mobileInfoPopover.width}px` }}
       >
         <div

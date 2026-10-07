@@ -97,7 +97,7 @@
             "chordEvents": [
               {
                 "display": "D#o7",
-                "load": "D#dim7"
+                "load": "D#°7"
               },
               {
                 "display": "C6/E",
@@ -127,7 +127,7 @@
             "chordEvents": [
               {
                 "display": "Ebo7",
-                "load": "Ebdim7"
+                "load": "Eb°7"
               }
             ],
             "repeat": false
@@ -223,7 +223,7 @@
               },
               {
                 "display": "A7b9",
-                "load": "A7"
+                "load": "A7b9"
               }
             ],
             "repeat": false
@@ -333,7 +333,7 @@
             "chordEvents": [
               {
                 "display": "D#o7",
-                "load": "D#dim7"
+                "load": "D#°7"
               },
               {
                 "display": "C6/E",
@@ -429,7 +429,7 @@
             "chordEvents": [
               {
                 "display": "D#o7",
-                "load": "D#dim7"
+                "load": "D#°7"
               },
               {
                 "display": "C6/E",
@@ -633,7 +633,7 @@
             "chordEvents": [
               {
                 "display": "A7b9",
-                "load": "A7"
+                "load": "A7b9"
               }
             ],
             "repeat": false
@@ -677,7 +677,7 @@
               },
               {
                 "display": "A7+",
-                "load": "A7"
+                "load": "A7+"
               }
             ],
             "repeat": false
@@ -695,7 +695,7 @@
               },
               {
                 "display": "G7+",
-                "load": "G7"
+                "load": "G7+"
               }
             ],
             "repeat": false
@@ -793,7 +793,7 @@
           "chordEvents": [
             {
               "display": "D#o7",
-              "load": "D#dim7"
+              "load": "D#°7"
             },
             {
               "display": "C6/E",
@@ -824,7 +824,7 @@
           "chordEvents": [
             {
               "display": "Ebo7",
-              "load": "Ebdim7"
+              "load": "Eb°7"
             }
           ],
           "chords": [
@@ -933,7 +933,7 @@
             },
             {
               "display": "A7b9",
-              "load": "A7"
+              "load": "A7b9"
             }
           ],
           "chords": [
@@ -1049,7 +1049,7 @@
           "chordEvents": [
             {
               "display": "D#o7",
-              "load": "D#dim7"
+              "load": "D#°7"
             },
             {
               "display": "C6/E",
@@ -1151,7 +1151,7 @@
           "chordEvents": [
             {
               "display": "D#o7",
-              "load": "D#dim7"
+              "load": "D#°7"
             },
             {
               "display": "C6/E",
@@ -1369,7 +1369,7 @@
           "chordEvents": [
             {
               "display": "A7b9",
-              "load": "A7"
+              "load": "A7b9"
             }
           ],
           "chords": [
@@ -1419,7 +1419,7 @@
             },
             {
               "display": "A7+",
-              "load": "A7"
+              "load": "A7+"
             }
           ],
           "chords": [
@@ -1437,7 +1437,7 @@
             },
             {
               "display": "G7+",
-              "load": "G7"
+              "load": "G7+"
             }
           ],
           "chords": [

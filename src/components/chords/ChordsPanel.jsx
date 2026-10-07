@@ -1,11 +1,16 @@
 import { useState, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { Copy, Check } from "lucide-react";
+import ChordHintList from "./ChordHintList.jsx";
+
+// Contenido del botón de información: null (sin botón) si no hay nada deshabilitado.
+const chordHintInfo = (items) => (items?.length ? <ChordHintList items={items} /> : null);
 import PanelBlock from "../PanelBlock.jsx";
 import * as AppStaticData from "../../music/appStaticData.js";
 import * as AppMusicBasics from "../../music/appMusicBasics.js";
 import * as AppVoicingStudyCore from "../../music/appVoicingStudyCore.js";
 import { useChordPanelModel } from "./useChordPanelModel.js";
+import ChordAlterationSelects from "./ChordAlterationSelects.jsx";
 
 const {
   CHORDS_SECTION_INFO_TEXT,
@@ -22,11 +27,10 @@ const {
   CHORD_GUIDE_TONE_QUALITIES,
   CHORD_GUIDE_TONE_FORMS,
   CHORD_GUIDE_TONE_INVERSIONS,
-  CHORD_QUALITIES,
   CHORD_STRUCTURES,
   CHORD_FORMS,
 } = AppMusicBasics;
-const { isDropForm } = AppVoicingStudyCore;
+const { isDropForm, CHORD_DIM7_SIX_THIRTEEN_INFO, chordTooManyNotesMessage } = AppVoicingStudyCore;
 
 // UI constants (mismas clases que App.jsx – puras, sin dependencia de estado)
 const UI_BTN_SM = "h-7 w-7 rounded-xl border border-slate-200 bg-white text-xs font-semibold shadow-sm hover:bg-sky-50 disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed";
@@ -91,17 +95,18 @@ export default function ChordsPanel({
     chordFamily, setChordFamily,
     chordSpellPreferSharps,
     chordAccidental,
-    chordQuality, setChordQuality,
     chordSuspension,
     chordStructure, applyChordStructureSelection,
     chordForm,
     chordInversion, setChordInversion, chordInversionOptions,
-    chordExt7, setChordExt7,
+    setChordExt7,
     chordExt6,
     chordExt9,
     chordExt11,
     chordExt13,
     chordOmit, setChordOmit,
+    setChordFifth,
+    setChordNinth,
     chordEnginePlan,
     chordControlsTitle,
     chordBaseDisplayName,
@@ -136,6 +141,10 @@ export default function ChordsPanel({
     activeChordVoicing,
     chordVoicingsResolving,
     chordDbError,
+    chordFretWindow,
+    chordVoicingsOutOfRange,
+    chordQuartalVoicingsOutOfRange,
+    guideToneVoicingsOutOfRange,
   } = voicingData;
 
   const { chordDetectInvestigationAreaRef, chordDetectClearMinHeight } = detectArea;
@@ -146,8 +155,7 @@ export default function ChordsPanel({
     renderMainChordDistControl,
     renderMobileChordSummaryCard,
     renderChordInvestigationFretboard,
-    renderChordAllowOpenStringsToggle,
-    renderChordKeepZoneToggle,
+    renderChordFretboardHeader,
     renderChordVoicingFilterSelector,
     openMainChordStudy,
     InfoTitle,
@@ -158,10 +166,15 @@ export default function ChordsPanel({
   // ── Lógica de pantalla extraída al hook ──────────────────────────────────────
   const {
     toneSelectValue,
+    qualitySelectValue,
+    qualityOptions,
+    suspensionOptions,
+    controlHints,
     effectiveHasSeventh,
     handleToneChange,
     handleFlatClick,
     handleSharpClick,
+    handleQualityChange,
     handleSuspensionChange,
     handleExt6Change,
     handleExt9Change,
@@ -402,15 +415,6 @@ const modeToggle = (
             </select>
           </div>
 
-          {!isMobileLayout && (
-            <div className="ml-auto self-start justify-self-end pt-[8px]">
-              <div className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm">
-                {renderChordAllowOpenStringsToggle()}
-                {renderChordKeepZoneToggle()}
-              </div>
-            </div>
-          )}
-
         </div>
 
       /* ── Familia guide tones ─────────────────────────────────────────────── */
@@ -498,15 +502,6 @@ const modeToggle = (
             </select>
           </div>
 
-          {!isMobileLayout && (
-            <div className="ml-auto self-start justify-self-end pt-[8px]">
-              <div className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm">
-                {renderChordAllowOpenStringsToggle()}
-                {renderChordKeepZoneToggle()}
-              </div>
-            </div>
-          )}
-
         </div>
 
       /* ── Familia terciaria (default) ─────────────────────────────────────── */
@@ -556,24 +551,19 @@ const modeToggle = (
           </div>
 
           <div className={isMobileLayout ? "min-w-0 order-5 col-span-2" : "min-w-0"}>
-            <label className={UI_LABEL_SM}>Calidad / Sus</label>
+            <label className={UI_LABEL_SM}>
+              <InfoTitle label="Calidad / Sus" info={chordHintInfo(controlHints.qualitySus)} alwaysShow />
+            </label>
             <div className="mt-1 flex flex-nowrap gap-1.5">
               <select
                 className={chordAutoSelectClass}
                 data-testid="select-quality"
                 style={isMobileLayout ? undefined : { width: chordQualitySelectWidth }}
-                value={chordQuality}
-                onChange={(e) => setChordQuality(e.target.value)}
+                value={qualitySelectValue}
+                onChange={(e) => handleQualityChange(e.target.value)}
               >
-                {CHORD_QUALITIES.map((q) => (
-                  <option
-                    key={q.value}
-                    value={q.value}
-                    disabled={
-                      (q.value === "hdim" && chordStructure === "triad" && !chordExt7) ||
-                      (q.value === "dom" && chordStructure === "triad" && !chordExt7)
-                    }
-                  >
+                {qualityOptions.map((q) => (
+                  <option key={q.value} value={q.value} disabled={q.disabled} title={q.title || undefined}>
                     {q.label}
                   </option>
                 ))}
@@ -586,9 +576,9 @@ const modeToggle = (
                 onChange={(e) => handleSuspensionChange(e.target.value)}
                 title="Suspensión: reemplaza la 3ª por 2ª o 4ª"
               >
-                <option value="none">Sus —</option>
-                <option value="sus2">sus2</option>
-                <option value="sus4">sus4</option>
+                {suspensionOptions.map((o) => (
+                  <option key={o.value} value={o.value} disabled={o.disabled} title={o.title || undefined}>{o.label}</option>
+                ))}
               </select>
             </div>
           </div>
@@ -653,7 +643,9 @@ const modeToggle = (
           </div>
 
           <div className={isMobileLayout ? "min-w-0 order-6 col-span-2" : "min-w-0"}>
-            <label className={UI_LABEL_SM}>Extensiones</label>
+            <label className={UI_LABEL_SM}>
+              <InfoTitle label="Extensiones" info={chordHintInfo(controlHints.extensions)} alwaysShow />
+            </label>
             <div className={extensionGridClass}>
               {chordEnginePlan.ui.ext.showSeven ? (
                 <label className="inline-flex items-center gap-2">
@@ -672,7 +664,7 @@ const modeToggle = (
                 </label>
               ) : null}
               {chordEnginePlan.ui.ext.showSix ? (
-                <label className="inline-flex items-center gap-2">
+                <label className="inline-flex items-center gap-2" title={chordEnginePlan.ui.ext.sixThirteenBlockedByDim7 ? CHORD_DIM7_SIX_THIRTEEN_INFO : undefined}>
                   <span className="relative flex h-4 w-4 flex-shrink-0 items-center justify-center">
                     <input
                       type="checkbox"
@@ -720,7 +712,7 @@ const modeToggle = (
                 </label>
               ) : null}
               {chordEnginePlan.ui.ext.showThirteen ? (
-                <label className="inline-flex items-center gap-2">
+                <label className="inline-flex items-center gap-2" title={chordEnginePlan.ui.ext.sixThirteenBlockedByDim7 ? CHORD_DIM7_SIX_THIRTEEN_INFO : undefined}>
                   <span className="relative flex h-4 w-4 flex-shrink-0 items-center justify-center">
                     <input
                       type="checkbox"
@@ -738,7 +730,23 @@ const modeToggle = (
             </div>
           </div>
 
-          <div className={isMobileLayout ? "min-w-0 order-7 col-span-2" : "min-w-0"}>
+          <div className={isMobileLayout ? "min-w-0 order-7 col-span-2" : "min-w-0"} data-testid="chord-alterations">
+            <label className={UI_LABEL_SM}>
+              <InfoTitle label="Quinta / Novena" info={chordHintInfo(controlHints.alterations)} alwaysShow />
+            </label>
+            <ChordAlterationSelects
+              alterations={chordEnginePlan.ui.alterations}
+              fifth={chordEnginePlan.fifth}
+              ninth={chordEnginePlan.ninth}
+              onFifthChange={setChordFifth}
+              onNinthChange={setChordNinth}
+              selectClassName={chordAutoSelectClass}
+              fifthTestId="select-fifth"
+              ninthTestId="select-ninth"
+            />
+          </div>
+
+          <div className={isMobileLayout ? "min-w-0 order-8 col-span-2" : "min-w-0"}>
             <label className={UI_LABEL_SM}>Omitir</label>
             <div className={omitGridClass}>
               <label className="inline-flex items-center gap-2">
@@ -764,15 +772,6 @@ const modeToggle = (
               </label>
             </div>
           </div>
-
-          {!isMobileLayout && (
-            <div className="ml-auto self-start justify-self-end pt-[8px]">
-              <div className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm">
-                {renderChordAllowOpenStringsToggle()}
-                {renderChordKeepZoneToggle()}
-              </div>
-            </div>
-          )}
 
         </div>
       )}
@@ -864,10 +863,14 @@ const modeToggle = (
   );
 
   // ── Selector de fretboard (modo acorde) ─────────────────────────────────────
+  // Cuando hay posiciones pero ninguna cabe en el rango, el mensaje lo dice.
+  const outOfRangeMessage = (what) => `No hay ${what} entre los trastes ${chordFretWindow.from} y ${chordFretWindow.to}. Mueve el rango o amplía su tamaño.`;
   const chordFretboardSection = chordFamily === "quartal" ? (
     <ChordFretboard
       voicing={activeQuartalVoicing}
-      emptyMessage={`No he encontrado apilados ${chordQuartalSpread === "open" ? "abiertos" : "cerrados"} con la distancia actual. Prueba a subir la distancia o cambiar el apilado.`}
+      emptyMessage={chordQuartalVoicingsOutOfRange
+        ? outOfRangeMessage(`apilados ${chordQuartalSpread === "open" ? "abiertos" : "cerrados"}`)
+        : `No he encontrado apilados ${chordQuartalSpread === "open" ? "abiertos" : "cerrados"} con la distancia actual. Prueba a subir la distancia o cambiar el apilado.`}
       roleForPc={quartalRoleOfPc}
       labelForPc={labelForQuartalPc}
       noteNameForPc={quartalNoteNameForPc}
@@ -875,7 +878,9 @@ const modeToggle = (
   ) : chordFamily === "guide_tones" ? (
     <GuideToneFretboard
       voicing={activeGuideToneVoicing}
-      emptyMessage="No he encontrado shells de notas guía con los filtros actuales. Prueba a cambiar forma, inversión o distancia."
+      emptyMessage={guideToneVoicingsOutOfRange
+        ? outOfRangeMessage("shells de notas guía")
+        : "No he encontrado shells de notas guía con los filtros actuales. Prueba a cambiar forma, inversión o distancia."}
     />
   ) : (
     <div data-testid="fretboard-notes">
@@ -884,10 +889,14 @@ const modeToggle = (
         emptyMessage={
           chordEnginePlan.insufficientNotes
             ? "No hay notas suficientes para formar un acorde. Añade una extensión o desactiva una omisión."
+            : chordEnginePlan.tooManyNotes
+              ? chordTooManyNotesMessage(chordEnginePlan)
             : (chordEnginePlan.structure === "tetrad" && !chordEnginePlan.ext7)
               ? "No hay 7ª activa: esto no es una cuatriada. Activa la 7ª o cambia la estructura a Acorde/Add."
               : chordVoicingsResolving
                 ? ""
+              : chordVoicingsOutOfRange
+                ? outOfRangeMessage("posiciones de este acorde")
               : (chordDbError || "No he encontrado voicings para este acorde con los filtros actuales. Prueba a cambiar forma, inversión, distancia o permitir cuerdas al aire.")
         }
       />
@@ -939,7 +948,10 @@ const modeToggle = (
             {renderChordInvestigationFretboard()}
           </div>
         ) : (
-          chordFretboardSection
+          <div className="space-y-2" data-testid="chord-fretboard-section">
+            {renderChordFretboardHeader()}
+            {chordFretboardSection}
+          </div>
         )}
       </PanelBlock>
     </div>

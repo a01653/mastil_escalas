@@ -16,7 +16,6 @@ const chordDisplaySuffixOnly = (...args) => AppMusicBasics.chordDisplaySuffixOnl
 const buildHarmonyDegreeChord = (...args) => AppMusicBasics.buildHarmonyDegreeChord(...args);
 const romanizeDegreeNumber = (...args) => AppMusicBasics.romanizeDegreeNumber(...args);
 const generateDropTetradVoicings = (...args) => AppMusicBasics.generateDropTetradVoicings(...args);
-const buildChordIntervals = (...args) => AppMusicBasics.buildChordIntervals(...args);
 const seventhOffsetForQuality = (...args) => AppMusicBasics.seventhOffsetForQuality(...args);
 const chordBassInterval = (...args) => AppMusicBasics.chordBassInterval(...args);
 const spellChordNotes = (...args) => AppMusicBasics.spellChordNotes(...args);
@@ -25,6 +24,64 @@ const computeAutoPreferSharps = (...args) => AppMusicBasics.computeAutoPreferSha
 const chordCanUseJsonCatalog = (...args) => AppMusicBasics.chordCanUseJsonCatalog(...args);
 const guideToneDefinitionFromQuality = (...args) => AppMusicBasics.guideToneDefinitionFromQuality(...args);
 const guideToneBassIntervalsForSelection = (...args) => AppMusicBasics.guideToneBassIntervalsForSelection(...args);
+const buildChordToneDefinition = (...args) => AppMusicBasics.buildChordToneDefinition(...args);
+const normalizeChordUiSpec = (...args) => AppMusicBasics.normalizeChordUiSpec(...args);
+
+import {
+  chordAugmentedOptionState,
+  chordSuspensionOptionState,
+  chordSeventhBlockedBySuspension,
+  CHORD_SUSPENDED_DIM_SEVENTH_INFO,
+  chordFifthSelectorState,
+  chordFifthSemitones,
+  defaultChordFifth,
+  resolveDisplayChordQuality,
+  storedQualityForAugmented,
+  chordNinthSelectorState,
+  chordNinthSemitones,
+  normalizeChordAlterations,
+  isAlteredChordFifth,
+  isAlteredChordNinth,
+  CHORD_FIFTH_OPTIONS,
+  CHORD_NINTH_OPTIONS,
+} from "./chordAlterations.js";
+
+// Estado del acorde (calidad, estructura, extensiones, omisión, alteraciones)
+// extraído de un plan, para reutilizarlo en funciones que reciben la UI.
+export function chordUiSpecFromPlan(plan) {
+  return {
+    quality: plan?.quality,
+    suspension: plan?.suspension || "none",
+    structure: plan?.structure,
+    ext7: plan?.ext7,
+    ext6: plan?.ext6,
+    ext9: plan?.ext9,
+    ext11: plan?.ext11,
+    ext13: plan?.ext13,
+    omit: plan?.omit || "none",
+    fifth: plan?.fifth,
+    ninth: plan?.ninth,
+  };
+}
+
+// Etiqueta funcional de un intervalo dentro del plan ("#9", "#5", "bb7"...).
+export function planDegreeLabelForInterval(plan, interval) {
+  const safe = mod12(interval);
+  const idx = (plan?.intervals || []).findIndex((value) => mod12(value) === safe);
+  if (idx >= 0 && plan?.degreeLabels?.[idx]) return plan.degreeLabels[idx];
+  return null;
+}
+
+// Nombre de nota de un intervalo del plan, deletreado por su grado funcional.
+export function spellPlanInterval(plan, interval, preferSharps) {
+  const label = planDegreeLabelForInterval(plan, interval);
+  return spellChordNotes({
+    rootPc: plan?.rootPc ?? 0,
+    chordIntervals: [mod12(interval)],
+    preferSharps,
+    degreeLabels: label ? [label] : null,
+  })[0];
+}
 
 // Safety cap only. Must be applied after generating, deduping and sorting,
 // so it does not hide valid high-position voicings due to early truncation.
@@ -679,7 +736,7 @@ export function buildChordHeaderSummary({ name, plan, voicing, positionForm, pre
     if (plan.rootPc != null && voicing.bassPc != null) {
       const bassInt = AppMusicBasics.mod12(voicing.bassPc - plan.rootPc);
       if (bassInt !== 0) {
-        const bassNote = AppMusicBasics.spellNoteFromChordInterval(plan.rootPc, bassInt, preferSharps);
+        const bassNote = spellPlanInterval(plan, bassInt, preferSharps);
         chordName = `${chordName}/${bassNote}`;
       }
     }
@@ -687,14 +744,13 @@ export function buildChordHeaderSummary({ name, plan, voicing, positionForm, pre
     const isNonStd = !!(plan.singleAdd || plan.multiAdd || plan.omit !== "none");
     if (isNonStd && plan.rootPc != null && plan.inversion && plan.inversion !== "all") {
       const bassInt = AppMusicBasics.chordBassInterval({
-        quality: plan.quality, suspension: plan.suspension, structure: plan.structure,
-        inversion: plan.inversion, omit: plan.omit,
-        ext7: plan.ext7, ext6: plan.ext6, ext9: plan.ext9, ext11: plan.ext11, ext13: plan.ext13,
+        ...chordUiSpecFromPlan(plan),
+        inversion: plan.inversion,
       });
       const syntheticVoicing = { bassPc: AppMusicBasics.mod12(plan.rootPc + bassInt) };
       invLabel = actualInversionLabelFromVoicing(plan, syntheticVoicing, preferSharps);
       if (bassInt !== 0) {
-        const bassNote = AppMusicBasics.spellNoteFromChordInterval(plan.rootPc, bassInt, preferSharps);
+        const bassNote = spellPlanInterval(plan, bassInt, preferSharps);
         chordName = `${chordName}/${bassNote}`;
       }
     } else {
@@ -716,16 +772,8 @@ export function bassIntervalsForSelection(plan) {
   const maxPositions = plan?.multiAdd ? 5 : 3;
   const inversions = concreteInversionsForSelection(plan?.inversion, plan?.ui?.allowThirdInversion, maxPositions);
   return Array.from(new Set(inversions.map((inv) => chordBassInterval({
-    quality: plan.quality,
-    suspension: plan.suspension,
-    structure: plan.structure,
+    ...chordUiSpecFromPlan(plan),
     inversion: inv,
-    omit: plan.omit,
-    ext7: plan.ext7,
-    ext6: plan.ext6,
-    ext9: plan.ext9,
-    ext11: plan.ext11,
-    ext13: plan.ext13,
   })).map(mod12)));
 }
 
@@ -826,10 +874,10 @@ export function normalizeGeneratedVoicingForDisplay(voicing, displayRootPc, sour
   };
 }
 
-export function singleAddOffsetFromUi({ ext6, ext9, ext11, ext13 }) {
+export function singleAddOffsetFromUi({ ext6, ext9, ext11, ext13, ninth }) {
   if (ext13) return 9;
   if (ext11) return 5;
-  if (ext9) return 2;
+  if (ext9) return chordNinthSemitones(ninth);
   if (ext6) return 9;
   return null;
 }
@@ -865,6 +913,8 @@ export function buildMultiAddDisplaySuffix({ quality, suspension = "none", ext6,
   if (sus === "sus2" || sus === "sus4") {
     return `${sus}(add${parts.join(",")})`;
   }
+  // Tríada disminuida con varias adds: sigue siendo "dim" (no "add9,11" ni "6").
+  if (quality === "dim") return `dim(add${parts.join(",")})`;
   if (ext6 && !ext13) {
     const extraParts = [];
     if (ext9) extraParts.push("9");
@@ -888,13 +938,21 @@ export function chordThirdOffsetFromUI(quality, suspension) {
   return quality === "maj" || quality === "dom" ? 4 : 3;
 }
 
-export function chordFifthOffsetFromUI(quality, suspension) {
-  if (suspension && suspension !== "none") return 7;
-  return quality === "dim" || quality === "hdim" ? 6 : 7;
+// Quinta efectiva: la de la calidad o, si se informa `fifth`, la alteración
+// normalizada (que sustituye a la quinta de la calidad).
+export function chordFifthOffsetFromUI(quality, suspension, fifth) {
+  if (fifth !== undefined) return chordFifthSemitones(normalizeChordAlterations({ quality, suspension, fifth }).fifth);
+  return chordFifthSemitones(defaultChordFifth(quality, suspension));
 }
 
-export function buildChordUiRestrictions({ structure, ext7, ext6, ext9, ext11, ext13, omit = "none" }) {
+export function buildChordUiRestrictions({ quality, suspension = "none", structure, ext7, ext6, ext9, ext11, ext13, omit = "none" }) {
   const dropEligible = isStrictFourNoteDropEligible({ structure, ext7, ext6, ext9, ext11, ext13 });
+  // dim7: la 6/13 coincide en clase de altura con la bb7. El motor representa
+  // clases de altura y no puede distinguir su función: se deshabilitan
+  // (limitación de representación, no prohibición musical).
+  const sixThirteenBlockedByDim7 = quality === "dim" && !!ext7;
+  // Disminuido suspendido: la 7 sería ♭♭7 suspendida, que no se representa.
+  const sevenBlockedBySuspendedDim = chordSeventhBlockedBySuspension({ quality, suspension }) && !ext7;
   const isTetrad = structure === "tetrad";
 
   // Tetrad slot model (explicit ext7):
@@ -924,17 +982,132 @@ export function buildChordUiRestrictions({ structure, ext7, ext6, ext9, ext11, e
       showEleven: structure !== "triad",
       showThirteen: structure !== "triad",
       // ext7 disabled only when adding it would exceed the note limit.
-      canToggleSeven: structure === "chord" || (isTetrad && (ext7 || sevenCanActivate)),
+      canToggleSeven: !sevenBlockedBySuspendedDim && (structure === "chord" || (isTetrad && (ext7 || sevenCanActivate))),
+      sevenBlockedBySuspendedDim,
       // 6 and 13 share the same pitch class; disable each when the other is active.
-      canToggleSix:      structure !== "triad" && addToggle(ext6)  && !(ext13 && !ext6),
+      canToggleSix:      structure !== "triad" && addToggle(ext6)  && !(ext13 && !ext6) && !sixThirteenBlockedByDim7,
       canToggleNine:     structure !== "triad" && addToggle(ext9),
       canToggleEleven:   structure !== "triad" && addToggle(ext11),
-      canToggleThirteen: structure !== "triad" && addToggle(ext13) && !(ext6 && !ext13),
+      canToggleThirteen: structure !== "triad" && addToggle(ext13) && !(ext6 && !ext13) && !sixThirteenBlockedByDim7,
+      sixThirteenBlockedByDim7,
     },
     omit: {
       canToggleOff: canToggleOmitOff,
     },
+    alterations: {
+      fifth: chordFifthSelectorState({ quality, suspension, omit }),
+      ninth: chordNinthSelectorState({ quality, suspension, structure, ext7, ext9 }),
+    },
   };
+}
+
+export const CHORD_DIM7_SIX_THIRTEEN_INFO =
+  "En dim7 la 6/13 coincide en altura con la ♭♭7. El motor trabaja por clases de altura y no puede distinguir su función, así que no se ofrecen (limitación de representación, no regla musical).";
+
+// Explicaciones de las opciones deshabilitadas de un acorde terciano, agrupadas
+// por control (Calidad / Sus, Quinta / Novena, Extensiones). Acordes y Acordes
+// cercanos las muestran en el botón de información (consultable en móvil, sin
+// depender de pasar el cursor) además de en el title de cada opción.
+export function buildChordControlHints(state = {}) {
+  const structure = state.structure || "triad";
+  const spec = normalizeChordUiSpec(state);
+  const qualitySus = [];
+  for (const option of AppMusicBasics.chordQualitySelectOptions(state)) {
+    if (option.disabled && option.value === "aug") qualitySus.push({ term: "Aumentada", text: option.title });
+  }
+  if (AppMusicBasics.chordQualitySelectOptions(state).some((option) => option.disabled && option.value === "dom")) {
+    qualitySus.push({ term: "Dominante (7) y m7(b5)", text: "Necesitan la 7ª, que la Tríada no admite: cambia la estructura a Cuatriada o Acorde para elegirlas." });
+  }
+  const susOption = AppMusicBasics.chordSuspensionSelectOptions(state).find((option) => option.disabled);
+  if (susOption) qualitySus.push({ term: "sus2 y sus4", text: susOption.title });
+
+  const ui = buildChordUiRestrictions({ ...spec, quality: spec.quality, suspension: spec.suspension });
+  const alterations = [];
+  if (!ui.alterations.fifth.enabled) alterations.push({ term: "Quinta", text: ui.alterations.fifth.hint });
+  if (!ui.alterations.ninth.enabled) alterations.push({ term: "Novena", text: ui.alterations.ninth.hint });
+  else if (ui.alterations.ninth.options.some((option) => option.value === "#9" && option.disabled)) {
+    alterations.push({ term: "♯9", text: "Coincide en altura con la ♭3 del acorde y no añadiría ninguna nota (limitación del constructor, que trabaja por clases de altura)." });
+  }
+
+  const extensions = [];
+  if (ui.ext.sevenBlockedBySuspendedDim) extensions.push({ term: "7", text: CHORD_SUSPENDED_DIM_SEVENTH_INFO });
+  if (structure !== "triad" && ui.ext.sixThirteenBlockedByDim7) extensions.push({ term: "6 y 13", text: CHORD_DIM7_SIX_THIRTEEN_INFO });
+  return { qualitySus, alterations, extensions };
+}
+
+export { CHORD_FIFTH_OPTIONS, CHORD_NINTH_OPTIONS };
+
+// Cambio de calidad desde el combo, compartido por Acordes y Acordes cercanos.
+// Elegir dim o m7(b5) define la 3ª, así que retira la suspensión (simétrico a
+// elegir sus con dim/ø, que pasa la calidad a Mayor). La quinta:
+// - si va implícita en la calidad mostrada (la ♭5 de m7(♭5) o dim) no se arrastra:
+//   Am7(b5) → Menor da Am7, → Mayor da Amaj7;
+// - si es una alteración elegida aparte se conserva cuando no cambia la identidad
+//   de la nueva calidad (C(b5) → Dominante da C7(b5); Am(#5) → Mayor da Caug);
+//   si la cambiaría (m7(#5) → Semidisminuido) vuelve a la quinta de esa calidad.
+// - "Aumentada" no se guarda: fija 3ª mayor y ♯5 y guarda Mayor o Dominante según
+//   el tipo de 7ª que se conserva (Am7 → A7(#5), Amaj7 → Amaj7(#5), Am → Aaug).
+// - Dominante y Semidisminuido en "Acorde" activan la 7ª (sin ella no lo serían).
+export function buildChordQualityChangePatch(state = {}, quality) {
+  const suspension = state.suspension || "none";
+  const structure = state.structure || "triad";
+  if (quality === "aug") {
+    // Aumentada conserva la séptima que suena: si no puede (♭♭7) o no hay quinta
+    // ("Omitir 5"), no cambia nada (la opción aparece deshabilitada y explicada).
+    const current = normalizeChordUiSpec(state);
+    const hasSeventh = structure === "triad" || structure === "tetrad" ? !!state.ext7 : state.ext7 !== false;
+    if (!chordAugmentedOptionState({ quality: current.uiQuality, suspension: current.suspension, hasSeventh, omit: current.omit }).enabled) return {};
+    const patch = { quality: storedQualityForAugmented(state.quality || "maj"), fifth: "#5" };
+    if (suspension !== "none") patch.suspension = "none";
+    return patch;
+  }
+  const patch = { quality };
+  if ((quality === "dim" || quality === "hdim") && suspension !== "none") patch.suspension = "none";
+  if ((quality === "dom" || quality === "hdim") && structure === "chord" && state.ext7 === false) patch.ext7 = true;
+  if (!state.quality) return patch;
+  const current = normalizeChordUiSpec(state);
+  const nextSuspension = patch.suspension ?? current.suspension;
+  const nextExt7 = patch.ext7 ?? current.ext7;
+  const hasSeventh = structure === "triad" || structure === "tetrad" ? !!nextExt7 : nextExt7 !== false;
+  const impliedByDisplay = current.fifth === defaultChordFifth(current.displayQuality, current.suspension);
+  const nextDefault = defaultChordFifth(quality, nextSuspension);
+  // Se conserva la quinta solo si con ella el combo sigue mostrando la opción elegida.
+  const keptDisplay = resolveDisplayChordQuality({ quality, suspension: nextSuspension, fifth: current.fifth, hasSeventh });
+  if (impliedByDisplay || keptDisplay !== quality) {
+    if (current.fifth !== nextDefault || state.fifth !== nextDefault) patch.fifth = nextDefault;
+  }
+  return patch;
+}
+
+// Cambio de suspensión compartido por Acordes y Acordes cercanos: sus2/sus4 solo
+// sustituyen la 3ª, así que calidad base, quinta, séptima y extensiones no se
+// tocan y al quitar la suspensión vuelve el acorde anterior (Cm7(b5) ⇄
+// C7sus4(b5)). Si la suspensión no puede conservar la séptima (♭♭7 de Disminuido)
+// o hay "Omitir 3", no cambia nada: la opción aparece deshabilitada y explicada.
+export function buildChordSuspensionChangePatch(state = {}, suspension) {
+  if (suspension !== "none") {
+    const structure = state.structure || "triad";
+    const hasSeventh = structure === "triad" || structure === "tetrad" ? !!state.ext7 : state.ext7 !== false;
+    if (!chordSuspensionOptionState({ quality: state.quality, hasSeventh, omit: state.omit }).enabled) return {};
+  }
+  return { suspension };
+}
+
+// Correcciones de estado para que ninguna extensión o alteración activa
+// contradiga lo visible tras un cambio de calidad, estructura, suspensión,
+// extensión u omisión. Devuelve solo los campos que cambian (patch vacío si
+// el estado ya es coherente). Compartida por Acordes y Acordes cercanos.
+export function buildChordStateNormalizationPatch(state) {
+  const spec = normalizeChordUiSpec(state);
+  const patch = {};
+  // Solo la calidad de la UI: Menor + ♭5 no se reescribe como dim/ø.
+  if ((state?.quality || "maj") !== spec.uiQuality) patch.quality = spec.uiQuality;
+  if ((state?.suspension || "none") !== spec.suspension) patch.suspension = spec.suspension;
+  if (!!state?.ext6 !== spec.ext6) patch.ext6 = spec.ext6;
+  if (!!state?.ext13 !== spec.ext13) patch.ext13 = spec.ext13;
+  if (state?.fifth !== spec.fifth) patch.fifth = spec.fifth;
+  if (state?.ninth !== spec.ninth) patch.ninth = spec.ninth;
+  return patch;
 }
 
 // Reglas de exclusión al togglear extensiones add (6/9/11/13).
@@ -947,6 +1120,8 @@ export function buildChordUiRestrictions({ structure, ext7, ext6, ext9, ext11, e
 export function buildChordExtensionTogglePatch({ structure, omit = "none", ext, value }) {
   const key = `ext${ext}`;
   const patch = { [key]: !!value };
+  // Sin 9 no hay variante de novena: vuelve a la natural (no queda una ♭9/♯9 oculta).
+  if (ext === "9" && !value) patch.ninth = "9";
   if (!value) return patch;
   const exclusiveAdds = structure === "tetrad" && omit === "none";
   if (ext === "6") {
@@ -967,10 +1142,11 @@ export function buildChordExtensionTogglePatch({ structure, omit = "none", ext, 
 // Replica la secuencia de Acordes (applyChordStructureSelection + efecto E3):
 // recorta las adds activas al presupuesto de slots contando la 7ª previa
 // y deja la 7ª activada al entrar.
-export function buildTetradEntryExtensionPatch({ ext7, ext6, ext9, ext11, ext13, omit = "none" }) {
+export function buildTetradEntryExtensionPatch({ quality, suspension = "none", ext7, ext6, ext9, ext11, ext13, omit = "none" }) {
   const maxExtSlots = 1 + (omit !== "none" ? 1 : 0);
   let slotsUsed = ext7 ? 1 : 0;
-  const patch = { ext7: true };
+  // Con Disminuido suspendido la 7 sería ♭♭7 suspendida (no representable): no se activa.
+  const patch = { ext7: chordSeventhBlockedBySuspension({ quality, suspension }) ? !!ext7 : true };
   for (const [key, active] of [["ext6", ext6], ["ext9", ext9], ["ext11", ext11], ["ext13", ext13]]) {
     if (active && slotsUsed < maxExtSlots) {
       patch[key] = true;
@@ -982,39 +1158,23 @@ export function buildTetradEntryExtensionPatch({ ext7, ext6, ext9, ext11, ext13,
   return patch;
 }
 
-export function buildChordEnginePlan({
-  rootPc,
-  quality,
-  suspension = "none",
-  structure,
-  inversion,
-  form,
-  ext7,
-  ext6,
-  ext9,
-  ext11,
-  ext13,
-  omit = "none",
-}) {
+export function buildChordEnginePlan(params) {
+  const { rootPc, inversion, form } = params || {};
+  // Definición común: estado normalizado (alteraciones incluidas), grados y roles.
+  const definition = buildChordToneDefinition(params);
+  const { quality, suspension, structure, ext7, ext6, ext9, ext11, ext13, omit, fifth, ninth } = definition.spec;
   const inversionSelection = normalizeChordInversionSelection(inversion);
   const inversionSingle = inversionSelection === "all" ? "root" : inversionSelection;
-  const thirdOffset = chordThirdOffsetFromUI(quality, suspension);
-  const fifthOffset = chordFifthOffsetFromUI(quality, suspension);
+  const thirdOffset = definition.thirdOffset;
+  // La quinta alterada sustituye a la quinta de la calidad en todos los generadores.
+  const fifthOffset = definition.fifthOffset;
   const seventhOffset = hasEffectiveSeventh({ structure, ext7, ext6, ext9, ext11, ext13 }) ? seventhOffsetForQuality(quality) : null;
-  const singleAddOffset = singleAddOffsetFromUi({ ext6, ext9, ext11, ext13 });
+  const singleAddOffset = singleAddOffsetFromUi({ ext6, ext9, ext11, ext13, ninth });
   const topVoiceOffset = seventhOffset ?? singleAddOffset;
-  const intervals = buildChordIntervals({ quality, suspension, structure, ext7, ext6, ext9, ext11, ext13, omit });
+  const intervals = definition.intervals;
   const bassInterval = chordBassInterval({
-    quality,
-    suspension,
-    structure,
+    ...definition.spec,
     inversion: inversionSingle,
-    omit,
-    ext7,
-    ext6,
-    ext9,
-    ext11,
-    ext13,
   });
 
   const strictDrop = isDropForm(form) && isStrictFourNoteDropEligible({ structure, ext7, ext6, ext9, ext11, ext13 });
@@ -1048,13 +1208,16 @@ export function buildChordEnginePlan({
     generator = "exact";
   } else if (extended) {
     layer = "extended";
-    generator = chordCanUseJsonCatalog({ quality, structure, ext7, ext6, ext9, ext11, ext13 }) ? "json" : "exact";
+    generator = chordCanUseJsonCatalog(definition.spec) ? "json" : "exact";
   } else if (chordFamily) {
     layer = "chord";
-    generator = chordCanUseJsonCatalog({ quality, structure, ext7, ext6, ext9, ext11, ext13 }) ? "json" : "exact";
+    generator = chordCanUseJsonCatalog(definition.spec) ? "json" : "exact";
   }
 
   const insufficientNotes = omit !== "none" && intervals.length < 3;
+  // Más de 6 notas distintas no caben en 6 cuerdas: no hay posición posible
+  // (p. ej. 13(b9) con 9, 11 y 13 activas). La interfaz explica el motivo.
+  const tooManyNotes = intervals.length > 6;
 
   if (omit !== "none") {
     generator = intervals.length >= 3 ? "exact" : "none";
@@ -1065,7 +1228,7 @@ export function buildChordEnginePlan({
     generator = "none";
   }
 
-  const ui = buildChordUiRestrictions({ structure, ext7, ext6, ext9, ext11, ext13, omit });
+  const ui = buildChordUiRestrictions({ quality, suspension, structure, ext7, ext6, ext9, ext11, ext13, omit });
 
   return {
     rootPc: mod12(rootPc),
@@ -1081,12 +1244,17 @@ export function buildChordEnginePlan({
     ext11,
     ext13,
     omit,
+    fifth,
+    ninth,
     thirdOffset,
     fifthOffset,
     seventhOffset,
+    ninthOffset: definition.ninthOffset,
     singleAddOffset,
     topVoiceOffset,
     intervals,
+    degreeLabels: definition.degreeLabels,
+    toneRoles: definition.roles,
     bassInterval,
     strictDrop,
     singleAdd,
@@ -1098,8 +1266,14 @@ export function buildChordEnginePlan({
     layer,
     generator,
     insufficientNotes,
+    tooManyNotes,
     ui,
   };
+}
+
+export function chordTooManyNotesMessage(plan) {
+  const count = Array.isArray(plan?.intervals) ? plan.intervals.length : 0;
+  return `Este acorde tiene ${count} notas distintas y la guitarra solo tiene 6 cuerdas: usa «Omitir» o desactiva alguna extensión.`;
 }
 
 function voicingFretsLowToHigh(voicing) {
@@ -1414,19 +1588,24 @@ export function analyzeChordVoicingForCopy({
   ext9 = false,
   ext11 = false,
   ext13 = false,
+  fifth,
+  ninth,
 }) {
   const notes = Array.isArray(voicing?.notes) ? voicing.notes : [];
   const pitchClasses = Array.from(new Set(notes.map((n) => mod12(n.pc)))).sort((a, b) => a - b);
   const relIntervals = Array.from(new Set(notes.map((n) => mod12(n.pc - rootPc)))).sort((a, b) => a - b);
   const hasOpenStrings = notes.some((note) => note.fret === 0);
-  const degreeLabels = relIntervals.map((interval) => intervalToChordToken(interval, {
+  // Grados funcionales de la definición común: #9 no se lee como b3.
+  const definition = buildChordToneDefinition({ quality, suspension, structure: "chord", ext7: true, ext6, ext9, ext11, ext13, fifth, ninth });
+  const degreeLabels = relIntervals.map((interval) => AppMusicBasics.chordToneLabelForInterval(definition, interval) ?? intervalToChordToken(interval, {
     ext6,
     ext9: ext9 && suspension !== "sus2",
     ext11: ext11 && suspension !== "sus4",
     ext13,
   }));
+  const ninthInterval = definition.ninthOffset;
   const tensionIntervals = [];
-  if (ext9 && suspension !== "sus2" && relIntervals.includes(2)) tensionIntervals.push(2);
+  if (ext9 && suspension !== "sus2" && relIntervals.includes(ninthInterval)) tensionIntervals.push(ninthInterval);
   if (ext11 && suspension !== "sus4" && relIntervals.includes(5)) tensionIntervals.push(5);
   if ((ext6 || ext13) && relIntervals.includes(9)) tensionIntervals.push(9);
   const hasSeventh = relIntervals.some((interval) => interval === 10 || interval === 11 || (quality === "dim" && interval === 9));
@@ -1459,8 +1638,13 @@ export function buildChordCopyFingerprint({
   form,
   maxDist,
   allowOpenStrings,
+  fifth,
+  ninth,
 }) {
-  return `${rootPc}|${quality}|${suspension}|${structure}|${ext7 ? 1 : 0}|${ext6 ? 1 : 0}|${ext9 ? 1 : 0}|${ext11 ? 1 : 0}|${ext13 ? 1 : 0}|${omit}|${inversion}|${form}|${maxDist}|${allowOpenStrings ? 1 : 0}`;
+  // Las alteraciones forman parte de la huella: un voicing copiado de D7(b9)
+  // no debe reaparecer al cambiar a D9 o a D7(#9).
+  const alterations = normalizeChordUiSpec({ quality, suspension, structure, ext7, ext6, ext9, ext11, ext13, omit, fifth, ninth });
+  return `${rootPc}|${quality}|${suspension}|${structure}|${ext7 ? 1 : 0}|${ext6 ? 1 : 0}|${ext9 ? 1 : 0}|${ext11 ? 1 : 0}|${ext13 ? 1 : 0}|${omit}|${inversion}|${form}|${maxDist}|${allowOpenStrings ? 1 : 0}|${alterations.fifth}|${alterations.ninth}`;
 }
 
 export function resolveGuideToneCopiedVoicing({ voicing, rootPc, allowOpenStrings, maxSpan, maxFret }) {
@@ -1518,6 +1702,8 @@ export function resolveCopiedVoicingAcrossStructures({
   maxFret,
   maxSpan,
   catalogVoicings = [],
+  fifth,
+  ninth,
 }) {
   const normalizedFrets = String(voicing?.frets || "").trim().toLowerCase();
   const analysis = analyzeChordVoicingForCopy({
@@ -1529,6 +1715,8 @@ export function resolveCopiedVoicingAcrossStructures({
     ext9,
     ext11,
     ext13,
+    fifth,
+    ninth,
   });
   if (!normalizedFrets) {
     return {
@@ -1604,6 +1792,8 @@ export function resolveCopiedVoicingAcrossStructures({
       ext11,
       ext13,
       omit,
+      fifth,
+      ninth,
     });
     if (plan.generator === "none") return null;
 
@@ -1639,6 +1829,8 @@ export function resolveCopiedVoicingAcrossStructures({
         ext11,
         ext13,
         omit,
+        fifth,
+        ninth,
       });
       if (plan.generator === "none") continue;
 
@@ -1817,7 +2009,9 @@ export function explainStudyRules(plan) {
   if (!plan.ui?.allowThirdInversion) out.push("La 3ª inversión no está disponible en triadas.");
   if (!plan.ui?.dropEligible) out.push("Los drops solo son válidos en cuatriadas estrictas de 4 notas.");
   if (plan.layer === "multi_add") out.push("Las combinaciones add múltiples usan el generador exacto de intervalos.");
-  if (plan.layer === "extended") out.push("Los acordes extendidos usan el generador de voicings del dataset JSON.");
+  const alteredPlan = isAlteredChordFifth(plan.fifth, plan.quality, plan.suspension) || isAlteredChordNinth(plan.ninth);
+  if (alteredPlan) out.push("Con quinta o novena alterada se usa el generador exacto: el catálogo JSON no garantiza la fórmula alterada.");
+  else if (plan.layer === "extended") out.push("Los acordes extendidos usan el generador de voicings del dataset JSON.");
   if (plan.layer === "add") out.push("Los add simples se resuelven como cuatriadas sin 7ª real.");
   return out;
 }
@@ -1861,10 +2055,18 @@ export function buildChordNamingExplanation(plan) {
   if (plan.layer === "add") out.push("Se nombra como add porque añade tensión sin 7ª real.");
   if (plan.layer === "multi_add") out.push("Se nombra como add múltiple porque combina varias tensiones sin 7ª.");
 
-  if (plan.ext7 && plan.seventhOffset != null) out.push(`Incluye ${intervalToDegreeToken(plan.seventhOffset)}, por eso aparece la 7ª.`);
-  else if (plan.singleAddOffset != null) out.push(`La cuarta voz real es ${intervalToDegreeToken(plan.singleAddOffset)}.`);
+  if (isAlteredChordFifth(plan.fifth, plan.quality, plan.suspension)) {
+    out.push(plan.fifth === "#5"
+      ? "La quinta aumentada (♯5) sustituye a la 5ª justa."
+      : "La quinta disminuida (♭5) sustituye a la 5ª justa.");
+  }
+  const degreeLabelOf = (interval) => planDegreeLabelForInterval(plan, interval) || intervalToDegreeToken(interval);
+  if (plan.ext7 && plan.seventhOffset != null) out.push(`Incluye ${degreeLabelOf(plan.seventhOffset)}, por eso aparece la 7ª.`);
+  else if (plan.singleAddOffset != null) out.push(`La cuarta voz real es ${degreeLabelOf(plan.singleAddOffset)}.`);
   if (plan.ext6) out.push("Incluye 6 como color añadido.");
-  if (plan.ext9) out.push("Incluye 9 como tensión añadida.");
+  if (plan.ext9 && plan.ninth === "b9") out.push("Incluye ♭9: sustituye a la novena natural.");
+  else if (plan.ext9 && plan.ninth === "#9") out.push("Incluye ♯9: sustituye a la novena natural y convive con la 3ª mayor (no es una ♭3).");
+  else if (plan.ext9) out.push("Incluye 9 como tensión añadida.");
   if (plan.ext11) out.push("Incluye 11 como tensión añadida.");
   if (plan.ext13) out.push("Incluye 13 como tensión añadida.");
 
@@ -1886,7 +2088,7 @@ function buildEffectiveDegreesForPlan(plan) {
   } else if (plan.singleAddOffset != null) {
     // Incluir TODAS las extensiones add activas en orden ascendente de grado.
     const addOffsets = [];
-    if (plan.ext9) addOffsets.push(2);
+    if (plan.ext9) addOffsets.push(plan.ninthOffset ?? 2);
     if (plan.ext11) addOffsets.push(5);
     if (plan.ext6 || plan.ext13) addOffsets.push(9);
     degrees = [0, plan.thirdOffset, plan.fifthOffset, ...addOffsets];
@@ -1909,14 +2111,17 @@ function labelForInversionBass(bi, plan, isNonStandard, preferSharps = false) {
     if (b === mod12(plan.fifthOffset)) return "2ª inversión";
     if (plan.seventhOffset != null && b === mod12(plan.seventhOffset)) return "3ª inversión";
   }
-  // Extensiones add
-  if (plan.ext9  && b === 2) return "Bajo 9";
+  // Extensiones add (la novena con su variante real: Bajo b9 / Bajo #9)
+  if (plan.ext9  && b === mod12(plan.ninthOffset ?? 2)) return `Bajo ${plan.ninth || "9"}`;
   if (plan.ext11 && b === 5) return "Bajo 11";
   if (plan.ext13 && b === 9) return "Bajo 13";
   if (plan.ext6  && b === 9) return "Bajo 6";
   // 7ª en el bajo: ordinal solo si es un acorde tertiano estándar; semántico si hay omit/add
   if (!isNonStandard && plan.seventhOffset != null && b === mod12(plan.seventhOffset)) return "3ª inversión";
-  // Grado semántico genérico: respetar spelling del enarmónico #5/b6 según contexto
+  // Grado semántico: el grado funcional del plan (bb7, #5, b9...) y, si el bajo
+  // no pertenece al acorde, el grado cromático respetando el enarmónico #5/b6.
+  const planLabel = planDegreeLabelForInterval(plan, b);
+  if (planLabel) return `Bajo ${planLabel}`;
   return `Bajo ${AppMusicBasics.intervalToChordDegreeTokenWithSpelling(b, preferSharps)}`;
 }
 
@@ -1962,8 +2167,10 @@ export function deriveDetectedCandidateCopyInversion(candidate) {
 
   const patch = candidate.uiPatch;
   const bassInterval = mod12(candidate.bassPc - candidate.rootPc);
-  const thirdOffset = chordThirdOffsetFromUI(patch.quality, patch.suspension || "none");
-  const fifthOffset = chordFifthOffsetFromUI(patch.quality, patch.suspension || "none");
+  // Quinta/novena efectivas del patch (p. ej. G7(#5): la 2ª inversión es el #5).
+  const patchDefinition = buildChordToneDefinition({ ...patch, omit: "none" });
+  const thirdOffset = patchDefinition.thirdOffset;
+  const fifthOffset = patchDefinition.fifthOffset;
 
   if (bassInterval === 0) return "root";
   if (bassInterval === mod12(thirdOffset)) return "1";
@@ -1987,6 +2194,7 @@ export function deriveDetectedCandidateCopyInversion(candidate) {
     ext9: !!patch.ext9,
     ext11: !!patch.ext11,
     ext13: !!patch.ext13,
+    ninth: patch.ninth,
   });
   if (addOffset != null && bassInterval === mod12(addOffset)) return "3";
   return null;
@@ -2010,10 +2218,12 @@ export function analyzeVoicingVsPlan(plan, voicing, preferSharps) {
 
   const requested = Array.from(new Set((plan.intervals || []).map(mod12))).sort((a, b) => a - b);
   const actual = voicing ? Array.from(new Set(Array.from(voicing.relIntervals || []).map(mod12))).sort((a, b) => a - b) : [];
-  const requestedTokens = requested.map((i) => intervalToDegreeToken(i));
-  const actualTokens = actual.map((i) => intervalToDegreeToken(i));
-  const missing = requested.filter((i) => !actual.includes(i)).map((i) => intervalToDegreeToken(i));
-  const extra = actual.filter((i) => !requested.includes(i)).map((i) => intervalToDegreeToken(i));
+  // Grado funcional del plan cuando el intervalo pertenece al acorde (#9, #5, bb7...).
+  const tokenFor = (i) => planDegreeLabelForInterval(plan, i) || intervalToDegreeToken(i);
+  const requestedTokens = requested.map(tokenFor);
+  const actualTokens = actual.map(tokenFor);
+  const missing = requested.filter((i) => !actual.includes(i)).map(tokenFor);
+  const extra = actual.filter((i) => !requested.includes(i)).map(tokenFor);
 
   return {
     requested: requestedTokens,
@@ -2130,7 +2340,7 @@ export function buildChordResolutionRoman(plan) {
   return "I";
 }
 
-export function analyzeChordScaleCompatibility({ chordRootPc, chordIntervals, activeScaleRootPc, scaleIntervals, scaleName, chordName, preferSharps }) {
+export function analyzeChordScaleCompatibility({ chordRootPc, chordIntervals, activeScaleRootPc, scaleIntervals, scaleName, chordName, preferSharps, degreeLabels = null }) {
   const scalePcSet = new Set((scaleIntervals || []).map((i) => mod12(activeScaleRootPc + i)));
   const chordRootName = pcToName(chordRootPc, preferSharps);
   const scaleRootName = pcToName(activeScaleRootPc, preferSharps);
@@ -2139,19 +2349,24 @@ export function analyzeChordScaleCompatibility({ chordRootPc, chordIntervals, ac
 
   const notesInScale = [];
   const notesOutOfScale = [];
-  for (const intv of (chordIntervals || [])) {
+  (chordIntervals || []).forEach((intv, idx) => {
     const iv = mod12(intv);
     const pc = mod12(chordRootPc + iv);
-    const label = chordIntervLabel(iv);
+    // Con grados funcionales (#9, #5, bb7...) la etiqueta y la grafía salen del
+    // grado, no del semitono: G7(#9) tiene A# (#9), no Bb (b3).
+    const functionalLabel = Array.isArray(degreeLabels) ? degreeLabels[idx] : null;
+    const label = functionalLabel ? (functionalLabel === "7" ? "7M" : functionalLabel) : chordIntervLabel(iv);
     // b-labeled degrees siempre en grafía bemol, resto respeta el contexto del acorde
     const notePs = label.startsWith("b") ? false : preferSharps;
-    const noteName = pcToName(pc, notePs);
+    const noteName = functionalLabel
+      ? spellChordNotes({ rootPc: chordRootPc, chordIntervals: [iv], preferSharps, degreeLabels: [functionalLabel] })[0]
+      : pcToName(pc, notePs);
     if (scalePcSet.has(pc)) {
       notesInScale.push(noteName);
     } else {
       notesOutOfScale.push({ name: noteName, intervalLabel: label });
     }
-  }
+  });
 
   const isDiatonic = notesOutOfScale.length === 0;
   let diatonicSuggestion = null;
@@ -2180,7 +2395,7 @@ export function analyzeChordScaleCompatibility({ chordRootPc, chordIntervals, ac
   return { notesInScale, notesOutOfScale, isDiatonic, diatonicSuggestion };
 }
 
-export function buildStudyChordLabel({ rootPc, preferSharps, quality, suspension = "none", structure = "triad", ext7 = false, ext6 = false, ext9 = false, ext11 = false, ext13 = false }) {
+export function buildStudyChordLabel({ rootPc, preferSharps, quality, suspension = "none", structure = "triad", ext7 = false, ext6 = false, ext9 = false, ext11 = false, ext13 = false, fifth, ninth }) {
   return chordDisplayNameFromUI({
     rootPc,
     preferSharps,
@@ -2192,6 +2407,8 @@ export function buildStudyChordLabel({ rootPc, preferSharps, quality, suspension
     ext9,
     ext11,
     ext13,
+    fifth,
+    ninth,
   });
 }
 
@@ -2206,19 +2423,13 @@ export function buildStudyChordSpecFromUi({
   ext9 = false,
   ext11 = false,
   ext13 = false,
+  fifth,
+  ninth,
   labelOverride = "",
 }) {
   const safeRootPc = mod12(rootPc);
-  const chordIntervals = Array.from(new Set(buildChordIntervals({
-    quality,
-    suspension,
-    structure,
-    ext7,
-    ext6,
-    ext9,
-    ext11,
-    ext13,
-  }).map(mod12))).sort((a, b) => a - b);
+  const definition = buildChordToneDefinition({ quality, suspension, structure, ext7, ext6, ext9, ext11, ext13, fifth, ninth });
+  const chordIntervals = definition.intervals;
   const safePreferSharps = !!preferSharps;
   const label = labelOverride || buildStudyChordLabel({
     rootPc: safeRootPc,
@@ -2231,8 +2442,10 @@ export function buildStudyChordSpecFromUi({
     ext9,
     ext11,
     ext13,
+    fifth,
+    ninth,
   });
-  const notes = spellChordNotes({ rootPc: safeRootPc, chordIntervals, preferSharps: safePreferSharps });
+  const notes = spellChordNotes({ rootPc: safeRootPc, chordIntervals, preferSharps: safePreferSharps, degreeLabels: definition.degreeLabels });
   return {
     rootPc: safeRootPc,
     preferSharps: safePreferSharps,
@@ -2261,8 +2474,8 @@ export function buildStudyChordSpecFromPlan({ rootPc, preferSharps, plan, labelO
   const planIntervals = Array.isArray(plan?.intervals) && plan.intervals.length
     ? Array.from(new Set(plan.intervals.map(mod12))).sort((a, b) => a - b)
     : [];
-  const fallbackIntervals = plan?.quality
-    ? Array.from(new Set(buildChordIntervals({
+  const fallbackDefinition = plan?.quality
+    ? buildChordToneDefinition({
         quality: plan.quality,
         suspension: plan.suspension || "none",
         structure: plan.structure || "triad",
@@ -2271,10 +2484,16 @@ export function buildStudyChordSpecFromPlan({ rootPc, preferSharps, plan, labelO
         ext9: !!plan.ext9,
         ext11: !!plan.ext11,
         ext13: !!plan.ext13,
-      }).map(mod12))).sort((a, b) => a - b)
-    : [];
+        fifth: plan.fifth,
+        ninth: plan.ninth,
+      })
+    : null;
+  const fallbackIntervals = fallbackDefinition ? fallbackDefinition.intervals : [];
   const chordIntervals = planIntervals.length ? planIntervals : fallbackIntervals;
-  const notes = spellChordNotes({ rootPc: safeRootPc, chordIntervals, preferSharps: safePreferSharps });
+  const degreeLabels = planIntervals.length
+    ? chordIntervals.map((interval) => planDegreeLabelForInterval(plan, interval))
+    : fallbackDefinition?.degreeLabels || null;
+  const notes = spellChordNotes({ rootPc: safeRootPc, chordIntervals, preferSharps: safePreferSharps, degreeLabels });
   const label = labelOverride || (
     plan?.quality
       ? buildStudyChordLabel({
@@ -2288,6 +2507,8 @@ export function buildStudyChordSpecFromPlan({ rootPc, preferSharps, plan, labelO
           ext9: !!plan.ext9,
           ext11: !!plan.ext11,
           ext13: !!plan.ext13,
+          fifth: plan.fifth,
+          ninth: plan.ninth,
         })
       : `${pcToName(safeRootPc, safePreferSharps)} (${chordIntervals.map((i) => intervalToDegreeToken(i)).join(" · ")})`
   );
@@ -2313,6 +2534,8 @@ export function buildStudyChordSpecFromDegree(degree, fallbackPreferSharps) {
     ext9: !!degree.ext9,
     ext11: !!degree.ext11,
     ext13: !!degree.ext13,
+    fifth: degree.fifth,
+    ninth: degree.ninth,
     labelOverride: degree.name,
   });
 }

@@ -12,7 +12,8 @@
  *   5. Fadd13: Bajo 13, sin "Bajo 6"
  *   6. Fadd11,13(no5): opciones coherentes
  *   7. Fdim / Fdim7: Cb = Bajo b5
- *   8. Fdim7(add13,no1): sin Fundamental
+ *   8. Fdim7(no1): sin Fundamental; la 13 no se ofrece en dim7 (misma altura que bb7)
+ *  11-14. Quinta/novena alteradas: inversiones con #5/b5, b9/#9 con omisión, selector = summary
  */
 
 import { test, expect } from "@playwright/test";
@@ -314,16 +315,18 @@ test("CM-07. Fdim7: selector usa 'Bajo b5', no 'Bajo #4' ni '2ª inversión'", a
   }
 });
 
-// ── Caso 8: Fdim7(add13,no1) — sin Fundamental ───────────────────────────────
+// ── Caso 8: Fdim7(no1) — sin Fundamental ─────────────────────────────────────
+// En dim7 la 13 coincide en altura con la bb7: el motor no la ofrece (limitación de
+// representación) y el bajo de esa nota se nombra por su función real, bb7.
 
-test("CM-08. Fdim7(add13,no1): no Fundamental, sí Bajo b3/b5/13, summary nunca dice Fundamental", async ({ page }) => {
+test("CM-08. Fdim7(no1): no Fundamental, sí Bajo b3/b5/bb7; 13 deshabilitada; summary nunca dice Fundamental", async ({ page }) => {
   await goToChords(page);
   await selectTone(page, "F");
   await selectQuality(page, "dim");
   await selectStructure(page, "tetrad");
   await expect(page.getByTestId("ext-7")).toBeChecked();
   await page.getByTestId("omit-1").check();
-  await page.getByTestId("ext-13").check();
+  await expect(page.getByTestId("ext-13")).toBeDisabled();
 
   const { invSelect, opts } = await getInvOptions(page);
   const labels = opts.map((o) => o.label);
@@ -331,7 +334,8 @@ test("CM-08. Fdim7(add13,no1): no Fundamental, sí Bajo b3/b5/13, summary nunca 
   expect(labels, "No debe aparecer Fundamental").not.toContain("Fundamental");
   expect(labels, "Debe aparecer Bajo b3").toContain("Bajo b3");
   expect(labels, "Debe aparecer Bajo b5").toContain("Bajo b5");
-  expect(labels, "Debe aparecer Bajo 13").toContain("Bajo 13");
+  expect(labels, "Debe aparecer Bajo bb7").toContain("Bajo bb7");
+  expect(labels, "La bb7 no debe nombrarse Bajo 6").not.toContain("Bajo 6");
 
   // Para cada opción concreta, summary nunca dice "Fundamental"
   for (const opt of opts) {
@@ -385,4 +389,76 @@ test("CM-10. Coherencia global: seleccionar cada opción → summary la refleja 
       `Opción "${opt.label}" (val=${opt.value}): summary debe contener esa etiqueta`
     ).toContain(opt.label);
   }
+});
+
+// ── Quinta y novena alteradas ────────────────────────────────────────────────
+
+async function expectSelectorMatchesSummary(page) {
+  const { invSelect, opts } = await getInvOptions(page);
+  for (const opt of opts) {
+    if (opt.value === "all") continue;
+    await selectInv(page, invSelect, opt.value);
+    const summary = await getSummary(page);
+    // El título usa "Bajo en 3ª" para la opción "Bajo 3" (formatBassLabelForTitle).
+    const titleLabel = opt.label.startsWith("Bajo ") ? `Bajo en ${opt.label.slice(5)}ª` : opt.label;
+    expect(summary, `Opción "${opt.label}": summary debe contener "${titleLabel}". Obtenido: "${summary}"`).toContain(titleLabel);
+    if (opt.value !== "root") await expectVoicings(page, opt.label);
+  }
+  return opts.map((o) => o.label);
+}
+
+test("CM-11. G7(#5): ordinales con la #5 en 2ª inversión y voicings en cada opción", async ({ page }) => {
+  await goToChords(page);
+  await selectTone(page, "G");
+  await selectStructure(page, "tetrad");
+  await selectQuality(page, "dom");
+  await page.getByTestId("select-fifth").selectOption("#5");
+  const labels = await expectSelectorMatchesSummary(page);
+  expect(labels).toEqual(["Fundamental", "1ª inversión", "2ª inversión", "3ª inversión", "Todas"]);
+  const { invSelect } = await getInvOptions(page);
+  await selectInv(page, invSelect, "2");
+  await expect(page.getByTestId("chord-badge-bass-note").first()).toHaveText("D#");
+});
+
+test("CM-12. C7(b5): la b5 es la quinta (2ª inversión = Gb), no un #4/#11", async ({ page }) => {
+  await goToChords(page);
+  await selectTone(page, "C");
+  await selectStructure(page, "tetrad");
+  await selectQuality(page, "dom");
+  await page.getByTestId("select-fifth").selectOption("b5");
+  const labels = await expectSelectorMatchesSummary(page);
+  expect(labels).toContain("2ª inversión");
+  expect(labels.join(" ")).not.toMatch(/#4|#11/);
+  const { invSelect } = await getInvOptions(page);
+  await selectInv(page, invSelect, "2");
+  await expect(page.getByTestId("chord-badge-bass-note").first()).toHaveText("Gb");
+});
+
+test("CM-13. D7(b9,no5) en cuatriada: opciones semánticas y bajo b9 coherente con summary", async ({ page }) => {
+  await goToChords(page);
+  await selectTone(page, "D");
+  await selectStructure(page, "tetrad");
+  await selectQuality(page, "dom");
+  await page.getByTestId("omit-5").check();
+  await page.getByTestId("ext-9").check();
+  await page.getByTestId("select-ninth").selectOption("b9");
+  await expect(page.getByTestId("chord-chips").first()).toContainText("D7(b9,no5)");
+  const labels = await expectSelectorMatchesSummary(page);
+  expect(labels).toEqual(expect.arrayContaining(["Fundamental", "Bajo 3", "Bajo b7"]));
+  expect(labels.join(" ")).not.toMatch(/ordinal|2ª inversión/);
+});
+
+test("CM-14. E7(#9) en Acorde: 3ª mayor y #9 a la vez, cada inversión con voicings", async ({ page }) => {
+  await goToChords(page);
+  await selectTone(page, "E");
+  await selectStructure(page, "chord");
+  await selectQuality(page, "dom");
+  await page.getByTestId("ext-9").check();
+  await page.getByTestId("select-ninth").selectOption("#9");
+  await expect(page.getByTestId("chord-chips").first()).toContainText("E7(#9)");
+  const labels = await expectSelectorMatchesSummary(page);
+  expect(labels).toContain("Fundamental");
+  const degrees = await page.getByTestId("chord-chips").first().locator("[data-testid^='chord-badge-degree-']").allTextContents();
+  expect(degrees).toEqual(expect.arrayContaining(["3", "#9"]));
+  expect(degrees).not.toContain("b3");
 });

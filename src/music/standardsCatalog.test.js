@@ -63,8 +63,54 @@ describe("standardsCatalog", () => {
     expect(slots.map((slot) => slot.quality)).toEqual(["maj", "dom", "min", "dom"]);
   });
 
-  test("rechaza sufijos que aún no están soportados", () => {
-    expect(() => parseStandardChordSymbol("F7b9")).toThrow(/Aún no sé traducir/);
+  test("rechaza con aviso los sufijos que la app aún no puede construir (sin simplificarlos)", () => {
+    expect(() => parseStandardChordSymbol("F7#11")).toThrow(/Aún no sé traducir F7#11.*♯11/);
+    expect(() => parseStandardChordSymbol("F7b13")).toThrow(/♭13/);
+    expect(() => parseStandardChordSymbol("F7alt")).toThrow(/alt/);
+    expect(() => parseStandardChordSymbol("F7b9#9")).toThrow(/♭9 y ♯9 a la vez/);
+    // Con 3ª menor la ♯9 coincidiría con la ♭3: tampoco se carga como otro acorde.
+    expect(() => parseStandardChordSymbol("Fm7#9")).toThrow(/♯9 sobre 3ª menor/);
+  });
+
+  // Quinta y novena alteradas sobre cualquier calidad (los selectores no las limitan).
+  test.each([
+    ["FmM7b5", { quality: "minmaj7", structure: "tetrad", ext7: true, fifth: "b5" }],
+    ["Fm#5", { quality: "min", structure: "triad", fifth: "#5" }],
+    ["Fm+", { quality: "min", structure: "triad", fifth: "#5" }],
+    ["Fm7b9", { quality: "min", structure: "chord", ext7: true, ext9: true, ninth: "b9" }],
+    ["Fm7(b5)", { quality: "min", structure: "tetrad", ext7: true, fifth: "b5" }],
+  ])("%s se carga con su quinta/novena alterada", (symbol, expected) => {
+    expect(parseStandardChordSymbol(symbol)).toMatchObject(expected);
+  });
+
+  test.each([
+    ["F7b9", { quality: "dom", structure: "chord", ext7: true, ext9: true, fifth: "5", ninth: "b9" }],
+    ["D7(b9)", { quality: "dom", structure: "chord", ext7: true, ext9: true, ninth: "b9" }],
+    ["E7#9", { quality: "dom", structure: "chord", ext7: true, ext9: true, ninth: "#9" }],
+    ["G7#5b9", { quality: "dom", structure: "chord", ext7: true, ext9: true, fifth: "#5", ninth: "b9" }],
+    ["G+7(b9)", { quality: "dom", structure: "chord", ext7: true, ext9: true, fifth: "#5", ninth: "b9" }],
+    ["C7+", { quality: "dom", structure: "tetrad", ext7: true, fifth: "#5", ninth: "9" }],
+    ["C7b5", { quality: "dom", structure: "tetrad", ext7: true, fifth: "b5" }],
+    ["C9#5", { quality: "dom", structure: "chord", ext7: true, ext9: true, fifth: "#5", ninth: "9" }],
+    ["C13b9", { quality: "dom", structure: "chord", ext7: true, ext9: true, ext13: true, ninth: "b9" }],
+    ["D7susb9", { quality: "dom", suspension: "sus4", structure: "chord", ext7: true, ext9: true, ninth: "b9" }],
+    ["D7sus4", { quality: "dom", suspension: "sus4", structure: "tetrad", ext7: true }],
+    ["D9sus", { quality: "dom", suspension: "sus4", structure: "chord", ext7: true, ext9: true }],
+    ["EbM9", { quality: "maj", structure: "chord", ext7: true, ext9: true, ninth: "9" }],
+    ["EbΔ9", { quality: "maj", structure: "chord", ext7: true, ext9: true }],
+    ["CM7#5", { quality: "maj", structure: "tetrad", ext7: true, fifth: "#5" }],
+    ["C+", { quality: "maj", structure: "triad", fifth: "#5" }],
+    ["Fm9", { quality: "min", structure: "chord", ext7: true, ext9: true }],
+    ["Fm11", { quality: "min", structure: "chord", ext7: true, ext9: true, ext11: true }],
+    ["Am7b5", { quality: "hdim", structure: "tetrad", ext7: true, fifth: "b5" }],
+    ["Aø", { quality: "hdim", structure: "tetrad", ext7: true, fifth: "b5" }],
+    ["Am9b5", { quality: "hdim", structure: "chord", ext7: true, ext9: true, fifth: "b5" }],
+    ["F°7", { quality: "dim", structure: "tetrad", ext7: true, fifth: "b5" }],
+    ["Fdim", { quality: "dim", structure: "triad", ext7: false }],
+    ["CmM7", { quality: "minmaj7", structure: "tetrad", ext7: true }],
+    ["C69", { quality: "maj", structure: "chord", ext6: true, ext9: true, ext7: false }],
+  ])("traduce %s sin perder alteraciones", (symbol, expected) => {
+    expect(parseStandardChordSymbol(symbol)).toMatchObject(expected);
   });
 
   test("normaliza compases con más de un acorde", () => {

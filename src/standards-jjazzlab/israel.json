@@ -39,7 +39,7 @@
             "chordEvents": [
               {
                 "display": "D-add b6",
-                "load": "Dm"
+                "load": "Dmadd b6"
               }
             ],
             "repeat": false
@@ -65,7 +65,7 @@
             "chordEvents": [
               {
                 "display": "D7#9",
-                "load": "D7"
+                "load": "D7#9"
               }
             ],
             "repeat": false
@@ -83,7 +83,7 @@
               },
               {
                 "display": "G-M7",
-                "load": "Gm"
+                "load": "GmM7"
               }
             ],
             "repeat": false
@@ -158,7 +158,7 @@
             "chordEvents": [
               {
                 "display": "A7b9",
-                "load": "A7"
+                "load": "A7b9"
               }
             ],
             "repeat": false
@@ -194,7 +194,7 @@
               },
               {
                 "display": "A7b13",
-                "load": "A7"
+                "load": "A7b13"
               }
             ],
             "repeat": false
@@ -228,7 +228,7 @@
           "chordEvents": [
             {
               "display": "D-add b6",
-              "load": "Dm"
+              "load": "Dmadd b6"
             }
           ],
           "chords": [
@@ -254,7 +254,7 @@
           "chordEvents": [
             {
               "display": "D7#9",
-              "load": "D7"
+              "load": "D7#9"
             }
           ],
           "chords": [
@@ -278,7 +278,7 @@
             },
             {
               "display": "G-M7",
-              "load": "Gm"
+              "load": "GmM7"
             }
           ],
           "chords": [
@@ -361,7 +361,7 @@
           "chordEvents": [
             {
               "display": "A7b9",
-              "load": "A7"
+              "load": "A7b9"
             }
           ],
           "chords": [
@@ -396,7 +396,7 @@
             },
             {
               "display": "A7b13",
-              "load": "A7"
+              "load": "A7b13"
             }
           ],
           "chords": [

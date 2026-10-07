@@ -20,6 +20,18 @@ import {
   detectFormulaRole as detectFormulaRolePure,
 } from "./chordDetectionEngine.js";
 
+import {
+  chordAugmentedOptionState,
+  chordSuspensionOptionState,
+  chordFifthSemitones,
+  chordNinthSemitones,
+  isAlteredChordFifth,
+  isAlteredChordNinth,
+  normalizeChordAlterations,
+  resolveDisplayChordQuality,
+  resolveTheoryChordQuality,
+} from "./chordAlterations.js";
+
 import * as AppVoicingStudyCore from "./appVoicingStudyCore.js";
 
 export function mod12(n) {
@@ -137,7 +149,10 @@ export function intervalToChordDegreeTokenWithSpelling(semi, preferSharps = fals
 // https://github.com/szaza/guitar-chords-db-json (MIT)
 // En runtime usamos alias de carpeta sin "#" para que preview y producción sirvan bien los JSON.
 
-export function chordSuffixFromUI({ quality, suspension = "none", structure, ext7, ext6, ext9, ext11, ext13 }) {
+// Sufijo INTERNO del catálogo JSON (chords-db). No es el nombre visible: el
+// nombre canónico lo construye chordDisplayNameFromUI.
+export function chordSuffixFromUI(params) {
+  const { quality, suspension, structure, ext7, ext6, ext9, ext11, ext13 } = normalizeChordUiSpec(params);
   const sus = suspension || "none";
   const isSus = sus !== "none";
   const q = quality;
@@ -146,22 +161,25 @@ export function chordSuffixFromUI({ quality, suspension = "none", structure, ext
   const isMinMaj7 = q === "minmaj7";
   const isMinorFamily = isMin || isMinMaj7;
 
-  // Normaliza combinaciones raras: sus + dim/ø no es habitual.
-  const q2 = isSus && (q === "dim" || q === "hdim") ? "maj" : q;
+  // Con suspensión la base solo aporta el tipo de 7ª: ø suspendido suena como un
+  // dominante sus (♭7) y Disminuido suspendido solo existe sin 7ª (sus sin 7ª).
+  const q2 = isSus && q === "hdim" ? "dom" : isSus && q === "dim" ? "maj" : q;
+  // Con suspensión la 3ª desaparece: la calidad solo decide el tipo de 7ª.
+  // Menor + sus + b7 suena igual que dominante sus (Re–Sol–La–Do = D7sus4).
+  const susSeventhSuffix = () => {
+    const majorSeventh = q2 === "maj" || q2 === "minmaj7";
+    return `${majorSeventh ? "maj7" : "7"}${sus === "sus4" ? "sus4" : "sus2"}`;
+  };
 
   // TRIADAS
   if (structure === "triad") {
     if (isSus) {
-      if (ext7) {
-        if (q2 === "dom") return sus === "sus4" ? "7sus4" : "7sus2";
-        if (q2 === "maj") return sus === "sus4" ? "maj7sus4" : "maj7sus2";
-        return sus === "sus4" ? "m7sus4" : "m7sus2";
-      }
+      if (ext7) return susSeventhSuffix();
       if (ext6) return sus === "sus4" ? "sus4add6" : "sus2add6";
       return sus === "sus4" ? "sus4" : "sus2";
     }
 
-    if (ext6 && !ext7) return isMinorFamily ? "m6" : "6";
+    if (ext6 && !ext7) return q2 === "dim" ? "dim(add6)" : isMinorFamily ? "m6" : "6";
     if (isMajLike) return "major";
     if (isMinorFamily) return "minor";
     return "dim";
@@ -181,7 +199,7 @@ export function chordSuffixFromUI({ quality, suspension = "none", structure, ext
 
     // add6/add9/add11/add13 (sin 7ª)
     if (!ext7 && addCount === 1) {
-      if (ext6) return isMinorFamily ? "m6" : "6";
+      if (ext6) return q2 === "dim" ? "dim(add6)" : isMinorFamily ? "m6" : "6";
       if (q2 === "dim") {
         if (ext13) return "dim(add13)";
         if (ext11) return "dim(add11)";
@@ -192,11 +210,7 @@ export function chordSuffixFromUI({ quality, suspension = "none", structure, ext
       if (ext9) return isMinorFamily ? "m(add9)" : "add9";
     }
 
-    if (isSus) {
-      if (q2 === "dom") return sus === "sus4" ? "7sus4" : "7sus2";
-      if (q2 === "maj") return sus === "sus4" ? "maj7sus4" : "maj7sus2";
-      return sus === "sus4" ? "m7sus4" : "m7sus2";
-    }
+    if (isSus) return susSeventhSuffix();
 
     if (q2 === "maj") return "maj7";
     if (q2 === "dom") return "7";
@@ -217,16 +231,17 @@ export function chordSuffixFromUI({ quality, suspension = "none", structure, ext
 
   if (isSus) {
     if (ext7) {
-      if (q2 === "dom") return sus === "sus4" ? "7sus4" : "7sus2";
-      if (q2 === "maj") return sus === "sus4" ? "maj7sus4" : "maj7sus2";
-      if (q2 === "min") return sus === "sus4" ? "m7sus4" : "m7sus2";
+      const seventh = susSeventhSuffix();
+      // 9sus4 existe como fichero propio del catálogo (1, 4, 5, b7, 9).
+      if (seventh === "7sus4" && ext9 && !ext11 && !ext13 && !ext6) return "9sus4";
+      return seventh;
     }
     if (ext6 && !ext7 && !ext9 && !ext11 && !ext13) return isMinorFamily ? "m6" : "6";
     return sus === "sus4" ? "sus4" : "sus2";
   }
 
   // add6 puro (sin 7/9/11/13)
-  if (ext6 && !ext7 && !ext9 && !ext11 && !ext13) return isMinorFamily ? "m6" : "6";
+  if (ext6 && !ext7 && !ext9 && !ext11 && !ext13) return q2 === "dim" ? "dim(add6)" : isMinorFamily ? "m6" : "6";
 
   if (q2 === "dim") {
     if (ext7) return "dim7";
@@ -355,13 +370,16 @@ export function chordEffectiveStructureForName(structure, ext7, ext6, suspension
   return structure;
 }
 
-export function chordDisplayNameFromUI({ rootPc, preferSharps, quality, suspension = "none", structure, ext7, ext6, ext9, ext11, ext13, omit = "none" }) {
-  const rootName = pcToName(mod12(rootPc), !!preferSharps);
+// Nombre del acorde con la lógica histórica (calidades sin alteración). Se
+// conserva intacta para no cambiar nombres ya publicados; las ramas nuevas
+// (suspendidos, ø, dim7 con 9 y alteraciones) se resuelven en
+// chordDisplaySuffixFromSpec antes o después de llamarla.
+function legacyChordDisplaySuffix({ quality, suspension = "none", structure, ext7, ext6, ext9, ext11, ext13, omit = "none" }) {
   const effStructure = chordEffectiveStructureForName(structure, !!ext7, !!ext6, suspension);
   const omitSuffix = omit !== "none" ? `(no${omit})` : "";
 
   if (AppVoicingStudyCore.isMultiAddChordSelection({ ext7: !!ext7, ext6: !!ext6, ext9: !!ext9, ext11: !!ext11, ext13: !!ext13 })) {
-    return `${rootName}${AppVoicingStudyCore.buildMultiAddDisplaySuffix({ quality, suspension, ext6: !!ext6, ext9: !!ext9, ext11: !!ext11, ext13: !!ext13 })}${omitSuffix}`;
+    return `${AppVoicingStudyCore.buildMultiAddDisplaySuffix({ quality, suspension, ext6: !!ext6, ext9: !!ext9, ext11: !!ext11, ext13: !!ext13 })}${omitSuffix}`;
   }
 
   let suf = chordSuffixFromUI({
@@ -383,10 +401,10 @@ export function chordDisplayNameFromUI({ rootPc, preferSharps, quality, suspensi
   else if (typeof suf === "string") disp = suf;
 
   if (quality === "minmaj7") {
-    return `${rootName}${appendOmitToDisplaySuffix(disp, omit)}`;
+    return appendOmitToDisplaySuffix(disp, omit);
   }
 
-  const base = `${rootName}${disp}`;
+  const base = disp;
 
   // Con 7ª activa: usar notación add explícita cuando procede
   if (ext7) {
@@ -417,41 +435,219 @@ export function chordDisplayNameFromUI({ rootPc, preferSharps, quality, suspensi
       if (rawBaseSuf && CHORD_SUFFIX_DISPLAY[rawBaseSuf] != null) cleanDisp = CHORD_SUFFIX_DISPLAY[rawBaseSuf];
       else if (typeof rawBaseSuf === "string" && rawBaseSuf.startsWith("m(")) cleanDisp = rawBaseSuf;
       else if (typeof rawBaseSuf === "string") cleanDisp = rawBaseSuf;
-      const cleanBase = `${rootName}${cleanDisp}`;
-      return `${cleanBase}(add${addParts.join(",")}${omitPart})`;
+      return `${cleanDisp}(add${addParts.join(",")}${omitPart})`;
     }
   }
   return `${base}${omitSuffix}`;
 }
 
-export function chordDisplaySuffixOnly({ quality, suspension = "none", structure, ext7, ext6, ext9, ext11, ext13 }) {
-  const effStructure = chordEffectiveStructureForName(structure, !!ext7, !!ext6, suspension);
-
-  if (AppVoicingStudyCore.isMultiAddChordSelection({ ext7: !!ext7, ext6: !!ext6, ext9: !!ext9, ext11: !!ext11, ext13: !!ext13 })) {
-    return AppVoicingStudyCore.buildMultiAddDisplaySuffix({ quality, suspension, ext6: !!ext6, ext9: !!ext9, ext11: !!ext11, ext13: !!ext13 });
-  }
-
-  let suf = chordSuffixFromUI({
-    quality,
-    suspension,
-    structure: effStructure,
-    ext7: !!ext7,
-    ext6: !!ext6,
-    ext9: !!ext9,
-    ext11: !!ext11,
-    ext13: !!ext13,
-  });
-
-  if (effStructure === "triad" && quality === "dom" && !ext7) suf = "major";
-
-  if (suf && CHORD_SUFFIX_DISPLAY[suf] != null) return CHORD_SUFFIX_DISPLAY[suf];
-  if (typeof suf === "string") return suf;
-  return "";
+// [9, 11] → ["add9,11"]; vacío → []
+function formatChordAddGroup(numbers) {
+  const list = (Array.isArray(numbers) ? numbers : []).filter(Boolean);
+  return list.length ? [`add${list.join(",")}`] : [];
 }
 
-export function chordCanUseJsonCatalog({ quality, structure, ext7, ext6, ext9, ext11, ext13 }) {
+function formatChordDescriptorGroup(descriptors) {
+  const list = (Array.isArray(descriptors) ? descriptors : []).filter(Boolean);
+  return list.length ? `(${list.join(",")})` : "";
+}
+
+// Suspendidos: la 2ª/4ª sustituye a la 3ª y la calidad solo decide la 7ª
+// (mayor en Mayor/m(maj7), menor en el resto): Menor + sus4 + 7 = 7sus4.
+// La 9 en sus2 y la 11 en sus4 coinciden en clase de altura con la nota
+// suspendida (limitación de representación del motor), por eso no se repiten.
+function suspendedChordDisplaySuffix(spec) {
+  const { quality, suspension, structure, ext7, ext6, ext9, ext11, ext13, omit, ninth } = spec;
+  const sus = suspension === "sus2" ? "sus2" : "sus4";
+  const hasNinth = !!ext9 && sus !== "sus2";
+  const hasEleventh = !!ext11 && sus !== "sus4";
+  const omitDescriptors = omit !== "none" ? [`no${omit}`] : [];
+  const ninthAltered = hasNinth && isAlteredChordNinth(ninth);
+
+  if (!ext7) {
+    const adds = [ext6 && "6", hasNinth && "9", hasEleventh && "11", ext13 && "13"].filter(Boolean);
+    return `${sus}${formatChordDescriptorGroup([...formatChordAddGroup(adds), ...omitDescriptors])}`;
+  }
+
+  const seventhBase = seventhOffsetForQuality(quality) === 11 ? "maj" : "";
+  const effStructure = chordEffectiveStructureForName(structure, !!ext7, !!ext6, suspension);
+  if (effStructure === "tetrad") {
+    // Cuatriada: las tensiones sobre la 7ª se escriben como add explícitos.
+    const adds = [hasNinth && !ninthAltered && "9", hasEleventh && "11", ext13 && "13", ext6 && "6"].filter(Boolean);
+    const descriptors = [ninthAltered && ninth, ...formatChordAddGroup(adds), ...omitDescriptors];
+    return `${seventhBase}7${sus}${formatChordDescriptorGroup(descriptors)}`;
+  }
+
+  // Acorde: el número sube con la 9 (9/11/13); sin 9, 11 y 13 son add.
+  let number = 7;
+  let adds = [];
+  if (hasNinth) {
+    number = ext13 ? 13 : hasEleventh ? 11 : 9;
+  } else {
+    adds = [hasEleventh && "11", ext13 && "13"].filter(Boolean);
+  }
+  // Igual que el resto de calidades en "Acorde", la 6 junto a la 7ª no se nombra
+  // (comportamiento previo, pendiente de revisión aparte).
+  const ninthDescriptors = [];
+  if (ninthAltered) {
+    if (number === 9) number = 7;
+    ninthDescriptors.push(ninth);
+  }
+  const descriptors = [...ninthDescriptors, ...formatChordAddGroup(adds), ...omitDescriptors];
+  return `${seventhBase}${number}${sus}${formatChordDescriptorGroup(descriptors)}`;
+}
+
+// Semidisminuido: m7(b5); con 9 natural → m9(b5) (9+11 → m11(b5), 9+13 → m13(b5)).
+// La b5 forma parte del nombre de la calidad y comparte paréntesis con adds/omisiones.
+function halfDiminishedChordDisplaySuffix(spec) {
+  const { structure, ext7, ext6, ext9, ext11, ext13, omit } = spec;
+  const omitDescriptors = omit !== "none" ? [`no${omit}`] : [];
+  const effStructure = chordEffectiveStructureForName(structure, !!ext7, !!ext6, spec.suspension);
+  let number = 7;
+  let adds;
+  if (effStructure === "tetrad") {
+    adds = [ext9 && "9", ext11 && "11", ext13 && "13", ext6 && "6"].filter(Boolean);
+  } else if (ext9) {
+    number = ext13 ? 13 : ext11 ? 11 : 9;
+    adds = [];
+  } else {
+    // Como en el resto de calidades en "Acorde", la 6 junto a la 7ª no se nombra.
+    adds = [ext11 && "11", ext13 && "13"].filter(Boolean);
+  }
+  return `m${number}${formatChordDescriptorGroup(["b5", ...formatChordAddGroup(adds), ...omitDescriptors])}`;
+}
+
+// Disminuido completo con tensiones en "Acorde": dim7(add9), dim7(add9,11), dim7(add11).
+function diminishedSeventhChordDisplaySuffix(spec) {
+  const { ext9, ext11, omit } = spec;
+  const adds = [ext9 && "9", ext11 && "11"].filter(Boolean);
+  const omitDescriptors = omit !== "none" ? [`no${omit}`] : [];
+  return `dim7${formatChordDescriptorGroup([...formatChordAddGroup(adds), ...omitDescriptors])}`;
+}
+
+// Grupo final de descriptores "(…)" de un sufijo: "m7(b5,add9)" → head "m7",
+// tokens ["b5","add9"]. Un sufijo de adds sin paréntesis ("add9,11") se trata
+// como grupo para poder alterarlo.
+function splitChordDescriptorGroup(suffix) {
+  const text = String(suffix || "");
+  if (/^add/.test(text)) return { head: "", tokens: text.split(",") };
+  const open = text.lastIndexOf("(");
+  if (!text.endsWith(")") || open < 0) return { head: text, tokens: [] };
+  return { head: text.slice(0, open), tokens: text.slice(open + 1, -1).split(",").filter(Boolean) };
+}
+
+function joinChordDescriptorGroup(head, tokens) {
+  return tokens.length ? `${head}(${tokens.join(",")})` : head;
+}
+
+// Quita la 9 del grupo add: "add9,11" → "add11"; "add9" solo → desaparece.
+function removeAddNinthToken(tokens) {
+  const idx = tokens.indexOf("add9");
+  if (idx < 0) return tokens;
+  const next = tokens[idx + 1];
+  const copy = [...tokens];
+  if (next && /^\d+$/.test(next)) copy.splice(idx, 2, `add${next}`);
+  else copy.splice(idx, 1);
+  return copy;
+}
+
+// Alteraciones de quinta y novena sobre el nombre natural de cualquier calidad.
+// - La novena alterada sustituye a la natural: "9"/"m9"/"maj9"/"9sus4" bajan a 7
+//   ("7(b9)", "m7(b9)"); 11/13 se mantienen ("13(b9)", "m11(b9)"); un "add9" con
+//   7ª pasa a descriptor ("7sus4(b9)", "dim7(b9)") y sin 7ª queda "addb9".
+// - La quinta alterada respecto de la calidad teórica va como descriptor ("7(#5)",
+//   "m7(#5)", "m(maj7,b5)", "dim7(♮5)"); la tríada mayor con ♯5 es "aug".
+// - Orden: quinta antes que novena; en "m(maj7…)" detrás de maj7 y en "m7(b5…)"
+//   detrás de la ♭5 propia del semidisminuido.
+function applyChordAlterationsToSuffix(baseSuffix, spec) {
+  const { quality, suspension, fifth, ninth } = spec;
+  const fifthAltered = isAlteredChordFifth(fifth, quality, suspension);
+  const fifthToken = fifthAltered ? (fifth === "5" ? "♮5" : fifth) : null;
+  // Solo si la novena suena (en cuatriada sin hueco libre la 9 no entra).
+  const ninthToken = spec.ext9 && isAlteredChordNinth(ninth) ? ninth : null;
+  if (!fifthToken && !ninthToken) return String(baseSuffix || "");
+
+  let { head, tokens } = splitChordDescriptorGroup(baseSuffix);
+  const descriptors = [];
+  if (fifthToken) descriptors.push(fifthToken);
+
+  if (ninthToken) {
+    if (/^(m|maj)?9(?=sus|$)/.test(head)) {
+      head = head.replace(/^(m|maj)?9/, "$17");
+      descriptors.push(ninthToken);
+    } else if (head === "m" && tokens[0] === "maj9") {
+      tokens = ["maj7", ...tokens.slice(1)];
+      descriptors.push(ninthToken);
+    } else if (tokens.includes("add9")) {
+      if (spec.ext7) {
+        tokens = removeAddNinthToken(tokens);
+        descriptors.push(ninthToken);
+      } else {
+        tokens = tokens.map((token) => (token === "add9" ? `add${ninthToken}` : token));
+      }
+    } else {
+      descriptors.push(ninthToken);
+    }
+  }
+
+  // Tríada mayor con ♯5: "aug" (con sus adds: "aug(add9)").
+  if (fifthToken === "#5" && quality === "maj" && !spec.ext7 && head === "") {
+    head = "aug";
+    descriptors.splice(descriptors.indexOf("#5"), 1);
+  }
+
+  let insertAt = 0;
+  if (head === "m" && /^maj/.test(tokens[0] || "")) insertAt = 1;
+  else if (quality === "hdim" && tokens[0] === "b5") insertAt = 1;
+  const nextTokens = [...tokens];
+  nextTokens.splice(insertAt, 0, ...descriptors);
+  return joinChordDescriptorGroup(head, nextTokens);
+}
+
+// Sufijo visible del acorde a partir de un estado ya normalizado.
+// Las extensiones se leen de los grados realmente presentes en la definición
+// común (no de los checkboxes): una 9 que coincide con la 2 de sus2 o una add
+// que no cabe en la cuatriada no aparecen en el nombre porque no suenan.
+export function chordDisplaySuffixFromSpec(spec) {
+  // Con la omisión aplicada: en cuatriada "Omitir" libera un slot para la add.
+  // La omisión solo retira 1/3/5, así que no oculta ninguna extensión.
+  const definition = buildChordToneDefinition(spec);
+  const present = new Set(definition.roles);
+  const effective = {
+    ...spec,
+    ext7: present.has("seventh"),
+    ext6: present.has("sixth"),
+    ext9: present.has("ninth"),
+    ext11: present.has("eleventh"),
+    ext13: present.has("thirteenth"),
+  };
+  const { quality, suspension, structure, ext7, ext9, ext11 } = effective;
+  let natural;
+  if (suspension && suspension !== "none") natural = suspendedChordDisplaySuffix({ ...effective, ninth: "9" });
+  else if (quality === "hdim" && ext7) natural = halfDiminishedChordDisplaySuffix(effective);
+  else if (quality === "dim" && ext7 && structure === "chord" && (ext9 || ext11)) natural = diminishedSeventhChordDisplaySuffix(effective);
+  else natural = legacyChordDisplaySuffix(effective);
+  return applyChordAlterationsToSuffix(natural, effective);
+}
+
+export function chordDisplayNameFromUI(params) {
+  const spec = normalizeChordUiSpec(params);
+  const rootName = pcToName(mod12(params?.rootPc ?? 0), !!params?.preferSharps);
+  return `${rootName}${chordDisplaySuffixFromSpec(spec)}`;
+}
+
+// Sufijo visible sin omisiones (armonización, estudio por grados).
+export function chordDisplaySuffixOnly(params) {
+  return chordDisplaySuffixFromSpec(normalizeChordUiSpec({ ...params, omit: "none" }));
+}
+
+export function chordCanUseJsonCatalog(params) {
+  const spec = normalizeChordUiSpec(params);
+  const { quality, structure, ext7, ext6, ext9, ext11, ext13 } = spec;
   if (structure !== "chord") return false;
   if (quality === "minmaj7") return false;
+  // El catálogo JSON no garantiza fórmulas alteradas: se usa el generador exacto.
+  if (isAlteredChordFifth(spec.fifth, quality, spec.suspension) || isAlteredChordNinth(spec.ninth)) return false;
   const addCount = (ext6 ? 1 : 0) + (ext9 ? 1 : 0) + (ext11 ? 1 : 0) + (ext13 ? 1 : 0);
   const singleAdd = !ext7 && addCount === 1;
   const multiAdd = !ext7 && addCount >= 2;
@@ -1073,14 +1269,20 @@ export function generateDropTetradVoicings({ rootPc, thirdOffset, fifthOffset, s
 // BLOQUE: OPCIONES DE UI PARA ACORDES
 // --------------------------------------------------------------------------
 
+// Opciones del combo de Calidad. "aug" (Aumentada) es solo una etiqueta: se guarda
+// como Mayor o Dominante con ♯5 (ver storedQualityForAugmented).
 export const CHORD_QUALITIES = [
   { value: "maj", label: "Mayor" },
   { value: "dom", label: "Dominante (7)" },
+  { value: "aug", label: "Aumentada" },
   { value: "min", label: "Menor" },
   { value: "minmaj7", label: "m(maj7)" },
   { value: "dim", label: "Disminuido" },
   { value: "hdim", label: "m7(b5)" },
 ];
+
+// Calidades que pueden guardarse en el estado (sin la etiqueta Aumentada).
+export const CHORD_STORED_QUALITY_VALUES = Object.freeze(["maj", "dom", "min", "minmaj7", "dim", "hdim"]);
 
 export const CHORD_STRUCTURES = [
   { value: "triad", label: "Triada" },
@@ -1421,85 +1623,195 @@ export const DROP_FORM_STRING_SETS = {
   drop24_set2: [[1, 2, 4, 5]],
 };
 
-export function buildChordIntervals({ quality, suspension, structure, ext7, ext6, ext9, ext11, ext13, omit = "none" }) {
-  const sus = suspension || "none";
-  const third = sus === "sus2" ? 2 : sus === "sus4" ? 5 : quality === "maj" || quality === "dom" ? 4 : 3;
-  const fifth = sus !== "none" ? 7 : quality === "dim" || quality === "hdim" ? 6 : 7;
+// ----------------------------------------------------------------------------
+// DEFINICIÓN COMÚN DEL ACORDE TERCIANO
+// ----------------------------------------------------------------------------
+// Normaliza el estado de la UI (Acordes y Acordes cercanos) para que ningún
+// consumidor trabaje con combinaciones que contradigan el estado visible:
+// - sus + dim/ø: la UI cambia la calidad a Mayor; aquí se aplica el mismo criterio.
+// - dim7: la 6/13 coincide en clase de altura con la bb7. El motor representa
+//   clases de altura y no puede distinguir su función, así que se desactivan
+//   (limitación de representación, no prohibición musical).
+// - quinta/novena: se normalizan con la política compartida de chordAlterations.
+// `ext7` conserva `undefined` cuando no se informa: en "Acorde" la 7ª solo se
+// omite con ext7 === false (comportamiento histórico de buildChordIntervals).
+// `quality` es la calidad teórica que usan nombre, notas, catálogo y voicings
+// (conserva la 3ª y el tipo de 7ª de la base; ver resolveTheoryChordQuality);
+// `uiQuality` es la calidad base elegida y es la única que se escribe de vuelta
+// en el estado; `displayQuality` es la que muestra el combo de Calidad.
+// Ejemplos: Menor + 7 + ♭5 → teórica hdim (Am7(b5)); Menor + ♭5 sin 7ª → dim;
+// Semidisminuido + 5 → min. Nunca se pasa a Disminuido con 7ª (♭♭7) por cambiar
+// la quinta.
+export function normalizeChordUiSpec(params = {}) {
+  const requestedSuspension = params?.suspension || "none";
+  const isSus = requestedSuspension !== "none";
+  // "aug" no se guarda; si llega (estado externo) equivale a Mayor con ♯5.
+  const requestedQuality = params?.quality || "maj";
+  const augmentedLabel = requestedQuality === "aug";
+  // La suspensión solo sustituye la 3ª: la calidad base (y con ella el tipo de
+  // 7ª) se conserva, así que Cm7(b5) + sus4 es C7sus4(b5) y al quitarla vuelve.
+  const uiQuality = augmentedLabel ? "maj" : requestedQuality;
+  const structure = params?.structure || "triad";
+  const ext7 = params?.ext7 === undefined ? undefined : !!params.ext7;
+  const omit = ["1", "3", "5"].includes(params?.omit) ? params.omit : "none";
+  // Misma regla de 7ª que buildChordToneDefinition: en "Acorde" la 7ª va salvo que se quite.
+  const hasSeventh = structure === "triad" || structure === "tetrad" ? !!ext7 : ext7 !== false;
+  // Disminuido suspendido con ♭♭7 no se representa (la interfaz no permite llegar
+  // a él): un estado externo así conserva la ♭♭7 y recupera la 3ª, nunca cambia
+  // la séptima por otra.
+  const suspension = isSus && uiQuality === "dim" && hasSeventh ? "none" : requestedSuspension;
+  const { fifth, ninth } = normalizeChordAlterations({
+    quality: uiQuality,
+    suspension,
+    structure,
+    ext7: !!ext7,
+    ext9: !!params?.ext9,
+    omit,
+    fifth: augmentedLabel && !params?.fifth ? "#5" : params?.fifth,
+    ninth: params?.ninth,
+  });
+  const quality = resolveTheoryChordQuality({ quality: uiQuality, suspension, fifth, hasSeventh });
+  const displayQuality = resolveDisplayChordQuality({ quality: uiQuality, suspension, fifth, hasSeventh });
+  // dim7: la 6/13 coincide en altura con la ♭♭7 (también con la 5ª alterada).
+  const dimSeventh = quality === "dim" && hasSeventh;
+  const ext6 = !!params?.ext6 && !dimSeventh;
+  const ext9 = !!params?.ext9;
+  const ext11 = !!params?.ext11;
+  const ext13 = !!params?.ext13 && !dimSeventh;
+  return { quality, uiQuality, displayQuality, suspension, structure, ext7, ext6, ext9, ext11, ext13, omit, fifth, ninth };
+}
 
-  const out = [0, third, fifth];
+// Valor del combo de Calidad para un estado (Acordes y Acordes cercanos).
+export function chordQualityDisplayValue(params = {}) {
+  return normalizeChordUiSpec(params).displayQuality;
+}
 
-  // CUATRIADA: máximo 1 slot de extensión sin omit, 2 con omit activo.
-  // ext7 ocupa 1 slot; cada add (6/9/11/13) ocupa 1 slot adicional.
-  // Cap defensivo: si el estado es inválido (más extensiones de las permitidas),
-  // se truncan en orden de prioridad (ext7 > ext6 > ext9 > ext11 > ext13).
+// Opciones del combo de Calidad para un estado, compartidas por Acordes y Acordes
+// cercanos: Dominante y m7(b5) necesitan 7ª en tríada, y Aumentada se deshabilita
+// con su explicación cuando no puede conservar la séptima (♭♭7) o no hay quinta.
+export function chordQualitySelectOptions(params = {}) {
+  const spec = normalizeChordUiSpec(params);
+  const structure = params?.structure || "triad";
+  const triadWithoutSeventh = structure === "triad" && !params?.ext7;
+  const hasSeventh = structure === "triad" || structure === "tetrad" ? !!params?.ext7 : params?.ext7 !== false;
+  const augmented = chordAugmentedOptionState({ quality: spec.uiQuality, suspension: spec.suspension, hasSeventh, omit: spec.omit });
+  return CHORD_QUALITIES.map((option) => {
+    if (option.value === "aug") {
+      return { ...option, label: augmented.label, disabled: !augmented.enabled, title: augmented.hint };
+    }
+    return { ...option, disabled: (option.value === "hdim" || option.value === "dom") && triadWithoutSeventh, title: "" };
+  });
+}
+
+export const CHORD_SUSPENSIONS = Object.freeze([
+  { value: "none", label: "Sus —" },
+  { value: "sus2", label: "sus2" },
+  { value: "sus4", label: "sus4" },
+]);
+
+// Opciones del combo de suspensión (Acordes y Acordes cercanos): sus2/sus4 se
+// deshabilitan con su explicación cuando no pueden conservar la séptima (♭♭7 de
+// Disminuido) o con "Omitir 3" (no hay tercera que sustituir).
+export function chordSuspensionSelectOptions(params = {}) {
+  const spec = normalizeChordUiSpec(params);
+  const structure = params?.structure || "triad";
+  const hasSeventh = structure === "triad" || structure === "tetrad" ? !!params?.ext7 : params?.ext7 !== false;
+  const state = chordSuspensionOptionState({ quality: spec.uiQuality, hasSeventh, omit: spec.omit });
+  return CHORD_SUSPENSIONS.map((option) => {
+    if (option.value === "none" || state.enabled || option.value === spec.suspension) return { ...option, disabled: false, title: "" };
+    return { ...option, label: `${option.label} ${state.labelSuffix}`, disabled: true, title: state.hint };
+  });
+}
+
+// Grados del acorde con su función. Conserva el grado junto al semitono: ♯9 no
+// es ♭3, ♯5 no es ♭13 y ♭♭7 no es 6 aunque compartan altura.
+// Replica el modelo de slots de la cuatriada (7ª y cada add ocupan un slot;
+// "Omitir" libera uno) y la coexistencia libre de extensiones en "Acorde".
+// Si dos grados comparten clase de altura (sus2+9, sus4+11, 6+13), prevalece el
+// primero en orden estructural; las omisiones se aplican al final.
+export function buildChordToneDefinition(params = {}) {
+  const spec = normalizeChordUiSpec(params);
+  const { quality, suspension, structure, ext7, ext6, ext9, ext11, ext13, omit, fifth, ninth } = spec;
+  const third = suspension === "sus2" ? 2 : suspension === "sus4" ? 5 : quality === "maj" || quality === "dom" ? 4 : 3;
+  const thirdLabel = suspension === "sus2" ? "2" : suspension === "sus4" ? "4" : third === 4 ? "3" : "b3";
+  const fifthOffset = chordFifthSemitones(fifth);
+  const seventh = seventhOffsetForQuality(quality);
+  const seventhLabel = seventh === 11 ? "7" : seventh === 9 ? "bb7" : "b7";
+  const ninthOffset = chordNinthSemitones(ninth);
+
+  const raw = [
+    { interval: 0, label: "1", role: "root" },
+    { interval: third, label: thirdLabel, role: "third" },
+    { interval: fifthOffset, label: fifth, role: "fifth" },
+  ];
+  const seventhTone = { interval: seventh, label: seventhLabel, role: "seventh" };
+  const sixthTone = { interval: 9, label: "6", role: "sixth" };
+  const ninthTone = { interval: ninthOffset, label: ninth, role: "ninth" };
+  const eleventhTone = { interval: 5, label: "11", role: "eleventh" };
+  const thirteenthTone = { interval: 9, label: "13", role: "thirteenth" };
+
   if (structure === "tetrad") {
     const maxExtSlots = 1 + (omit !== "none" ? 1 : 0);
     let extSlotsUsed = 0;
     if (ext7) {
-      const seventh = quality === "maj" || quality === "minmaj7" ? 11 : quality === "dim" ? 9 : 10;
-      out.push(seventh);
+      raw.push(seventhTone);
       extSlotsUsed++;
     }
-    const addCandidates = [
-      { active: ext6, interval: 9 },
-      { active: ext9, interval: 2 },
-      { active: ext11, interval: 5 },
-      { active: ext13, interval: 9 },
-    ];
-    for (const { active, interval } of addCandidates) {
+    for (const [active, tone] of [[ext6, sixthTone], [ext9, ninthTone], [ext11, eleventhTone], [ext13, thirteenthTone]]) {
       if (!active) continue;
       if (extSlotsUsed >= maxExtSlots) break;
-      out.push(interval);
+      raw.push(tone);
       extSlotsUsed++;
     }
-    let result = Array.from(new Set(out.map(mod12))).sort((a, b) => a - b);
-    if (omit !== "none") {
-      const omitInt = omit === "1" ? 0 : omit === "3" ? mod12(third) : omit === "5" ? mod12(fifth) : null;
-      if (omitInt !== null) result = result.filter((i) => i !== omitInt);
-    }
-    return result;
-  }
-
-  // 7ª
-  const wants7 = structure !== "triad";
-  if (wants7) {
-    let seventh = 10;
-    if (quality === "maj" || quality === "minmaj7") seventh = 11; // maj7 / m(maj7)
-    if (quality === "dim") seventh = 9; // dim7 (bb7)
-    if (quality === "hdim") seventh = 10; // ø7
-
-    // en "Acorde" se puede desactivar 7 con el checkbox
-    if (!(structure === "chord" && ext7 === false) && !(structure === "tetrad" && ext7 === false)) {
-      out.push(seventh);
-    }
   } else {
-    // triada: si el usuario marca 7, lo añadimos
-    if (ext7) {
-      let seventh = 10;
-      if (quality === "maj" || quality === "minmaj7") seventh = 11;
-      if (quality === "dim") seventh = 9;
-      if (quality === "hdim") seventh = 10;
-      out.push(seventh);
+    if (structure !== "triad" ? ext7 !== false : !!ext7) raw.push(seventhTone);
+    if (structure === "chord") {
+      if (ext6) raw.push(sixthTone);
+      if (ext9) raw.push(ninthTone);
+      if (ext11) raw.push(eleventhTone);
+      if (ext13) raw.push(thirteenthTone);
+    }
+    if (structure === "triad" && ext6) raw.push(sixthTone);
+  }
+
+  const byInterval = new Map();
+  for (const tone of raw) {
+    const interval = mod12(tone.interval);
+    const previous = byInterval.get(interval);
+    // 6 y 13 comparten clase de altura: con ambas marcadas prevalece la 13.
+    if (!previous || (previous.role === "sixth" && tone.role === "thirteenth")) {
+      byInterval.set(interval, { ...tone, interval });
     }
   }
+  const omitInterval = omit === "1" ? 0 : omit === "3" ? mod12(third) : omit === "5" ? mod12(fifthOffset) : null;
+  if (omitInterval != null) byInterval.delete(omitInterval);
 
-  // extensiones (en "Acorde" sí pueden coexistir)
-  if (structure === "chord") {
-    if (ext6) out.push(9);
-    if (ext9) out.push(2);
-    if (ext11) out.push(5);
-    if (ext13) out.push(9);
-  }
+  const tones = Array.from(byInterval.values()).sort((a, b) => a.interval - b.interval);
+  return {
+    spec,
+    thirdOffset: third,
+    fifthOffset,
+    seventhOffset: seventh,
+    ninthOffset,
+    tones,
+    intervals: tones.map((tone) => tone.interval),
+    degreeLabels: tones.map((tone) => tone.label),
+    roles: tones.map((tone) => tone.role),
+  };
+}
 
-  // add6 en triada
-  if (structure === "triad" && ext6) out.push(9);
+export function chordToneLabelForInterval(definition, interval) {
+  const safe = mod12(interval);
+  return definition?.tones?.find((tone) => tone.interval === safe)?.label ?? null;
+}
 
-  let result = Array.from(new Set(out.map(mod12))).sort((a, b) => a - b);
-  if (omit !== "none") {
-    const omitInt = omit === "1" ? 0 : omit === "3" ? mod12(third) : omit === "5" ? mod12(fifth) : null;
-    if (omitInt !== null) result = result.filter((i) => i !== omitInt);
-  }
-  return result;
+export function chordToneRoleForInterval(definition, interval) {
+  const safe = mod12(interval);
+  return definition?.tones?.find((tone) => tone.interval === safe)?.role ?? null;
+}
+
+export function buildChordIntervals(params) {
+  return buildChordToneDefinition(params).intervals;
 }
 
 export function seventhOffsetForQuality(quality) {
@@ -1509,22 +1821,24 @@ export function seventhOffsetForQuality(quality) {
   return 10;
 }
 
-export function chordBassInterval({ quality, suspension, inversion, ext7, ext6, ext9, ext11, ext13, omit = "none" }) {
-  const sus = suspension || "none";
-  const third = sus === "sus2" ? 2 : sus === "sus4" ? 5 : quality === "maj" || quality === "dom" ? 4 : 3;
-  const fifth = sus !== "none" ? 7 : quality === "dim" || quality === "hdim" ? 6 : 7;
+export function chordBassInterval(params) {
+  const { inversion } = params || {};
+  const definition = buildChordToneDefinition(params);
+  const { ext7, ext6, ext9, ext11, ext13, omit } = definition.spec;
+  const third = definition.thirdOffset;
+  // Quinta efectiva: la alterada sustituye a la de la calidad.
+  const fifth = definition.fifthOffset;
 
   const has7 = !!ext7;
   let degrees = [0, third, fifth];
 
   if (has7) {
-    const seventh = seventhOffsetForQuality(quality);
-    degrees = [0, third, fifth, seventh];
+    degrees = [0, third, fifth, definition.seventhOffset];
   } else {
     // Sin 7ª: incluir TODAS las extensiones add activas en orden ascendente de grado,
     // consistente con buildEffectiveDegreesForPlan y computeInversionSelectorOptions.
     const addOffsets = [];
-    if (ext9) addOffsets.push(2);
+    if (ext9) addOffsets.push(definition.ninthOffset);
     if (ext11) addOffsets.push(5);
     if (ext6 || ext13) addOffsets.push(9);
     if (addOffsets.length > 0) degrees = [0, third, fifth, ...addOffsets];
@@ -1565,33 +1879,52 @@ export function intervalToChordToken(semi, { ext6, ext9, ext11, ext13 }) {
   return base;
 }
 
-export function findChordDetectFormulaByUi({ quality, suspension = "none", structure, ext7, ext6, ext9, ext11, ext13 }) {
+// Fórmula del detector cuyo `ui` coincide con el estado (incluidas quinta y
+// novena; un `ui` sin esos campos equivale a sus valores por defecto).
+export function findChordDetectFormulaByUi(params) {
+  const spec = normalizeChordUiSpec(params);
   return CHORD_DETECT_FORMULAS_PURE.find((formula) => {
     const ui = formula?.ui;
     if (!ui) return false;
-    return ui.quality === quality
-      && (ui.suspension || "none") === (suspension || "none")
-      && ui.structure === structure
-      && !!ui.ext7 === !!ext7
-      && !!ui.ext6 === !!ext6
-      && !!ui.ext9 === !!ext9
-      && !!ui.ext11 === !!ext11
-      && !!ui.ext13 === !!ext13;
+    const uiAlterations = normalizeChordAlterations({ ...ui, ext7: !!ui.ext7, ext9: !!ui.ext9 });
+    return ui.quality === spec.quality
+      && (ui.suspension || "none") === spec.suspension
+      && ui.structure === spec.structure
+      && !!ui.ext7 === !!spec.ext7
+      && !!ui.ext6 === spec.ext6
+      && !!ui.ext9 === spec.ext9
+      && !!ui.ext11 === spec.ext11
+      && !!ui.ext13 === spec.ext13
+      && uiAlterations.fifth === spec.fifth
+      && uiAlterations.ninth === spec.ninth;
   }) || null;
 }
 
-export function buildChordDegreeLabelsFromUi({ quality, suspension = "none", structure, ext7, ext6, ext9, ext11, ext13, chordIntervals }) {
-  const formula = findChordDetectFormulaByUi({ quality, suspension, structure, ext7, ext6, ext9, ext11, ext13 });
-  const safeIntervals = Array.isArray(chordIntervals) ? chordIntervals.map(mod12) : [];
-  if (!formula?.degreeLabels?.length || !safeIntervals.length) return null;
+// Etiquetas funcionales alineadas con `chordIntervals`. Salen de la definición
+// común (no de una tabla aparte), así que existen para cualquier combinación de
+// la UI; los intervalos que no pertenecen al acorde reciben su grado cromático.
+export function buildChordDegreeLabelsFromUi(params) {
+  const safeIntervals = Array.isArray(params?.chordIntervals) ? params.chordIntervals.map(mod12) : [];
+  if (!safeIntervals.length) return null;
+  const definition = buildChordToneDefinition(params);
+  return safeIntervals.map((interval) => chordToneLabelForInterval(definition, interval) ?? intervalToChordDegreeToken(interval));
+}
 
-  const formulaIntervals = (formula.intervals || []).map(mod12);
-  const labels = safeIntervals.map((interval) => {
-    const idx = formulaIntervals.findIndex((x) => x === mod12(interval));
-    return idx >= 0 ? String(formula.degreeLabels[idx] || "") : "";
-  });
+// Grado cromático simple para intervalos ajenos al acorde.
+function intervalToChordDegreeToken(interval) {
+  return intervalToSimpleChordDegreeToken(interval);
+}
 
-  return labels.every(Boolean) ? labels : null;
+// Número de grado (1..7) a partir de una etiqueta funcional ("#9" → 2, "bb7" → 7).
+export function chordDegreeNumberFromLabel(label) {
+  const s = String(label || "").replace(/^[b#]+/, "");
+  const num = parseInt(s, 10);
+  if (!Number.isFinite(num)) return null;
+  if (num === 9) return 2;
+  if (num === 11) return 4;
+  if (num === 13) return 6;
+  if (num >= 1 && num <= 7) return num;
+  return null;
 }
 
 export function degreeNumberFromInterval(interval) {
@@ -1644,13 +1977,17 @@ export function chordDegreeNumberFromInterval(interval) {
   return 1;
 }
 
-export function spellChordNotes({ rootPc, chordIntervals, preferSharps }) {
+// Deletrea las notas del acorde. Con `degreeLabels` (alineadas con los
+// intervalos) la letra sale del grado funcional: ♯9 sobre D es E# (no F),
+// ♯5 sobre C es G# (no Ab) y la ♭♭7 de Fdim7 es Ebb (no D).
+export function spellChordNotes({ rootPc, chordIntervals, preferSharps, degreeLabels = null }) {
   const rootName = pcToName(rootPc, preferSharps);
   const rootLetter = rootName[0];
   const rootIdx = Math.max(0, LETTERS.indexOf(rootLetter));
 
-  return chordIntervals.map((interval) => {
-    const deg = chordDegreeNumberFromInterval(interval);
+  return chordIntervals.map((interval, idx) => {
+    const fromLabel = Array.isArray(degreeLabels) ? chordDegreeNumberFromLabel(degreeLabels[idx]) : null;
+    const deg = fromLabel ?? chordDegreeNumberFromInterval(interval);
     const letter = LETTERS[(rootIdx + (deg - 1)) % 7];
     const pc = mod12(rootPc + interval);
     return spellPcWithLetter(pc, letter);

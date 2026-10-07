@@ -1,7 +1,7 @@
 {
   "summary": {
-    "total": 25,
-    "passed": 25,
+    "total": 49,
+    "passed": 49,
     "failed": 0
   },
   "cases": [
@@ -68,7 +68,7 @@
       "uiPatchEnabled": true,
       "candidates": [
         "Dm(add9,11)/F",
-        "Em7(addb2,add11,no5)/F",
+        "Em7(b9,add11,no5)/F",
         "Fmaj13(no5)",
         "Am11(b13)/F",
         "Cuartal E/F"
@@ -94,7 +94,7 @@
       "expectPrimaryName": null,
       "expectCandidateName": null,
       "expectCandidateIncludes": "Em7.*addb2",
-      "candidateName": "Em7(addb2,add11,no5)/F",
+      "candidateName": null,
       "copiedStructure": null,
       "copiedExt7": null,
       "copiedExt9": null,
@@ -105,14 +105,16 @@
       "uiPatchEnabled": false,
       "candidates": [
         "Dm(add9,11)/F",
-        "Em7(addb2,add11,no5)/F",
+        "Em7(b9,add11,no5)/F",
         "Fmaj13(no5)",
         "Am11(b13)/F",
         "Cuartal E/F"
       ],
       "pass": true,
       "failures": [],
-      "warnings": []
+      "warnings": [
+        "Candidato /Em7.*addb2/ no aparece en el ranking (puede haber sido descartado antes de llegar a la lista)."
+      ]
     },
     {
       "id": "P4",
@@ -351,7 +353,8 @@
       "uiPatchEnabled": true,
       "candidates": [
         "A/C#",
-        "C#m(addb13,no5)"
+        "C#m(addb13,no5)",
+        "Dbm(#5)"
       ],
       "pass": true,
       "failures": [],
@@ -461,7 +464,8 @@
       "candidates": [
         "Cadd9",
         "D9sus4(no5)/C",
-        "Em7(b13,no5)/C"
+        "Em7(b13,no5)/C",
+        "Em7(#5)/B#"
       ],
       "pass": true,
       "failures": [],
@@ -572,7 +576,7 @@
       "uiPatchEnabled": true,
       "candidates": [
         "Dm(add9,11)/F",
-        "Em7(addb2,add11,no5)/F",
+        "Em7(b9,add11,no5)/F",
         "Fmaj13(no5)",
         "Am11(b13)/F",
         "Cuartal E/F"
@@ -601,7 +605,7 @@
       "expectPrimaryName": null,
       "expectCandidateName": null,
       "expectCandidateIncludes": "addb2",
-      "candidateName": "Em7(addb2,add11,no5)/F",
+      "candidateName": null,
       "copiedStructure": null,
       "copiedExt7": null,
       "copiedExt9": null,
@@ -612,14 +616,16 @@
       "uiPatchEnabled": false,
       "candidates": [
         "Dm(add9,11)/F",
-        "Em7(addb2,add11,no5)/F",
+        "Em7(b9,add11,no5)/F",
         "Fmaj13(no5)",
         "Am11(b13)/F",
         "Cuartal E/F"
       ],
       "pass": true,
       "failures": [],
-      "warnings": []
+      "warnings": [
+        "Candidato /addb2/ no aparece en el ranking (puede haber sido descartado antes de llegar a la lista)."
+      ]
     },
     {
       "id": "N-D1",
@@ -732,7 +738,7 @@
       "candidates": [
         "C6(add9,11)/F",
         "Dm9(add11)/F",
-        "Em7(addb2,add11,addb6,no5)/F",
+        "Em7(b9,add11,addb6,no5)/F",
         "Fmaj13",
         "Am11(b13)/F",
         "Em11(b13,no5)/F",
@@ -773,7 +779,7 @@
       "uiPatchEnabled": true,
       "candidates": [
         "Dm(add9,11)/F",
-        "Em7(addb2,add11,no5)/F",
+        "Em7(b9,add11,no5)/F",
         "Fmaj13(no5)",
         "Am11(b13)/F",
         "Cuartal E/F"
@@ -920,8 +926,896 @@
       "uiPatchEnabled": true,
       "candidates": [
         "Abaddb2",
-        "Adim(add7)/G#",
+        "Am(maj7,b5)/G#",
         "Cm6(no5)/Ab"
+      ],
+      "pass": true,
+      "failures": [],
+      "warnings": []
+    },
+    {
+      "id": "ALT-1",
+      "description": "x54545 → D7(b9): Dominante, Acorde, ext7+ext9, novena b9",
+      "motivo": "La b2 de un dominante es b9 (no addb2) y la copia conserva la novena alterada",
+      "tipoSeleccion": "primary",
+      "entrada": "x54545",
+      "derivedNotes": [
+        "D",
+        "F#",
+        "C",
+        "D#",
+        "A"
+      ],
+      "primaryName": "D7(b9)",
+      "expectPrimaryName": "D7(b9)",
+      "expectCandidateName": null,
+      "expectCandidateIncludes": null,
+      "candidateName": "D7(b9)",
+      "copiedStructure": "chord",
+      "copiedExt7": true,
+      "copiedExt9": true,
+      "copiedExt11": false,
+      "copiedExt13": false,
+      "copiedExt6": false,
+      "copiedOmit": "none",
+      "uiPatchEnabled": true,
+      "candidates": [
+        "D7(b9)",
+        "Adim7(add11)/D",
+        "F#dim7(addb6)/D",
+        "Cdim7(add9)/D",
+        "Ebm(maj7,b5,add13)/D"
+      ],
+      "pass": true,
+      "failures": [],
+      "warnings": []
+    },
+    {
+      "id": "ALT-2",
+      "description": "x5454x → D7(b9,no5): cuatriada con Omitir 5",
+      "motivo": "Voicing de 4 notas sin 5ª: se copia con omit=5 y conserva la b9",
+      "tipoSeleccion": "primary",
+      "entrada": "x5454x",
+      "derivedNotes": [
+        "D",
+        "F#",
+        "C",
+        "D#"
+      ],
+      "primaryName": "D7(b9,no5)",
+      "expectPrimaryName": "D7(b9,no5)",
+      "expectCandidateName": null,
+      "expectCandidateIncludes": null,
+      "candidateName": "D7(b9,no5)",
+      "copiedStructure": "chord",
+      "copiedExt7": true,
+      "copiedExt9": true,
+      "copiedExt11": false,
+      "copiedExt13": false,
+      "copiedExt6": false,
+      "copiedOmit": "5",
+      "uiPatchEnabled": true,
+      "candidates": [
+        "D7(b9,no5)",
+        "Ebm(maj7,13,no5)/D",
+        "Cdim(add9)/D"
+      ],
+      "pass": true,
+      "failures": [],
+      "warnings": []
+    },
+    {
+      "id": "ALT-3",
+      "description": "x76787 → E7(#9) con quinta (Hendrix completo)",
+      "motivo": "Con la 5ª presente el nombre no lleva no5; la #9 convive con la 3ª mayor",
+      "tipoSeleccion": "primary",
+      "entrada": "x76787",
+      "derivedNotes": [
+        "E",
+        "G#",
+        "D",
+        "G",
+        "B"
+      ],
+      "primaryName": "E7(#9)",
+      "expectPrimaryName": "E7(#9)",
+      "expectCandidateName": null,
+      "expectCandidateIncludes": null,
+      "candidateName": "E7(#9)",
+      "copiedStructure": "chord",
+      "copiedExt7": true,
+      "copiedExt9": true,
+      "copiedExt11": false,
+      "copiedExt13": false,
+      "copiedExt6": false,
+      "copiedOmit": "none",
+      "uiPatchEnabled": true,
+      "candidates": [
+        "E7(#9)",
+        "G6(addb2)/E",
+        "Abm(maj7,b5,addb6)/Fb"
+      ],
+      "pass": true,
+      "failures": [],
+      "warnings": []
+    },
+    {
+      "id": "ALT-4",
+      "description": "x7678x → E7(#9,no5): Hendrix sin quinta",
+      "motivo": "no5 solo cuando realmente falta la 5ª; la copia lleva omit=5 y #9",
+      "tipoSeleccion": "primary",
+      "entrada": "x7678x",
+      "derivedNotes": [
+        "E",
+        "G#",
+        "D",
+        "G"
+      ],
+      "primaryName": "E7(#9,no5)",
+      "expectPrimaryName": "E7(#9,no5)",
+      "expectCandidateName": null,
+      "expectCandidateIncludes": null,
+      "candidateName": "E7(#9,no5)",
+      "copiedStructure": "chord",
+      "copiedExt7": true,
+      "copiedExt9": true,
+      "copiedExt11": false,
+      "copiedExt13": false,
+      "copiedExt6": false,
+      "copiedOmit": "5",
+      "uiPatchEnabled": true,
+      "candidates": [
+        "E7(#9,no5)",
+        "Cuartal mixto Ab/Fb"
+      ],
+      "pass": true,
+      "failures": [],
+      "warnings": []
+    },
+    {
+      "id": "ALT-5",
+      "description": "3x3444 → G7(#5,b9) (= G+7(b9))",
+      "motivo": "Sin 5ª justa la b6 es #5; combinación #5 + b9 copiable",
+      "tipoSeleccion": "primary",
+      "entrada": "3x3444",
+      "derivedNotes": [
+        "G",
+        "F",
+        "B",
+        "D#",
+        "G#"
+      ],
+      "primaryName": "G7(#5,b9)",
+      "expectPrimaryName": "G7(#5,b9)",
+      "expectCandidateName": null,
+      "expectCandidateIncludes": null,
+      "candidateName": "G7(#5,b9)",
+      "copiedStructure": "chord",
+      "copiedExt7": true,
+      "copiedExt9": true,
+      "copiedExt11": false,
+      "copiedExt13": false,
+      "copiedExt6": false,
+      "copiedOmit": "none",
+      "uiPatchEnabled": true,
+      "candidates": [
+        "G7(#5,b9)",
+        "G7(b9,b13,no5)",
+        "B(b5,addb6,add6)/G",
+        "Abm(maj7,13)/G",
+        "G#m(maj7,13)/F##",
+        "Fm9(b5)/G"
+      ],
+      "pass": true,
+      "failures": [],
+      "warnings": []
+    },
+    {
+      "id": "ALT-6",
+      "description": "3x344x → G7(#5): cuatriada con quinta aumentada",
+      "motivo": "La #5 sustituye a la 5ª justa y se copia como alteración de quinta",
+      "tipoSeleccion": "primary",
+      "entrada": "3x344x",
+      "derivedNotes": [
+        "G",
+        "F",
+        "B",
+        "D#"
+      ],
+      "primaryName": "G7(#5)",
+      "expectPrimaryName": "G7(#5)",
+      "expectCandidateName": null,
+      "expectCandidateIncludes": null,
+      "candidateName": "G7(#5)",
+      "copiedStructure": "chord",
+      "copiedExt7": true,
+      "copiedExt9": false,
+      "copiedExt11": false,
+      "copiedExt13": false,
+      "copiedExt6": false,
+      "copiedOmit": "none",
+      "uiPatchEnabled": true,
+      "candidates": [
+        "G7(#5)",
+        "G7(b13,no5)",
+        "B(b5,addb6)/G"
+      ],
+      "pass": true,
+      "failures": [],
+      "warnings": []
+    },
+    {
+      "id": "ALT-7",
+      "description": "x3435x → C7(b5)",
+      "motivo": "La b5 sin 5ª justa en un dominante es quinta disminuida copiable (antes se perdía)",
+      "tipoSeleccion": "primary",
+      "entrada": "x3435x",
+      "derivedNotes": [
+        "C",
+        "F#",
+        "A#",
+        "E"
+      ],
+      "primaryName": "C7(b5)",
+      "expectPrimaryName": "C7(b5)",
+      "expectCandidateName": null,
+      "expectCandidateIncludes": null,
+      "candidateName": "C7(b5)",
+      "copiedStructure": "chord",
+      "copiedExt7": true,
+      "copiedExt9": false,
+      "copiedExt11": false,
+      "copiedExt13": false,
+      "copiedExt6": false,
+      "copiedOmit": "none",
+      "uiPatchEnabled": true,
+      "candidates": [
+        "C7(b5)",
+        "F#7(b5)/C",
+        "Gb7(b5)/Dbb",
+        "Esus2(#11,no5)/C",
+        "Eadd9(#11,no3,no5)/C"
+      ],
+      "pass": true,
+      "failures": [],
+      "warnings": []
+    },
+    {
+      "id": "ALT-8",
+      "description": "x0101x → Am7(b5)",
+      "motivo": "Regresión: semidisminuido con b5 propia de la calidad",
+      "tipoSeleccion": "primary",
+      "entrada": "x0101x",
+      "derivedNotes": [
+        "A",
+        "D#",
+        "G",
+        "C"
+      ],
+      "primaryName": "Am7(b5)",
+      "expectPrimaryName": "Am7(b5)",
+      "expectCandidateName": null,
+      "expectCandidateIncludes": null,
+      "candidateName": "Am7(b5)",
+      "copiedStructure": "tetrad",
+      "copiedExt7": true,
+      "copiedExt9": false,
+      "copiedExt11": false,
+      "copiedExt13": false,
+      "copiedExt6": false,
+      "copiedOmit": "none",
+      "uiPatchEnabled": true,
+      "candidates": [
+        "Am7(b5)",
+        "Cm6/A",
+        "Eb(b5,add6)/Bbb",
+        "Eb6(no5)/Bbb"
+      ],
+      "pass": true,
+      "failures": [],
+      "warnings": []
+    },
+    {
+      "id": "ALT-9",
+      "description": "1x010x → Fdim7",
+      "motivo": "Regresión: dim7 con bb7 (no 6)",
+      "tipoSeleccion": "primary",
+      "entrada": "1x010x",
+      "derivedNotes": [
+        "F",
+        "D",
+        "Ab",
+        "B"
+      ],
+      "primaryName": "Fdim7",
+      "expectPrimaryName": "Fdim7",
+      "expectCandidateName": null,
+      "expectCandidateIncludes": null,
+      "candidateName": "Fdim7",
+      "copiedStructure": "tetrad",
+      "copiedExt7": true,
+      "copiedExt9": false,
+      "copiedExt11": false,
+      "copiedExt13": false,
+      "copiedExt6": false,
+      "copiedOmit": "none",
+      "uiPatchEnabled": true,
+      "candidates": [
+        "Fdim7",
+        "Bdim7/F",
+        "Ddim7/F",
+        "G#dim7/F",
+        "Bm6(no5)/F"
+      ],
+      "pass": true,
+      "failures": [],
+      "warnings": []
+    },
+    {
+      "id": "ALT-10",
+      "description": "x5758x → D7sus4 (Re–Sol–La–Do)",
+      "motivo": "Regresión de suspendidos: 7sus4 copiable",
+      "tipoSeleccion": "primary",
+      "entrada": "x5758x",
+      "derivedNotes": [
+        "D",
+        "A",
+        "C",
+        "G"
+      ],
+      "primaryName": "D7sus4",
+      "expectPrimaryName": "D7sus4",
+      "expectCandidateName": null,
+      "expectCandidateIncludes": null,
+      "candidateName": "D7sus4",
+      "copiedStructure": "tetrad",
+      "copiedExt7": true,
+      "copiedExt9": false,
+      "copiedExt11": false,
+      "copiedExt13": false,
+      "copiedExt6": false,
+      "copiedOmit": "none",
+      "uiPatchEnabled": true,
+      "candidates": [
+        "D7sus4",
+        "Am7(add11,no5)/D",
+        "Cuartal A"
+      ],
+      "pass": true,
+      "failures": [],
+      "warnings": []
+    },
+    {
+      "id": "ALT-11",
+      "description": "C,E,G,Bb,D,F# → C7(#11,add9) no copiable",
+      "motivo": "#11 queda fuera de esta fase: la lectura se muestra pero no se copia perdiendo la tensión",
+      "tipoSeleccion": "primary",
+      "entrada": {
+        "notes": [
+          "C",
+          "E",
+          "G",
+          "Bb",
+          "D",
+          "F#"
+        ],
+        "bass": "C"
+      },
+      "derivedNotes": null,
+      "primaryName": "C7(#11,add9)",
+      "expectPrimaryName": "C7(#11,add9)",
+      "expectCandidateName": null,
+      "expectCandidateIncludes": null,
+      "candidateName": "C7(#11,add9)",
+      "copiedStructure": null,
+      "copiedExt7": null,
+      "copiedExt9": null,
+      "copiedExt11": null,
+      "copiedExt13": null,
+      "copiedExt6": null,
+      "copiedOmit": null,
+      "uiPatchEnabled": false,
+      "candidates": [
+        "C7(#11,add9)",
+        "D7(#5,add9,11)/C",
+        "F#7(b5,b9,b13)/C",
+        "Gm(maj7,add11,13)/C",
+        "D7(b13,add9,11,no5)/C",
+        "Bb(b5,add9,addb6,add6)/C",
+        "Em7(b5,add9,addb6)/C"
+      ],
+      "pass": true,
+      "failures": [],
+      "warnings": []
+    },
+    {
+      "id": "ALT-12",
+      "description": "1x422x → Gbm(maj7)/F (no Dbaug(add11)/F)",
+      "motivo": "Regresión: la tríada aumentada heurística sin 7ª adelantaba un encuadre forzado a la lectura natural",
+      "tipoSeleccion": "primary",
+      "entrada": "1x422x",
+      "derivedNotes": [
+        "F",
+        "Gb",
+        "A",
+        "Db"
+      ],
+      "primaryName": "Gbm(maj7)/F",
+      "expectPrimaryName": "Gbm(maj7)/F",
+      "expectCandidateName": null,
+      "expectCandidateIncludes": null,
+      "candidateName": "Gbm(maj7)/F",
+      "copiedStructure": "tetrad",
+      "copiedExt7": true,
+      "copiedExt9": false,
+      "copiedExt11": false,
+      "copiedExt13": false,
+      "copiedExt6": false,
+      "copiedOmit": "none",
+      "uiPatchEnabled": true,
+      "candidates": [
+        "Gbm(maj7)/F",
+        "A6(no5)/F"
+      ],
+      "pass": true,
+      "failures": [],
+      "warnings": []
+    },
+    {
+      "id": "ALT-13",
+      "description": "C,Eb,G,B / C → Cm(maj7) (no Baug/C)",
+      "motivo": "Regresión: la tríada aumentada sobre bajo ajeno no recibe la bonificación de tríada sobre bajo",
+      "tipoSeleccion": "primary",
+      "entrada": {
+        "notes": [
+          "C",
+          "Eb",
+          "G",
+          "B"
+        ],
+        "bass": "C"
+      },
+      "derivedNotes": null,
+      "primaryName": "Cm(maj7)",
+      "expectPrimaryName": "Cm(maj7)",
+      "expectCandidateName": null,
+      "expectCandidateIncludes": null,
+      "candidateName": "Cm(maj7)",
+      "copiedStructure": "chord",
+      "copiedExt7": true,
+      "copiedExt9": false,
+      "copiedExt11": false,
+      "copiedExt13": false,
+      "copiedExt6": false,
+      "copiedOmit": "none",
+      "uiPatchEnabled": true,
+      "candidates": [
+        "Cm(maj7)",
+        "Baug/C",
+        "Gaug/C",
+        "Ebaug/C"
+      ],
+      "pass": true,
+      "failures": [],
+      "warnings": []
+    },
+    {
+      "id": "ALT-14",
+      "description": "C,E,G,Ab,Bb / G → C7(b13)/G (no Abmaj7(#5,add9)/G)",
+      "motivo": "Con 5ª justa la b6 es b13; maj7(#5) con tensiones no adelanta a la lectura canónica",
+      "tipoSeleccion": "primary",
+      "entrada": {
+        "notes": [
+          "C",
+          "E",
+          "G",
+          "Ab",
+          "Bb"
+        ],
+        "bass": "G"
+      },
+      "derivedNotes": null,
+      "primaryName": "C7(b13)/G",
+      "expectPrimaryName": "C7(b13)/G",
+      "expectCandidateName": null,
+      "expectCandidateIncludes": null,
+      "candidateName": "C7(b13)/G",
+      "copiedStructure": null,
+      "copiedExt7": null,
+      "copiedExt9": null,
+      "copiedExt11": null,
+      "copiedExt13": null,
+      "copiedExt6": null,
+      "copiedOmit": null,
+      "uiPatchEnabled": false,
+      "candidates": [
+        "C7(b13)/G",
+        "Abmaj7(#5,add9)/G",
+        "Edim(add3,addb6)/G"
+      ],
+      "pass": true,
+      "failures": [],
+      "warnings": []
+    },
+    {
+      "id": "ALT-15",
+      "description": "C,E,G#,Bb,D# / C → alternativa C7(#9,b13,no5) visible y no copiable",
+      "motivo": "Sin 5ª justa la ♯5 es la lectura principal (C7(#5,#9)), pero la ♭13 sin 5ª se conserva como alternativa; no se copia porque Acordes no representa ♭13 (nunca se convierte en ♯5)",
+      "tipoSeleccion": "2°candidato",
+      "entrada": {
+        "notes": [
+          "C",
+          "E",
+          "G#",
+          "Bb",
+          "D#"
+        ],
+        "bass": "C"
+      },
+      "derivedNotes": null,
+      "primaryName": "C7(#5,#9)",
+      "expectPrimaryName": null,
+      "expectCandidateName": "C7(#9,b13,no5)",
+      "expectCandidateIncludes": null,
+      "candidateName": "C7(#9,b13,no5)",
+      "copiedStructure": null,
+      "copiedExt7": null,
+      "copiedExt9": null,
+      "copiedExt11": null,
+      "copiedExt13": null,
+      "copiedExt6": null,
+      "copiedOmit": null,
+      "uiPatchEnabled": false,
+      "candidates": [
+        "C7(#5,#9)",
+        "C7(#9,b13,no5)",
+        "Emaj7(b5,addb6)/C",
+        "Abadd9,addb6/C",
+        "Bbm7(b5,add11,no3)/C",
+        "Cuartal mixto E/C"
+      ],
+      "pass": true,
+      "failures": [],
+      "warnings": []
+    },
+    {
+      "id": "ALT-16",
+      "description": "A,C,E,G,Bb / A → Am7(b9) copiable",
+      "motivo": "Con 7ª la ♭2 es la ♭9 también en Menor: la lectura se copia con novena ♭9 (antes Am7(addb2), bloqueada)",
+      "tipoSeleccion": "primary",
+      "entrada": {
+        "notes": [
+          "A",
+          "C",
+          "E",
+          "G",
+          "Bb"
+        ],
+        "bass": "A"
+      },
+      "derivedNotes": null,
+      "primaryName": "Am7(b9)",
+      "expectPrimaryName": "Am7(b9)",
+      "expectCandidateName": null,
+      "expectCandidateIncludes": null,
+      "candidateName": "Am7(b9)",
+      "copiedStructure": "chord",
+      "copiedExt7": true,
+      "copiedExt9": true,
+      "copiedExt11": false,
+      "copiedExt13": false,
+      "copiedExt6": false,
+      "copiedOmit": "none",
+      "uiPatchEnabled": true,
+      "candidates": [
+        "Am7(b9)",
+        "C7(add13)/A",
+        "Edim(add11,addb6)/A",
+        "Gm6(add11,no5)/A"
+      ],
+      "pass": true,
+      "failures": [],
+      "warnings": []
+    },
+    {
+      "id": "ALT-17",
+      "description": "C,E,G,B,D# / C → Cmaj7(#9) copiable",
+      "motivo": "♯9 sobre 3ª mayor sin 3ª menor: el constructor ya la representa en Mayor",
+      "tipoSeleccion": "primary",
+      "entrada": {
+        "notes": [
+          "C",
+          "E",
+          "G",
+          "B",
+          "D#"
+        ],
+        "bass": "C"
+      },
+      "derivedNotes": null,
+      "primaryName": "Cmaj7(#9)",
+      "expectPrimaryName": "Cmaj7(#9)",
+      "expectCandidateName": null,
+      "expectCandidateIncludes": null,
+      "candidateName": "Cmaj7(#9)",
+      "copiedStructure": "chord",
+      "copiedExt7": true,
+      "copiedExt9": true,
+      "copiedExt11": false,
+      "copiedExt13": false,
+      "copiedExt6": false,
+      "copiedOmit": "none",
+      "uiPatchEnabled": true,
+      "candidates": [
+        "Cmaj7(#9)",
+        "Em(maj7,addb6)/C"
+      ],
+      "pass": true,
+      "failures": [],
+      "warnings": []
+    },
+    {
+      "id": "ALT-18",
+      "description": "A,C,Eb,G# / A → lectura Am(maj7,b5) copiable",
+      "motivo": "m(maj7,♭5) antes se leía dim(add7) y no se copiaba; mantiene su posición en el ranking",
+      "tipoSeleccion": "2°candidato",
+      "entrada": {
+        "notes": [
+          "A",
+          "C",
+          "Eb",
+          "G#"
+        ],
+        "bass": "A"
+      },
+      "derivedNotes": null,
+      "primaryName": "Abaddb2/Bbb",
+      "expectPrimaryName": null,
+      "expectCandidateName": "Am(maj7,b5)",
+      "expectCandidateIncludes": null,
+      "candidateName": "Am(maj7,b5)",
+      "copiedStructure": "chord",
+      "copiedExt7": true,
+      "copiedExt9": false,
+      "copiedExt11": false,
+      "copiedExt13": false,
+      "copiedExt6": false,
+      "copiedOmit": "none",
+      "uiPatchEnabled": true,
+      "candidates": [
+        "Abaddb2/Bbb",
+        "Am(maj7,b5)",
+        "Cm(addb13,no5)/A"
+      ],
+      "pass": true,
+      "failures": [],
+      "warnings": []
+    },
+    {
+      "id": "ALT-19",
+      "description": "A,C,E,Bb / A → Am(addb2) sin renombrar ni copiar",
+      "motivo": "Sin 7ª la ♭2 es un añadido (no se renombra toda ♭2 como ♭9)",
+      "tipoSeleccion": "2°candidato",
+      "entrada": {
+        "notes": [
+          "A",
+          "C",
+          "E",
+          "Bb"
+        ],
+        "bass": "A"
+      },
+      "derivedNotes": null,
+      "primaryName": "Am(addb2)",
+      "expectPrimaryName": null,
+      "expectCandidateName": "Am(addb2)",
+      "expectCandidateIncludes": null,
+      "candidateName": "Am(addb2)",
+      "copiedStructure": null,
+      "copiedExt7": null,
+      "copiedExt9": null,
+      "copiedExt11": null,
+      "copiedExt13": null,
+      "copiedExt6": null,
+      "copiedOmit": null,
+      "uiPatchEnabled": false,
+      "candidates": [
+        "Am(addb2)",
+        "C7(add13,no5)/A",
+        "Bbsus2(#11,no5)/A",
+        "Bbadd9(#11,no3,no5)/A"
+      ],
+      "pass": true,
+      "failures": [],
+      "warnings": []
+    },
+    {
+      "id": "ALT-20",
+      "description": "C,Eb,G#,Bb / C → Cm7(#5) copiable justo detrás de Cm7(b13,no5)",
+      "motivo": "Alternativa ♯5 de 3ª menor sin 5ª justa: nombre y grafía propios (G#), la lectura ♭13 se conserva",
+      "tipoSeleccion": "2°candidato",
+      "entrada": {
+        "notes": [
+          "C",
+          "Eb",
+          "G#",
+          "Bb"
+        ],
+        "bass": "C"
+      },
+      "derivedNotes": null,
+      "primaryName": "Abadd9/C",
+      "expectPrimaryName": null,
+      "expectCandidateName": "Cm7(#5)",
+      "expectCandidateIncludes": null,
+      "candidateName": "Cm7(#5)",
+      "copiedStructure": "tetrad",
+      "copiedExt7": true,
+      "copiedExt9": false,
+      "copiedExt11": false,
+      "copiedExt13": false,
+      "copiedExt6": false,
+      "copiedOmit": "none",
+      "uiPatchEnabled": true,
+      "candidates": [
+        "Abadd9/C",
+        "Ebsus4/C",
+        "Cm7(b13,no5)",
+        "Cm7(#5)",
+        "Bb9sus4(no5)/C",
+        "Bb7sus4(no5)/C",
+        "Cuartal Bb/C"
+      ],
+      "pass": true,
+      "failures": [],
+      "warnings": []
+    },
+    {
+      "id": "ALT-21",
+      "description": "C,Eb,G# / C → Cm(#5) copiable justo detrás de Cm(addb13,no5); principal Ab/C",
+      "motivo": "La tríada menor con ♯5 se ofrece como alternativa sin cambiar la principal",
+      "tipoSeleccion": "2°candidato",
+      "entrada": {
+        "notes": [
+          "C",
+          "Eb",
+          "G#"
+        ],
+        "bass": "C"
+      },
+      "derivedNotes": null,
+      "primaryName": "Ab/C",
+      "expectPrimaryName": null,
+      "expectCandidateName": "Cm(#5)",
+      "expectCandidateIncludes": null,
+      "candidateName": "Cm(#5)",
+      "copiedStructure": "triad",
+      "copiedExt7": false,
+      "copiedExt9": false,
+      "copiedExt11": false,
+      "copiedExt13": false,
+      "copiedExt6": false,
+      "copiedOmit": "none",
+      "uiPatchEnabled": true,
+      "candidates": [
+        "Ab/C",
+        "Cm(addb13,no5)",
+        "Cm(#5)"
+      ],
+      "pass": true,
+      "failures": [],
+      "warnings": []
+    },
+    {
+      "id": "ALT-22",
+      "description": "C,Eb,G#,B / C → Cm(maj7,#5) copiable justo detrás de Cm(maj7,addb6,no5)",
+      "motivo": "m(maj7) con ♯5 sin 5ª justa: alternativa copiable de la lectura con ♭6",
+      "tipoSeleccion": "2°candidato",
+      "entrada": {
+        "notes": [
+          "C",
+          "Eb",
+          "G#",
+          "B"
+        ],
+        "bass": "C"
+      },
+      "derivedNotes": null,
+      "primaryName": "Cm(maj7,addb6,no5)",
+      "expectPrimaryName": null,
+      "expectCandidateName": "Cm(maj7,#5)",
+      "expectCandidateIncludes": null,
+      "candidateName": "Cm(maj7,#5)",
+      "copiedStructure": "tetrad",
+      "copiedExt7": true,
+      "copiedExt9": false,
+      "copiedExt11": false,
+      "copiedExt13": false,
+      "copiedExt6": false,
+      "copiedOmit": "none",
+      "uiPatchEnabled": true,
+      "candidates": [
+        "Cm(maj7,addb6,no5)",
+        "Cm(maj7,#5)",
+        "Abm(add3)/C",
+        "B6(no5)/C"
+      ],
+      "pass": true,
+      "failures": [],
+      "warnings": []
+    },
+    {
+      "id": "ALT-23",
+      "description": "C,Eb,G,Ab,Bb / C → Cm7(b13) sin alternativa ♯5 (suena la 5ª justa)",
+      "motivo": "Con 5ª justa la ♭6 es ♭13: no se ofrece una lectura ♯5 que eliminaría la 5ª",
+      "tipoSeleccion": "2°candidato",
+      "entrada": {
+        "notes": [
+          "C",
+          "Eb",
+          "G",
+          "Ab",
+          "Bb"
+        ],
+        "bass": "C"
+      },
+      "derivedNotes": null,
+      "primaryName": "Eb6(add11)/C",
+      "expectPrimaryName": null,
+      "expectCandidateName": "Cm7(b13)",
+      "expectCandidateIncludes": null,
+      "candidateName": "Cm7(b13)",
+      "copiedStructure": null,
+      "copiedExt7": null,
+      "copiedExt9": null,
+      "copiedExt11": null,
+      "copiedExt13": null,
+      "copiedExt6": null,
+      "copiedOmit": null,
+      "uiPatchEnabled": false,
+      "candidates": [
+        "Eb6(add11)/C",
+        "Cm7(b13)",
+        "Abmaj9/C"
+      ],
+      "pass": true,
+      "failures": [],
+      "warnings": []
+    },
+    {
+      "id": "ALT-24",
+      "description": "G,C,Eb,G#,Bb / G → sin Cm7(#5)/G (la 5ª justa está en el bajo)",
+      "motivo": "La alternativa ♯5 solo se ofrece con el bajo dentro del acorde",
+      "tipoSeleccion": "primary",
+      "entrada": {
+        "notes": [
+          "G",
+          "C",
+          "Eb",
+          "G#",
+          "Bb"
+        ],
+        "bass": "G"
+      },
+      "derivedNotes": null,
+      "primaryName": "Eb6(add11)/G",
+      "expectPrimaryName": null,
+      "expectCandidateName": null,
+      "expectCandidateIncludes": null,
+      "candidateName": "Eb6(add11)/G",
+      "copiedStructure": "chord",
+      "copiedExt7": false,
+      "copiedExt9": false,
+      "copiedExt11": true,
+      "copiedExt13": false,
+      "copiedExt6": true,
+      "copiedOmit": "none",
+      "uiPatchEnabled": true,
+      "candidates": [
+        "Eb6(add11)/G",
+        "Abmaj9/G",
+        "Cm7(b13)/G",
+        "Bb9sus4(no5)/G"
       ],
       "pass": true,
       "failures": [],

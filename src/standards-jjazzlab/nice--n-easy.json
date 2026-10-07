@@ -39,7 +39,7 @@
             "chordEvents": [
               {
                 "display": "C+",
-                "load": "C"
+                "load": "Caug"
               }
             ],
             "repeat": false
@@ -91,7 +91,7 @@
             "chordEvents": [
               {
                 "display": "A7b13",
-                "load": "A7"
+                "load": "A7b13"
               }
             ],
             "repeat": false
@@ -151,7 +151,7 @@
             "chordEvents": [
               {
                 "display": "C+",
-                "load": "C"
+                "load": "Caug"
               }
             ],
             "repeat": false
@@ -203,7 +203,7 @@
             "chordEvents": [
               {
                 "display": "A7b13",
-                "load": "A7"
+                "load": "A7b13"
               }
             ],
             "repeat": false
@@ -234,7 +234,7 @@
               },
               {
                 "display": "E7b9",
-                "load": "E7"
+                "load": "E7b9"
               }
             ],
             "repeat": false
@@ -268,7 +268,7 @@
             "chordEvents": [
               {
                 "display": "A-M7/G#",
-                "load": "Am"
+                "load": "AmM7"
               }
             ],
             "repeat": false
@@ -325,7 +325,7 @@
             "chordEvents": [
               {
                 "display": "A7#9",
-                "load": "A7"
+                "load": "A7#9"
               }
             ],
             "repeat": false
@@ -338,7 +338,7 @@
             "chordEvents": [
               {
                 "display": "Ab7#11",
-                "load": "Ab7"
+                "load": "Ab7#11"
               }
             ],
             "repeat": false
@@ -390,7 +390,7 @@
             "chordEvents": [
               {
                 "display": "C+",
-                "load": "C"
+                "load": "Caug"
               }
             ],
             "repeat": false
@@ -442,7 +442,7 @@
             "chordEvents": [
               {
                 "display": "E7b9",
-                "load": "E7"
+                "load": "E7b9"
               }
             ],
             "repeat": false
@@ -473,7 +473,7 @@
               },
               {
                 "display": "D#o7",
-                "load": "D#dim7"
+                "load": "D#°7"
               }
             ],
             "repeat": false
@@ -574,7 +574,7 @@
           "chordEvents": [
             {
               "display": "C+",
-              "load": "C"
+              "load": "Caug"
             }
           ],
           "chords": [
@@ -633,7 +633,7 @@
           "chordEvents": [
             {
               "display": "A7b13",
-              "load": "A7"
+              "load": "A7b13"
             }
           ],
           "chords": [
@@ -692,7 +692,7 @@
           "chordEvents": [
             {
               "display": "C+",
-              "load": "C"
+              "load": "Caug"
             }
           ],
           "chords": [
@@ -751,7 +751,7 @@
           "chordEvents": [
             {
               "display": "A7b13",
-              "load": "A7"
+              "load": "A7b13"
             }
           ],
           "chords": [
@@ -781,7 +781,7 @@
             },
             {
               "display": "E7b9",
-              "load": "E7"
+              "load": "E7b9"
             }
           ],
           "chords": [
@@ -815,7 +815,7 @@
           "chordEvents": [
             {
               "display": "A-M7/G#",
-              "load": "Am"
+              "load": "AmM7"
             }
           ],
           "chords": [
@@ -879,7 +879,7 @@
           "chordEvents": [
             {
               "display": "A7#9",
-              "load": "A7"
+              "load": "A7#9"
             }
           ],
           "chords": [
@@ -892,7 +892,7 @@
           "chordEvents": [
             {
               "display": "Ab7#11",
-              "load": "Ab7"
+              "load": "Ab7#11"
             }
           ],
           "chords": [
@@ -943,7 +943,7 @@
           "chordEvents": [
             {
               "display": "C+",
-              "load": "C"
+              "load": "Caug"
             }
           ],
           "chords": [
@@ -1002,7 +1002,7 @@
           "chordEvents": [
             {
               "display": "E7b9",
-              "load": "E7"
+              "load": "E7b9"
             }
           ],
           "chords": [
@@ -1032,7 +1032,7 @@
             },
             {
               "display": "D#o7",
-              "load": "D#dim7"
+              "load": "D#°7"
             }
           ],
           "chords": [

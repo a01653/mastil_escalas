@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as AppMusicBasics from "../../music/appMusicBasics.js";
 import * as AppVoicingStudyCore from "../../music/appVoicingStudyCore.js";
+import { computeFretWindow, voicingFitsFretWindow, FULL_NECK_WINDOW } from "../fret-window/fretWindowCore.js";
 
 const {
   preferSharpsFromMajorTonicPc,
@@ -37,6 +38,7 @@ const {
   buildVoicingFromFretsLH,
   selectClosestPhysicalVoicingIndex,
   selectNaturalGuitarVoicingIndex,
+  buildChordStateNormalizationPatch,
   MAX_VOICING_OPTIONS,
 } = AppVoicingStudyCore;
 
@@ -56,6 +58,7 @@ export function useChordBuilderTertianSelectionBlock({
   pendingChordRestoreRef,
   chordKeepZone,
   chordVoicingFilterLevel,
+  chordFretWindow = null,
 }) {
   /* eslint-disable react-hooks/refs */
   const chordVoicingsDisplay = useMemo(() => {
@@ -65,16 +68,24 @@ export function useChordBuilderTertianSelectionBlock({
     return [{ ...chordCopiedEntry.voicing, isCopied: true }, ...chordVoicings];
   }, [chordVoicings, chordCopiedEntry, currentChordCopyFingerprint]);
 
-  // Lista efectiva tras aplicar el filtro guitarístico. Cuando el nivel es "all"
-  // devuelve chordVoicingsDisplay sin cambios. El voicing copiado (isCopied) siempre
-  // precede al resto y nunca es eliminado por el filtro.
+  // Lista efectiva: primero el rango de trastes (filtra las posiciones disponibles;
+  // el traste 0 solo con cuerdas al aire) y después el filtro guitarístico. El
+  // voicing copiado (isCopied) siempre precede al resto y ningún filtro lo elimina.
+  const chordVoicingsInRange = useMemo(() => {
+    if (!chordFretWindow) return chordVoicingsDisplay;
+    return chordVoicingsDisplay.filter((v) => v.isCopied || voicingFitsFretWindow(v, chordFretWindow));
+  }, [chordVoicingsDisplay, chordFretWindow]);
+
   const chordVoicingsFiltered = useMemo(() => {
-    if (!chordVoicingFilterLevel || chordVoicingFilterLevel === "all") return chordVoicingsDisplay;
-    const copied = chordVoicingsDisplay.filter((v) => v.isCopied);
-    const rest = chordVoicingsDisplay.filter((v) => !v.isCopied);
+    if (!chordVoicingFilterLevel || chordVoicingFilterLevel === "all") return chordVoicingsInRange;
+    const copied = chordVoicingsInRange.filter((v) => v.isCopied);
+    const rest = chordVoicingsInRange.filter((v) => !v.isCopied);
     const filteredRest = filterGuitaristicVoicings(chordVoicingFilterLevel, rest);
     return copied.length ? [...copied, ...filteredRest] : filteredRest;
-  }, [chordVoicingsDisplay, chordVoicingFilterLevel]);
+  }, [chordVoicingsInRange, chordVoicingFilterLevel]);
+
+  // Hay posiciones del acorde, pero ninguna dentro del rango elegido.
+  const chordVoicingsOutOfRange = chordVoicingsDisplay.length > 0 && chordVoicingsInRange.length === 0;
 
   const chordResolvedSelection = useMemo(() => {
     const list = chordVoicingsFiltered;
@@ -143,6 +154,7 @@ export function useChordBuilderTertianSelectionBlock({
   const result = {
     chordVoicingsDisplay,
     chordVoicingsFiltered,
+    chordVoicingsOutOfRange,
     chordResolvedSelection,
     activeChordVoicing: chordResolvedSelection.voicing,
   };
@@ -220,6 +232,8 @@ export function useChordBuilderAsyncCopyFallbackSync({
   chordExt11,
   chordExt13,
   chordOmit,
+  chordFifth,
+  chordNinth,
   chordBassPc,
   maxFret,
   ensureChordDbCatalogVoicings,
@@ -248,6 +262,8 @@ export function useChordBuilderAsyncCopyFallbackSync({
         ext11: chordExt11,
         ext13: chordExt13,
         omit: chordOmit,
+        fifth: chordFifth,
+        ninth: chordNinth,
         bassPc: selectedBassPc,
         preferredFrets: chordSelectedFrets,
       });
@@ -281,13 +297,15 @@ export function useChordBuilderAsyncCopyFallbackSync({
     chordExt11,
     chordExt13,
     chordOmit,
+    chordFifth,
+    chordNinth,
     chordBassPc,
     maxFret,
     ensureChordDbCatalogVoicings,
   ]);
 }
 
-export function useChordBuilderState({ maxFret } = {}) {
+export function useChordBuilderState({ maxFret, applyFretWindow = true } = {}) {
   // -- Tertian -----------------------------------------------------------
   const [chordRootPc, setChordRootPc] = useState(5); // F
   const [chordSpellPreferSharps, setChordSpellPreferSharps] = useState(() => preferSharpsFromMajorTonicPc(5));
@@ -304,6 +322,10 @@ export function useChordBuilderState({ maxFret } = {}) {
   const [chordExt11, setChordExt11] = useState(false);
   const [chordExt13, setChordExt13] = useState(false);
   const [chordOmit, setChordOmit] = useState("none");
+  // Alteraciones de quinta/novena (ver chordAlterations.js). Se normalizan contra el
+  // estado visible en E6; las configuraciones antiguas sin estos campos usan los defaults.
+  const [chordFifth, setChordFifth] = useState("5");
+  const [chordNinth, setChordNinth] = useState("9");
   const [chordCopyNotice, setChordCopyNotice] = useState(null);
   const [chordCopiedEntry, setChordCopiedEntry] = useState(null); // { voicing, fingerprint } — patrón físico copiado
 
@@ -329,6 +351,28 @@ export function useChordBuilderState({ maxFret } = {}) {
   const [chordMaxDist, setChordMaxDist] = useState(4);
   const [chordAllowOpenStrings, setChordAllowOpenStrings] = useState(false);
   const [chordKeepZone, setChordKeepZone] = useState(true);
+  // Rango de trastes del mástil de Acordes (estado propio, independiente de Acordes
+  // cercanos). Por defecto abarca todo el mástil visible (1..maxFret): las
+  // configuraciones antiguas sin rango siguen viendo todas las posiciones.
+  const [chordWindowStart, setChordWindowStart] = useState(FULL_NECK_WINDOW.start);
+  const [chordWindowSize, setChordWindowSize] = useState(FULL_NECK_WINDOW.size);
+  // Texto del campo Tamaño mientras se edita (null = muestra el tamaño efectivo).
+  const [chordWindowSizeRaw, setChordWindowSizeRaw] = useState(null);
+  // «Todo el mástil»: vuelve al rango completo inicial. Solo toca el rango (no el
+  // acorde, Dist ni los interruptores); se guarda con la persistencia habitual.
+  const resetChordWindowToFullNeck = () => {
+    setChordWindowStart(FULL_NECK_WINDOW.start);
+    setChordWindowSize(FULL_NECK_WINDOW.size);
+    setChordWindowSizeRaw(null);
+  };
+  const chordFretWindow = useMemo(
+    () => ({ ...computeFretWindow({ start: chordWindowStart, size: chordWindowSize, maxFret }), allowOpenStrings: chordAllowOpenStrings }),
+    [chordWindowStart, chordWindowSize, maxFret, chordAllowOpenStrings]
+  );
+  // Ventana que filtra las posiciones: solo en escritorio. En móvil no hay controles
+  // de rango y se ofrecen las posiciones de todo el mástil; el rango guardado se
+  // conserva y vuelve a aplicarse al regresar a escritorio.
+  const chordFretWindowFilter = applyFretWindow ? chordFretWindow : null;
 
   // -- Refs --------------------------------------------------------------
   const lastChordVoicingRef = useRef(null);
@@ -347,22 +391,10 @@ export function useChordBuilderState({ maxFret } = {}) {
   // solo en esta sección específica.
   /* eslint-disable react-hooks/set-state-in-effect */
 
-  // E1: Dominante en Acorde siempre implica 7ª (sin ella es mayor, no dominante).
-  // m7b5 también la implica. Degrada hdim→dim y dom→maj en triada sin 7ª.
-  useEffect(() => {
-    if (chordQuality === "dom" && chordStructure === "chord" && !chordExt7) {
-      setChordExt7(true);
-    }
-    if (chordQuality === "hdim" && chordStructure === "chord" && !chordExt7) {
-      setChordExt7(true);
-    }
-    if (chordQuality === "hdim" && chordStructure === "triad" && !chordExt7) {
-      setChordQuality("dim");
-    }
-    if (chordQuality === "dom" && chordStructure === "triad" && !chordExt7) {
-      setChordQuality("maj");
-    }
-  }, [chordQuality, chordStructure, chordExt7]);
+  // E1 (retirado): "Dominante/m7(b5) en Acorde implica 7ª" vive ahora en
+  // buildChordQualityChangePatch, al elegir la calidad. Así una base Dominante
+  // guardada por Aumentada (o con la 7ª quitada) conserva su ♭7 latente sin que un
+  // efecto vuelva a activar la 7ª, y el combo muestra la tríada real.
 
   // E2: Si la forma drop ya no es elegible por la combinación estructura+extensiones,
   // se revierte a positionForm (o "closed") y se fuerza la inversión a raíz.
@@ -384,6 +416,33 @@ export function useChordBuilderState({ maxFret } = {}) {
   useEffect(() => {
     if (chordStructure === "tetrad") setChordExt7(true);
   }, [chordStructure]);
+
+  // E6: Coherencia de alteraciones y extensiones con el estado visible. Al cambiar
+  // calidad, estructura, suspensión, extensión u omisión, una ♭5/♯5/♭9/♯9 que ya no
+  // se admite vuelve a su valor por defecto; en dim7 se apagan 6/13 (misma altura
+  // que la bb7). Regla compartida con Acordes cercanos.
+  useEffect(() => {
+    const patch = buildChordStateNormalizationPatch({
+      quality: chordQuality,
+      suspension: chordSuspension,
+      structure: chordStructure,
+      ext7: chordExt7,
+      ext6: chordExt6,
+      ext9: chordExt9,
+      ext11: chordExt11,
+      ext13: chordExt13,
+      omit: chordOmit,
+      fifth: chordFifth,
+      ninth: chordNinth,
+    });
+    if ("quality" in patch) setChordQuality(patch.quality);
+    // Disminuido suspendido con ♭♭7 (estado externo): conserva la ♭♭7 y recupera la 3ª.
+    if ("suspension" in patch) setChordSuspension(patch.suspension);
+    if ("ext6" in patch) setChordExt6(patch.ext6);
+    if ("ext13" in patch) setChordExt13(patch.ext13);
+    if ("fifth" in patch) setChordFifth(patch.fifth);
+    if ("ninth" in patch) setChordNinth(patch.ninth);
+  }, [chordQuality, chordSuspension, chordStructure, chordExt7, chordExt6, chordExt9, chordExt11, chordExt13, chordOmit, chordFifth, chordNinth]);
 
   /* eslint-enable react-hooks/set-state-in-effect */
 
@@ -410,7 +469,7 @@ export function useChordBuilderState({ maxFret } = {}) {
     [chordRootPc, chordQuartalVoices, chordQuartalType, chordQuartalReference, chordQuartalScaleName]
   );
 
-  const chordQuartalVoicings = useMemo(() => {
+  const chordQuartalVoicingsAll = useMemo(() => {
     const all = fnGenerateQuartalVoicings({
       pitchSets: chordQuartalPitchSets,
       maxDist: chordMaxDist,
@@ -423,6 +482,13 @@ export function useChordBuilderState({ maxFret } = {}) {
       return chordQuartalSpread === "open" ? kind === "open" : kind === "closed";
     });
   }, [chordQuartalPitchSets, chordMaxDist, chordAllowOpenStrings, chordQuartalSpread, maxFret]);
+
+  // El rango de trastes filtra las posiciones disponibles (no solo sombrea).
+  const chordQuartalVoicings = useMemo(
+    () => (chordFretWindowFilter ? chordQuartalVoicingsAll.filter((v) => voicingFitsFretWindow(v, chordFretWindowFilter)) : chordQuartalVoicingsAll),
+    [chordQuartalVoicingsAll, chordFretWindowFilter]
+  );
+  const chordQuartalVoicingsOutOfRange = chordQuartalVoicingsAll.length > 0 && chordQuartalVoicings.length === 0;
 
   const guideToneDef = useMemo(
     () => guideToneDefinitionFromQuality(guideToneQuality),
@@ -440,8 +506,10 @@ export function useChordBuilderState({ maxFret } = {}) {
       ext11: chordExt11,
       ext13: chordExt13,
       omit: chordOmit,
+      fifth: chordFifth,
+      ninth: chordNinth,
     }),
-    [chordQuality, chordSuspension, chordStructure, chordExt7, chordExt6, chordExt9, chordExt11, chordExt13, chordOmit]
+    [chordQuality, chordSuspension, chordStructure, chordExt7, chordExt6, chordExt9, chordExt11, chordExt13, chordOmit, chordFifth, chordNinth]
   );
 
   const chordSuffix = useMemo(
@@ -464,8 +532,8 @@ export function useChordBuilderState({ maxFret } = {}) {
   );
 
   const chordFifthOffset = useMemo(
-    () => chordFifthOffsetFromUI(chordQuality, chordSuspension),
-    [chordQuality, chordSuspension]
+    () => chordFifthOffsetFromUI(chordQuality, chordSuspension, chordOmit === "5" ? undefined : chordFifth),
+    [chordQuality, chordSuspension, chordOmit, chordFifth]
   );
 
   const chordEnginePlan = useMemo(
@@ -482,8 +550,10 @@ export function useChordBuilderState({ maxFret } = {}) {
       ext11: chordExt11,
       ext13: chordExt13,
       omit: chordOmit,
+      fifth: chordFifth,
+      ninth: chordNinth,
     }),
-    [chordRootPc, chordQuality, chordSuspension, chordStructure, chordInversion, chordForm, chordExt7, chordExt6, chordExt9, chordExt11, chordExt13, chordOmit]
+    [chordRootPc, chordQuality, chordSuspension, chordStructure, chordInversion, chordForm, chordExt7, chordExt6, chordExt9, chordExt11, chordExt13, chordOmit, chordFifth, chordNinth]
   );
 
   const currentChordCopyFingerprint = useMemo(
@@ -502,8 +572,10 @@ export function useChordBuilderState({ maxFret } = {}) {
       form: chordForm,
       maxDist: chordMaxDist,
       allowOpenStrings: chordAllowOpenStrings,
+      fifth: chordFifth,
+      ninth: chordNinth,
     }),
-    [chordRootPc, chordQuality, chordSuspension, chordStructure, chordExt7, chordExt6, chordExt9, chordExt11, chordExt13, chordOmit, chordInversion, chordForm, chordMaxDist, chordAllowOpenStrings]
+    [chordRootPc, chordQuality, chordSuspension, chordStructure, chordExt7, chordExt6, chordExt9, chordExt11, chordExt13, chordOmit, chordInversion, chordForm, chordMaxDist, chordAllowOpenStrings, chordFifth, chordNinth]
   );
 
   // -- Derivados Ola 2 ---------------------------------------------------
@@ -592,7 +664,7 @@ export function useChordBuilderState({ maxFret } = {}) {
     return `${rootName}${guideToneDef.suffix}`;
   }, [chordRootPc, chordPreferSharps, guideToneDef]);
 
-  const guideToneVoicings = useMemo(() => {
+  const guideToneVoicingsAll = useMemo(() => {
     const bassIntervals = guideToneBassIntervalsForSelection(guideToneDef, guideToneInversion);
     const baseList = bassIntervals.flatMap((bassInterval) =>
       generateExactIntervalChordVoicings({
@@ -628,9 +700,16 @@ export function useChordBuilderState({ maxFret } = {}) {
     }
 
     list = filterVoicingsByForm(dedupeAndSortVoicings(list), guideToneForm);
-    // Safety cap only — applied after generate/dedupe/sort/filter, not as a musical filter.
-    return list.slice(0, MAX_VOICING_OPTIONS);
+    return list;
   }, [guideToneDef, guideToneInversion, chordRootPc, maxFret, chordMaxDist, chordAllowOpenStrings, guideToneForm]);
+
+  // El rango de trastes filtra antes del tope de seguridad, para no recortar
+  // posiciones válidas del rango.
+  const guideToneVoicings = useMemo(
+    () => (chordFretWindowFilter ? guideToneVoicingsAll.filter((v) => voicingFitsFretWindow(v, chordFretWindowFilter)) : guideToneVoicingsAll).slice(0, MAX_VOICING_OPTIONS),
+    [guideToneVoicingsAll, chordFretWindowFilter]
+  );
+  const guideToneVoicingsOutOfRange = guideToneVoicingsAll.length > 0 && guideToneVoicings.length === 0;
 
   const guideToneVoicingsSig = useMemo(() => guideToneVoicings.map((v) => v.frets).join("|"), [guideToneVoicings]);
 
@@ -644,14 +723,18 @@ export function useChordBuilderState({ maxFret } = {}) {
       ext9: chordExt9,
       ext11: chordExt11,
       ext13: chordExt13,
+      omit: chordOmit,
+      fifth: chordFifth,
+      ninth: chordNinth,
       chordIntervals,
     }),
-    [chordQuality, chordSuspension, chordStructure, chordExt7, chordExt6, chordExt9, chordExt11, chordExt13, chordIntervals]
+    [chordQuality, chordSuspension, chordStructure, chordExt7, chordExt6, chordExt9, chordExt11, chordExt13, chordOmit, chordFifth, chordNinth, chordIntervals]
   );
 
+  // Deletreo por grado funcional: #9 sobre D es E# (no F), #5 sobre C es G# y la bb7 de Fdim7 es Ebb.
   const chordSpelledNotes = useMemo(
-    () => spellChordNotes({ rootPc: chordRootPc, chordIntervals, preferSharps: chordPreferSharps }),
-    [chordRootPc, chordIntervals, chordPreferSharps]
+    () => spellChordNotes({ rootPc: chordRootPc, chordIntervals, preferSharps: chordPreferSharps, degreeLabels: chordDegreeLabels }),
+    [chordRootPc, chordIntervals, chordPreferSharps, chordDegreeLabels]
   );
 
   const chordInversionOptions = useMemo(
@@ -682,8 +765,10 @@ export function useChordBuilderState({ maxFret } = {}) {
         ext9: chordExt9,
         ext11: chordExt11,
         ext13: chordExt13,
+        fifth: chordFifth,
+        ninth: chordNinth,
       }),
-    [chordQuality, chordSuspension, chordStructure, chordInversion, chordIntervals, chordExt7, chordExt6, chordExt9, chordExt11, chordExt13]
+    [chordQuality, chordSuspension, chordStructure, chordInversion, chordIntervals, chordExt7, chordExt6, chordExt9, chordExt11, chordExt13, chordFifth, chordNinth]
   );
 
   const chordBassPc = useMemo(() => mod12(chordRootPc + chordBassInt), [chordRootPc, chordBassInt]);
@@ -762,6 +847,8 @@ export function useChordBuilderState({ maxFret } = {}) {
       chordExt11, setChordExt11,
       chordExt13, setChordExt13,
       chordOmit, setChordOmit,
+      chordFifth, setChordFifth,
+      chordNinth, setChordNinth,
       chordCopyNotice, setChordCopyNotice,
       chordCopiedEntry, setChordCopiedEntry,
       chordQuartalType, setChordQuartalType,
@@ -781,6 +868,14 @@ export function useChordBuilderState({ maxFret } = {}) {
       chordMaxDist, setChordMaxDist,
       chordAllowOpenStrings, setChordAllowOpenStrings,
       chordKeepZone, setChordKeepZone,
+      chordWindowStart, setChordWindowStart,
+      chordWindowSize, setChordWindowSize,
+      chordWindowSizeRaw, setChordWindowSizeRaw,
+      resetChordWindowToFullNeck,
+      chordFretWindow,
+      chordFretWindowFilter,
+      chordQuartalVoicingsOutOfRange,
+      guideToneVoicingsOutOfRange,
       // Derivados Ola 1
       chordPreferSharps,
       chordQuartalPitchSets,

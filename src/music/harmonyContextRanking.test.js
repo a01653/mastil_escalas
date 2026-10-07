@@ -258,7 +258,7 @@ describe("candidato contextual dom7 — x6x665 (Eb, Db, F, A)", () => {
       enabled: true, rootPc: 3, quality: "7", selectedNotes,
     });
     expect(ranked.length).toBe(readings.length + 1);
-    expect(ranked.some((r) => r.name === "F7#5/Eb")).toBe(true);
+    expect(ranked.some((r) => r.name === "F7(#5)/Eb")).toBe(true);
     expect(ranked.some((r) => r.name === "A(b5,addb6)/Eb")).toBe(true);
   });
 

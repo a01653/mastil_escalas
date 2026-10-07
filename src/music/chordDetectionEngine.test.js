@@ -532,7 +532,7 @@ describe("chordDetectionEngine", () => {
       candidates: finalCandidates,
       previousCandidate,
       prioritizeContext: true,
-    })?.name).toBe("Abmaj7b5/Ebb");
+    })?.name).toBe("Abmaj7(b5)/Ebb");
   });
 
   test("la resolución contextual del selector conserva Dm al pasar x5658x -> x5656x", () => {
@@ -578,7 +578,7 @@ describe("chordDetectionEngine", () => {
       pendingCandidate: previousCandidate,
       lastCandidate: previousCandidate,
       prioritizeContext: true,
-    })?.name).toBe("Abmaj7b5/Ebb");
+    })?.name).toBe("Abmaj7(b5)/Ebb");
   });
 
   test("la resolución contextual corrige una preselección prematura del primer candidato al volver x5658x -> x5656x", () => {
@@ -626,7 +626,7 @@ describe("chordDetectionEngine", () => {
       pendingCandidate: previousCandidate,
       lastCandidate: previousCandidate,
       prioritizeContext: true,
-    })?.name).toBe("Abmaj7b5/Ebb");
+    })?.name).toBe("Abmaj7(b5)/Ebb");
   });
 
   test("mantiene la lectura estructural equivalente al pasar Gmaj7(add13,no5)/F# -> Gm(maj7,13,no5)/F#", () => {
@@ -646,12 +646,13 @@ describe("chordDetectionEngine", () => {
     // Caso 3 que faltaba en cobertura: desaparece la lectura exacta, pero sigue
     // existiendo su equivalente estructural y debe preferirse antes que el top rankeado.
     expect(previousCandidate?.name).toBe("Gmaj7(add13,no5)/F#");
-    expect(finalCandidates[0]?.name).toBe("F#7(addb2,no5)");
+    // La b2 de un dominante se nombra b9 (antes "addb2").
+    expect(finalCandidates[0]?.name).toBe("F#7(b9,no5)");
     expect(pickDefaultChordCandidate({
       candidates: finalCandidates,
       previousCandidate,
       prioritizeContext: false,
-    })?.name).toBe("F#7(addb2,no5)");
+    })?.name).toBe("F#7(b9,no5)");
     expect(resolveDetectedCandidateFromContext({
       candidates: finalCandidates,
       currentCandidateId: previousCandidate?.id || null,
@@ -753,7 +754,7 @@ describe("chordDetectionEngine", () => {
     })?.name).toBe("Em(add11,no5)/F"); // Con contexto: continuidad por raíz desplazada
   });
 
-  test("mantiene continuidad estructural al desplazar una extensión un semítono: Gmaj7(add13,no5)/F# → Gmaj7#5/F#", () => {
+  test("mantiene continuidad estructural al desplazar una extensión un semítono: Gmaj7(add13,no5)/F# → Gmaj7(#5)/F#", () => {
     const previousCandidate = detectedReadingsFromPositions([
       { sIdx: 3, fret: 4 },
       { sIdx: 2, fret: 4 },
@@ -780,7 +781,7 @@ describe("chordDetectionEngine", () => {
       pendingCandidate: previousCandidate,
       lastCandidate: previousCandidate,
       prioritizeContext: true,
-    })?.name).toBe("Gmaj7#5/F#"); // Con contexto: continuidad por pitch class shift
+    })?.name).toBe("Gmaj7(#5)/F#"); // Con contexto: continuidad por pitch class shift
   });
 
   test("si no existe continuidad estructural clara, mantiene la caída al primer candidato rankeado", () => {
@@ -1094,13 +1095,26 @@ describe("chordDetectionEngine", () => {
     }
   });
 
-  test("x3234x detecta C7(#9) con alias Hendrix chord", () => {
+  test("x3234x detecta C7(#9,no5) con alias Hendrix chord", () => {
     // C(sIdx4,f3) E(sIdx3,f2) Bb(sIdx2,f3) D#(sIdx1,f4), bajo C
+    // Sin 5ª: el nombre canónico explicita no5, igual que el constructor (cuatriada + Omitir 5).
     const result = analyzeSelectedNotes(["C", "E", "Bb", "D#"], "C");
-    const hendrix = result.readings.find((r) => r.name === "C7(#9)");
+    const hendrix = result.readings.find((r) => r.name === "C7(#9,no5)");
+    expect(hendrix, "debe existir lectura C7(#9,no5)").toBeTruthy();
+    expect(hendrix.aliases).toContain("Hendrix chord");
+    expect(hendrix.displayName).toBe("C7(#9,no5) · Hendrix chord");
+    expect(hendrix.uiPatch).toMatchObject({ quality: "dom", ext7: true, ext9: true, ninth: "#9" });
+  });
+
+  test("Hendrix con quinta (x32343) se nombra C7(#9), sin no5; con #5 es Hendrix-type", () => {
+    const withFifth = analyzeSelectedNotes(["C", "E", "Bb", "D#", "G"], "C");
+    const hendrix = withFifth.readings.find((r) => r.name === "C7(#9)");
     expect(hendrix, "debe existir lectura C7(#9)").toBeTruthy();
     expect(hendrix.aliases).toContain("Hendrix chord");
-    expect(hendrix.displayName).toBe("C7(#9) · Hendrix chord");
+    expect(withFifth.readings.some((r) => r.name === "C7(#9,no5)")).toBe(false);
+    const sharpFifth = analyzeSelectedNotes(["C", "E", "G#", "Bb", "D#"], "C");
+    expect(sharpFifth.primary?.name).toBe("C7(#5,#9)");
+    expect(sharpFifth.primary?.aliases).toContain("Hendrix-type");
     expect(legendDegrees(hendrix)).toContain("#9");
     expect(legendNotes(hendrix)).toContain("D#");
   });
@@ -1308,7 +1322,9 @@ describe("chordDetectionEngine", () => {
 
   // --- Dominante alterado: 3 mayor + b7 + b3(=#9) ---
 
-  test("8x899b (C,Bb,E,Ab,Eb) primario es C7(#9,b13,no5), no Cm7(add3,...)", () => {
+  // Sin 5ª justa, la b6 junto a 3ª mayor y b7 es la quinta aumentada (#5), no una b13:
+  // el nombre canónico es 7(#5,#9), copiable al constructor (Dominante, ♯5, ♯9).
+  test("8x899b (C,Bb,E,Ab,Eb) primario es C7(#5,#9), no Cm7(add3,...)", () => {
     // sIdx 5=low E +8=C, 3=D +8=Bb, 2=G +9=E, 1=B +9=Ab, 0=high E +11=Eb
     const readings = detectedReadingsFromPositions([
       { sIdx: 5, fret: 8 },
@@ -1317,35 +1333,44 @@ describe("chordDetectionEngine", () => {
       { sIdx: 1, fret: 9 },
       { sIdx: 0, fret: 11 },
     ]);
-    expect(readings[0]?.name).toBe("C7(#9,b13,no5)");
+    expect(readings[0]?.name).toBe("C7(#5,#9)");
+    expect(readings[0]?.uiPatch).toMatchObject({ quality: "dom", fifth: "#5", ninth: "#9" });
     expect(readings.map((r) => r.name)).not.toContain("Cm7(add3,addb6,no5)");
   });
 
-  test("C7(#9,b13,no5): primario y grados correctos", () => {
+  test("C7(#5,#9): primario y grados correctos", () => {
     const result = analyzeSelectedNotes(["C", "Eb", "E", "Ab", "Bb"], "C");
-    expect(result.primary?.name).toBe("C7(#9,b13,no5)");
+    expect(result.primary?.name).toBe("C7(#5,#9)");
     expect(readingNames(result)).not.toContain("Cm7(add3,addb6,no5)");
-    const reading = getReading(result, "C7(#9,b13,no5)");
+    const reading = getReading(result, "C7(#5,#9)");
     expect(legendDegrees(reading)).toContain("#9");
     expect(legendDegrees(reading)).toContain("3");
-    expect(legendDegrees(reading)).toContain("b13");
+    expect(legendDegrees(reading)).toContain("#5");
     expect(legendDegrees(reading)).toContain("b7");
   });
 
-  test("C7(#9,b13,no5): Eb se deletrea D# (#9), Ab se deletrea Ab (b13)", () => {
+  test("C7(#5,#9): Eb se deletrea D# (#9) y Ab se deletrea G# (#5), no como b3/b13", () => {
     const result = analyzeSelectedNotes(["C", "Eb", "E", "Ab", "Bb"], "C");
-    const reading = getReading(result, "C7(#9,b13,no5)");
+    const reading = getReading(result, "C7(#5,#9)");
     expect(legendNotes(reading)).toContain("D#");
-    expect(legendNotes(reading)).toContain("Ab");
+    expect(legendNotes(reading)).toContain("G#");
     expect(legendNotes(reading)).not.toContain("Eb");
+    expect(legendNotes(reading)).not.toContain("Ab");
+  });
+
+  test("con 5ª justa la b6 sí es b13: C7(#9,b13) no se reinterpreta como #5", () => {
+    const result = analyzeSelectedNotes(["C", "Eb", "E", "G", "Ab", "Bb"], "C");
+    const names = readingNames(result);
+    expect(names.some((n) => n.startsWith("C7(") && n.includes("#9") && n.includes("b13"))).toBe(true);
+    expect(names).not.toContain("C7(#5,#9)");
   });
 
   test("dominante alterado (1,b3,3,b6,b7) se detecta en las 12 transposiciones", () => {
     expectNamedReadingAcrossTranspositions({
       notes: ["C", "Eb", "E", "Ab", "Bb"],
       bass: "C",
-      expectedNameForRootPc: (rootPc) => `${preferredRootName(rootPc)}7(#9,b13,no5)`,
-      requiredDegrees: ["#9", "3", "b13", "b7"],
+      expectedNameForRootPc: (rootPc) => `${preferredRootName(rootPc)}7(#5,#9)`,
+      requiredDegrees: ["#9", "3", "#5", "b7"],
     });
   });
 
@@ -1380,6 +1405,7 @@ describe("chordDetectionEngine", () => {
     const names = readingNames(result);
     expect(names).toContain("Cm7");
     expect(names).not.toContain("C7(#9,b13,no5)");
+    expect(names).not.toContain("C7(#5,#9)");
   });
 });
 
@@ -1420,9 +1446,12 @@ describe("deduplicación: condiciones de fusión", () => {
     const names = readingNames(result);
     expect(names).not.toContain("Em7(addb6,no5)/D");
     expect(names).not.toContain("Em7(no5)(b13)/D");
-    const em7Readings = result.readings.filter((r) => r.rootPc === 4 && r.bassPc === 2);
+    const em7Readings = result.readings.filter((r) => r.rootPc === 4 && r.bassPc === 2 && !r.formula?.sharpFifthAlternative);
     expect(em7Readings.length).toBe(1);
     expect(em7Readings[0].name).toBe("Em7(b13,no5)/D");
+    // La alternativa ♯5 (otra lectura, no una fusión fallida) va justo detrás.
+    const idx = result.readings.indexOf(em7Readings[0]);
+    expect(result.readings[idx + 1]?.name).toBe("Em7(#5)/D");
   });
 
   // Mismo root/bajo/mismos intervalos visibles pero distinto missingLabels → no fusionar
@@ -1825,5 +1854,198 @@ describe("normalización m9: b3+b7+9 siempre produce m9 (no m7(add9))", () => {
         ).toBe(false);
       }
     }
+  });
+});
+
+// ── Ranking con quinta aumentada (regresiones detectadas comparando con main) ──
+// La tríada aumentada es simétrica y la ♯5 heurística no debe adelantar encuadres
+// forzados a lecturas naturales; a la vez, 7(♯5) y maj7(♯5) sí se reconocen.
+describe("Ranking con quinta aumentada", () => {
+  const primary = (notes, bass) => analyzeSelectedNotes(notes, bass).primary?.name;
+
+  test.each([
+    [["F", "Gb", "A", "Db"], "F", "Gbm(maj7)/F"], // 1x422x
+    [["C", "Eb", "G", "B"], "C", "Cm(maj7)"],
+    [["C", "E", "F", "Ab"], "F", "Fm(maj7)"],
+    [["C", "E", "Ab", "A"], "A", "Am(maj7)"],
+    [["C", "Db", "E", "Ab"], "Db", "Dbm(maj7)"],
+  ])("m(maj7) no se lee como aumentado sobre bajo: %j / %s → %s", (notes, bass, expected) => {
+    expect(primary(notes, bass)).toBe(expected);
+  });
+
+  test.each([
+    [["C", "E", "G", "Ab", "Bb"], "G", "C7(b13)/G"],
+    [["C", "Db", "Eb", "F", "A"], "C", "F7(b13)/C"],
+    [["C", "D", "Eb", "G", "B"], "Eb", "Cm(maj9)/Eb"],
+    [["C", "Db", "F", "A", "Bb"], "Db", "Bbm(maj9)/Db"],
+  ])("la lectura canónica gana a maj7(#5) con tensiones: %j / %s → %s", (notes, bass, expected) => {
+    expect(primary(notes, bass)).toBe(expected);
+  });
+
+  test.each([
+    [["C", "E", "G#"], "C", "Caug"],
+    [["C", "E", "G#", "Bb"], "C", "C7(#5)"],
+    [["C", "E", "G#", "B"], "C", "Cmaj7(#5)"],
+    [["D", "F#", "A#", "C"], "D", "D7(#5)"],
+  ])("la 5ª aumentada se reconoce en estado fundamental: %j / %s → %s", (notes, bass, expected) => {
+    expect(primary(notes, bass)).toBe(expected);
+  });
+
+  test.each([
+    [["C", "E", "G#", "Bb"], "C7(#5)", "C7(b13,no5)"],
+    [["C", "E", "G#", "Bb", "D#"], "C7(#5,#9)", "C7(#9,b13,no5)"],
+    [["C", "E", "G#", "Bb", "Db"], "C7(#5,b9)", "C7(b9,b13,no5)"],
+    [["C", "E", "G#", "Bb", "D"], "C9(#5)", "C7(b13,add9,no5)"],
+  ])("sin 5ª justa la ♯5 es principal y la ♭13 sin 5ª se conserva como alternativa: %j", (notes, sharpFive, flatThirteen) => {
+    const readings = analyzeSelectedNotes(notes, "C").readings;
+    expect(readings[0].name).toBe(sharpFive);
+    expect(readings[0].uiPatch?.fifth).toBe("#5");
+    expect(readings[1].name).toBe(flatThirteen);
+    // La ♭13 no la representa el constructor: no se copia (nunca se convierte en ♯5).
+    expect(readings[1].uiPatch).toBeNull();
+    expect(readings[1].formula.degreeLabels).toContain("b13");
+    expect(readings[1].intervalPairsText).toContain("b13=Ab");
+    expect(readings[0].intervalPairsText).toContain("#5=G#");
+  });
+
+  test("con 5ª justa la b6 sigue siendo ♭13 y no hay lectura con ♯5 de la misma raíz", () => {
+    const names = analyzeSelectedNotes(["C", "E", "G", "Ab", "Bb"], "C").readings.map((r) => r.name);
+    expect(names[0]).toBe("C7(b13)");
+    expect(names.some((name) => /^C7\(#5/.test(name))).toBe(false);
+  });
+
+  test("maj7 sin 5ª justa solo ofrece ♯5 (♭13 sobre maj7 no es una tensión habitual)", () => {
+    const names = analyzeSelectedNotes(["C", "E", "G#", "B"], "C").readings.map((r) => r.name);
+    expect(names[0]).toBe("Cmaj7(#5)");
+    expect(names.some((name) => /^Cmaj7\(.*b13/.test(name))).toBe(false);
+  });
+
+  test("una tensión alterada sin sufijo base va entre paréntesis (C(#11), no C#11)", () => {
+    expect(primary(["C", "E", "G", "F#"], "C")).toBe("C(#11)");
+    expect(primary(["C", "E", "F", "F#", "G"], "C")).toBe("C(#11,add11)");
+  });
+});
+
+// ── ♭9 sobre acordes con 7ª y copias habilitadas por el constructor ───────────
+// Con 7ª la ♭2 funciona como ♭9 (tensión) en cualquier calidad y la lectura es
+// copiable; sin 7ª se conserva "addb2". Las demás lecturas del mismo conjunto
+// (otras raíces, bajos) no desaparecen.
+describe("♭9 con 7ª en cualquier calidad (copiable) y lecturas alternativas", () => {
+  const NAMES = ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"];
+  const notesFor = (rootPc, intervals) => intervals.map((i) => NAMES[(rootPc + i) % 12]);
+  const suffixOf = (name) => name.replace(/^[A-G][b#]?/, "");
+
+  test.each(NAMES.map((_, pc) => pc))("tónica %i: 1-b3-5-b7-b9 ofrece m7(b9) copiable y conserva la lectura de su relativo mayor", (rootPc) => {
+    const notes = notesFor(rootPc, [0, 3, 7, 10, 1]);
+    const readings = analyzeSelectedNotes(notes, notes[0]).readings;
+    const reading = readings.find((r) => r.rootPc === rootPc && suffixOf(r.name) === "m7(b9)");
+    expect(reading, readings.map((r) => r.name).join(" | ")).toBeTruthy();
+    expect(reading.uiPatch).toMatchObject({ quality: "min", ext7: true, ext9: true, ninth: "b9" });
+    expect(reading.formula.degreeLabels).toContain("b9");
+    expect(reading.formula.degreeLabels).not.toContain("b2");
+    // Principal en A y E (el orden con grafías bemol raras, Db/Eb/Ab, es el de antes).
+    if (rootPc === 9 || rootPc === 4) expect(readings[0]).toBe(reading);
+    // La lectura sobre la 3ª (C7(add13)/A en A) sigue disponible.
+    expect(readings.some((r) => r.rootPc === (rootPc + 3) % 12 && /^7\(add13\)\//.test(suffixOf(r.name)))).toBe(true);
+  });
+
+  test("en inversión la lectura m7(b9) sigue disponible y copiable con su bajo", () => {
+    for (const bass of ["C", "E", "G", "Bb"]) {
+      const readings = analyzeSelectedNotes(["A", "C", "E", "G", "Bb"], bass).readings;
+      const reading = readings.find((r) => r.rootPc === 9 && /^Am7\(b9\)\//.test(r.name));
+      expect(reading, `bajo ${bass}: ${readings.map((r) => r.name).join(" | ")}`).toBeTruthy();
+      expect(reading.uiPatch?.ninth).toBe("b9");
+    }
+  });
+
+  test("sin 7ª la ♭2 no se renombra: Am(addb2) sigue siendo un añadido no copiable", () => {
+    const reading = analyzeSelectedNotes(["A", "C", "E", "Bb"], "A").readings.find((r) => r.rootPc === 9);
+    expect(reading.name).toBe("Am(addb2)");
+    expect(reading.uiPatch).toBeNull();
+  });
+
+  test.each([
+    [["A", "C", "Eb", "G", "Bb"], "Am7(b5,b9)", { quality: "hdim", ninth: "b9" }],
+    [["A", "C", "Eb", "Gb", "Bb"], "Adim7(b9)", { quality: "dim", ninth: "b9" }],
+    [["C", "E", "G", "B", "Db"], "Cmaj7(b9)", { quality: "maj", ninth: "b9" }],
+    [["C", "E", "G", "B", "D#"], "Cmaj7(#9)", { quality: "maj", ninth: "#9" }],
+    [["A", "C", "E", "G#", "Bb"], "Am(maj7,b9)", { quality: "minmaj7", ninth: "b9" }],
+    [["A", "C", "Eb", "G#"], "Am(maj7,b5)", { quality: "minmaj7", fifth: "b5" }],
+    [["E", "G", "B", "D", "F"], "Em7(b9)", { quality: "min", ninth: "b9" }],
+  ])("%j: %s ya es copiable (antes bloqueada por la política)", (notes, name, patch) => {
+    const reading = analyzeSelectedNotes(notes, notes[0]).readings.find((r) => r.name === name);
+    expect(reading, analyzeSelectedNotes(notes, notes[0]).readings.map((r) => r.name).join(" | ")).toBeTruthy();
+    expect(reading.uiPatch).toMatchObject(patch);
+  });
+
+  test("con 5ª justa además de la ♭5 se mantiene la lectura disminuida (no m(maj7,b5,add5))", () => {
+    const names = analyzeSelectedNotes(["A", "C", "Eb", "E", "G#"], "A").readings.map((r) => r.name);
+    expect(names.some((name) => /m\(maj7,b5,add5\)/.test(name))).toBe(false);
+  });
+});
+
+
+// ── Menor con ♯5 sin 5ª justa: alternativa copiable de la lectura ♭13/♭6 ───────
+// m(#5), m7(#5) y m(maj7,#5) se ofrecen además de la lectura con ♭13/♭6 de las
+// mismas notas, justo detrás de ella, con nombre, grafía y copia propios. La
+// lectura ♭13 no se transforma, la principal no cambia y, si suena la 5ª justa,
+// no hay alternativa (eliminaría esa nota).
+describe("menor con ♯5 sin 5ª justa: alternativa de la lectura ♭13", () => {
+  const NAMES = ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"];
+  const notesFor = (rootPc, intervals) => intervals.map((i) => NAMES[(rootPc + i) % 12]);
+  const suffixOf = (name) => name.replace(/^[A-G][b#]?/, "").replace(/\/.*/, "");
+  const VARIANTS = [
+    { suffix: "m(#5)", intervals: [0, 3, 8], companion: "m(addb13,no5)", labels: ["1", "b3", "#5"], patch: { quality: "min", structure: "triad", ext7: false, fifth: "#5" } },
+    { suffix: "m7(#5)", intervals: [0, 3, 8, 10], companion: "m7(b13,no5)", labels: ["1", "b3", "#5", "b7"], patch: { quality: "min", structure: "tetrad", ext7: true, fifth: "#5" } },
+    { suffix: "m(maj7,#5)", intervals: [0, 3, 8, 11], companion: "m(maj7,addb6,no5)", labels: ["1", "b3", "#5", "7"], patch: { quality: "minmaj7", structure: "tetrad", ext7: true, fifth: "#5" } },
+  ];
+
+  for (const variant of VARIANTS) {
+    test.each(NAMES.map((_, pc) => pc))(`${variant.suffix}: tónica %i, con cada bajo del acorde, justo detrás de su lectura ${variant.companion} y copiable`, (rootPc) => {
+      const notes = notesFor(rootPc, variant.intervals);
+      for (const bass of notes) {
+        const readings = analyzeSelectedNotes(notes, bass).readings;
+        const idx = readings.findIndex((r) => r.rootPc === rootPc && suffixOf(r.name) === variant.suffix);
+        const list = readings.map((r) => r.name).join(" | ");
+        expect(idx, `${notes.join(" ")}/${bass}: ${list}`).toBeGreaterThan(0);
+        const alt = readings[idx];
+        const companion = readings[idx - 1];
+        expect(companion.rootPc, list).toBe(rootPc);
+        expect(suffixOf(companion.name), list).toBe(variant.companion);
+        // La lectura ♭13 conserva su nombre y su grado (no se convierte en ♯5).
+        expect(companion.formula.degreeLabels.some((label) => label === "b13" || label === "b6")).toBe(true);
+        expect(alt.formula.degreeLabels).toEqual(variant.labels);
+        expect(alt.uiPatch).toMatchObject({ rootPc, ...variant.patch });
+        expect(readings[0].formula?.sharpFifthAlternative).toBeFalsy();
+      }
+    });
+  }
+
+  test("grafía propia: la ♯5 se escribe como ♯5 (G# en Cm(#5), E# en Am7(#5)), no como ♭6", () => {
+    const cm = analyzeSelectedNotes(["C", "Eb", "Ab"], "C").readings.find((r) => r.name === "Cm(#5)");
+    expect(cm.visibleNotes).toEqual(expect.arrayContaining(["C", "Eb", "G#"]));
+    const am = analyzeSelectedNotes(["A", "C", "F", "G"], "A").readings.find((r) => r.name === "Am7(#5)");
+    expect(am.visibleNotes).toEqual(expect.arrayContaining(["A", "C", "E#", "G"]));
+  });
+
+  test("la principal y la lectura ♭13 no cambian: C–E♭–G♯ sigue siendo Ab/C y Cm(addb13,no5) no se copia", () => {
+    const readings = analyzeSelectedNotes(["C", "Eb", "G#"], "C").readings;
+    expect(readings.map((r) => r.name).slice(0, 3)).toEqual(["Ab/C", "Cm(addb13,no5)", "Cm(#5)"]);
+    expect(readings[1].uiPatch).toBeNull();
+  });
+
+  test.each([
+    [["C", "Eb", "G", "Ab"], "C"],
+    [["C", "Eb", "G", "Ab", "Bb"], "C"],
+    [["C", "Eb", "G", "Ab", "B"], "C"],
+    [["G", "C", "Eb", "Ab", "Bb"], "G"],
+  ])("%j / %s: con la 5ª justa (también en el bajo) no se ofrece ninguna lectura ♯5", (notes, bass) => {
+    const names = analyzeSelectedNotes(notes, bass).readings.map((r) => r.name);
+    expect(names.some((name) => /#5/.test(name)), names.join(" | ")).toBe(false);
+  });
+
+  test("solo las tres variantes: con tensiones añadidas (C–E♭–G♯–B♭–D) no se inventa m9(#5)", () => {
+    const names = analyzeSelectedNotes(["C", "Eb", "G#", "Bb", "D"], "C").readings.map((r) => r.name);
+    expect(names.some((name) => /#5/.test(name)), names.join(" | ")).toBe(false);
   });
 });

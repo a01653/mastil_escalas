@@ -108,7 +108,7 @@
               },
               {
                 "display": "A7alt",
-                "load": "A7"
+                "load": "A7alt"
               }
             ],
             "repeat": false
@@ -270,7 +270,7 @@
               },
               {
                 "display": "A7alt",
-                "load": "A7"
+                "load": "A7alt"
               }
             ],
             "repeat": false
@@ -363,7 +363,7 @@
               },
               {
                 "display": "F#o",
-                "load": "F#dim7"
+                "load": "F#dim"
               }
             ],
             "repeat": false
@@ -403,12 +403,17 @@
             "bar": 15,
             "chords": [
               "A-7",
+              "D7",
               "D7/C"
             ],
             "chordEvents": [
               {
                 "display": "A-7",
                 "load": "Am7"
+              },
+              {
+                "display": "D7",
+                "load": "D7"
               },
               {
                 "display": "D7/C",
@@ -569,7 +574,7 @@
               },
               {
                 "display": "A7alt",
-                "load": "A7"
+                "load": "A7alt"
               }
             ],
             "repeat": false
@@ -672,7 +677,7 @@
               },
               {
                 "display": "Ebo",
-                "load": "Ebdim7"
+                "load": "Ebdim"
               }
             ],
             "repeat": false
@@ -716,7 +721,7 @@
               },
               {
                 "display": "Ebo",
-                "load": "Ebdim7"
+                "load": "Ebdim"
               }
             ],
             "repeat": false
@@ -760,7 +765,7 @@
               },
               {
                 "display": "Ebo",
-                "load": "Ebdim7"
+                "load": "Ebdim"
               }
             ],
             "repeat": false
@@ -786,7 +791,7 @@
               },
               {
                 "display": "Db7alt",
-                "load": "Db7"
+                "load": "Db7alt"
               }
             ],
             "repeat": false
@@ -915,7 +920,7 @@
             },
             {
               "display": "A7alt",
-              "load": "A7"
+              "load": "A7alt"
             }
           ],
           "chords": [
@@ -1083,7 +1088,7 @@
             },
             {
               "display": "A7alt",
-              "load": "A7"
+              "load": "A7alt"
             }
           ],
           "chords": [
@@ -1176,7 +1181,7 @@
             },
             {
               "display": "F#o",
-              "load": "F#dim7"
+              "load": "F#dim"
             }
           ],
           "chords": [
@@ -1231,12 +1236,17 @@
               "load": "Am7"
             },
             {
+              "display": "D7",
+              "load": "D7"
+            },
+            {
               "display": "D7/C",
               "load": "D7"
             }
           ],
           "chords": [
             "A-7",
+            "D7",
             "D7/C"
           ]
         },
@@ -1394,7 +1404,7 @@
             },
             {
               "display": "A7alt",
-              "load": "A7"
+              "load": "A7alt"
             }
           ],
           "chords": [
@@ -1497,7 +1507,7 @@
             },
             {
               "display": "Ebo",
-              "load": "Ebdim7"
+              "load": "Ebdim"
             }
           ],
           "chords": [
@@ -1540,7 +1550,7 @@
             },
             {
               "display": "Ebo",
-              "load": "Ebdim7"
+              "load": "Ebdim"
             }
           ],
           "chords": [
@@ -1583,7 +1593,7 @@
             },
             {
               "display": "Ebo",
-              "load": "Ebdim7"
+              "load": "Ebdim"
             }
           ],
           "chords": [
@@ -1608,7 +1618,7 @@
             },
             {
               "display": "Db7alt",
-              "load": "Db7"
+              "load": "Db7alt"
             }
           ],
           "chords": [

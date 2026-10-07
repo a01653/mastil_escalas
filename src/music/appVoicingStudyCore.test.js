@@ -594,25 +594,29 @@ describe("computeInversionSelectorOptions — etiquetas dinámicas del selector"
     expect(opts.length).toBeGreaterThan(0);
   });
 
-  test("Fdim7(add13,no1): sin 'Fundamental', con 'Bajo b3', 'Bajo b5', 'Bajo 13'", () => {
-    // Fdim7 + ext13 + omit1: raíz omitida → 'Fundamental' no debe aparecer
+  // En dim7 la 13 coincide en altura con la bb7: el motor la descarta (limitación
+  // de representación) y el bajo de esa nota se nombra por su función real, bb7.
+  test("Fdim7(no1) con 13 heredada: sin 'Fundamental', con 'Bajo b3', 'Bajo b5', 'Bajo bb7'", () => {
     const plan = planFor({ rootPc: 5, quality: "dim", structure: "tetrad", ext7: true, ext13: true, omit: "1" });
     const opts = computeInversionSelectorOptions(plan);
     const values = opts.map((o) => o.value);
     const labels = opts.map((o) => o.label);
+    expect(plan.ext13).toBe(false);
     expect(labels).not.toContain("Fundamental");
     expect(values).not.toContain("root");
     expect(labels).toContain("Bajo b3");
     expect(labels).toContain("Bajo b5");
-    expect(labels).toContain("Bajo 13");
+    expect(labels).toContain("Bajo bb7");
+    expect(labels).not.toContain("Bajo 13");
+    expect(labels).not.toContain("Bajo 6");
     expect(labels[labels.length - 1]).toBe("Todas");
   });
 
-  test("Fdim7(add13,no1): opciones en orden correcto — b3, b5, 13, Todas", () => {
+  test("Fdim7(no1): opciones en orden correcto — b3, b5, bb7, Todas", () => {
     const plan = planFor({ rootPc: 5, quality: "dim", structure: "tetrad", ext7: true, ext13: true, omit: "1" });
     const opts = computeInversionSelectorOptions(plan);
     const labels = opts.map((o) => o.label);
-    expect(labels).toEqual(["Bajo b3", "Bajo b5", "Bajo 13", "Todas"]);
+    expect(labels).toEqual(["Bajo b3", "Bajo b5", "Bajo bb7", "Todas"]);
   });
 
   test("Fmaj7 completo (sin omit): sigue teniendo 'Fundamental' — no regresión", () => {
@@ -1292,11 +1296,21 @@ describe("buildChordEnginePlan — generator en transiciones m(maj7) → menor/d
     expect(plan.generator).toBe("json");
   });
 
-  test("m(maj7) chord sin ext7: generator=exact (minmaj7 nunca usa catálogo JSON)", () => {
+  // Sin 7ª, m(maj7) es la tríada menor (el combo muestra Menor): mismo plan y
+  // mismo catálogo que Menor; la 7ª mayor vuelve al activar la 7ª.
+  test("m(maj7) chord sin ext7: mismo plan que la tríada menor (catálogo JSON)", () => {
     const plan = buildChordEnginePlan({
       ...base, rootPc: 5, quality: "minmaj7", structure: "chord", ext7: false,
     });
-    expect(plan.generator).toBe("exact");
+    const minor = buildChordEnginePlan({
+      ...base, rootPc: 5, quality: "min", structure: "chord", ext7: false,
+    });
+    expect(plan.generator).toBe("json");
+    expect([plan.generator, plan.layer, plan.intervals.join(",")]).toEqual([minor.generator, minor.layer, minor.intervals.join(",")]);
+    const withSeventh = buildChordEnginePlan({
+      ...base, rootPc: 5, quality: "minmaj7", structure: "chord", ext7: true,
+    });
+    expect(withSeventh.intervals).toContain(11);
   });
 });
 

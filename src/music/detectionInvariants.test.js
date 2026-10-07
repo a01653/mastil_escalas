@@ -125,6 +125,11 @@ describe("detectionInvariants", () => {
           r.bassPc,
           (r.visibleIntervals || []).slice().sort((a, b) => a - b).join(","),
           (r.missingLabels || []).slice().sort().join(","),
+          // Excepción intencionada: sin 5ª justa, la lectura ♭13 (C7(b13,no5)) acompaña
+          // a la de ♯5 (C7(#5)) como alternativa con las mismas notas.
+          r.formula?.flatThirteenthAlternative ? "b13alt" : "",
+          // Y al revés en menor: m7(#5) acompaña a m7(b13,no5) con las mismas notas.
+          r.formula?.sharpFifthAlternative ? "s5alt" : "",
         ].join("|");
         const suffix = chordSuffix(r.name);
         const formulaId = String(r?.formula?.id || "");

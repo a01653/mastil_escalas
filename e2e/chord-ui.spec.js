@@ -1077,17 +1077,19 @@ test("56. Fdim(add9): seleccionar 'Bajo b5' → summary muestra 'Bajo b5', no '2
 });
 
 // ── Test 57 ────────────────────────────────────────────────────────────────
-test("57. Fdim7(add13,no1): selector NO tiene 'Fundamental', SÍ tiene 'Bajo b3/b5/13'", async ({ page }) => {
+// En dim7 la 13 coincide en altura con la bb7: no se ofrece (limitación de
+// representación) y el bajo de esa nota se nombra por su función real, bb7.
+test("57. Fdim7(no1): selector NO tiene 'Fundamental', SÍ tiene 'Bajo b3/b5/bb7'; 13 deshabilitada", async ({ page }) => {
   await goToChords(page);
   await selectTone(page, "F");
   await selectQuality(page, "dim");
   await selectStructure(page, "tetrad");
 
-  // dim7 requiere ext-7; añadir ext-13 y activar omit-1
+  // dim7 requiere ext-7; con omit-1 se libera un slot, pero la 13 sigue sin ofrecerse
   await expect(page.getByTestId("ext-7")).toBeChecked();
   await page.getByTestId("omit-1").check();
-  // Con omit1 activo, ext-13 debe habilitarse (slot liberado)
-  await page.getByTestId("ext-13").check();
+  await expect(page.getByTestId("ext-13")).toBeDisabled();
+  await expect(page.getByTestId("ext-6")).toBeDisabled();
 
   const invSelect = page.getByTestId("select-inversion");
   await expect(invSelect).toBeVisible({ timeout: 3000 });
@@ -1096,7 +1098,9 @@ test("57. Fdim7(add13,no1): selector NO tiene 'Fundamental', SÍ tiene 'Bajo b3/
   expect(invOpts, `Opciones inesperadas: ${invOpts.join(" | ")}`).not.toContain("Fundamental");
   expect(invOpts).toContain("Bajo b3");
   expect(invOpts).toContain("Bajo b5");
-  expect(invOpts).toContain("Bajo 13");
+  expect(invOpts).toContain("Bajo bb7");
+  expect(invOpts).not.toContain("Bajo 13");
+  expect(invOpts).not.toContain("Bajo 6");
   expect(invOpts).toContain("Todas");
 });
 
@@ -1202,6 +1206,12 @@ async function setupE9(page) {
   await page.getByTestId("ext-7").check();
   await page.getByTestId("ext-9").check();
   // omit queda en "none" por defecto
+  // E9 en "Acorde" sale del catálogo JSON (carga asíncrona): se espera a que haya
+  // digitaciones antes de leer el selector. Sin esta espera el 65 fallaba de forma
+  // intermitente con la batería completa y el 64 podía pasar con la lista vacía.
+  await expect
+    .poll(async () => page.getByTestId("voicing-select").locator("option").count(), { timeout: 15000 })
+    .toBeGreaterThan(0);
 }
 
 test("64. E9 sin omit: x7677x NO aparece entre los voicings disponibles", async ({ page }) => {
@@ -1308,7 +1318,8 @@ test("70. E7 + activar 9: x76777 aparece como voicing válido de E9", async ({ p
 });
 
 // ── Test 59 ────────────────────────────────────────────────────────────────
-test("59. Fdim7(add13,no1): para cualquier inversión seleccionada, summary nunca dice 'Fundamental'", async ({ page }) => {
+// En dim7 la 13 no se ofrece (misma altura que la bb7): el caso se valida como Fdim7(no1).
+test("59. Fdim7(no1): para cualquier inversión seleccionada, summary nunca dice 'Fundamental'", async ({ page }) => {
   await goToChords(page);
   await selectTone(page, "F");
   await selectQuality(page, "dim");
@@ -1316,7 +1327,7 @@ test("59. Fdim7(add13,no1): para cualquier inversión seleccionada, summary nunc
 
   await expect(page.getByTestId("ext-7")).toBeChecked();
   await page.getByTestId("omit-1").check();
-  await page.getByTestId("ext-13").check();
+  await expect(page.getByTestId("ext-13")).toBeDisabled();
 
   const invSelect = page.getByTestId("select-inversion");
   await expect(invSelect).toBeVisible({ timeout: 3000 });

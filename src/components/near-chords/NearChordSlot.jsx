@@ -3,6 +3,9 @@ import { createPortal } from "react-dom";
 import { BookOpen, ChevronLeft, ChevronRight, X } from "lucide-react";
 import PanelBlock from "../PanelBlock.jsx";
 import { CopyVoicingButton } from "../chords/ChordsPanel.jsx";
+import ChordAlterationSelects from "../chords/ChordAlterationSelects.jsx";
+import ChordHintList from "../chords/ChordHintList.jsx";
+import { InfoTitle } from "../ui/AppUiPrimitives.jsx";
 import ColorPickerPopover from "../ui/ColorPickerPopover.jsx";
 
 import * as AppStaticData from "../../music/appStaticData.js";
@@ -26,10 +29,23 @@ const {
   CHORD_GUIDE_TONE_QUALITIES,
   CHORD_GUIDE_TONE_FORMS,
   CHORD_GUIDE_TONE_INVERSIONS,
+  normalizeChordUiSpec,
+  chordQualityDisplayValue,
+  chordQualitySelectOptions,
+  chordSuspensionSelectOptions,
 } = AppMusicBasics;
 
 import * as AppVoicingStudyCore from "../../music/appVoicingStudyCore.js";
-const { isDropForm, hasEffectiveSeventh, buildChordExtensionTogglePatch, buildTetradEntryExtensionPatch } = AppVoicingStudyCore;
+const {
+  isDropForm,
+  hasEffectiveSeventh,
+  buildChordExtensionTogglePatch,
+  buildTetradEntryExtensionPatch,
+  buildChordQualityChangePatch,
+  buildChordControlHints,
+  buildChordSuspensionChangePatch,
+  CHORD_DIM7_SIX_THIRTEEN_INFO,
+} = AppVoicingStudyCore;
 
 import * as AppPatternRouteStaffCore from "../../music/appPatternRouteStaffCore.jsx";
 const { ChordNoteBadgeStrip } = AppPatternRouteStaffCore;
@@ -71,7 +87,12 @@ export default function NearChordSlot({
   mobileNearChordEditorIdx,
   setNearBgColor,
   nearSlotFamilyOf,
+  openMobileInfoPopover,
 }) {
+  // Explicaciones de las opciones deshabilitadas: botón de información (también en móvil).
+  const HintTitle = ({ label, items }) => (
+    <InfoTitle label={label} info={items?.length ? <ChordHintList items={items} /> : null} alwaysShow isMobileLayout={isMobileLayout} onInfo={openMobileInfoPopover} />
+  );
   const nearSelectWidthStyle = (items, fallback = 8) => (
     isMobileLayout ? undefined : { width: `calc(${fnMaxTextCh(items, fallback)} + 25px)` }
   );
@@ -393,6 +414,7 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
   }
 
   function renderNearSlotTertianEditor(s, i, dis, ui, opts, _errMsg, { showMobileVoicing = true } = {}) {
+    const hints = buildChordControlHints(s);
     return (
       <div className={isMobileLayout ? chordMobileEditorTertianGridClass : nearSlotDesktopEditorClass}>
         {renderNearSlotToneControl(s, i, dis, isMobileLayout ? "min-w-0 col-span-2" : "shrink-0")}
@@ -412,30 +434,31 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
           </select>
         </div>
         <div className={isMobileLayout ? "min-w-0 order-5 col-span-2" : "shrink-0"}>
-          <label className={UI_LABEL_SM}>Calidad / Sus</label>
+          <label className={UI_LABEL_SM}><HintTitle label="Calidad / Sus" items={hints.qualitySus} /></label>
           <div className="mt-1 flex flex-nowrap gap-1.5">
-            <select data-testid={`near-slot-${i}-quality`} className={UI_SELECT_SM_AUTO} style={nearSelectWidthStyle(CHORD_QUALITIES, 8)} value={s.quality} onChange={(e) => updateNearSlot(i, { quality: e.target.value, selFrets: null })} disabled={dis}>
-              {CHORD_QUALITIES.map((q) => (
-                <option key={q.value} value={q.value} disabled={(q.value === "hdim" && s.structure === "triad" && !s.ext7) || (q.value === "dom" && s.structure === "triad" && !s.ext7)}>{q.label}</option>
+            <select data-testid={`near-slot-${i}-quality`} className={UI_SELECT_SM_AUTO} style={nearSelectWidthStyle(CHORD_QUALITIES, 8)} value={chordQualityDisplayValue(s)} onChange={(e) => {
+              const patch = buildChordQualityChangePatch(s, e.target.value);
+              if ("quality" in patch) updateNearSlot(i, { ...patch, selFrets: null });
+            }} disabled={dis}>
+              {chordQualitySelectOptions(s).map((q) => (
+                <option key={q.value} value={q.value} disabled={q.disabled} title={q.title || undefined}>{q.label}</option>
               ))}
             </select>
             <select
+              data-testid={`near-slot-${i}-suspension`}
               className={UI_SELECT_SM_AUTO}
               style={nearSelectWidthStyle(["Sus —", "sus2", "sus4"], 6)}
               value={s.suspension || "none"}
               onChange={(e) => {
-                const v = e.target.value;
-                updateNearSlot(i, { suspension: v, selFrets: null });
-                if (v !== "none" && (s.quality === "dim" || s.quality === "hdim")) {
-                  updateNearSlot(i, { quality: "maj", selFrets: null });
-                }
+                const patch = buildChordSuspensionChangePatch(s, e.target.value);
+                if ("suspension" in patch) updateNearSlot(i, { ...patch, selFrets: null });
               }}
               disabled={dis}
               title="Suspensión: reemplaza la 3ª por 2ª o 4ª"
             >
-              <option value="none">Sus —</option>
-              <option value="sus2">sus2</option>
-              <option value="sus4">sus4</option>
+              {chordSuspensionSelectOptions(s).map((o) => (
+                <option key={o.value} value={o.value} disabled={o.disabled} title={o.title || undefined}>{o.label}</option>
+              ))}
             </select>
           </div>
         </div>
@@ -504,7 +527,7 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
           </select>
         </div>
         <div className={isMobileLayout ? "min-w-0 order-6 col-span-2" : "shrink-0"}>
-          <label className={UI_LABEL_SM}>Extensiones</label>
+          <label className={UI_LABEL_SM}><HintTitle label="Extensiones" items={hints.extensions} /></label>
           <div className={UI_EXT_GRID}>
             {ui.ext.showSeven ? (
               <label className="inline-flex items-center gap-2">
@@ -512,7 +535,7 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
               </label>
             ) : null}
             {ui.ext.showSix ? (
-              <label className="inline-flex items-center gap-2">
+              <label className="inline-flex items-center gap-2" title={ui.ext.sixThirteenBlockedByDim7 ? CHORD_DIM7_SIX_THIRTEEN_INFO : undefined}>
                 <input type="checkbox" data-testid={`near-slot-${i}-ext6`} checked={!!s.ext6} onChange={(e) => updateNearSlot(i, { ...buildChordExtensionTogglePatch({ structure: s.structure, omit: s.omit || "none", ext: "6", value: e.target.checked }), selFrets: null })} disabled={dis || !ui.ext.canToggleSix} /> 6
               </label>
             ) : null}
@@ -527,13 +550,27 @@ Mixto: combina 4J y al menos una 4ª aumentada (A4), así que no es puro.`}>
               </label>
             ) : null}
             {ui.ext.showThirteen ? (
-              <label className="inline-flex items-center gap-2">
+              <label className="inline-flex items-center gap-2" title={ui.ext.sixThirteenBlockedByDim7 ? CHORD_DIM7_SIX_THIRTEEN_INFO : undefined}>
                 <input type="checkbox" data-testid={`near-slot-${i}-ext13`} checked={!!s.ext13} onChange={(e) => updateNearSlot(i, { ...buildChordExtensionTogglePatch({ structure: s.structure, omit: s.omit || "none", ext: "13", value: e.target.checked }), selFrets: null })} disabled={dis || !ui.ext.canToggleThirteen} /> 13
               </label>
             ) : null}
           </div>
         </div>
-        <div className={isMobileLayout ? "min-w-0 order-7 col-span-2" : "shrink-0"}>
+        <div className={isMobileLayout ? "min-w-0 order-7 col-span-2" : "shrink-0"} data-testid={`near-slot-${i}-alterations`}>
+          <label className={UI_LABEL_SM}><HintTitle label="Quinta / Novena" items={hints.alterations} /></label>
+          <ChordAlterationSelects
+            alterations={ui.alterations}
+            fifth={normalizeChordUiSpec(s).fifth}
+            ninth={normalizeChordUiSpec(s).ninth}
+            onFifthChange={(value) => updateNearSlot(i, { fifth: value, selFrets: null })}
+            onNinthChange={(value) => updateNearSlot(i, { ninth: value, selFrets: null })}
+            disabled={dis}
+            selectClassName={UI_SELECT_SM_AUTO}
+            fifthTestId={`near-slot-${i}-fifth`}
+            ninthTestId={`near-slot-${i}-ninth`}
+          />
+        </div>
+        <div className={isMobileLayout ? "min-w-0 order-8 col-span-2" : "shrink-0"}>
           <label className={UI_LABEL_SM}>Omitir</label>
           <div className={UI_EXT_GRID}>
             <label className="inline-flex items-center gap-2">

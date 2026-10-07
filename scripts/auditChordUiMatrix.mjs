@@ -9,6 +9,27 @@
  *   5. EMPTY_VOICINGS_VALID    — (WARN) opción ofrecida pero 0 voicings generados.
  *   6. BASS_REAL_MISMATCH      — bajo real del primer voicing ≠ bajo esperado.
  *
+ * Alteraciones de quinta y novena (cada combinación se recorre con todas las
+ * quintas y novenas que ofrece el selector para ese estado):
+ *   - ALTERATION_STATE_INVALID — la normalización cambia una alteración ofrecida.
+ *   - TITLE_STATE_MISMATCH     — el nombre no refleja la alteración (o la muestra sin estar).
+ *   - FUNCTIONAL_LABEL_MISMATCH — #9/#5/bb7 sin su grado (p. ej. #9 leído como b3).
+ *   - CHECKBOX_CHIP_MISMATCH   — extensión marcada sin su grado en los chips.
+ *   - ALTERED_USES_JSON        — un acorde alterado usaría el catálogo JSON.
+ *   - QUALITY_SYNC_EQUIVALENCE — cuando el combo muestra otra calidad que la base
+ *     (m7 + ♭5 → Semidisminuido, ø + 5 → Menor…), el acorde debe ser idéntico al de
+ *     esa opción con su quinta: notas, grados, nombre, sufijo, catálogo y plan; la
+ *     normalización no reescribe la base y la 3ª y el tipo de 7ª se conservan.
+ *   - FIFTH_LOCKED / NINTH_LOCKED — la calidad bloquea la quinta (existiendo y sin
+ *     omitir) o la novena (con la 9 activa).
+ *   - AUG_SEVENTH_CONSERVED — elegir Aumentada da 3ª mayor + ♯5 conservando la 7ª
+ *     que suena; si no puede (♭♭7 de Disminuido, "Omitir 5"), la opción está
+ *     deshabilitada con explicación y el estado no cambia.
+ *   - SUSPENSION_ROUND_TRIP — sus2/sus4 sustituyen solo la 3ª (quinta y 7ª se
+ *     conservan) y al quitar la suspensión vuelve el estado exacto; si no puede
+ *     (♭♭7 de Disminuido, "Omitir 3"), la opción está deshabilitada con
+ *     explicación y el estado no cambia.
+ *
  * Uso:
  *   npm run audit:chord-ui-matrix
  *   node scripts/auditChordUiMatrix.mjs [--json]
@@ -28,6 +49,9 @@ import {
   generateExactIntervalChordVoicings,
   parseChordDbFretsString,
   buildVoicingFromFretsLH,
+  buildChordStateNormalizationPatch,
+  buildChordQualityChangePatch,
+  buildChordSuspensionChangePatch,
 } from "../src/music/appVoicingStudyCore.js";
 
 import {
@@ -35,9 +59,25 @@ import {
   pcToName,
   chordBassInterval,
   chordDisplayNameFromUI,
+  normalizeChordUiSpec,
+  buildChordToneDefinition,
+  chordSuffixFromUI,
+  chordCanUseJsonCatalog,
+  chordQualitySelectOptions,
+  chordSuspensionSelectOptions,
 } from "../src/music/appMusicBasics.js";
 
+import {
+  chordFifthSelectorState,
+  chordNinthSelectorState,
+  isAlteredChordFifth,
+  isAlteredChordNinth,
+} from "../src/music/chordAlterations.js";
+
 const __dir = dirname(fileURLToPath(import.meta.url));
+let qualitySyncChecked = 0;
+let augmentedChecked = 0;
+let suspensionChecked = 0;
 const ROOT = join(__dir, "..");
 const REPORTS_DIR = join(ROOT, "reports");
 
@@ -60,14 +100,17 @@ const TONES = [
   { pc: 10, label: "Bb", preferSharps: false },
 ];
 
-const QUALITIES = ["maj", "min", "dom", "dim", "hdim"];
+const QUALITIES = ["maj", "min", "dom", "minmaj7", "dim", "hdim"];
 
 const SUSPENSIONS_BY_QUALITY = {
   maj:  ["none", "sus2", "sus4"],
   min:  ["none", "sus2", "sus4"],
   dom:  ["none", "sus2", "sus4"],
-  dim:  ["none"],
-  hdim: ["none"],
+  minmaj7: ["none", "sus2", "sus4"],
+  // La suspensión conserva la base: ø suspendido (7sus4(b5)) y Disminuido
+  // suspendido sin 7ª (sus4(b5)); con ♭♭7 no es alcanzable (se salta abajo).
+  dim:  ["none", "sus2", "sus4"],
+  hdim: ["none", "sus2", "sus4"],
 };
 
 const OMITS = ["none", "1", "3", "5"];
@@ -159,6 +202,8 @@ function generateVoicingsForPlanAndInv(plan, invValue) {
     ext9: plan.ext9,
     ext11: plan.ext11,
     ext13: plan.ext13,
+    fifth: plan.fifth,
+    ninth: plan.ninth,
   });
 
   if (plan.generator === "triad") {
@@ -213,7 +258,7 @@ let totalWarn = 0;
 let totalFail = 0;
 
 function recordResult({
-  tone, quality, structure, suspension, exts, omit, invOpt, invOptLabel,
+  tone, quality, structure, suspension, exts, omit, fifth, ninth, invOpt, invOptLabel,
   status, category, motivo,
   planName, selectorOpts, voicingCount, bassExpected, bassActual,
 }) {
@@ -221,7 +266,7 @@ function recordResult({
   const rec = {
     id, tone, quality, structure, suspension,
     ext7: exts.ext7, ext6: exts.ext6, ext9: exts.ext9, ext11: exts.ext11, ext13: exts.ext13,
-    omit, invOpt, invOptLabel,
+    omit, fifth: fifth ?? null, ninth: ninth ?? null, invOpt, invOptLabel,
     status, category, motivo,
     planName: planName || "",
     selectorOpts: selectorOpts ? selectorOpts.map((o) => o.label) : [],
@@ -236,7 +281,182 @@ function recordResult({
   return rec;
 }
 
-function auditCombination({ tone, quality, structure, suspension, exts, omit }) {
+// Coherencia de quinta/novena: estado normalizado, nombre, grados y chips.
+function auditAlterationCoherence({ ctx, planBase, planName, quality, suspension, structure, exts, omit, fifth, ninth }) {
+  const fail = (category, motivo) => recordResult({ ...ctx, invOpt: "-", invOptLabel: "-", status: "FAIL", category, motivo });
+  const spec = normalizeChordUiSpec({ quality, suspension, structure, ...exts, omit, fifth, ninth });
+  if (spec.fifth !== fifth || spec.ninth !== ninth) {
+    fail("ALTERATION_STATE_INVALID", `selector ofrece fifth=${fifth} ninth=${ninth} pero el estado normalizado es fifth=${spec.fifth} ninth=${spec.ninth}`);
+  }
+  const labels = planBase.degreeLabels || [];
+  if (labels.length !== planBase.intervals.length || labels.some((label) => !label)) {
+    fail("FUNCTIONAL_LABEL_MISMATCH", `grados ${JSON.stringify(labels)} no alineados con intervalos ${JSON.stringify(planBase.intervals)}`);
+    return;
+  }
+  const labelOf = (interval) => labels[planBase.intervals.indexOf(interval)];
+  const fifthAltered = isAlteredChordFifth(spec.fifth, spec.quality, spec.suspension);
+  // La novena alterada solo cuenta si suena (en cuatriada sin omisión la 9 no cabe).
+  const ninthSounds = (planBase.toneRoles || []).includes("ninth");
+  const ninthAltered = ninthSounds && isAlteredChordNinth(spec.ninth);
+  const suffix = planName.replace(/^[A-G][b#]?/, "");
+
+  if (fifthAltered) {
+    const interval = { b5: 6, 5: 7, "#5": 8 }[spec.fifth];
+    if (labelOf(interval) !== spec.fifth) fail("FUNCTIONAL_LABEL_MISMATCH", `quinta ${spec.fifth}: el intervalo ${interval} se etiqueta "${labelOf(interval)}"`);
+    const fifthName = { "#5": "#5", b5: "b5", 5: "♮5" }[spec.fifth];
+    const named = suffix.includes(fifthName) || (spec.fifth === "#5" && /^aug/.test(suffix));
+    if (!named) fail("TITLE_STATE_MISMATCH", `quinta ${spec.fifth} activa pero el nombre "${planName}" no la refleja`);
+  } else if (/#5|^aug/.test(suffix) || (suffix.includes("b5") && spec.quality !== "hdim")) {
+    fail("TITLE_STATE_MISMATCH", `sin quinta alterada pero el nombre "${planName}" la muestra`);
+  }
+
+  if (ninthAltered) {
+    const interval = spec.ninth === "#9" ? 3 : 1;
+    if (labelOf(interval) !== spec.ninth) fail("FUNCTIONAL_LABEL_MISMATCH", `novena ${spec.ninth}: el intervalo ${interval} se etiqueta "${labelOf(interval)}"`);
+    if (!suffix.includes(spec.ninth)) fail("TITLE_STATE_MISMATCH", `novena ${spec.ninth} activa pero el nombre "${planName}" no la refleja`);
+    // Con 3ª (sin suspensión) la ♯9 solo se ofrece sobre 3ª mayor, que sigue sonando como 3.
+    if (spec.ninth === "#9" && spec.suspension === "none" && labelOf(4) !== "3" && omit !== "3") fail("FUNCTIONAL_LABEL_MISMATCH", "#9 sin 3ª mayor etiquetada como 3");
+    if (spec.ninth === "#9" && spec.suspension === "none" && labelOf(3) === "b3") fail("FUNCTIONAL_LABEL_MISMATCH", "#9 junto a una ♭3 (misma altura)");
+  } else if (/b9|#9/.test(suffix)) {
+    fail("TITLE_STATE_MISMATCH", `sin novena alterada pero el nombre "${planName}" la muestra`);
+  }
+
+  if (spec.quality === "dim" && spec.ext7 && labelOf(9) && labelOf(9) !== "bb7") {
+    fail("FUNCTIONAL_LABEL_MISMATCH", `dim7: el intervalo 9 se etiqueta "${labelOf(9)}" (debe ser bb7)`);
+  }
+
+  // Cada extensión marcada que suena debe tener su grado en los chips.
+  const present = new Set(planBase.toneRoles || []);
+  const expectChip = (active, role, label) => {
+    if (active && !present.has(role)) return;
+    if (active && !labels.includes(label)) fail("CHECKBOX_CHIP_MISMATCH", `extensión ${label} activa y presente pero sin chip "${label}" (${labels.join(" ")})`);
+  };
+  expectChip(planBase.ext9, "ninth", spec.ninth);
+  expectChip(planBase.ext11, "eleventh", "11");
+  expectChip(planBase.ext13, "thirteenth", "13");
+
+  if ((fifthAltered || ninthAltered) && planBase.generator === "json") {
+    fail("ALTERED_USES_JSON", `acorde alterado con generator=json (el catálogo no garantiza la fórmula)`);
+  }
+
+  // La calidad no bloquea los selectores (regla de Calidad/Quinta/Novena).
+  const fifthState = chordFifthSelectorState({ quality, suspension, omit });
+  if (omit !== "5" && !fifthState.enabled) fail("FIFTH_LOCKED", `quinta bloqueada en ${quality}`);
+  const ninthState = chordNinthSelectorState({ quality, suspension, structure, ext7: exts.ext7, ext9: exts.ext9 });
+  if (exts.ext9 && structure !== "triad" && !ninthState.enabled) fail("NINTH_LOCKED", `novena bloqueada en ${quality} con la 9 activa`);
+
+  auditAugmentedOption({ fail, quality, suspension, structure, exts, omit, fifth, ninth });
+  if (suspension === "none") auditSuspensionRoundTrip({ fail, quality, structure, exts, omit, fifth, ninth });
+
+  if (spec.displayQuality !== spec.uiQuality) {
+    auditQualitySyncEquivalence({ fail, planBase, quality, suspension, structure, exts, omit, fifth, ninth, spec });
+  }
+}
+
+// Aumentada conserva la 7ª que suena (o queda deshabilitada y el estado no cambia).
+function auditAugmentedOption({ fail, quality, suspension, structure, exts, omit, fifth, ninth }) {
+  const state = { rootPc: 0, preferSharps: false, quality, suspension, structure, ...exts, omit, fifth, ninth };
+  const option = chordQualitySelectOptions(state).find((o) => o.value === "aug");
+  const patch = buildChordQualityChangePatch(state, "aug");
+  const SEVENTHS = ["7", "b7", "bb7"];
+  const before = buildChordToneDefinition(state).degreeLabels;
+  const seventhBefore = before.find((label) => SEVENTHS.includes(label)) || null;
+  augmentedChecked++;
+  if (option.disabled) {
+    if (Object.keys(patch).length) fail("AUG_SEVENTH_CONSERVED", `Aumentada deshabilitada pero cambia el estado: ${JSON.stringify(patch)}`);
+    if (!option.title) fail("AUG_SEVENTH_CONSERVED", "Aumentada deshabilitada sin explicación");
+    const expectedDisabled = omit === "5" || (seventhBefore === "bb7");
+    if (!expectedDisabled) fail("AUG_SEVENTH_CONSERVED", `Aumentada deshabilitada sin motivo (7ª ${seventhBefore}, omit ${omit})`);
+    return;
+  }
+  const next = { ...state, ...patch };
+  const settled = { ...next, ...buildChordStateNormalizationPatch(next) };
+  const after = buildChordToneDefinition(settled).degreeLabels;
+  const seventhAfter = after.find((label) => SEVENTHS.includes(label)) || null;
+  if (seventhBefore !== seventhAfter) fail("AUG_SEVENTH_CONSERVED", `Aumentada cambia la 7ª: ${seventhBefore} → ${seventhAfter}`);
+  if (omit !== "3" && !after.includes("3")) fail("AUG_SEVENTH_CONSERVED", `Aumentada sin 3ª mayor: ${after.join(" ")}`);
+  if (!after.includes("#5")) fail("AUG_SEVENTH_CONSERVED", `Aumentada sin ♯5: ${after.join(" ")}`);
+  if (normalizeChordUiSpec(settled).displayQuality !== "aug") fail("AUG_SEVENTH_CONSERVED", "el combo no muestra Aumentada tras elegirla");
+}
+
+// sus2/sus4 solo sustituyen la 3ª y la vuelta deja el estado idéntico (o la opción
+// está deshabilitada y explicada sin cambiar nada).
+function auditSuspensionRoundTrip({ fail, quality, structure, exts, omit, fifth, ninth }) {
+  const settle = (state) => ({ ...state, ...buildChordStateNormalizationPatch(state) });
+  const base = settle({ rootPc: 0, preferSharps: false, quality, suspension: "none", structure, ...exts, omit, fifth, ninth });
+  const before = buildChordToneDefinition(base).degreeLabels;
+  const seventhOf = (labels) => labels.find((label) => ["7", "b7", "bb7"].includes(label)) || null;
+  const fifthOf = (labels) => labels.find((label) => ["5", "b5", "#5"].includes(label)) || null;
+  for (const suspension of ["sus2", "sus4"]) {
+    suspensionChecked++;
+    const option = chordSuspensionSelectOptions(base).find((o) => o.value === suspension);
+    const patch = buildChordSuspensionChangePatch(base, suspension);
+    if (option.disabled) {
+      if (Object.keys(patch).length) fail("SUSPENSION_ROUND_TRIP", `${suspension} deshabilitada pero cambia el estado: ${JSON.stringify(patch)}`);
+      if (!option.title) fail("SUSPENSION_ROUND_TRIP", `${suspension} deshabilitada sin explicación`);
+      const expected = omit === "3" || seventhOf(before) === "bb7";
+      if (!expected) fail("SUSPENSION_ROUND_TRIP", `${suspension} deshabilitada sin motivo (7ª ${seventhOf(before)}, omit ${omit})`);
+      continue;
+    }
+    const suspended = settle({ ...base, ...patch });
+    const after = buildChordToneDefinition(suspended).degreeLabels;
+    if (!after.includes(suspension === "sus2" ? "2" : "4")) fail("SUSPENSION_ROUND_TRIP", `${suspension} sin su grado: ${after.join(" ")}`);
+    if (after.includes("3") || after.includes("b3")) fail("SUSPENSION_ROUND_TRIP", `${suspension} conserva la 3ª: ${after.join(" ")}`);
+    if (seventhOf(before) !== seventhOf(after)) fail("SUSPENSION_ROUND_TRIP", `${suspension} cambia la 7ª: ${seventhOf(before)} → ${seventhOf(after)}`);
+    if (fifthOf(before) !== fifthOf(after)) fail("SUSPENSION_ROUND_TRIP", `${suspension} cambia la quinta: ${fifthOf(before)} → ${fifthOf(after)}`);
+    const back = settle({ ...suspended, ...buildChordSuspensionChangePatch(suspended, "none") });
+    if (JSON.stringify(back) !== JSON.stringify(base)) fail("SUSPENSION_ROUND_TRIP", `quitar ${suspension} no recupera el acorde: ${JSON.stringify(base)} → ${JSON.stringify(back)}`);
+  }
+}
+
+function hasSeventhForAudit(structure, exts) {
+  return structure === "chord" ? exts.ext7 !== false : !!exts.ext7;
+}
+
+// Si el combo muestra otra calidad que la base, el acorde debe ser exactamente esa opción.
+function auditQualitySyncEquivalence({ fail, planBase, quality, suspension, structure, exts, omit, fifth, ninth, spec }) {
+  const state = { rootPc: 0, preferSharps: false, quality, suspension, structure, ...exts, omit, fifth, ninth };
+  const shown = spec.displayQuality;
+  if (shown === "aug") {
+    // Aumentada es solo etiqueta: 3ª mayor + ♯5 y la 7ª de la base (aug / 7(#5) / maj7(#5)).
+    const labels = buildChordToneDefinition(state).degreeLabels;
+    const seventh = { maj: "7", dom: "b7" }[quality];
+    const name = chordDisplayNameFromUI(state).replace(/^[A-G][b#]?/, "");
+    if (spec.fifth !== "#5" || !["maj", "dom"].includes(quality)) fail("QUALITY_SYNC_EQUIVALENCE", `Aumentada con base ${quality} y quinta ${spec.fifth}`);
+    if (omit !== "3" && !labels.includes("3")) fail("QUALITY_SYNC_EQUIVALENCE", `Aumentada sin 3ª mayor: ${labels.join(" ")}`);
+    if (spec.ext7 !== false && hasSeventhForAudit(structure, exts) && !labels.includes(seventh)) fail("QUALITY_SYNC_EQUIVALENCE", `Aumentada pierde la 7ª de la base (${seventh}): ${labels.join(" ")}`);
+    if (!/^aug|#5/.test(name)) fail("QUALITY_SYNC_EQUIVALENCE", `Aumentada con nombre "${name}"`);
+    qualitySyncChecked++;
+    return;
+  }
+  const reference = { ...state, quality: shown, fifth: spec.fifth };
+  const refSpec = normalizeChordUiSpec(reference);
+  if (refSpec.displayQuality !== shown || refSpec.fifth !== spec.fifth) {
+    fail("QUALITY_SYNC_EQUIVALENCE", `la opción mostrada ${shown} no admite la quinta ${spec.fifth}`);
+  }
+  const patch = buildChordStateNormalizationPatch(state);
+  if ("quality" in patch || "fifth" in patch) {
+    fail("QUALITY_SYNC_EQUIVALENCE", `la normalización reescribe el estado: ${JSON.stringify(patch)}`);
+  }
+  const a = buildChordToneDefinition(state);
+  const b = buildChordToneDefinition(reference);
+  if (quality !== "dim" && a.degreeLabels.includes("bb7")) fail("QUALITY_SYNC_EQUIVALENCE", `aparece ♭♭7 sin base Disminuido: ${a.degreeLabels.join(" ")}`);
+  const pairs = [
+    ["intervalos", a.intervals.join(","), b.intervals.join(",")],
+    ["grados", a.degreeLabels.join(","), b.degreeLabels.join(",")],
+    ["nombre", chordDisplayNameFromUI(state), chordDisplayNameFromUI(reference)],
+    ["sufijo", chordSuffixFromUI(state), chordSuffixFromUI(reference)],
+    ["catálogo", String(chordCanUseJsonCatalog(state)), String(chordCanUseJsonCatalog(reference))],
+  ];
+  const refPlan = buildChordEnginePlan({ ...reference, inversion: "all", form: "open" });
+  pairs.push(["plan", `${planBase.generator}/${planBase.layer}`, `${refPlan.generator}/${refPlan.layer}`]);
+  for (const [what, x, y] of pairs) {
+    if (x !== y) fail("QUALITY_SYNC_EQUIVALENCE", `${what}: ${quality}+${fifth} "${x}" ≠ ${shown} "${y}"`);
+  }
+  qualitySyncChecked++;
+}
+
+function auditCombination({ tone, quality, structure, suspension, exts, omit, fifth, ninth }) {
   const { pc: rootPc, label: toneLabel, preferSharps } = tone;
   const { ext7, ext6, ext9, ext11, ext13 } = exts;
 
@@ -244,18 +464,20 @@ function auditCombination({ tone, quality, structure, suspension, exts, omit }) 
   const planBase = buildChordEnginePlan({
     rootPc, quality, suspension, structure,
     inversion: "all", form: "closed",
-    ext7, ext6, ext9, ext11, ext13, omit,
+    ext7, ext6, ext9, ext11, ext13, omit, fifth, ninth,
   });
 
   const planName = chordDisplayNameFromUI({
     rootPc, preferSharps, quality, suspension, structure,
-    ext7, ext6, ext9, ext11, ext13, omit,
+    ext7, ext6, ext9, ext11, ext13, omit, fifth, ninth,
   });
 
   const selectorOpts = computeInversionSelectorOptions(planBase);
   const isNonStandard = !!(planBase.singleAdd || planBase.multiAdd || planBase.omit !== "none");
 
-  const ctx = { tone: toneLabel, quality, structure, suspension, exts, omit, planName, selectorOpts };
+  const ctx = { tone: toneLabel, quality, structure, suspension, exts, omit, fifth, ninth, planName, selectorOpts };
+
+  auditAlterationCoherence({ ctx, planBase, planName, quality, suspension, structure, exts, omit, fifth, ninth });
 
   // ── INVARIANT 1: No "Fundamental" si omit1 ─────────────────────────────────
   const hasFundamentalOpt = selectorOpts.some((o) => o.value === "root");
@@ -278,13 +500,13 @@ function auditCombination({ tone, quality, structure, suspension, exts, omit }) 
     const planForInv = buildChordEnginePlan({
       rootPc, quality, suspension, structure,
       inversion: opt.value, form: "closed",
-      ext7, ext6, ext9, ext11, ext13, omit,
+      ext7, ext6, ext9, ext11, ext13, omit, fifth, ninth,
     });
 
     const bassInt = chordBassInterval({
       quality, suspension, structure,
       inversion: opt.value,
-      omit, ext7, ext6, ext9, ext11, ext13,
+      omit, ext7, ext6, ext9, ext11, ext13, fifth, ninth,
     });
 
     const syntheticVoicing = { bassPc: mod12(rootPc + bassInt) };
@@ -332,7 +554,21 @@ function auditCombination({ tone, quality, structure, suspension, exts, omit }) 
       const { voicings, skipped, bassInterval: bInt } = generateVoicingsForPlanAndInv(planForInv, opt.value);
 
       if (!skipped) {
-        if (voicings.length === 0) {
+        if (voicings.length === 0 && planBase.intervals.length > 6) {
+          // 7 notas distintas no caben en 6 cuerdas: la ausencia de posiciones es
+          // correcta siempre que la interfaz explique el motivo (plan.tooManyNotes).
+          if (!planForInv.tooManyNotes) {
+            recordResult({
+              ...ctx,
+              invOpt: opt.value, invOptLabel: opt.label,
+              status: "FAIL", category: "INSUFFICIENT_NOTES_MESSAGE_MISMATCH",
+              motivo: `${planBase.intervals.length} notas distintas sin posición posible pero el plan no marca tooManyNotes`,
+              voicingCount: 0,
+            });
+          } else {
+            totalTooManyNotes++;
+          }
+        } else if (voicings.length === 0) {
           // Distinguir entre combinación musicalmente inválida vs. falta de voicings
           const minNotes = planBase.intervals?.length ?? 0;
           const motivo = minNotes < 3
@@ -401,7 +637,8 @@ function auditCombination({ tone, quality, structure, suspension, exts, omit }) 
   // ── INVARIANT 4: multiAdd — todas las extensiones activas tienen opción ────
   if (planBase.multiAdd && toneLabel === "F") {
     const activeAdds = [];
-    if (ext9) activeAdds.push({ semi: 2, token: "9" });
+    // La 9 puede estar alterada (add b9 / add #9): su semitono sale del plan.
+    if (ext9) activeAdds.push({ semi: mod12(planBase.ninthOffset ?? 2), token: planBase.ninth || "9" });
     if (ext11) activeAdds.push({ semi: 5, token: "11" });
     if (ext13) activeAdds.push({ semi: 9, token: "13" });
     if (ext6 && !ext13) activeAdds.push({ semi: 9, token: "6" });
@@ -412,7 +649,7 @@ function auditCombination({ tone, quality, structure, suspension, exts, omit }) 
         const optBassInt = chordBassInterval({
           quality, suspension, structure,
           inversion: o.value,
-          omit, ext7, ext6, ext9, ext11, ext13,
+          omit, ext7, ext6, ext9, ext11, ext13, fifth, ninth,
         });
         return mod12(optBassInt) === add.semi;
       });
@@ -467,6 +704,8 @@ function auditCombination({ tone, quality, structure, suspension, exts, omit }) 
 // ── Enumerar combinaciones ────────────────────────────────────────────────────
 
 let totalCombos = 0;
+let totalAlteredCombos = 0;
+let totalTooManyNotes = 0;
 
 for (const tone of TONES) {
   for (const quality of QUALITIES) {
@@ -479,9 +718,18 @@ for (const tone of TONES) {
           if (suspension === "sus4" && exts.ext11) continue;
           // dom+chord+!ext7 y hdim+chord+!ext7 son UI-imposibles: el useEffect fuerza ext7=true.
           if ((quality === "dom" || quality === "hdim") && structure === "chord" && !exts.ext7) continue;
+          // Disminuido suspendido con ♭♭7 no se representa: la interfaz no deja llegar (SUSPENSION_ROUND_TRIP).
+          if (quality === "dim" && suspension !== "none" && hasSeventhForAudit(structure, exts)) continue;
           for (const omit of OMITS) {
-            totalCombos++;
-            auditCombination({ tone, quality, structure, suspension, exts, omit });
+            const fifths = chordFifthSelectorState({ quality, suspension, omit }).allowed;
+            const ninths = chordNinthSelectorState({ quality, suspension, structure, ext7: exts.ext7, ext9: exts.ext9 }).allowed;
+            for (const fifth of fifths) {
+              for (const ninth of ninths) {
+                totalCombos++;
+                if (isAlteredChordFifth(fifth, quality, suspension) || isAlteredChordNinth(ninth)) totalAlteredCombos++;
+                auditCombination({ tone, quality, structure, suspension, exts, omit, fifth, ninth });
+              }
+            }
           }
         }
       }
@@ -591,7 +839,11 @@ for (const r of [...failures, ...warnings]) {
 
 if (!useJson) {
   console.log(`\n${BOLD}═══════════════ Auditoría Chord UI Matrix ═══════════════${R}`);
-  console.log(`${DIM}Combinaciones evaluadas: ${totalCombos}${R}`);
+  console.log(`${DIM}Combinaciones evaluadas: ${totalCombos} (con quinta o novena alterada: ${totalAlteredCombos})${R}`);
+  console.log(`${DIM}Sin posición por >6 notas, con motivo explicado (correcto): ${totalTooManyNotes}${R}`);
+  console.log(`${DIM}Calidad sincronizada en el combo, comprobada contra la opción mostrada: ${qualitySyncChecked}${R}`);
+  console.log(`${DIM}Opción Aumentada comprobada (conserva la 7ª o queda deshabilitada): ${augmentedChecked}${R}`);
+  console.log(`${DIM}Ida y vuelta de sus2/sus4 comprobada (o deshabilitada y explicada): ${suspensionChecked}${R}`);
   console.log(`Casos registrados: ${results.length} (${GREEN}PASS silenciosos${R} + ${AMBER}WARN${R} + ${RED}FAIL${R})\n`);
   console.log(`${GREEN}${BOLD}PASS (sin issue)${R}: total combinaciones evaluadas = ${totalCombos - warnings.length - failures.length}`);
   console.log(`${AMBER}${BOLD}WARN${R}: ${totalWarn}`);
@@ -635,6 +887,8 @@ mkdirSync(REPORTS_DIR, { recursive: true });
 const jsonReport = {
   date: new Date().toISOString(),
   totalCombos,
+  totalAlteredCombos,
+  totalTooManyNotes,
   totalIssues: results.length,
   totalFail,
   totalWarn,
@@ -653,7 +907,7 @@ const mdLines = [
   "# Auditoría Chord UI Matrix",
   "",
   `**Fecha**: ${new Date().toLocaleString("es-ES")}`,
-  `**Combinaciones evaluadas**: ${totalCombos}`,
+  `**Combinaciones evaluadas**: ${totalCombos} (con quinta o novena alterada: ${totalAlteredCombos})`,
   `**Issues registrados**: ${totalFail} FAIL + ${totalWarn} WARN`,
   "",
   "## Resumen por categoría",
@@ -701,7 +955,7 @@ if (failures.length === 0 && warnings.length === 0) {
       mdLines.push(`### ${r.id} — ${r.category}`);
       mdLines.push("");
       mdLines.push(`**Acorde**: ${r.planName}`);
-      mdLines.push(`**Parámetros**: quality=${r.quality}, structure=${r.structure}, sus=${r.suspension}, omit=${r.omit}`);
+      mdLines.push(`**Parámetros**: quality=${r.quality}, structure=${r.structure}, sus=${r.suspension}, omit=${r.omit}, fifth=${r.fifth}, ninth=${r.ninth}`);
       mdLines.push(`**Extensiones**: ext7=${r.ext7}, ext6=${r.ext6}, ext9=${r.ext9}, ext11=${r.ext11}, ext13=${r.ext13}`);
       mdLines.push(`**Inversión seleccionada**: value=${r.invOpt} / label="${r.invOptLabel}"`);
       mdLines.push(`**Motivo**: ${r.motivo}`);
@@ -731,7 +985,7 @@ if (!useJson) {
 }
 
 if (useJson) {
-  console.log(JSON.stringify({ totalCombos, totalFail, totalWarn }, null, 2));
+  console.log(JSON.stringify({ totalCombos, totalAlteredCombos, totalFail, totalWarn }, null, 2));
 }
 
 // Exit code

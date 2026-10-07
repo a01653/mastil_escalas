@@ -47,7 +47,10 @@ describe("jjazzlabParser", () => {
     expect(parsed.phrases[0].bars).toBe("1-3");
   });
 
-  test("mantiene la grafía visible y simplifica la carga interna en tensiones, slash y acordes no soportados", () => {
+  // El load conserva el cifrado (sin el bajo slash): ya no se simplifica G7b9 a G7 ni
+  // Cm7M a Cm. Si la app no puede construir el símbolo, la carga avisa en vez de
+  // sustituirlo por otro acorde.
+  test("mantiene la grafía visible y carga exactamente el cifrado (sin el bajo slash)", () => {
     const raw = `
 <Song resolves-to="SongSP" spName="changes" spTempo="142">
   <spChordLeadSheet class="ChordLeadSheetImpl" resolves-to="ChordLeadSheetImplSP">
@@ -82,15 +85,16 @@ describe("jjazzlabParser", () => {
     });
     expect(section.measures[1].chordEvents[0]).toEqual({
       display: "G7b9",
-      load: "G7",
+      load: "G7b9",
     });
     expect(section.measures[2].chordEvents[0]).toEqual({
       display: "C-Δ7",
-      load: "Cm",
+      load: "Cmmaj7",
     });
+    // "dim" es la tríada disminuida (se muestra "o"): no se carga como dim7.
     expect(section.measures[3].chordEvents[0]).toEqual({
       display: "Fo",
-      load: "Fdim7",
+      load: "Fdim",
     });
   });
 });

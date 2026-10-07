@@ -84,6 +84,7 @@ const chordScaleCompat = analyzeChordScaleCompatibility({
   scaleName,
   chordName: d?.chordName || "—",
   preferSharps: studyPreferSharps,
+  degreeLabels: d?.plan?.degreeLabels || null,
 });
 const dominantScaleCompat = analyzeChordScaleCompatibility({
   chordRootPc: dominant.rootPc,

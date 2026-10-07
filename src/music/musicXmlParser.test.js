@@ -175,9 +175,10 @@ describe("musicXmlParser", () => {
       display: "F#-7b5",
       load: "F#m7b5",
     });
+    // "°" es la tríada disminuida: se carga como tal (antes se añadía la bb7).
     expect(parsed.realForm.sections[2].measures[1].chordEvents[0]).toEqual({
       display: "Ebo",
-      load: "Ebdim7",
+      load: "Ebdim",
     });
   });
 

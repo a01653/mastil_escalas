@@ -162,7 +162,8 @@ describe("ruta tertian — buildChordCopyFingerprint", () => {
       maxDist: 4,
       allowOpenStrings: false,
     });
-    expect(fp).toBe("0|maj|none|tetrad|1|0|0|0|0|none|all|open|4|0");
+    // Sin alteraciones explícitas la huella usa las alteraciones por defecto (5 y 9).
+    expect(fp).toBe("0|maj|none|tetrad|1|0|0|0|0|none|all|open|4|0|5|9");
   });
 
   it("cambia la huella cuando cambia una extensión o el flag de cuerdas al aire", () => {
@@ -175,8 +176,24 @@ describe("ruta tertian — buildChordCopyFingerprint", () => {
     const withOpen = buildChordCopyFingerprint({ ...base, allowOpenStrings: true });
     expect(withExt9).not.toBe(buildChordCopyFingerprint(base));
     expect(withOpen).not.toBe(buildChordCopyFingerprint(base));
-    expect(withExt9).toBe("0|maj|none|tetrad|1|0|1|0|0|none|all|open|4|0");
-    expect(withOpen).toBe("0|maj|none|tetrad|1|0|0|0|0|none|all|open|4|1");
+    expect(withExt9).toBe("0|maj|none|tetrad|1|0|1|0|0|none|all|open|4|0|5|9");
+    expect(withOpen).toBe("0|maj|none|tetrad|1|0|0|0|0|none|all|open|4|1|5|9");
+  });
+
+  it("cambia la huella cuando cambia la quinta o la novena alterada", () => {
+    const dom9 = {
+      rootPc: 2, quality: "dom", suspension: "none", structure: "chord",
+      ext7: true, ext6: false, ext9: true, ext11: false, ext13: false,
+      omit: "none", inversion: "all", form: "open", maxDist: 4, allowOpenStrings: false,
+    };
+    const natural = buildChordCopyFingerprint({ ...dom9, ninth: "9" });
+    const flat9 = buildChordCopyFingerprint({ ...dom9, ninth: "b9" });
+    const sharp9 = buildChordCopyFingerprint({ ...dom9, ninth: "#9" });
+    const sharp5Flat9 = buildChordCopyFingerprint({ ...dom9, fifth: "#5", ninth: "b9" });
+    expect(new Set([natural, flat9, sharp9, sharp5Flat9]).size).toBe(4);
+    expect(sharp5Flat9.endsWith("|#5|b9")).toBe(true);
+    // Sin campos (configuración antigua) equivale a quinta y novena por defecto.
+    expect(buildChordCopyFingerprint(dom9)).toBe(natural);
   });
 });
 

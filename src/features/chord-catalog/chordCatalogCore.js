@@ -179,6 +179,8 @@ export async function lookupChordCatalogVoicings({
   ext11,
   ext13,
   omit,
+  fifth,
+  ninth,
   bassPc = null,
   preferredFrets = null,
   preferSharps,
@@ -186,14 +188,19 @@ export async function lookupChordCatalogVoicings({
   cacheErr,
   onCacheSet,
 }) {
+  // Con quinta/novena alterada el catálogo no garantiza la fórmula: sin JSON.
   if (!chordCanUseJsonCatalog({
     quality,
+    suspension: suspension || "none",
     structure: "chord",
     ext7: !!ext7,
     ext6: !!ext6,
     ext9: !!ext9,
     ext11: !!ext11,
     ext13: !!ext13,
+    omit: omit || "none",
+    fifth,
+    ninth,
   })) return [];
 
   const suffixBase = chordSuffixFromUI({

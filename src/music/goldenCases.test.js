@@ -37,12 +37,14 @@ function transposeNotes(noteNames, semitones) {
  */
 const GOLDEN_CASES = [
   {
-    id: "altered-dom-7#9b13",
-    description: "7(#9,b13,no5): gana sobre Cm7 con add3 y otras lecturas erróneas",
+    id: "altered-dom-7#5#9",
+    // Sin 5ª justa la b6 es la quinta aumentada: 7(#5,#9) (antes se nombraba 7(#9,b13,no5)).
+    description: "7(#5,#9): gana sobre Cm7 con add3 y otras lecturas erróneas",
     notes: ["C", "Eb", "E", "Ab", "Bb"],
     bass: "C",
-    expectedPrimary: (pc) => `${preferredRootName(pc)}7(#9,b13,no5)`,
-    mustNotWin: ["Cm7(add3,addb6,no5)", "Emaj7b5(addb6)/C", "Ab(add9,addb6)/C", "Bbm7(b5,add11,no3)/C"],
+    // En F# la #5 y la #9 serían C## y G##: el detector elige la grafía limpia Gb7(#5,#9) (D, A).
+    expectedPrimary: (pc) => `${mod12(pc) === 6 ? "Gb" : preferredRootName(pc)}7(#5,#9)`,
+    mustNotWin: ["Cm7(add3,addb6,no5)", "Emaj7(b5,addb6)/C", "Ab(add9,addb6)/C", "Bbm7(b5,add11,no3)/C"],
     transpose: true,
   },
   {
@@ -100,7 +102,7 @@ const GOLDEN_CASES = [
     notes: ["C", "Eb", "G", "Bb"],
     bass: "C",
     expectedPrimary: () => "Cm7",
-    mustNotWin: ["C7(#9,b13,no5)"],
+    mustNotWin: ["C7(#9,b13,no5)", "C7(#5,#9)"],
     transpose: false,
   },
   {

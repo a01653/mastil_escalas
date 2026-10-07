@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight, Info } from "lucide-react";
 import PanelBlock from "../PanelBlock.jsx";
 import NearChordSlot from "./NearChordSlot.jsx";
 import { InfoTitle as InfoTitleImpl } from "../ui/AppUiPrimitives.jsx";
+import FretWindowControls from "../fretboard/FretWindowControls.jsx";
 import { MobileMainFretboard as MobileMainFretboardImpl } from "../fretboard/MobileMainFretboard.jsx";
 import { HoverCellNote as HoverCellNoteImpl } from "../fretboard/FretboardShared.jsx";
 import FretNoteMarker from "../fretboard/FretNoteMarker.jsx";
@@ -109,6 +110,8 @@ export default function NearChordsPanel({
     const slotData = buildNearSlotStudyEntry(slot, r?.plan || null, selectedVoicing, idx);
     const slotDisplayName = slotData?.summary || "";
     const slotUi = r?.plan?.ui || buildChordUiRestrictions({
+      quality: slot.quality,
+      suspension: slot.suspension || "none",
       structure: slot.structure,
       ext7: slot.ext7,
       ext6: slot.ext6,
@@ -276,47 +279,20 @@ export default function NearChordsPanel({
         level="subsection"
         title={<InfoTitle label="Mástil: acordes cercanos" info={nearFretboardInfoText} alwaysShow />}
         headerAside={<div className="flex flex-wrap items-end justify-end gap-3">
-            <div className="flex items-end gap-1.5">
-              <div className="text-xs font-semibold text-slate-700">Rango</div>
-              <button
-                type="button"
-                className={UI_BTN_SM}
-                title="Mover rango 1 traste a la izquierda"
-                onClick={() => setNearWindowStart((s) => Math.max(0, s - 1))}
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </button>
-
-              <div className="flex items-end gap-1.5">
-                <div>
-                  <div className="text-[10px] font-semibold text-slate-600">Tamaño</div>
-                  <input
-                    className={UI_INPUT_SM + " w-14"}
-                    value={nearWindowSizeRaw}
-                    onChange={(e) => {
-                      const raw = e.target.value;
-                      setNearWindowSizeRaw(raw);
-                      const n = parseInt(raw, 10);
-                      if (Number.isFinite(n) && n >= 1) setNearWindowSize(n);
-                    }}
-                    onBlur={() => setNearWindowSizeRaw(String(nearWindowSize))}
-                  />
-                </div>
-              </div>
-
-              <button
-                type="button"
-                className={UI_BTN_SM}
-                title="Mover rango 1 traste a la derecha"
-                onClick={() => setNearWindowStart((s) => Math.min(nearStartMax, s + 1))}
-              >
-                <ChevronRight className="h-4 w-4" />
-              </button>
-
-              <div className="ml-1 text-xs text-slate-600 tabular-nums">
-                {nearFrom}–{nearTo}
-              </div>
-            </div>
+            <FretWindowControls
+              from={nearFrom}
+              to={nearTo}
+              sizeValue={nearWindowSizeRaw}
+              onSizeChange={(raw) => {
+                setNearWindowSizeRaw(raw);
+                const n = parseInt(raw, 10);
+                if (Number.isFinite(n) && n >= 1) setNearWindowSize(n);
+              }}
+              onSizeBlur={() => setNearWindowSizeRaw(String(nearWindowSize))}
+              onMoveLeft={() => setNearWindowStart((s) => Math.max(0, s - 1))}
+              onMoveRight={() => setNearWindowStart((s) => Math.min(nearStartMax, s + 1))}
+              testIdPrefix="near-window"
+            />
           </div>}
         className="mt-3"
       >
@@ -617,6 +593,7 @@ export default function NearChordsPanel({
                 mobileNearChordEditorIdx={mobileNearChordEditorIdx}
                 setNearBgColor={setNearBgColor}
                 nearSlotFamilyOf={nearSlotFamilyOf}
+                openMobileInfoPopover={openMobileInfoPopover}
               />
             ))}
           </div>
