@@ -37,6 +37,8 @@ export function buildStudyData({
   chordExt11,
   chordExt13,
   chordOmit,
+  chordFifth,
+  chordNinth,
   chordIntervals,
   chordDegreeLabels,
   chordEnginePlan,
@@ -75,7 +77,8 @@ export function buildStudyData({
       const mainDegreeLabels = detectCandidate.formula?.degreeLabels?.length === mainIntervals.length
         ? detectCandidate.formula.degreeLabels
         : null;
-      const mainSpelledNotes = spellChordNotes({ rootPc: mainRootPc, chordIntervals: mainIntervals, preferSharps: mainPreferSharps });
+      // Deletreo por el grado funcional de la lectura (#9, #5, bb7...).
+      const mainSpelledNotes = spellChordNotes({ rootPc: mainRootPc, chordIntervals: mainIntervals, preferSharps: mainPreferSharps, degreeLabels: mainDegreeLabels });
       const detectedPlan = detectCandidate.uiPatch
         ? buildChordEnginePlan({
             ...detectCandidate.uiPatch,
@@ -197,7 +200,12 @@ export function buildStudyData({
     const mainRootPc = chordRootPc;
     const mainPreferSharps = chordPreferSharps;
     const mainIntervals = chordIntervals;
-    const mainSpelledNotes = spellChordNotes({ rootPc: mainRootPc, chordIntervals: mainIntervals, preferSharps: mainPreferSharps });
+    const mainSpelledNotes = spellChordNotes({
+      rootPc: mainRootPc,
+      chordIntervals: mainIntervals,
+      preferSharps: mainPreferSharps,
+      degreeLabels: chordDegreeLabels?.length === mainIntervals.length ? chordDegreeLabels : null,
+    });
     const mainPcToSpelledName = (pc) => {
       const interval = mod12(pc - mainRootPc);
       const idx = mainIntervals.findIndex((x) => mod12(x) === interval);
@@ -220,6 +228,8 @@ export function buildStudyData({
         ext11: chordExt11,
         ext13: chordExt13,
         omit: chordOmit,
+        fifth: chordFifth,
+        ninth: chordNinth,
       }),
       notes: mainSpelledNotes,
       intervals: chordDegreeLabels || mainIntervals.map((i) => intervalToChordToken(i, { ext6: chordExt6, ext9: chordExt9 && chordStructure !== "triad", ext11: chordExt11 && chordStructure !== "triad", ext13: chordExt13 && chordStructure !== "triad" })),

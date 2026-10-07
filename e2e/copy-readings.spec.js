@@ -175,6 +175,9 @@ test("40. Extensiones no representables (b2): botón Copiar en Acorde está desh
 
 // ── Test 41: Fmaj7(add13) — botón Copiar habilitado, estructura chord ─────────
 test("41. Fmaj7(add13): botón Copiar habilitado, copiado sin perder ext13", async ({ page }) => {
+  // Recarga la app tres veces y selecciona 5 notas: con la batería completa tardaba
+  // entre 15 y 31 s según la carga, al borde del límite global de 30 s.
+  test.setTimeout(60_000);
   await goToChords(page);
   await enableDetectMode(page);
 
@@ -623,6 +626,16 @@ test("49. Asus2 x0220x: copia directa a Acorde con cuerdas al aire y voicing rea
 
   const voicingSelect = page.getByTestId("voicing-select");
   await expect(voicingSelect).toBeVisible({ timeout: 3000 });
+
+  // Mientras llega el catálogo JSON, el selector muestra solo el voicing copiado
+  // ("(C dist 1)"); también ocurre en main. Se espera al estado resuelto en vez
+  // de leer la fase intermedia (fallo intermitente con la batería completa).
+  await expect
+    .poll(async () => {
+      const texts = await voicingSelect.locator("option").allTextContents();
+      return texts.some((text) => text.includes("x0220x") && text.includes("(dist 1)"));
+    }, { timeout: 15000 })
+    .toBe(true);
 
   const options = await voicingSelect.locator("option").allTextContents();
   const x0220xOption = options.find((text) => text.includes("x0220x"));

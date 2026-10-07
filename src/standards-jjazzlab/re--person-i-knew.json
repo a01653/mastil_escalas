@@ -26,7 +26,7 @@
             "chordEvents": [
               {
                 "display": "C6/9",
-                "load": "C6"
+                "load": "C69"
               }
             ],
             "repeat": false
@@ -39,7 +39,7 @@
             "chordEvents": [
               {
                 "display": "C+",
-                "load": "C"
+                "load": "Caug"
               }
             ],
             "repeat": false
@@ -52,7 +52,7 @@
             "chordEvents": [
               {
                 "display": "F#+/C",
-                "load": "F#"
+                "load": "F#aug"
               }
             ],
             "repeat": false
@@ -130,7 +130,7 @@
             "chordEvents": [
               {
                 "display": "F-M7/C",
-                "load": "Fm"
+                "load": "FmM7"
               }
             ],
             "repeat": false
@@ -169,7 +169,7 @@
             "chordEvents": [
               {
                 "display": "BbΔ7#5/C",
-                "load": "Bbmaj7"
+                "load": "Bbmaj7#5"
               }
             ],
             "repeat": false
@@ -182,7 +182,7 @@
             "chordEvents": [
               {
                 "display": "F-M7/C",
-                "load": "Fm"
+                "load": "FmM7"
               }
             ],
             "repeat": false
@@ -242,7 +242,7 @@
           "chordEvents": [
             {
               "display": "C6/9",
-              "load": "C6"
+              "load": "C69"
             }
           ],
           "chords": [
@@ -255,7 +255,7 @@
           "chordEvents": [
             {
               "display": "C+",
-              "load": "C"
+              "load": "Caug"
             }
           ],
           "chords": [
@@ -268,7 +268,7 @@
           "chordEvents": [
             {
               "display": "F#+/C",
-              "load": "F#"
+              "load": "F#aug"
             }
           ],
           "chords": [
@@ -360,7 +360,7 @@
           "chordEvents": [
             {
               "display": "F-M7/C",
-              "load": "Fm"
+              "load": "FmM7"
             }
           ],
           "chords": [
@@ -399,7 +399,7 @@
           "chordEvents": [
             {
               "display": "BbΔ7#5/C",
-              "load": "Bbmaj7"
+              "load": "Bbmaj7#5"
             }
           ],
           "chords": [
@@ -419,7 +419,7 @@
           "chordEvents": [
             {
               "display": "F-M7/C",
-              "load": "Fm"
+              "load": "FmM7"
             }
           ],
           "chords": [

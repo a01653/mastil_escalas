@@ -65,7 +65,7 @@
             "chordEvents": [
               {
                 "display": "FΔ7#11/E",
-                "load": "Fmaj7"
+                "load": "Fmaj7#11"
               }
             ],
             "repeat": false
@@ -238,7 +238,7 @@
               },
               {
                 "display": "DΔ9",
-                "load": "Dmaj7"
+                "load": "Dmaj9"
               }
             ],
             "repeat": false
@@ -481,7 +481,7 @@
               },
               {
                 "display": "DΔ9",
-                "load": "Dmaj7"
+                "load": "Dmaj9"
               }
             ],
             "repeat": false
@@ -554,7 +554,7 @@
           "chordEvents": [
             {
               "display": "FΔ7#11/E",
-              "load": "Fmaj7"
+              "load": "Fmaj7#11"
             }
           ],
           "chords": [
@@ -747,7 +747,7 @@
             },
             {
               "display": "DΔ9",
-              "load": "Dmaj7"
+              "load": "Dmaj9"
             }
           ],
           "chords": [
@@ -1018,7 +1018,7 @@
             },
             {
               "display": "DΔ9",
-              "load": "Dmaj7"
+              "load": "Dmaj9"
             }
           ],
           "chords": [

@@ -26,7 +26,7 @@
             "chordEvents": [
               {
                 "display": "Gadd9",
-                "load": "G"
+                "load": "Gadd9"
               }
             ],
             "repeat": false
@@ -39,7 +39,7 @@
             "chordEvents": [
               {
                 "display": "G-add b6",
-                "load": "Gm"
+                "load": "Gmadd b6"
               }
             ],
             "repeat": false
@@ -52,7 +52,7 @@
             "chordEvents": [
               {
                 "display": "G6/9",
-                "load": "G6"
+                "load": "G69"
               }
             ],
             "repeat": false
@@ -65,7 +65,7 @@
             "chordEvents": [
               {
                 "display": "G-add b6",
-                "load": "Gm"
+                "load": "Gmadd b6"
               }
             ],
             "repeat": false
@@ -148,7 +148,7 @@
             "chordEvents": [
               {
                 "display": "Gadd9",
-                "load": "G"
+                "load": "Gadd9"
               }
             ],
             "repeat": false
@@ -161,7 +161,7 @@
             "chordEvents": [
               {
                 "display": "G-add b6",
-                "load": "Gm"
+                "load": "Gmadd b6"
               }
             ],
             "repeat": false
@@ -174,7 +174,7 @@
             "chordEvents": [
               {
                 "display": "G6/9",
-                "load": "G6"
+                "load": "G69"
               }
             ],
             "repeat": false
@@ -187,7 +187,7 @@
             "chordEvents": [
               {
                 "display": "G-add b6",
-                "load": "Gm"
+                "load": "Gmadd b6"
               }
             ],
             "repeat": false
@@ -366,7 +366,7 @@
               },
               {
                 "display": "D7b9",
-                "load": "D7"
+                "load": "D7b9"
               }
             ],
             "repeat": false
@@ -387,7 +387,7 @@
             "chordEvents": [
               {
                 "display": "Gadd9",
-                "load": "G"
+                "load": "Gadd9"
               }
             ],
             "repeat": false
@@ -400,7 +400,7 @@
             "chordEvents": [
               {
                 "display": "G-add b6",
-                "load": "Gm"
+                "load": "Gmadd b6"
               }
             ],
             "repeat": false
@@ -413,7 +413,7 @@
             "chordEvents": [
               {
                 "display": "G6/9",
-                "load": "G6"
+                "load": "G69"
               }
             ],
             "repeat": false
@@ -426,7 +426,7 @@
             "chordEvents": [
               {
                 "display": "G-add b6",
-                "load": "Gm"
+                "load": "Gmadd b6"
               }
             ],
             "repeat": false
@@ -488,7 +488,7 @@
             "chordEvents": [
               {
                 "display": "AbΔ9",
-                "load": "Abmaj7"
+                "load": "Abmaj9"
               }
             ],
             "repeat": false
@@ -509,7 +509,7 @@
           "chordEvents": [
             {
               "display": "Gadd9",
-              "load": "G"
+              "load": "Gadd9"
             }
           ],
           "chords": [
@@ -522,7 +522,7 @@
           "chordEvents": [
             {
               "display": "G-add b6",
-              "load": "Gm"
+              "load": "Gmadd b6"
             }
           ],
           "chords": [
@@ -535,7 +535,7 @@
           "chordEvents": [
             {
               "display": "G6/9",
-              "load": "G6"
+              "load": "G69"
             }
           ],
           "chords": [
@@ -548,7 +548,7 @@
           "chordEvents": [
             {
               "display": "G-add b6",
-              "load": "Gm"
+              "load": "Gmadd b6"
             }
           ],
           "chords": [
@@ -637,7 +637,7 @@
           "chordEvents": [
             {
               "display": "Gadd9",
-              "load": "G"
+              "load": "Gadd9"
             }
           ],
           "chords": [
@@ -650,7 +650,7 @@
           "chordEvents": [
             {
               "display": "G-add b6",
-              "load": "Gm"
+              "load": "Gmadd b6"
             }
           ],
           "chords": [
@@ -663,7 +663,7 @@
           "chordEvents": [
             {
               "display": "G6/9",
-              "load": "G6"
+              "load": "G69"
             }
           ],
           "chords": [
@@ -676,7 +676,7 @@
           "chordEvents": [
             {
               "display": "G-add b6",
-              "load": "Gm"
+              "load": "Gmadd b6"
             }
           ],
           "chords": [
@@ -867,7 +867,7 @@
             },
             {
               "display": "D7b9",
-              "load": "D7"
+              "load": "D7b9"
             }
           ],
           "chords": [
@@ -888,7 +888,7 @@
           "chordEvents": [
             {
               "display": "Gadd9",
-              "load": "G"
+              "load": "Gadd9"
             }
           ],
           "chords": [
@@ -901,7 +901,7 @@
           "chordEvents": [
             {
               "display": "G-add b6",
-              "load": "Gm"
+              "load": "Gmadd b6"
             }
           ],
           "chords": [
@@ -914,7 +914,7 @@
           "chordEvents": [
             {
               "display": "G6/9",
-              "load": "G6"
+              "load": "G69"
             }
           ],
           "chords": [
@@ -927,7 +927,7 @@
           "chordEvents": [
             {
               "display": "G-add b6",
-              "load": "Gm"
+              "load": "Gmadd b6"
             }
           ],
           "chords": [
@@ -996,7 +996,7 @@
           "chordEvents": [
             {
               "display": "AbΔ9",
-              "load": "Abmaj7"
+              "load": "Abmaj9"
             }
           ],
           "chords": [

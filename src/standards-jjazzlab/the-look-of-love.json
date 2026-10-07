@@ -52,7 +52,7 @@
             "chordEvents": [
               {
                 "display": "G-add b6",
-                "load": "Gm"
+                "load": "Gmadd b6"
               }
             ],
             "repeat": false
@@ -117,7 +117,7 @@
             "chordEvents": [
               {
                 "display": "D7b9",
-                "load": "D7"
+                "load": "D7b9"
               }
             ],
             "repeat": false
@@ -265,7 +265,7 @@
             "chordEvents": [
               {
                 "display": "D7b9",
-                "load": "D7"
+                "load": "D7b9"
               }
             ],
             "repeat": false
@@ -437,7 +437,7 @@
             "chordEvents": [
               {
                 "display": "Bbadd9/F",
-                "load": "Bb"
+                "load": "Bbadd9"
               }
             ],
             "repeat": false
@@ -523,7 +523,7 @@
             "chordEvents": [
               {
                 "display": "F7sus4b9",
-                "load": "F7sus4"
+                "load": "F7sus4b9"
               }
             ],
             "repeat": false
@@ -544,7 +544,7 @@
             "chordEvents": [
               {
                 "display": "F7sus4b9",
-                "load": "F7sus4"
+                "load": "F7sus4b9"
               }
             ],
             "repeat": false
@@ -612,7 +612,7 @@
           "chordEvents": [
             {
               "display": "G-add b6",
-              "load": "Gm"
+              "load": "Gmadd b6"
             }
           ],
           "chords": [
@@ -684,7 +684,7 @@
           "chordEvents": [
             {
               "display": "D7b9",
-              "load": "D7"
+              "load": "D7b9"
             }
           ],
           "chords": [
@@ -845,7 +845,7 @@
           "chordEvents": [
             {
               "display": "D7b9",
-              "load": "D7"
+              "load": "D7b9"
             }
           ],
           "chords": [
@@ -1029,7 +1029,7 @@
           "chordEvents": [
             {
               "display": "Bbadd9/F",
-              "load": "Bb"
+              "load": "Bbadd9"
             }
           ],
           "chords": [
@@ -1121,7 +1121,7 @@
           "chordEvents": [
             {
               "display": "F7sus4b9",
-              "load": "F7sus4"
+              "load": "F7sus4b9"
             }
           ],
           "chords": [
@@ -1141,7 +1141,7 @@
           "chordEvents": [
             {
               "display": "F7sus4b9",
-              "load": "F7sus4"
+              "load": "F7sus4b9"
             }
           ],
           "chords": [

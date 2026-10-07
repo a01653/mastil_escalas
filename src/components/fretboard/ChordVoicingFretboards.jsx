@@ -67,6 +67,13 @@ export function GuideToneCircle({ pc, isBass, fret = 1, compactOpen = false, col
   );
 }
 
+// Sombreado del rango de trastes elegido (como en Acordes cercanos). Es solo
+// visual: el filtrado de posiciones se hace en la lista de voicings.
+function FretWindowShade({ fret, windowRange }) {
+  if (!windowRange || fret < windowRange.from || fret > windowRange.to) return null;
+  return <div className="pointer-events-none absolute inset-0 z-[2] rounded-lg" style={{ backgroundColor: "rgba(15, 23, 42, 0.04)" }} />;
+}
+
 // ── ChordFretboard ────────────────────────────────────────────────────────────
 
 export function ChordFretboard({
@@ -81,6 +88,7 @@ export function ChordFretboard({
   colors,
   HoverCellNote: HoverCellNoteComponent,
   MobileMainFretboard: MobileMainFretboardComponent,
+  windowRange = null,
 }) {
   const notesMap = useMemo(() => {
     const m = new Map();
@@ -143,6 +151,7 @@ export function ChordFretboard({
                 style={{ backgroundColor: fret === 0 ? "transparent" : FRET_CELL_BG }}
               >
                 {createElement(HoverCellNoteComponent, { sIdx, fret, visible: !item && !isMutedOpen })}
+                <FretWindowShade fret={fret} windowRange={windowRange} />
                 {item ? (
                   <ChordCircle
                     role={roleForPc(item.pc)}
@@ -201,6 +210,7 @@ export function ChordFretboard({
                       style={fretCellStyleForLayout(fret, false, { backgroundColor: FRET_CELL_BG })}
                     >
                       {createElement(HoverCellNoteComponent, { sIdx, fret, visible: !item })}
+                      <FretWindowShade fret={fret} windowRange={windowRange} />
 
                       {hasInlayCell(fret, sIdx) ? (
                         <div
@@ -254,6 +264,7 @@ export function GuideToneFretboard({
   labelForGuideTonePc,
   chordRootPc,
   labelForCellAt,
+  windowRange = null,
 }) {
   const notesMap = useMemo(() => {
     const m = new Map();
@@ -316,6 +327,7 @@ export function GuideToneFretboard({
                 style={{ backgroundColor: fret === 0 ? "transparent" : FRET_CELL_BG }}
               >
                 {createElement(HoverCellNoteComponent, { sIdx, fret, visible: !item && !isMutedOpen })}
+                <FretWindowShade fret={fret} windowRange={windowRange} />
                 {item ? (
                   <GuideToneCircle
                     pc={item.pc}
@@ -368,6 +380,7 @@ export function GuideToneFretboard({
                       style={fretCellStyleForLayout(fret, false, { backgroundColor: FRET_CELL_BG })}
                     >
                       {createElement(HoverCellNoteComponent, { sIdx, fret, visible: !item })}
+                      <FretWindowShade fret={fret} windowRange={windowRange} />
                       {hasInlayCell(fret, sIdx) ? (
                         <div className="pointer-events-none absolute left-1/2 z-0 -translate-x-1/2 -translate-y-1/2" style={{ top: "78%" }}>
                           <div className="h-4 w-4 rounded-full opacity-80" style={{ backgroundColor: FRET_INLAY_BG }} />

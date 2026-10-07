@@ -117,7 +117,7 @@
             "chordEvents": [
               {
                 "display": "C7+",
-                "load": "C7"
+                "load": "C7+"
               }
             ],
             "repeat": false
@@ -130,7 +130,7 @@
             "chordEvents": [
               {
                 "display": "F7#5b9",
-                "load": "F7"
+                "load": "F7#5b9"
               }
             ],
             "repeat": false
@@ -156,7 +156,7 @@
             "chordEvents": [
               {
                 "display": "Eb7b9",
-                "load": "Eb7"
+                "load": "Eb7b9"
               }
             ],
             "repeat": false
@@ -195,7 +195,7 @@
             "chordEvents": [
               {
                 "display": "F7b9",
-                "load": "F7"
+                "load": "F7b9"
               }
             ],
             "repeat": false
@@ -208,7 +208,7 @@
             "chordEvents": [
               {
                 "display": "BbΔ7#5",
-                "load": "Bbmaj7"
+                "load": "Bbmaj7#5"
               }
             ],
             "repeat": false
@@ -255,7 +255,7 @@
             "chordEvents": [
               {
                 "display": "A7b13",
-                "load": "A7"
+                "load": "A7b13"
               }
             ],
             "repeat": false
@@ -313,7 +313,7 @@
             "chordEvents": [
               {
                 "display": "A7b13",
-                "load": "A7"
+                "load": "A7b13"
               },
               {
                 "display": "D-7",
@@ -405,7 +405,7 @@
               },
               {
                 "display": "F#7b9",
-                "load": "F#7"
+                "load": "F#7b9"
               }
             ],
             "repeat": false
@@ -419,7 +419,7 @@
             "chordEvents": [
               {
                 "display": "B13sus",
-                "load": "B7sus4"
+                "load": "B13sus4"
               },
               {
                 "display": "B13",
@@ -467,7 +467,7 @@
             "chordEvents": [
               {
                 "display": "BΔ7#11",
-                "load": "Bmaj7"
+                "load": "Bmaj7#11"
               }
             ],
             "repeat": false
@@ -586,7 +586,7 @@
           "chordEvents": [
             {
               "display": "C7+",
-              "load": "C7"
+              "load": "C7+"
             }
           ],
           "chords": [
@@ -606,7 +606,7 @@
           "chordEvents": [
             {
               "display": "F7#5b9",
-              "load": "F7"
+              "load": "F7#5b9"
             }
           ],
           "chords": [
@@ -632,7 +632,7 @@
           "chordEvents": [
             {
               "display": "Eb7b9",
-              "load": "Eb7"
+              "load": "Eb7b9"
             }
           ],
           "chords": [
@@ -678,7 +678,7 @@
           "chordEvents": [
             {
               "display": "F7b9",
-              "load": "F7"
+              "load": "F7b9"
             }
           ],
           "chords": [
@@ -691,7 +691,7 @@
           "chordEvents": [
             {
               "display": "BbΔ7#5",
-              "load": "Bbmaj7"
+              "load": "Bbmaj7#5"
             }
           ],
           "chords": [
@@ -737,7 +737,7 @@
           "chordEvents": [
             {
               "display": "A7b13",
-              "load": "A7"
+              "load": "A7b13"
             }
           ],
           "chords": [
@@ -801,7 +801,7 @@
           "chordEvents": [
             {
               "display": "A7b13",
-              "load": "A7"
+              "load": "A7b13"
             },
             {
               "display": "D-7",
@@ -900,7 +900,7 @@
             },
             {
               "display": "F#7b9",
-              "load": "F#7"
+              "load": "F#7b9"
             }
           ],
           "chords": [
@@ -921,7 +921,7 @@
           "chordEvents": [
             {
               "display": "B13sus",
-              "load": "B7sus4"
+              "load": "B13sus4"
             },
             {
               "display": "B13",
@@ -970,7 +970,7 @@
           "chordEvents": [
             {
               "display": "BΔ7#11",
-              "load": "Bmaj7"
+              "load": "Bmaj7#11"
             }
           ],
           "chords": [

@@ -53,8 +53,9 @@ describe("buildChordExtensionTogglePatch — la 7ª nunca se apaga", () => {
   });
 
   test("desactivar una extensión no toca las demás", () => {
+    // Al apagar la 9 su variante vuelve a natural: no queda una b9/#9 oculta.
     expect(buildChordExtensionTogglePatch({ structure: "tetrad", omit: "none", ext: "9", value: false }))
-      .toEqual({ ext9: false });
+      .toEqual({ ext9: false, ninth: "9" });
     expect(buildChordExtensionTogglePatch({ structure: "tetrad", omit: "5", ext: "13", value: false }))
       .toEqual({ ext13: false });
   });

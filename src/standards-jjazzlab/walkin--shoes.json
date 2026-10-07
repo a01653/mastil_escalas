@@ -115,7 +115,7 @@
             "chordEvents": [
               {
                 "display": "G-add b6",
-                "load": "Gm"
+                "load": "Gmadd b6"
               },
               {
                 "display": "Gb-7",
@@ -142,7 +142,7 @@
               },
               {
                 "display": "E7#9",
-                "load": "E7"
+                "load": "E7#9"
               }
             ],
             "repeat": false
@@ -252,7 +252,7 @@
             "chordEvents": [
               {
                 "display": "G-add b6",
-                "load": "Gm"
+                "load": "Gmadd b6"
               },
               {
                 "display": "Gb-7",
@@ -272,7 +272,7 @@
             "chordEvents": [
               {
                 "display": "E7#9",
-                "load": "E7"
+                "load": "E7#9"
               },
               {
                 "display": "F-",
@@ -435,7 +435,7 @@
               },
               {
                 "display": "Ao7",
-                "load": "Adim7"
+                "load": "A°7"
               }
             ],
             "repeat": false
@@ -649,7 +649,7 @@
           "chordEvents": [
             {
               "display": "G-add b6",
-              "load": "Gm"
+              "load": "Gmadd b6"
             },
             {
               "display": "Gb-7",
@@ -675,7 +675,7 @@
             },
             {
               "display": "E7#9",
-              "load": "E7"
+              "load": "E7#9"
             }
           ],
           "chords": [
@@ -792,7 +792,7 @@
           "chordEvents": [
             {
               "display": "G-add b6",
-              "load": "Gm"
+              "load": "Gmadd b6"
             },
             {
               "display": "Gb-7",
@@ -810,7 +810,7 @@
           "chordEvents": [
             {
               "display": "E7#9",
-              "load": "E7"
+              "load": "E7#9"
             },
             {
               "display": "F-",
@@ -980,7 +980,7 @@
             },
             {
               "display": "Ao7",
-              "load": "Adim7"
+              "load": "A°7"
             }
           ],
           "chords": [

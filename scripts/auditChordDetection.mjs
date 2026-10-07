@@ -15,6 +15,10 @@
  *   m7b5-incomplete  — nombre "Xm7b5" pero sin b3/b5/b7 visibles
  *   slash-mismatch   — slash /X no coincide con bassPc de la lectura
  *   dedup-failure    — dos lecturas con mismo root/bajo/intervalos/missing
+ *   altered-copy-loss      — la lectura es copiable pero Acordes perdería o añadiría notas
+ *   dominant-addb2         — dominante con b2 nombrada "addb2" en lugar de b9
+ *   altered-label-mismatch — #9/b9/#5 de la copia sin su grado funcional en la lectura
+ *   altered-name-mismatch  — alteración de la copia ausente del nombre
  *
  * Invariantes (WARNING):
  *   contradictory-no3 — calidad minor/dim/hdim y "(no3)" en nombre
@@ -29,11 +33,16 @@
 import {
   analyzeSelectedNotes,
   detectChordReadings,
+  detectOmitFromCandidate,
   mod12,
   noteNameToPc,
   pcToName,
   preferSharpsFromMajorTonicPc,
 } from "../src/music/chordDetectionEngine.js";
+import { buildChordToneDefinition, normalizeChordUiSpec } from "../src/music/appMusicBasics.js";
+import { isAlteredChordFifth, isAlteredChordNinth } from "../src/music/chordAlterations.js";
+
+let alteredReadingsChecked = 0;
 
 // ─── Guitarra ─────────────────────────────────────────────────────────────
 
@@ -186,6 +195,9 @@ function checkInvariants(reading, label, errors, warnings) {
     }
   }
 
+  // 5. Alteraciones de quinta/novena: la copia reproduce la lectura sin perder nada.
+  checkAlterationInvariants(reading, label, errors);
+
   // W1. Calidad menor con (no3) en nombre
   if (q && ["min", "dim", "hdim"].includes(q) && /\(no[b#]?3\)/.test(name)) {
     warnings.push({
@@ -203,6 +215,47 @@ function checkInvariants(reading, label, errors, warnings) {
   }
 }
 
+function checkAlterationInvariants(reading, label, errors) {
+  const name = reading.name ?? "";
+  const labels = reading.formula?.degreeLabels || [];
+  const intervals = (reading.formula?.intervals || []).map(mod12);
+  const labelOf = (interval) => labels[intervals.indexOf(interval)];
+  const q = reading.uiPatch?.quality || reading.formula?.ui?.quality;
+
+  if (q === "dom" && /addb2/.test(name) && intervals.includes(4) && intervals.includes(10)) {
+    errors.push({ rule: "dominant-addb2", label, name, detail: "la b2 de un dominante debe nombrarse b9" });
+  }
+
+  const patch = reading.uiPatch;
+  if (!patch || patch.family || reading.formula?.quartal) return;
+  const omit = detectOmitFromCandidate(reading);
+  const spec = normalizeChordUiSpec({ ...patch, omit });
+  const fifthAltered = isAlteredChordFifth(spec.fifth, spec.quality, spec.suspension);
+  const ninthAltered = isAlteredChordNinth(spec.ninth);
+  if (fifthAltered || ninthAltered) alteredReadingsChecked++;
+
+  const sounding = [...new Set((reading.visibleIntervals || []).map(mod12))];
+  const missing = (reading.missingLabels || []).map((l) => intervals[labels.indexOf(l)]).filter((x) => x != null);
+  const built = buildChordToneDefinition(spec).intervals;
+  const lost = sounding.filter((i) => !built.includes(i));
+  const invented = built.filter((i) => !sounding.includes(i) && !missing.includes(i));
+  if (lost.length || invented.length) {
+    errors.push({ rule: "altered-copy-loss", label, name, detail: `suena [${sounding}] y Acordes construiría [${built}] (pierde [${lost}], añade [${invented}])` });
+  }
+
+  if (fifthAltered) {
+    const interval = spec.fifth === "#5" ? 8 : 6;
+    if (labelOf(interval) !== spec.fifth) errors.push({ rule: "altered-label-mismatch", label, name, detail: `quinta ${spec.fifth} etiquetada "${labelOf(interval)}"` });
+    const named = spec.fifth === "#5" ? /#5|aug/.test(name) : /b5/.test(name);
+    if (!named) errors.push({ rule: "altered-name-mismatch", label, name, detail: `quinta ${spec.fifth} no aparece en el nombre` });
+  }
+  if (ninthAltered) {
+    const interval = spec.ninth === "#9" ? 3 : 1;
+    if (labelOf(interval) !== spec.ninth) errors.push({ rule: "altered-label-mismatch", label, name, detail: `novena ${spec.ninth} etiquetada "${labelOf(interval)}"` });
+    if (!name.includes(spec.ninth)) errors.push({ rule: "altered-name-mismatch", label, name, detail: `novena ${spec.ninth} no aparece en el nombre` });
+  }
+}
+
 // ─── Auditoría de deduplicación ───────────────────────────────────────────
 
 function contentKey(r) {
@@ -212,7 +265,31 @@ function contentKey(r) {
     r.preferSharps ? "s" : "f",
     (r.visibleIntervals || []).slice().sort((a, b) => a - b).join(","),
     (r.missingLabels   || []).slice().sort().join(","),
+    // Lectura alternativa ♭13 sin 5ª: coexiste a propósito con la de ♯5 (mismas notas).
+    r.formula?.flatThirteenthAlternative ? "b13alt" : "",
+    // Y la alternativa ♯5 menor (m7(#5)) junto a su lectura ♭13 (m7(b13,no5)).
+    r.formula?.sharpFifthAlternative ? "s5alt" : "",
   ].join("|");
+}
+
+// Alternativa ♯5 menor: va justo detrás de su lectura ♭13/♭6 (misma raíz, bajo y
+// notas), es copiable con ♯5 y nunca aparece si suena la 5ª justa.
+let sharpFifthAlternativesChecked = 0;
+function checkSharpFifthAlternatives(readings, label, errors) {
+  readings.forEach((r, idx) => {
+    if (!r.formula?.sharpFifthAlternative) return;
+    sharpFifthAlternativesChecked++;
+    const prev = readings[idx - 1];
+    const sameNotes = (a, b) => (a.visibleIntervals || []).slice().sort((x, y) => x - y).join(",") === (b.visibleIntervals || []).slice().sort((x, y) => x - y).join(",");
+    const prevIdx8 = (prev?.formula?.intervals || []).findIndex((i) => ((i % 12) + 12) % 12 === 8);
+    const prevLabel = prevIdx8 >= 0 ? prev.formula.degreeLabels[prevIdx8] : "";
+    if (!prev || prev.rootPc !== r.rootPc || prev.bassPc !== r.bassPc || !sameNotes(prev, r) || !["b13", "b6"].includes(prevLabel)) {
+      errors.push({ rule: "sharp5-alt-placement", label, name: r.name, detail: `no va justo detrás de su lectura ♭13 (anterior: ${prev?.name ?? "ninguna"})` });
+    }
+    if (idx === 0) errors.push({ rule: "sharp5-alt-primary", label, name: r.name, detail: "la alternativa ♯5 no puede ser la lectura principal" });
+    if ((r.visibleIntervals || []).some((i) => ((i % 12) + 12) % 12 === 7)) errors.push({ rule: "sharp5-alt-with-fifth", label, name: r.name, detail: "ofrecida con 5ª justa" });
+    if (r.uiPatch?.fifth !== "#5") errors.push({ rule: "sharp5-alt-copy", label, name: r.name, detail: `copia con quinta ${r.uiPatch?.fifth ?? "null"}` });
+  });
 }
 
 const COEXISTENCE_PAIRS = new Set([
@@ -279,6 +356,7 @@ for (const noteCount of [3, 4, 5, 6]) {
       checkInvariants(r, label, errors, warnings);
     }
     checkDedup(result.readings, label, errors);
+    checkSharpFifthAlternatives(result.readings, label, errors);
   }
 }
 
@@ -301,6 +379,8 @@ if (USE_CACHE) {
   console.log(`  Análisis realizados : ${(totalVoicings - totalSkipped).toLocaleString()}`);
 }
 console.log(`  Candidatos revisados: ${totalCandidates.toLocaleString()}`);
+console.log(`  Lecturas copiables con quinta/novena alterada verificadas: ${alteredReadingsChecked.toLocaleString()}`);
+console.log(`  Alternativas ♯5 menores verificadas: ${sharpFifthAlternativesChecked.toLocaleString()}`);
 console.log(`  Sin lectura         : ${totalSkipped}`);
 console.log(`  Tiempo              : ${elapsed}s`);
 console.log(`  ERRORES             : ${errors.length}`);

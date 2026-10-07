@@ -11,7 +11,7 @@ const {
   pcToName,
   pitchAt,
   spellNoteFromChordInterval,
-  CHORD_QUALITIES,
+  CHORD_STORED_QUALITY_VALUES,
   CHORD_STRUCTURES,
   CHORD_FAMILIES,
   CHORD_QUARTAL_TYPES,
@@ -36,6 +36,7 @@ const {
 } = AppMusicBasics;
 
 import * as AppVoicingStudyCore from "./appVoicingStudyCore.js";
+import { isChordFifthValue, isChordNinthValue } from "./chordAlterations.js";
 
 // --------------------------------------------------------------------------
 // BLOQUE: PATRONES Y FORMAS SOBRE EL MÁSTIL
@@ -779,7 +780,7 @@ export function sanitizeNearSlotValue(value, fallback) {
     enabled: sanitizeBoolValue(slot.enabled, fallback.enabled),
     family: sanitizeOneOf(slot.family, CHORD_FAMILIES.map((x) => x.value), fallback.family || "tertian"),
     rootPc: sanitizeNumberValue(slot.rootPc, fallback.rootPc, 0, 11),
-    quality: sanitizeOneOf(slot.quality, CHORD_QUALITIES.map((q) => q.value), fallback.quality),
+    quality: sanitizeOneOf(slot.quality, CHORD_STORED_QUALITY_VALUES, fallback.quality),
     suspension: sanitizeOneOf(slot.suspension, ["none", "sus2", "sus4"], fallback.suspension),
     structure: sanitizeOneOf(slot.structure, CHORD_STRUCTURES.map((s) => s.value), fallback.structure),
     inversion: sanitizeOneOf(slot.inversion, CHORD_INVERSIONS.map((x) => x.value), fallback.inversion),
@@ -790,6 +791,11 @@ export function sanitizeNearSlotValue(value, fallback) {
     ext9: sanitizeBoolValue(slot.ext9, fallback.ext9),
     ext11: sanitizeBoolValue(slot.ext11, fallback.ext11),
     ext13: sanitizeBoolValue(slot.ext13, fallback.ext13),
+    // Alteraciones: si el slot guardado no las trae (configuración antigua) se dejan
+    // sin definir para que valgan los defaults de su calidad; nunca se heredan del
+    // slot previo, que podría ser otro acorde.
+    fifth: isChordFifthValue(slot.fifth) ? slot.fifth : undefined,
+    ninth: isChordNinthValue(slot.ninth) ? slot.ninth : undefined,
     quartalType: sanitizeOneOf(slot.quartalType, CHORD_QUARTAL_TYPES.map((x) => x.value), fallback.quartalType || "pure"),
     quartalVoices: sanitizeOneOf(String(slot.quartalVoices ?? ""), CHORD_QUARTAL_VOICES.map((x) => x.value), fallback.quartalVoices || "4"),
     quartalSpread: sanitizeOneOf(slot.quartalSpread, CHORD_QUARTAL_SPREADS.map((x) => x.value), fallback.quartalSpread || "closed"),
@@ -2550,6 +2556,9 @@ export function buildMusicStaffSvgMarkup({ events, preferSharps, clefMode = "gui
 
 export function studyRoleFromPlanInterval(interval, plan) {
   const safeInterval = mod12(interval);
+  // Rol de la definición común cuando el plan la trae (#9 = novena, #5 = quinta, bb7 = séptima).
+  const planIdx = Array.isArray(plan?.toneRoles) ? (plan.intervals || []).findIndex((x) => mod12(x) === safeInterval) : -1;
+  if (planIdx >= 0 && plan.toneRoles[planIdx]) return plan.toneRoles[planIdx];
   if (safeInterval === 0) return "root";
   if (safeInterval === mod12(plan?.thirdOffset ?? 4)) return "third";
   if (safeInterval === mod12(plan?.fifthOffset ?? 7)) return "fifth";
@@ -2563,8 +2572,11 @@ export function studyRoleFromPlanInterval(interval, plan) {
 
 export function buildStudyDisplayLabelForPc({ pc, rootPc, preferSharps, plan, showIntervalsLabel, showNotesLabel }) {
   const interval = mod12(pc - rootPc);
-  const note = spellNoteFromChordInterval(rootPc, interval, preferSharps);
-  const degree = intervalToChordToken(interval, {
+  const planLabel = plan?.degreeLabels ? AppVoicingStudyCore.planDegreeLabelForInterval(plan, interval) : null;
+  const note = planLabel
+    ? spellChordNotes({ rootPc, chordIntervals: [interval], preferSharps, degreeLabels: [planLabel] })[0]
+    : spellNoteFromChordInterval(rootPc, interval, preferSharps);
+  const degree = planLabel || intervalToChordToken(interval, {
     ext6: !!plan?.ext6,
     ext9: !!plan?.ext9 && plan?.structure !== "triad",
     ext11: !!plan?.ext11 && plan?.structure !== "triad",
@@ -2580,10 +2592,14 @@ export function buildStudyDisplayLabelForPc({ pc, rootPc, preferSharps, plan, sh
 export function buildStudyBadgeItemsFromPlan({ rootPc, preferSharps, plan }) {
   if (!plan?.intervals?.length) return [];
   const safeIntervals = Array.from(new Set(plan.intervals.map(mod12))).sort((a, b) => a - b);
-  const notes = spellChordNotes({ rootPc, chordIntervals: safeIntervals, preferSharps });
+  const degreeLabels = plan.degreeLabels
+    ? safeIntervals.map((interval) => AppVoicingStudyCore.planDegreeLabelForInterval(plan, interval))
+    : null;
+  const notes = spellChordNotes({ rootPc, chordIntervals: safeIntervals, preferSharps, degreeLabels });
   return buildChordBadgeItems({
     notes,
     intervals: safeIntervals,
+    degreeLabels,
     ext6: !!plan.ext6,
     ext9: !!plan.ext9,
     ext11: !!plan.ext11,

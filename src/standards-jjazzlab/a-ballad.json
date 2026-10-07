@@ -67,7 +67,7 @@
               },
               {
                 "display": "F#7#9",
-                "load": "F#7"
+                "load": "F#7#9"
               }
             ],
             "repeat": false
@@ -98,7 +98,7 @@
               },
               {
                 "display": "A7#5b9",
-                "load": "A7"
+                "load": "A7#5b9"
               }
             ],
             "repeat": false
@@ -116,7 +116,7 @@
               },
               {
                 "display": "B7b9",
-                "load": "B7"
+                "load": "B7b9"
               }
             ],
             "repeat": false
@@ -152,7 +152,7 @@
               },
               {
                 "display": "B7b13",
-                "load": "B7"
+                "load": "B7b13"
               }
             ],
             "repeat": false
@@ -188,7 +188,7 @@
               },
               {
                 "display": "Fo7",
-                "load": "Fdim7"
+                "load": "F°7"
               }
             ],
             "repeat": false
@@ -268,7 +268,7 @@
               },
               {
                 "display": "F#7#9",
-                "load": "F#7"
+                "load": "F#7#9"
               }
             ],
             "repeat": false
@@ -299,7 +299,7 @@
               },
               {
                 "display": "A7#5b9",
-                "load": "A7"
+                "load": "A7#5b9"
               }
             ],
             "repeat": false
@@ -317,7 +317,7 @@
               },
               {
                 "display": "B7b9",
-                "load": "B7"
+                "load": "B7b9"
               }
             ],
             "repeat": false
@@ -353,7 +353,7 @@
               },
               {
                 "display": "A7b9",
-                "load": "A7"
+                "load": "A7b9"
               }
             ],
             "repeat": false
@@ -371,7 +371,7 @@
               },
               {
                 "display": "F-M7",
-                "load": "Fm"
+                "load": "FmM7"
               }
             ],
             "repeat": false
@@ -389,7 +389,7 @@
               },
               {
                 "display": "Ebo7",
-                "load": "Ebdim7"
+                "load": "Eb°7"
               }
             ],
             "repeat": false
@@ -464,7 +464,7 @@
               },
               {
                 "display": "Gbo7",
-                "load": "Gbdim7"
+                "load": "Gb°7"
               }
             ],
             "repeat": false
@@ -482,7 +482,7 @@
               },
               {
                 "display": "Bb7b9",
-                "load": "Bb7"
+                "load": "Bb7b9"
               }
             ],
             "repeat": false
@@ -549,7 +549,7 @@
               },
               {
                 "display": "Ab7b9",
-                "load": "Ab7"
+                "load": "Ab7b9"
               }
             ],
             "repeat": false
@@ -634,7 +634,7 @@
               },
               {
                 "display": "F#7#9",
-                "load": "F#7"
+                "load": "F#7#9"
               }
             ],
             "repeat": false
@@ -665,7 +665,7 @@
               },
               {
                 "display": "A7#5b9",
-                "load": "A7"
+                "load": "A7#5b9"
               }
             ],
             "repeat": false
@@ -683,7 +683,7 @@
               },
               {
                 "display": "B7b9",
-                "load": "B7"
+                "load": "B7b9"
               }
             ],
             "repeat": false
@@ -719,7 +719,7 @@
               },
               {
                 "display": "B7b9",
-                "load": "B7"
+                "load": "B7b9"
               }
             ],
             "repeat": false
@@ -755,7 +755,7 @@
               },
               {
                 "display": "Fo7",
-                "load": "Fdim7"
+                "load": "F°7"
               }
             ],
             "repeat": false
@@ -830,7 +830,7 @@
               },
               {
                 "display": "A7#9",
-                "load": "A7"
+                "load": "A7#9"
               }
             ],
             "repeat": false
@@ -844,11 +844,11 @@
             "chordEvents": [
               {
                 "display": "A7#9",
-                "load": "A7"
+                "load": "A7#9"
               },
               {
                 "display": "Ab7#9",
-                "load": "Ab7"
+                "load": "Ab7#9"
               }
             ],
             "repeat": false
@@ -866,7 +866,7 @@
               },
               {
                 "display": "CΔ9",
-                "load": "Cmaj7"
+                "load": "Cmaj9"
               }
             ],
             "repeat": false
@@ -927,7 +927,7 @@
             },
             {
               "display": "F#7#9",
-              "load": "F#7"
+              "load": "F#7#9"
             }
           ],
           "chords": [
@@ -965,7 +965,7 @@
             },
             {
               "display": "A7#5b9",
-              "load": "A7"
+              "load": "A7#5b9"
             }
           ],
           "chords": [
@@ -983,7 +983,7 @@
             },
             {
               "display": "B7b9",
-              "load": "B7"
+              "load": "B7b9"
             }
           ],
           "chords": [
@@ -1019,7 +1019,7 @@
             },
             {
               "display": "B7b13",
-              "load": "B7"
+              "load": "B7b13"
             }
           ],
           "chords": [
@@ -1062,7 +1062,7 @@
             },
             {
               "display": "Fo7",
-              "load": "Fdim7"
+              "load": "F°7"
             }
           ],
           "chords": [
@@ -1141,7 +1141,7 @@
             },
             {
               "display": "F#7#9",
-              "load": "F#7"
+              "load": "F#7#9"
             }
           ],
           "chords": [
@@ -1179,7 +1179,7 @@
             },
             {
               "display": "A7#5b9",
-              "load": "A7"
+              "load": "A7#5b9"
             }
           ],
           "chords": [
@@ -1197,7 +1197,7 @@
             },
             {
               "display": "B7b9",
-              "load": "B7"
+              "load": "B7b9"
             }
           ],
           "chords": [
@@ -1233,7 +1233,7 @@
             },
             {
               "display": "A7b9",
-              "load": "A7"
+              "load": "A7b9"
             }
           ],
           "chords": [
@@ -1258,7 +1258,7 @@
             },
             {
               "display": "F-M7",
-              "load": "Fm"
+              "load": "FmM7"
             }
           ],
           "chords": [
@@ -1276,7 +1276,7 @@
             },
             {
               "display": "Ebo7",
-              "load": "Ebdim7"
+              "load": "Eb°7"
             }
           ],
           "chords": [
@@ -1350,7 +1350,7 @@
             },
             {
               "display": "Gbo7",
-              "load": "Gbdim7"
+              "load": "Gb°7"
             }
           ],
           "chords": [
@@ -1368,7 +1368,7 @@
             },
             {
               "display": "Bb7b9",
-              "load": "Bb7"
+              "load": "Bb7b9"
             }
           ],
           "chords": [
@@ -1442,7 +1442,7 @@
             },
             {
               "display": "Ab7b9",
-              "load": "Ab7"
+              "load": "Ab7b9"
             }
           ],
           "chords": [
@@ -1526,7 +1526,7 @@
             },
             {
               "display": "F#7#9",
-              "load": "F#7"
+              "load": "F#7#9"
             }
           ],
           "chords": [
@@ -1564,7 +1564,7 @@
             },
             {
               "display": "A7#5b9",
-              "load": "A7"
+              "load": "A7#5b9"
             }
           ],
           "chords": [
@@ -1582,7 +1582,7 @@
             },
             {
               "display": "B7b9",
-              "load": "B7"
+              "load": "B7b9"
             }
           ],
           "chords": [
@@ -1618,7 +1618,7 @@
             },
             {
               "display": "B7b9",
-              "load": "B7"
+              "load": "B7b9"
             }
           ],
           "chords": [
@@ -1661,7 +1661,7 @@
             },
             {
               "display": "Fo7",
-              "load": "Fdim7"
+              "load": "F°7"
             }
           ],
           "chords": [
@@ -1735,7 +1735,7 @@
             },
             {
               "display": "A7#9",
-              "load": "A7"
+              "load": "A7#9"
             }
           ],
           "chords": [
@@ -1749,11 +1749,11 @@
           "chordEvents": [
             {
               "display": "A7#9",
-              "load": "A7"
+              "load": "A7#9"
             },
             {
               "display": "Ab7#9",
-              "load": "Ab7"
+              "load": "Ab7#9"
             }
           ],
           "chords": [
@@ -1771,7 +1771,7 @@
             },
             {
               "display": "CΔ9",
-              "load": "Cmaj7"
+              "load": "Cmaj9"
             }
           ],
           "chords": [

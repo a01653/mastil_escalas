@@ -1,5 +1,6 @@
 /**
- * Auditoría del Modo Estudio — 12 casos en C Mayor.
+ * Auditoría del Modo Estudio — casos en C Mayor (incluye quinta/novena alteradas
+ * con planes reales del motor: los grados #9/#5/b9/bb7 no deben leerse como b3/b13/b2/6).
  *
  * Recorre los casos de regresión y reporta para cada uno:
  *   - acorde y escala activa
@@ -19,7 +20,19 @@ import {
   buildBackdoorDominantInfo,
   buildStudySubstitutionGuide,
   buildStudyChordSpecFromUi,
+  buildChordEnginePlan,
+  buildChordNamingExplanation,
 } from "../src/music/appVoicingStudyCore.js";
+
+// Plan real del motor (mismo que usa el Modo estudio) para un estado de la UI.
+function enginePlan(rootPc, state) {
+  return buildChordEnginePlan({
+    rootPc, suspension: "none", ext6: false, ext7: false, ext9: false, ext11: false, ext13: false,
+    omit: "none", inversion: "all", form: "open", ...state,
+  });
+}
+
+const outOfScale = (compat, label) => compat.notesOutOfScale.find((n) => n.intervalLabel === label);
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
 
@@ -368,6 +381,129 @@ const CASES = [
       return errors;
     },
   },
+
+  // ── Quinta y novena alteradas (planes reales del motor) ────────────────────
+  {
+    id: 13,
+    label: "G7(b9) en C Mayor",
+    voicing: "3x3434",
+    rootPc: G,
+    name: "G7(b9)",
+    plan: enginePlan(G, { quality: "dom", structure: "chord", ext7: true, ext9: true, ninth: "b9" }),
+    ps: true,
+    expectedDiatonic: false,
+    expectedDominant: true,
+    expectedFunction: "V7(b9) de C Mayor (b9 fuera de escala)",
+    checks: (compat, isDom, sections, plan) => {
+      const errors = [];
+      if (compat.isDiatonic) errors.push("FALLO: G7(b9) no es diatónico (Ab)");
+      const b9 = outOfScale(compat, "b9");
+      if (b9?.name !== "Ab") errors.push(`FALLO: la b9 debe mostrarse como Ab (b9), obtenido: ${JSON.stringify(compat.notesOutOfScale)}`);
+      if (outOfScale(compat, "b2")) errors.push("FALLO: la b9 aparece como b2");
+      if (!isDom) errors.push("FALLO: G7(b9) debe ser dominante");
+      const tritone = findItem(sections, "Sustitución tritonal");
+      const tritText = tritone?.subBlocks?.[0]?.derivation?.join(" ") ?? tritone?.derivation?.join(" ") ?? "";
+      if (!tritText.includes("Db7")) errors.push("FALLO: tritono de G7(b9) debe ser Db7");
+      if (!buildChordNamingExplanation(plan).some((line) => line.includes("♭9"))) errors.push("FALLO: la explicación del nombre no menciona la ♭9");
+      return errors;
+    },
+  },
+  {
+    id: 14,
+    label: "G7(#9) en C Mayor",
+    voicing: "3x3436",
+    rootPc: G,
+    name: "G7(#9)",
+    plan: enginePlan(G, { quality: "dom", structure: "chord", ext7: true, ext9: true, ninth: "#9" }),
+    ps: true,
+    expectedDiatonic: false,
+    expectedDominant: true,
+    expectedFunction: "V7(#9) de C Mayor (#9 fuera de escala, 3ª mayor conservada)",
+    checks: (compat, isDom) => {
+      const errors = [];
+      const sharp9 = outOfScale(compat, "#9");
+      if (sharp9?.name !== "A#") errors.push(`FALLO: la #9 debe mostrarse como A# (#9), no como b3: ${JSON.stringify(compat.notesOutOfScale)}`);
+      if (outOfScale(compat, "b3")) errors.push("FALLO: la #9 se lee como b3");
+      if (!compat.notesInScale.includes("B")) errors.push("FALLO: la 3ª mayor (B) debe conservarse");
+      if (!isDom) errors.push("FALLO: G7(#9) debe ser dominante");
+      return errors;
+    },
+  },
+  {
+    id: 15,
+    label: "G7(#5,b9) (= G+7(b9)) en C Mayor",
+    voicing: "3x3444",
+    rootPc: G,
+    name: "G7(#5,b9)",
+    plan: enginePlan(G, { quality: "dom", structure: "chord", ext7: true, ext9: true, fifth: "#5", ninth: "b9" }),
+    ps: true,
+    expectedDiatonic: false,
+    expectedDominant: true,
+    expectedFunction: "V7 alterado de C Mayor (#5 y b9 fuera de escala)",
+    checks: (compat, isDom, sections, plan) => {
+      const errors = [];
+      if (outOfScale(compat, "#5")?.name !== "D#") errors.push(`FALLO: la #5 debe mostrarse como D# (#5), no como b13/b6: ${JSON.stringify(compat.notesOutOfScale)}`);
+      if (outOfScale(compat, "b9")?.name !== "Ab") errors.push("FALLO: la b9 debe mostrarse como Ab (b9)");
+      if (outOfScale(compat, "b6") || outOfScale(compat, "b13")) errors.push("FALLO: la #5 se lee como b6/b13");
+      if (!isDom) errors.push("FALLO: G7(#5,b9) debe ser dominante");
+      if (!buildChordNamingExplanation(plan).some((line) => line.includes("♯5"))) errors.push("FALLO: la explicación del nombre no menciona la quinta aumentada");
+      return errors;
+    },
+  },
+  {
+    id: 16,
+    label: "Bm7(b5) en C Mayor",
+    voicing: "x2323x",
+    rootPc: B,
+    name: "Bm7(b5)",
+    plan: enginePlan(B, { quality: "hdim", structure: "tetrad", ext7: true }),
+    ps: true,
+    expectedDiatonic: true,
+    expectedDominant: false,
+    expectedFunction: "VIIm7(b5) de C Mayor",
+    checks: (compat, isDom) => {
+      const errors = [];
+      if (!compat.isDiatonic) errors.push(`FALLO: Bm7(b5) es diatónico en C Mayor: ${JSON.stringify(compat.notesOutOfScale)}`);
+      if (isDom) errors.push("FALLO: Bm7(b5) no es dominante");
+      return errors;
+    },
+  },
+  {
+    id: 17,
+    label: "Bdim7 en C Mayor",
+    voicing: "x2313x",
+    rootPc: B,
+    name: "Bdim7",
+    plan: enginePlan(B, { quality: "dim", structure: "tetrad", ext7: true }),
+    ps: true,
+    expectedDiatonic: false,
+    expectedDominant: false,
+    expectedFunction: "VIIdim7 (préstamo de C menor armónica): bb7 = Ab",
+    checks: (compat) => {
+      const errors = [];
+      const bb7 = outOfScale(compat, "bb7");
+      if (bb7?.name !== "Ab") errors.push(`FALLO: la bb7 debe mostrarse como Ab (bb7), no como 6: ${JSON.stringify(compat.notesOutOfScale)}`);
+      if (outOfScale(compat, "6")) errors.push("FALLO: la bb7 se lee como 6");
+      return errors;
+    },
+  },
+  {
+    id: 18,
+    label: "D7sus4 en C Mayor",
+    voicing: "x5758x",
+    rootPc: D,
+    name: "D7sus4",
+    plan: enginePlan(D, { quality: "dom", suspension: "sus4", structure: "tetrad", ext7: true }),
+    ps: true,
+    expectedDiatonic: true,
+    expectedDominant: false,
+    expectedFunction: "IIsus (Re–Sol–La–Do), sin 3ª",
+    checks: (compat) => {
+      const errors = [];
+      if (!compat.isDiatonic) errors.push(`FALLO: D7sus4 (D G A C) es diatónico en C Mayor: ${JSON.stringify(compat.notesOutOfScale)}`);
+      return errors;
+    },
+  },
 ];
 
 // ─── Ejecutor ─────────────────────────────────────────────────────────────────
@@ -383,7 +519,7 @@ let totalErrors = 0;
 let totalCases = 0;
 let passedCases = 0;
 
-console.log(`\n${BOLD}═══ Auditoría Modo Estudio — 12 casos en C Mayor ═══${RESET}\n`);
+console.log(`\n${BOLD}═══ Auditoría Modo Estudio — ${CASES.length} casos en C Mayor ═══${RESET}\n`);
 
 for (const c of CASES) {
   totalCases++;
@@ -395,11 +531,13 @@ for (const c of CASES) {
     scaleName: "Mayor",
     chordName: c.name,
     preferSharps: c.ps,
+    // Grados funcionales del plan real (como en StudyPanel) cuando existen.
+    degreeLabels: c.plan.degreeLabels || null,
   });
   const isDom = isStudyDominantChord(c.plan);
   const sections = buildGuide(c.rootPc, c.name, c.plan, c.ps);
 
-  const errors = c.checks(compatResult, isDom, sections);
+  const errors = c.checks(compatResult, isDom, sections, c.plan);
   const ok = errors.length === 0;
 
   const status = ok ? `${GREEN}✓ OK${RESET}` : `${RED}✗ ${errors.length} error(es)${RESET}`;

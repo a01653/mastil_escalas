@@ -29,9 +29,16 @@
  *   expectQuality: string   — "maj" | "dom" | "min" | "minmaj7" | ...
  *   expectExt7/9/11/13: bool
  *   expectOmit: string      — "none" | "5" | "3" | "1"
+ *   expectFifth: string     — "b5" | "5" | "#5" (alteración normalizada de la copia)
+ *   expectNinth: string     — "b9" | "9" | "#9"
+ *   expectFollows: string   — el candidato va inmediatamente detrás de esa lectura
+ *   expectNoCandidateMatching: RegExp — ninguna lectura puede encajar con el patrón
  *
- * Invariante global (automática en todos los casos):
- *   Ningún candidato con uiPatch puede tener structure="tetrad" sin ext7 ni ext6.
+ * Invariantes globales (automáticas en todos los casos):
+ *   - Ningún candidato con uiPatch puede tener structure="tetrad" sin ext7 ni ext6.
+ *   - ALTERATION_LOST: toda lectura copiable reproduce en el constructor exactamente
+ *     sus notas (ni pierde una alteración ni añade notas, salvo los grados que la
+ *     propia lectura declara ausentes).
  *
  * Uso:
  *   npm run audit:copy-readings
@@ -47,6 +54,7 @@ import {
   detectOmitFromCandidate,
 } from "../src/music/chordDetectionEngine.js";
 import { analyzeFretsCore } from "../src/music/analyzeFretsCore.js";
+import { buildChordToneDefinition, normalizeChordUiSpec } from "../src/music/appMusicBasics.js";
 import { parseFretString } from "../src/music/parseFretString.js";
 
 const __dir = dirname(fileURLToPath(import.meta.url));
@@ -376,6 +384,241 @@ const CASES = [
     expectOmit: "5",
     expectCopiedVoicingPattern: "43x24x",
   },
+
+  // ── Quinta y novena alteradas (encargo "variantes de acordes") ─────────────
+  {
+    id: "ALT-1",
+    description: "x54545 → D7(b9): Dominante, Acorde, ext7+ext9, novena b9",
+    motivo: "La b2 de un dominante es b9 (no addb2) y la copia conserva la novena alterada",
+    fretsPattern: "x54545",
+    expectPrimaryName: "D7(b9)",
+    expectUiPatch: true,
+    expectQuality: "dom", expectStructure: "chord", expectExt7: true, expectExt9: true,
+    expectFifth: "5", expectNinth: "b9", expectOmit: "none",
+  },
+  {
+    id: "ALT-2",
+    description: "x5454x → D7(b9,no5): cuatriada con Omitir 5",
+    motivo: "Voicing de 4 notas sin 5ª: se copia con omit=5 y conserva la b9",
+    fretsPattern: "x5454x",
+    expectPrimaryName: "D7(b9,no5)",
+    expectUiPatch: true,
+    expectQuality: "dom", expectExt7: true, expectExt9: true,
+    expectNinth: "b9", expectOmit: "5",
+  },
+  {
+    id: "ALT-3",
+    description: "x76787 → E7(#9) con quinta (Hendrix completo)",
+    motivo: "Con la 5ª presente el nombre no lleva no5; la #9 convive con la 3ª mayor",
+    fretsPattern: "x76787",
+    expectPrimaryName: "E7(#9)",
+    expectUiPatch: true,
+    expectQuality: "dom", expectExt9: true, expectNinth: "#9", expectOmit: "none",
+  },
+  {
+    id: "ALT-4",
+    description: "x7678x → E7(#9,no5): Hendrix sin quinta",
+    motivo: "no5 solo cuando realmente falta la 5ª; la copia lleva omit=5 y #9",
+    fretsPattern: "x7678x",
+    expectPrimaryName: "E7(#9,no5)",
+    expectUiPatch: true,
+    expectQuality: "dom", expectExt9: true, expectNinth: "#9", expectOmit: "5",
+  },
+  {
+    id: "ALT-5",
+    description: "3x3444 → G7(#5,b9) (= G+7(b9))",
+    motivo: "Sin 5ª justa la b6 es #5; combinación #5 + b9 copiable",
+    fretsPattern: "3x3444",
+    expectPrimaryName: "G7(#5,b9)",
+    expectUiPatch: true,
+    expectQuality: "dom", expectStructure: "chord", expectExt9: true,
+    expectFifth: "#5", expectNinth: "b9", expectOmit: "none",
+  },
+  {
+    id: "ALT-6",
+    description: "3x344x → G7(#5): cuatriada con quinta aumentada",
+    motivo: "La #5 sustituye a la 5ª justa y se copia como alteración de quinta",
+    fretsPattern: "3x344x",
+    expectPrimaryName: "G7(#5)",
+    expectUiPatch: true,
+    expectQuality: "dom", expectExt7: true, expectFifth: "#5", expectNinth: "9", expectOmit: "none",
+  },
+  {
+    id: "ALT-7",
+    description: "x3435x → C7(b5)",
+    motivo: "La b5 sin 5ª justa en un dominante es quinta disminuida copiable (antes se perdía)",
+    fretsPattern: "x3435x",
+    expectPrimaryName: "C7(b5)",
+    expectUiPatch: true,
+    expectQuality: "dom", expectFifth: "b5", expectOmit: "none",
+  },
+  {
+    id: "ALT-8",
+    description: "x0101x → Am7(b5)",
+    motivo: "Regresión: semidisminuido con b5 propia de la calidad",
+    fretsPattern: "x0101x",
+    expectPrimaryName: "Am7(b5)",
+    expectUiPatch: true,
+    expectQuality: "hdim", expectFifth: "b5", expectNinth: "9",
+  },
+  {
+    id: "ALT-9",
+    description: "1x010x → Fdim7",
+    motivo: "Regresión: dim7 con bb7 (no 6)",
+    fretsPattern: "1x010x",
+    expectPrimaryName: "Fdim7",
+    expectUiPatch: true,
+    expectQuality: "dim", expectFifth: "b5",
+  },
+  {
+    id: "ALT-10",
+    description: "x5758x → D7sus4 (Re–Sol–La–Do)",
+    motivo: "Regresión de suspendidos: 7sus4 copiable",
+    fretsPattern: "x5758x",
+    expectPrimaryName: "D7sus4",
+    expectUiPatch: true,
+    expectQuality: "dom", expectExt7: true,
+  },
+  {
+    id: "ALT-11",
+    description: "C,E,G,Bb,D,F# → C7(#11,add9) no copiable",
+    motivo: "#11 queda fuera de esta fase: la lectura se muestra pero no se copia perdiendo la tensión",
+    notes: ["C", "E", "G", "Bb", "D", "F#"],
+    bass: "C",
+    expectPrimaryName: "C7(#11,add9)",
+    expectBlocked: true,
+    expectUiPatch: false,
+  },
+  {
+    id: "ALT-12",
+    description: "1x422x → Gbm(maj7)/F (no Dbaug(add11)/F)",
+    motivo: "Regresión: la tríada aumentada heurística sin 7ª adelantaba un encuadre forzado a la lectura natural",
+    fretsPattern: "1x422x",
+    expectPrimaryName: "Gbm(maj7)/F",
+    expectUiPatch: true,
+    expectQuality: "minmaj7",
+  },
+  {
+    id: "ALT-13",
+    description: "C,Eb,G,B / C → Cm(maj7) (no Baug/C)",
+    motivo: "Regresión: la tríada aumentada sobre bajo ajeno no recibe la bonificación de tríada sobre bajo",
+    notes: ["C", "Eb", "G", "B"],
+    bass: "C",
+    expectPrimaryName: "Cm(maj7)",
+    expectUiPatch: true,
+    expectQuality: "minmaj7",
+  },
+  {
+    id: "ALT-14",
+    description: "C,E,G,Ab,Bb / G → C7(b13)/G (no Abmaj7(#5,add9)/G)",
+    motivo: "Con 5ª justa la b6 es b13; maj7(#5) con tensiones no adelanta a la lectura canónica",
+    notes: ["C", "E", "G", "Ab", "Bb"],
+    bass: "G",
+    expectPrimaryName: "C7(b13)/G",
+  },
+  {
+    id: "ALT-15",
+    description: "C,E,G#,Bb,D# / C → alternativa C7(#9,b13,no5) visible y no copiable",
+    motivo: "Sin 5ª justa la ♯5 es la lectura principal (C7(#5,#9)), pero la ♭13 sin 5ª se conserva como alternativa; no se copia porque Acordes no representa ♭13 (nunca se convierte en ♯5)",
+    notes: ["C", "E", "G#", "Bb", "D#"],
+    bass: "C",
+    expectCandidateName: "C7(#9,b13,no5)",
+    expectBlocked: true,
+    expectUiPatch: false,
+  },
+  {
+    id: "ALT-16",
+    description: "A,C,E,G,Bb / A → Am7(b9) copiable",
+    motivo: "Con 7ª la ♭2 es la ♭9 también en Menor: la lectura se copia con novena ♭9 (antes Am7(addb2), bloqueada)",
+    notes: ["A", "C", "E", "G", "Bb"],
+    bass: "A",
+    expectPrimaryName: "Am7(b9)",
+    expectUiPatch: true,
+    expectQuality: "min", expectStructure: "chord", expectExt7: true, expectExt9: true,
+    expectFifth: "5", expectNinth: "b9", expectOmit: "none",
+  },
+  {
+    id: "ALT-17",
+    description: "C,E,G,B,D# / C → Cmaj7(#9) copiable",
+    motivo: "♯9 sobre 3ª mayor sin 3ª menor: el constructor ya la representa en Mayor",
+    notes: ["C", "E", "G", "B", "D#"],
+    bass: "C",
+    expectPrimaryName: "Cmaj7(#9)",
+    expectUiPatch: true,
+    expectQuality: "maj", expectExt7: true, expectExt9: true, expectNinth: "#9",
+  },
+  {
+    id: "ALT-18",
+    description: "A,C,Eb,G# / A → lectura Am(maj7,b5) copiable",
+    motivo: "m(maj7,♭5) antes se leía dim(add7) y no se copiaba; mantiene su posición en el ranking",
+    notes: ["A", "C", "Eb", "G#"],
+    bass: "A",
+    expectCandidateName: "Am(maj7,b5)",
+    expectUiPatch: true,
+    expectQuality: "minmaj7", expectExt7: true, expectFifth: "b5",
+  },
+  {
+    id: "ALT-19",
+    description: "A,C,E,Bb / A → Am(addb2) sin renombrar ni copiar",
+    motivo: "Sin 7ª la ♭2 es un añadido (no se renombra toda ♭2 como ♭9)",
+    notes: ["A", "C", "E", "Bb"],
+    bass: "A",
+    expectCandidateName: "Am(addb2)",
+    expectBlocked: true,
+    expectUiPatch: false,
+  },
+  {
+    id: "ALT-20",
+    description: "C,Eb,G#,Bb / C → Cm7(#5) copiable justo detrás de Cm7(b13,no5)",
+    motivo: "Alternativa ♯5 de 3ª menor sin 5ª justa: nombre y grafía propios (G#), la lectura ♭13 se conserva",
+    notes: ["C", "Eb", "G#", "Bb"],
+    bass: "C",
+    expectCandidateName: "Cm7(#5)",
+    expectFollows: "Cm7(b13,no5)",
+    expectUiPatch: true,
+    expectQuality: "min", expectStructure: "tetrad", expectExt7: true, expectFifth: "#5",
+  },
+  {
+    id: "ALT-21",
+    description: "C,Eb,G# / C → Cm(#5) copiable justo detrás de Cm(addb13,no5); principal Ab/C",
+    motivo: "La tríada menor con ♯5 se ofrece como alternativa sin cambiar la principal",
+    notes: ["C", "Eb", "G#"],
+    bass: "C",
+    expectCandidateName: "Cm(#5)",
+    expectFollows: "Cm(addb13,no5)",
+    expectUiPatch: true,
+    expectQuality: "min", expectStructure: "triad", expectExt7: false, expectFifth: "#5",
+  },
+  {
+    id: "ALT-22",
+    description: "C,Eb,G#,B / C → Cm(maj7,#5) copiable justo detrás de Cm(maj7,addb6,no5)",
+    motivo: "m(maj7) con ♯5 sin 5ª justa: alternativa copiable de la lectura con ♭6",
+    notes: ["C", "Eb", "G#", "B"],
+    bass: "C",
+    expectCandidateName: "Cm(maj7,#5)",
+    expectFollows: "Cm(maj7,addb6,no5)",
+    expectUiPatch: true,
+    expectQuality: "minmaj7", expectStructure: "tetrad", expectExt7: true, expectFifth: "#5",
+  },
+  {
+    id: "ALT-23",
+    description: "C,Eb,G,Ab,Bb / C → Cm7(b13) sin alternativa ♯5 (suena la 5ª justa)",
+    motivo: "Con 5ª justa la ♭6 es ♭13: no se ofrece una lectura ♯5 que eliminaría la 5ª",
+    notes: ["C", "Eb", "G", "Ab", "Bb"],
+    bass: "C",
+    expectCandidateName: "Cm7(b13)",
+    expectBlocked: true,
+    expectUiPatch: false,
+    expectNoCandidateMatching: /#5/,
+  },
+  {
+    id: "ALT-24",
+    description: "G,C,Eb,G#,Bb / G → sin Cm7(#5)/G (la 5ª justa está en el bajo)",
+    motivo: "La alternativa ♯5 solo se ofrece con el bajo dentro del acorde",
+    notes: ["G", "C", "Eb", "G#", "Bb"],
+    bass: "G",
+    expectNoCandidateMatching: /^Cm7\(#5\)/,
+  },
 ];
 
 // ─── Lógica de análisis ───────────────────────────────────────────────────────
@@ -418,7 +661,26 @@ function simulateCopy(candidate) {
     ext11: !!p.ext11,
     ext13: !!p.ext13,
     omit: detectOmitFromCandidate(candidate),
+    ...(() => {
+      const spec = normalizeChordUiSpec({ ...p, omit: detectOmitFromCandidate(candidate) });
+      return { fifth: spec.fifth, ninth: spec.ninth };
+    })(),
   };
+}
+
+// Notas que suenan en la lectura (sin bajo externo) frente a las que construiría Acordes.
+function copyLosesOrInventsNotes(candidate) {
+  if (!candidate?.uiPatch || candidate.uiPatch.family || candidate.formula?.quartal) return null;
+  const sounding = [...new Set((candidate.visibleIntervals || []).map((i) => ((i % 12) + 12) % 12))];
+  const formula = candidate.formula || {};
+  const missing = (candidate.missingLabels || [])
+    .map((label) => formula.intervals?.[formula.degreeLabels?.indexOf(label)])
+    .filter((x) => x != null)
+    .map((i) => ((i % 12) + 12) % 12);
+  const built = buildChordToneDefinition({ ...candidate.uiPatch, omit: detectOmitFromCandidate(candidate) }).intervals;
+  const lost = sounding.filter((i) => !built.includes(i));
+  const invented = built.filter((i) => !sounding.includes(i) && !missing.includes(i));
+  return lost.length || invented.length ? { lost, invented, built, sounding } : null;
 }
 
 function selectCandidate(tc, readings, primary, failures, warnings) {
@@ -484,6 +746,19 @@ function checkCase(tc) {
   const primaryName = primary?.name ?? null;
   const candidate = selectCandidate(tc, readings, primary, failures, warnings);
 
+  // expectFollows: el candidato va inmediatamente detrás de esa lectura (alternativas ♯5/♭13).
+  if (tc.expectFollows !== undefined && candidate) {
+    const idx = readings.indexOf(candidate);
+    if (idx < 1 || readings[idx - 1].name !== tc.expectFollows) {
+      failures.push(`"${candidate.name}" debe ir justo después de "${tc.expectFollows}". Candidatos: ${readings.map((r) => r.name).join(", ")}`);
+    }
+  }
+  // expectNoCandidateMatching: ninguna lectura puede encajar con el patrón.
+  if (tc.expectNoCandidateMatching !== undefined) {
+    const unexpected = readings.filter((r) => tc.expectNoCandidateMatching.test(r.name));
+    if (unexpected.length) failures.push(`Lecturas no esperadas ${tc.expectNoCandidateMatching}: ${unexpected.map((r) => r.name).join(", ")}`);
+  }
+
   if (candidate !== null) {
     if (tc.expectBlocked === true && candidate.uiPatch !== null && candidate.uiPatch !== undefined) {
       failures.push(`Se esperaba uiPatch=null (botón bloqueado) pero está habilitado. Se copiaría un acorde incompleto.`);
@@ -518,6 +793,10 @@ function checkCase(tc) {
       failures.push(`ext13: esperado ${tc.expectExt13}, obtenido ${copy.ext13}`);
     if (tc.expectOmit !== undefined && copy.omit !== tc.expectOmit)
       failures.push(`omit: esperado "${tc.expectOmit}", obtenido "${copy.omit}"`);
+    if (tc.expectFifth !== undefined && copy.fifth !== tc.expectFifth)
+      failures.push(`fifth: esperada "${tc.expectFifth}", obtenida "${copy.fifth}"`);
+    if (tc.expectNinth !== undefined && copy.ninth !== tc.expectNinth)
+      failures.push(`ninth: esperada "${tc.expectNinth}", obtenida "${copy.ninth}"`);
   }
 
   if (candidate?.uiPatch && tc.expectSpellPreferSharps !== undefined) {
@@ -540,6 +819,10 @@ function checkCase(tc) {
   for (const r of readings) {
     if (r.uiPatch?.structure === "tetrad" && !r.uiPatch.ext7 && !r.uiPatch.ext6) {
       failures.push(`INVARIANTE GLOBAL en lectura "${r.name}": structure=tetrad sin ext7 ni ext6.`);
+    }
+    const loss = copyLosesOrInventsNotes(r);
+    if (loss) {
+      failures.push(`ALTERATION_LOST en lectura "${r.name}": suena [${loss.sounding}] y Acordes construiría [${loss.built}] (pierde [${loss.lost}], añade [${loss.invented}])`);
     }
   }
 

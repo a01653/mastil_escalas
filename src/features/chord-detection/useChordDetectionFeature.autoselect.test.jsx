@@ -195,7 +195,7 @@ describe("política React de autoselección de detección manual", () => {
     });
 
     expect(latestHarness.firstCandidateName).toBe("Dm7(b5,add11,no3)");
-    expect(latestHarness.selectedCandidateName).toBe("Abmaj7b5/Ebb");
+    expect(latestHarness.selectedCandidateName).toBe("Abmaj7(b5)/Ebb");
     expect(latestHarness.selectedCandidateName).not.toBe(latestHarness.firstCandidateName);
   });
 
@@ -217,9 +217,9 @@ describe("política React de autoselección de detección manual", () => {
       expect(latestHarness.getLivePendingCandidateId()).toBe(manualCandidate.id);
     });
 
-    expect(latestHarness.firstCandidateName).toBe("F#7(addb2,no5)");
+    expect(latestHarness.firstCandidateName).toBe("F#7(b9,no5)");
     expect(latestHarness.selectedCandidateName).toBe("Gm(maj7,13,no5)/F#");
-    expect(latestHarness.selectedCandidateName).not.toBe("F#7(addb2,no5)");
+    expect(latestHarness.selectedCandidateName).not.toBe("F#7(b9,no5)");
   });
 
   it("mantiene la lectura estructural equivalente cuando cambia la 7M/bajo a b7/bajo coherente", async () => {
@@ -310,7 +310,7 @@ describe("política React de autoselección de detección manual", () => {
     });
 
     expect(latestHarness.firstCandidateName).toBe("Baddb6/F#");
-    expect(latestHarness.selectedCandidateName).toBe("Gmaj7#5/F#");
+    expect(latestHarness.selectedCandidateName).toBe("Gmaj7(#5)/F#");
     expect(latestHarness.selectedCandidateName).not.toBe("Baddb6/F#");
   });
 

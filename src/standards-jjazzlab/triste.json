@@ -52,7 +52,7 @@
             "chordEvents": [
               {
                 "display": "FΔ7#11",
-                "load": "Fmaj7"
+                "load": "Fmaj7#11"
               }
             ],
             "repeat": false
@@ -65,7 +65,7 @@
             "chordEvents": [
               {
                 "display": "FΔ7#11",
-                "load": "Fmaj7"
+                "load": "Fmaj7#11"
               }
             ],
             "repeat": false
@@ -117,7 +117,7 @@
             "chordEvents": [
               {
                 "display": "F#7b9",
-                "load": "F#7"
+                "load": "F#7b9"
               }
             ],
             "repeat": false
@@ -148,7 +148,7 @@
               },
               {
                 "display": "C#7b9",
-                "load": "C#7"
+                "load": "C#7b9"
               }
             ],
             "repeat": false
@@ -174,7 +174,7 @@
             "chordEvents": [
               {
                 "display": "G#7#9",
-                "load": "G#7"
+                "load": "G#7#9"
               }
             ],
             "repeat": false
@@ -563,7 +563,7 @@
           "chordEvents": [
             {
               "display": "FΔ7#11",
-              "load": "Fmaj7"
+              "load": "Fmaj7#11"
             }
           ],
           "chords": [
@@ -576,7 +576,7 @@
           "chordEvents": [
             {
               "display": "FΔ7#11",
-              "load": "Fmaj7"
+              "load": "Fmaj7#11"
             }
           ],
           "chords": [
@@ -635,7 +635,7 @@
           "chordEvents": [
             {
               "display": "F#7b9",
-              "load": "F#7"
+              "load": "F#7b9"
             }
           ],
           "chords": [
@@ -672,7 +672,7 @@
             },
             {
               "display": "C#7b9",
-              "load": "C#7"
+              "load": "C#7b9"
             }
           ],
           "chords": [
@@ -699,7 +699,7 @@
           "chordEvents": [
             {
               "display": "G#7#9",
-              "load": "G#7"
+              "load": "G#7#9"
             }
           ],
           "chords": [

@@ -53,7 +53,9 @@ async function enableSlot(page, idx) {
 
 // ── Test 83 ───────────────────────────────────────────────────────────────────
 test("83. Catálogo lento: no aparece error en rojo durante la carga; voicings disponibles al final", async ({ page }) => {
+  const majorRequests = [];
   await page.route("**/chords-db/**", async (route) => {
+    if (route.request().url().endsWith("/C/major.json")) majorRequests.push(route.request().url());
     await new Promise((r) => setTimeout(r, 1500));
     await route.continue();
   });
@@ -67,13 +69,17 @@ test("83. Catálogo lento: no aparece error en rojo durante la carga; voicings d
   // chordVoicingsResolving=true suprime el emptyMessage; chordDbError es null.
   await expect(page.locator(".text-rose-600")).not.toBeVisible();
 
-  // Tras la carga: voicings disponibles en el select
+  // Tras la carga: voicings disponibles en el select. Aislado tarda ~1,6 s (1,5 s
+  // de retardo artificial + render); en la batería completa, con varios workers
+  // arrancando en frío a la vez, 5 s se superaba de forma intermitente sin fallo
+  // funcional. El margen es amplio, pero la petición debe ser única (sin recargas).
   await expect
     .poll(
       async () => page.getByTestId("voicing-select").locator("option").count(),
-      { timeout: 5000 }
+      { timeout: 15000 }
     )
     .toBeGreaterThan(0);
+  expect(majorRequests, "El catálogo C/major.json debe pedirse una sola vez").toHaveLength(1);
 });
 
 // ── Test 84 ───────────────────────────────────────────────────────────────────

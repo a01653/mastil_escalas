@@ -3,13 +3,22 @@
  * Ejecuta el script real vía child_process y verifica la salida.
  */
 
-import { describe, test, expect } from "vitest";
+import { describe, test as baseTest, expect } from "vitest";
 import { execSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SCRIPT = path.join(__dirname, "analyzeProgression.mjs");
+
+// Cada test lanza un proceso node que importa todo el núcleo musical (~0,6-2 s
+// aislado). En la batería completa, con los demás workers ocupando la CPU, el
+// límite por defecto de 5 s se superaba de forma intermitente. Mismo criterio
+// que analyzeFretsCliJson.test.js.
+const DEFAULT_CLI_TIMEOUT = 15000;
+function test(name, fn) {
+  return baseTest(name, { timeout: DEFAULT_CLI_TIMEOUT }, fn);
+}
 
 function runCLI(arg) {
   return execSync(`node "${SCRIPT}" "${arg}"`, { encoding: "utf-8", cwd: path.join(__dirname, "..") });

@@ -1,4 +1,5 @@
 import { noteNameToPc, preferSharpsFromMajorTonicPc } from "./chordDetectionEngine.js";
+import { normalizeChordAlterations } from "./chordAlterations.js";
 
 const DEFAULT_TERTIAN_SLOT = Object.freeze({
   family: "tertian",
@@ -18,47 +19,127 @@ const DEFAULT_TERTIAN_SLOT = Object.freeze({
   selFrets: null,
 });
 
-const CHORD_SUFFIX_TEMPLATES = Object.freeze({
-  "": { quality: "maj", structure: "triad" },
-  "6": { quality: "maj", structure: "tetrad", ext6: true },
-  "maj7": { quality: "maj", structure: "tetrad", ext7: true },
-  "7": { quality: "dom", structure: "tetrad", ext7: true },
-  "9": { quality: "dom", structure: "chord", ext7: true, ext9: true },
-  "13": { quality: "dom", structure: "chord", ext7: true, ext9: true, ext13: true },
-  "m": { quality: "min", structure: "triad" },
-  "m6": { quality: "min", structure: "tetrad", ext6: true },
-  "m7": { quality: "min", structure: "tetrad", ext7: true },
-  "m9": { quality: "min", structure: "chord", ext7: true, ext9: true },
-  "m11": { quality: "min", structure: "chord", ext7: true, ext11: true },
-  "m7b5": { quality: "hdim", structure: "tetrad", ext7: true },
-  "dim7": { quality: "dim", structure: "tetrad", ext7: true },
-  "sus4": { quality: "maj", suspension: "sus4", structure: "triad" },
-  "7sus4": { quality: "dom", suspension: "sus4", structure: "tetrad", ext7: true },
-});
+// Gramática única de cifrados de standards (JJazzLab / MusicXML / símbolos
+// legacy). Cada base fija calidad, estructura y extensiones; detrás pueden ir
+// alteraciones de quinta/novena (b5, #5, b9, #9) con o sin paréntesis. Lo que la
+// app no puede construir (#11, b13, alt, dos novenas, alteraciones fuera de la
+// política del selector...) NO se simplifica: el símbolo se rechaza con aviso.
+const CHORD_SUFFIX_BASES = Object.freeze([
+  ["m(maj9)", { quality: "minmaj7", structure: "chord", ext7: true, ext9: true }],
+  ["m(maj7)", { quality: "minmaj7", structure: "tetrad", ext7: true }],
+  ["mmaj9", { quality: "minmaj7", structure: "chord", ext7: true, ext9: true }],
+  ["mmaj7", { quality: "minmaj7", structure: "tetrad", ext7: true }],
+  ["m7b5", { quality: "hdim", structure: "tetrad", ext7: true }],
+  ["m9b5", { quality: "hdim", structure: "chord", ext7: true, ext9: true }],
+  ["m13", { quality: "min", structure: "chord", ext7: true, ext9: true, ext13: true }],
+  ["m11", { quality: "min", structure: "chord", ext7: true, ext9: true, ext11: true }],
+  ["m9", { quality: "min", structure: "chord", ext7: true, ext9: true }],
+  ["m7", { quality: "min", structure: "tetrad", ext7: true }],
+  ["m69", { quality: "min", structure: "chord", ext6: true, ext9: true }],
+  ["m6", { quality: "min", structure: "tetrad", ext6: true }],
+  ["madd9", { quality: "min", structure: "chord", ext9: true }],
+  ["m", { quality: "min", structure: "triad" }],
+  ["maj13", { quality: "maj", structure: "chord", ext7: true, ext9: true, ext13: true }],
+  ["maj9", { quality: "maj", structure: "chord", ext7: true, ext9: true }],
+  ["maj7", { quality: "maj", structure: "tetrad", ext7: true }],
+  ["dim7", { quality: "dim", structure: "tetrad", ext7: true }],
+  ["dim", { quality: "dim", structure: "triad" }],
+  ["aug", { quality: "maj", structure: "triad", fifth: "#5" }],
+  ["13sus4", { quality: "dom", suspension: "sus4", structure: "chord", ext7: true, ext9: true, ext13: true }],
+  ["9sus4", { quality: "dom", suspension: "sus4", structure: "chord", ext7: true, ext9: true }],
+  ["7sus4", { quality: "dom", suspension: "sus4", structure: "tetrad", ext7: true }],
+  ["7sus2", { quality: "dom", suspension: "sus2", structure: "tetrad", ext7: true }],
+  ["sus4", { quality: "maj", suspension: "sus4", structure: "triad" }],
+  ["sus2", { quality: "maj", suspension: "sus2", structure: "triad" }],
+  ["13", { quality: "dom", structure: "chord", ext7: true, ext9: true, ext13: true }],
+  ["11", { quality: "dom", structure: "chord", ext7: true, ext9: true, ext11: true }],
+  ["9", { quality: "dom", structure: "chord", ext7: true, ext9: true }],
+  ["7", { quality: "dom", structure: "tetrad", ext7: true }],
+  ["69", { quality: "maj", structure: "chord", ext6: true, ext9: true }],
+  ["6", { quality: "maj", structure: "tetrad", ext6: true }],
+  ["add9", { quality: "maj", structure: "chord", ext9: true }],
+  ["", { quality: "maj", structure: "triad" }],
+]);
 
-const CHORD_SUFFIX_ALIASES = Object.freeze({
-  maj6: "6",
-  "Δ": "maj7",
-  "Δ7": "maj7",
-  "△": "maj7",
-  "△7": "maj7",
-  min: "m",
-  min6: "m6",
-  min7: "m7",
-  min9: "m9",
-  min11: "m11",
-  "-": "m",
-  "-6": "m6",
-  "-7": "m7",
-  "-9": "m9",
-  "-11": "m11",
-  "ø7": "m7b5",
-  o7: "dim7",
-});
+// Formas equivalentes → forma de la gramática. Se aplican en orden.
+function normalizeChordSuffixAliases(rawSuffix) {
+  let s = String(rawSuffix || "").trim().replace(/♭/g, "b").replace(/♯/g, "#").replace(/\s+/g, "");
+  s = s
+    .replace(/^(Δ|△)$/, "maj7")
+    .replace(/^(Δ|△)/, "maj")
+    .replace(/^-(?=Δ|△)/, "m")
+    .replace(/^m(Δ|△|M)7?$/, "mmaj7")
+    .replace(/^m7M$/, "mmaj7")
+    .replace(/^m(Δ|△|M)7(?=[b#(])/, "mmaj7")
+    .replace(/^m\+$/, "m#5")
+    .replace(/^m(Δ|△|M)9$/, "mmaj9")
+    .replace(/^min(?=$|[0-9(])/, "m")
+    .replace(/^-/, "m")
+    .replace(/^M$/, "")
+    .replace(/^maj$/, "")
+    .replace(/^M(?=[0-9])/, "maj")
+    .replace(/^maj6$/, "6")
+    .replace(/^ø7?$/, "m7b5")
+    .replace(/^ø9$/, "m9b5")
+    .replace(/^(°|o)7$/, "dim7")
+    .replace(/^(°|o)$/, "dim")
+    .replace(/^\+7/, "7#5")
+    .replace(/^aug7/, "7#5")
+    .replace(/^\+$/, "aug")
+    .replace(/^(7|9|13)\+/, "$1#5")
+    .replace(/^6\/9/, "69")
+    .replace(/^m6\/9/, "m69")
+    .replace(/^2$/, "add9")
+    .replace(/^madd2$/, "madd9")
+    .replace(/^(7|9|13)?sus(?!2|4)/, "$1sus4");
+  return s;
+}
 
-function normalizeChordSuffix(rawSuffix) {
-  const suffix = String(rawSuffix || "").trim();
-  return CHORD_SUFFIX_ALIASES[suffix] || suffix;
+const UNSUPPORTED_TOKEN_REASONS = Object.freeze([
+  [/#11/, "♯11"],
+  [/b13/, "♭13"],
+  [/alt/, "alt"],
+  [/(b9#9|#9b9)/, "♭9 y ♯9 a la vez"],
+  // Con 3ª menor la ♯9 coincide con la ♭3: no añadiría ninguna nota.
+  [/^(m(?!aj)|dim).*#9/, "♯9 sobre 3ª menor (coincide con la ♭3)"],
+]);
+
+// Traduce un sufijo de cifrado al estado del constructor, o null si no se
+// puede construir exactamente (nunca se devuelve una versión simplificada).
+export function parseStandardChordSuffix(rawSuffix) {
+  const suffix = normalizeChordSuffixAliases(rawSuffix);
+  for (const [base, template] of CHORD_SUFFIX_BASES) {
+    if (!suffix.startsWith(base)) continue;
+    const rest = suffix.slice(base.length).replace(/[(),]/g, "");
+    const alterations = rest.match(/^(?:b5|#5|b9|#9)*$/) ? (rest.match(/b5|#5|b9|#9/g) || []) : null;
+    if (alterations == null) continue;
+    const fifths = alterations.filter((token) => token.endsWith("5"));
+    const ninths = alterations.filter((token) => token.endsWith("9"));
+    if (fifths.length > 1 || ninths.length > 1) return null;
+    const spec = { ...DEFAULT_TERTIAN_SLOT, ...template };
+    if (fifths.length && template.fifth && template.fifth !== fifths[0]) return null;
+    const requestedFifth = fifths[0] ?? template.fifth ?? null;
+    if (ninths.length) {
+      if (!spec.ext7) return null;
+      spec.ext9 = true;
+      if (spec.structure === "tetrad") spec.structure = "chord";
+    }
+    // La política del selector decide qué alteraciones existen: si la normalización
+    // cambiaría alguna pedida, el símbolo no es representable (no se carga otro acorde).
+    const normalized = normalizeChordAlterations({ ...spec, fifth: requestedFifth ?? undefined, ninth: ninths[0] });
+    if (requestedFifth && normalized.fifth !== requestedFifth) return null;
+    if (ninths.length && normalized.ninth !== ninths[0]) return null;
+    spec.fifth = normalized.fifth;
+    spec.ninth = normalized.ninth;
+    return spec;
+  }
+  return null;
+}
+
+export function describeUnsupportedChordSuffix(rawSuffix) {
+  const suffix = normalizeChordSuffixAliases(rawSuffix);
+  const reasons = UNSUPPORTED_TOKEN_REASONS.filter(([pattern]) => pattern.test(suffix)).map(([, label]) => label);
+  return reasons.length ? `${reasons.join(", ")} aún no se puede construir en Acordes` : "";
 }
 
 export function parseStandardChordSymbol(symbol) {
@@ -72,9 +153,11 @@ export function parseStandardChordSymbol(symbol) {
   const rootPc = noteNameToPc(rootName);
   if (rootPc == null) throw new Error(`No reconozco la nota ${rootName}.`);
 
-  const suffix = normalizeChordSuffix(rawSuffix);
-  const template = CHORD_SUFFIX_TEMPLATES[suffix];
-  if (!template) throw new Error(`Aún no sé traducir ${raw} a la lógica interna de la app.`);
+  const template = parseStandardChordSuffix(rawSuffix);
+  if (!template) {
+    const reason = describeUnsupportedChordSuffix(rawSuffix);
+    throw new Error(`Aún no sé traducir ${raw} a la lógica interna de la app${reason ? ` (${reason})` : ""}.`);
+  }
 
   const spellPreferSharps = rootName.includes("#")
     ? true
@@ -87,7 +170,6 @@ export function parseStandardChordSymbol(symbol) {
     rootName,
     rootPc,
     spellPreferSharps,
-    ...DEFAULT_TERTIAN_SLOT,
     ...template,
   };
 }
@@ -109,6 +191,9 @@ export function buildNearSlotFromChordSymbol(symbol) {
     ext9: parsed.ext9,
     ext11: parsed.ext11,
     ext13: parsed.ext13,
+    fifth: parsed.fifth,
+    ninth: parsed.ninth,
+    omit: "none",
     quartalType: "pure",
     quartalVoices: "4",
     quartalSpread: "closed",
@@ -128,6 +213,21 @@ export function buildNearSlotsFromChordSymbols(symbols, maxSlots = 4) {
   return (Array.isArray(symbols) ? symbols : [])
     .slice(0, Math.max(1, maxSlots))
     .map((symbol) => buildNearSlotFromChordSymbol(symbol));
+}
+
+// Variante tolerante para cargar una selección: cada símbolo se traduce por
+// separado y los no soportados se devuelven con su motivo (slot = null), de
+// modo que el resto se carga y la limitación se avisa sin sustituir el acorde.
+export function resolveNearSlotsFromChordSymbols(symbols, maxSlots = 4) {
+  return (Array.isArray(symbols) ? symbols : [])
+    .slice(0, Math.max(1, maxSlots))
+    .map((symbol) => {
+      try {
+        return { symbol, slot: buildNearSlotFromChordSymbol(symbol), error: null };
+      } catch (error) {
+        return { symbol, slot: null, error: String(error?.message || error) };
+      }
+    });
 }
 
 function buildMeasureBarLabel(barValue, fallbackIndex) {

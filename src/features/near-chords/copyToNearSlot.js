@@ -1,4 +1,4 @@
-import { mod12 } from "../../music/chordDetectionEngine.js";
+import { mod12, detectOmitFromCandidate } from "../../music/chordDetectionEngine.js";
 
 /**
  * Mapea un candidato detectado en "Posibles acordes" a un patch de near slot.
@@ -67,7 +67,10 @@ export function buildNearSlotPatchFromDetectedCandidate(candidate) {
     ext9: !!p.ext9,
     ext11: !!p.ext11,
     ext13: !!p.ext13,
-    omit: "none",
+    // Alteraciones y omisión de la lectura: el slot reproduce exactamente sus notas.
+    fifth: p.fifth,
+    ninth: p.ninth,
+    omit: detectOmitFromCandidate(candidate),
     spellPreferSharps: !!p.spellPreferSharps,
     slashBassPc,
     selFrets: null,
