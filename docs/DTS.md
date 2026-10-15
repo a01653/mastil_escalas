@@ -7,6 +7,8 @@
 
 ---
 
+> **Revisión parcial 6.0.97** (2026-10-15): instalación PWA y funcionamiento sin conexión. Se añade la infraestructura de `src/pwa/`, generación de caché en `scripts/pwa/`, manifiesto e iconos, empaquetado web de catálogos y standards y pruebas de actualización con varias pestañas. Se mantiene la política existente de restablecer la configuración al subir la versión; los presets se conservan. Los apartados musicales no se han vuelto a auditar.
+
 ## 1. Objetivo y alcance
 
 **Mástil Escalas** es una aplicación web de página única (SPA), en español, para el estudio interactivo del mástil de guitarra: escalas, patrones de digitación (CAGED, 3NPS, cajas de pentatónica), rutas melódicas, construcción y análisis de acordes (voicings), comparación de acordes cercanos con conducción práctica, y consulta de standards de jazz con sus cifrados armónicos (`README.md:1-9`).
@@ -620,7 +622,7 @@ No hay integración de tests en el pipeline de CI (ver §17).
 
 ### 16.1 Build web
 
-`vite.config.js` define `manualChunks`: `react-vendor` (React/ReactDOM/scheduler), `icons` (lucide-react), `music-core` (todo `src/music/`), `standards-index` (solo `jjazzlabStandardsIndex.json`, aislado para no arrastrar el resto de `music-core`). Los **1461 ficheros JSON individuales** de `src/standards-jjazzlab/` se cargan vía `import.meta.glob` sin `eager` (`jjazzlabCatalog.js`), por lo que Rollup los trocea automáticamente en un chunk lazy por standard (2-70 kB cada uno, verificado en el build real).
+`vite.config.js` define `manualChunks`: `react-vendor` (React/ReactDOM/scheduler), `icons` (lucide-react), `music-core` (todo `src/music/`), `standards-index` (solo `jjazzlabStandardsIndex.json`, aislado para no arrastrar el resto de `music-core`). Los **1461 ficheros JSON individuales** de `src/standards-jjazzlab/` se cargan vía `import.meta.glob` sin `eager` (`jjazzlabCatalog.js`). Desde 6.0.97 el build web agrupa sus módulos en 32 paquetes deterministas; la carga sigue siendo diferida y no cambia el contenido de los standards. El build Android mantiene la distribución anterior por standard.
 
 **Resultado del build verificado** (6.0.96, cierre: `npm run build`, exit 0, 1 min 38 s, 3280 módulos; en 6.0.94 eran 49.88 s y 3274 módulos):
 
@@ -643,6 +645,18 @@ No hay integración de tests en el pipeline de CI (ver §17).
 `vite.config.android.js` (build separado, `base: "./"`, `outDir: dist-android/`) + `capacitor.config.json` (`appId: com.jqbit.mastilescalas`, `minSdkVersion: 24`). Verificado en `package.json`: script `build:android` (`vite build --config vite.config.android.js`), `cap:sync` (`npx cap sync android`) y `cap:build:debug` (encadena ambos). El paso final de generación del `.apk` (`gradlew assembleDebug`, vía Android Studio/Gradle) no está documentado en ningún fichero del repositorio ni expuesto como script de npm — no se pudo verificar documentalmente; solo se confirma la existencia del artefacto resultante en `releases/mastil-escalas-v6.0.94.apk`.
 
 ---
+
+### 16.4 Instalación PWA y funcionamiento sin conexión (6.0.97)
+
+`scripts/pwa/build.mjs` genera el manifiesto relativo a la instalación, un identificador calculado sobre los recursos y la plantilla del worker, `sw.js` y 17 paquetes JSON del catálogo de acordes. Cada paquete conserva como texto los bytes originales de los archivos de una tónica, incluidos nombres con sostenidos. Los 12 852 JSON originales permanecen disponibles en sus rutas; el worker responde a esas mismas URLs desde los paquetes guardados. El empaquetado reduce las peticiones de preparación sin cambiar el modelo musical ni sus consumidores.
+
+El worker solo interviene en peticiones GET del mismo origen bajo `/mastil_escalas/`. La instalación descarga de forma completa HTML, JavaScript, CSS, manifiesto, iconos, metadatos y los paquetes de datos. Si falla una descarga se rechaza la instalación y se elimina su caché parcial; la versión activa anterior conserva la suya. Solo se anuncia «Disponible sin conexión.» cuando un worker instalado controla la página. La primera carga requiere red y espacio disponible; borrar los datos del sitio obliga a repetir la descarga.
+
+Una versión descargada espera al clic en «Actualizar ahora». No hay recarga automática. `src/pwa/register.js` activa el worker y recarga una sola vez, también si otra pestaña ya lo activó. El aviso explica la política de configuración existente: al cambiar `APP_VERSION` se restablece la configuración principal, pero se conservan presets y exportaciones. El worker no modifica `localStorage` ni `sessionStorage`.
+
+Cada documento comunica su identificador de build al worker. Mientras haya pestañas antiguas o sin identificar se conservan sus cachés y sus módulos diferidos; las peticiones usan la copia correspondiente a ese documento. Cuando todas las ventanas confirman el build actual, se eliminan las cachés anteriores de esta instalación. No se borran cachés de Drop Route ni de otra ruta del mismo origen. El build Android no habilita el registro PWA y continúa usando los archivos locales de Capacitor.
+
+Las pruebas de `e2e/pwa.spec.js` utilizan dos builds reales, servidor HTTP, service workers y CacheStorage del navegador. Cubren recarga sin red y sin caché HTTP, acordes y standards no visitados, actualización explícita, conservación de presets, varias pestañas y descarga incompleta. Las pruebas unitarias comprueban además determinismo del build, transporte sin cambios de los JSON, errores de instalación y estados del aviso.
 
 ## 17. Limitaciones, deuda técnica y riesgos detectados
 

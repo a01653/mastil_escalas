@@ -86,18 +86,41 @@ Este proyecto nace como herramienta de apoyo al estudio de guitarra para:
 - analizar inversiones, drops y voicings
 - trabajar progresiones y acordes cercanos de forma visual
 
-## Instalación
+## Instalar como aplicación y usar sin conexión
+
+Abre [Mástil Escalas](https://a01653.github.io/mastil_escalas/) y utiliza la opción de instalar aplicación del navegador. En iPhone o iPad, abre la web en Safari y selecciona «Añadir a pantalla de inicio».
+
+La primera descarga necesita Internet. Espera a que aparezca **«Disponible sin conexión.»**: se guardan la aplicación, el catálogo de acordes y todos los standards, incluidos los que todavía no has abierto. Después puedes cerrar, volver a abrir y utilizar la aplicación sin red. Si borras los datos del sitio, tendrás que repetir la descarga.
+
+Cuando haya una versión nueva aparecerá **«Actualizar ahora»**. La aplicación no se recarga automáticamente. Se mantiene la política de configuración del proyecto: al cambiar de versión se restablece la configuración actual; los presets rápidos se conservan. Guarda un preset o exporta la configuración antes de actualizar si quieres recuperarla.
+
+El APK de Android es otra forma de distribución; la PWA no requiere descargarlo.
+
+## Instalación para desarrollo
 
 ```bash
 npm install
 npm run dev
-````
+```
 
 ## Build de producción
 
 ```bash
 npm run build
 ```
+
+El build web genera el manifiesto, los iconos y `sw.js` para `/mastil_escalas/`. Los datos de acordes se agrupan en 17 paquetes sin cambiar los JSON originales; los standards se distribuyen en 32 paquetes de módulos. Esto permite preparar la copia sin conexión sin hacer miles de peticiones.
+
+`npm run build:android` sigue generando `dist-android/` para Capacitor y no registra un service worker.
+
+Para comprobar la PWA con Chromium real:
+
+```bash
+npx playwright install chromium
+npx playwright test e2e/pwa.spec.js
+```
+
+Playwright genera el build, inicia el preview durante la prueba y lo cierra al terminar.
 
 ## Vista previa local
 
