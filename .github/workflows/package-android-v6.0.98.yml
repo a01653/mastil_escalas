@@ -1,0 +1,100 @@
+name: Package Android v6.0.98
+
+on:
+  push:
+    branches: [chore/android-apk-v6.0.98]
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+      - name: Build Capacitor assets
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
+        run: |
+          npm ci
+          npm run build:android
+          npm run cap:sync
+      - name: Build and lint Android APK
+        run: |
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;36.0.0"
+          cd android
+          bash ./gradlew --no-daemon :app:assembleDebug :app:lintDebug --console=plain
+      - name: Inspect package and preserve build
+        env:
+          SOURCE_COMMIT: ${{ github.sha }}
+          BUILD_RUN: ${{ github.run_id }}
+        run: |
+          mkdir -p releases
+          cp android/app/build/outputs/apk/debug/app-debug.apk releases/mastil-escalas-v6.0.98.apk
+          python - <<'PY'
+          import hashlib,json,os,re,subprocess,zipfile
+          from pathlib import Path
+          version=json.loads(Path('package.json').read_text())['version']
+          assert version=='6.0.98'
+          apk=Path(f'releases/mastil-escalas-v{version}.apk')
+          tools=Path(os.environ['ANDROID_HOME'])/'build-tools/36.0.0'
+          badging=subprocess.check_output([str(tools/'aapt'),'dump','badging',str(apk)],text=True)
+          assert "name='com.jqbit.mastilescalas'" in badging
+          assert "versionName='6.0.98'" in badging
+          assert "versionCode='6000098'" in badging
+          assert "launchable-activity: name='com.jqbit.mastilescalas.MainActivity'" in badging
+          def signature(path):
+              return subprocess.check_output([str(tools/'apksigner'),'verify','--verbose','--print-certs',str(path)],text=True)
+          signed=signature(apk)
+          previous=signature(Path('releases/mastil-escalas-v6.0.96.apk'))
+          def fingerprint(text):
+              return re.search(r'Signer #1 certificate SHA-256 digest: (\S+)',text).group(1)
+          with zipfile.ZipFile(apk) as z:
+              assert z.testzip() is None
+              names=z.namelist()
+              index=z.read('assets/public/index.html').decode()
+              assert 'rel="manifest"' not in index
+              assert 'assets/public/sw.js' not in names
+              chords=[x for x in names if x.startswith('assets/public/chords-db/') and x.endswith('.json')]
+              original=list(Path('public/chords-db').rglob('*.json'))
+              assert len(chords)==len(original)==12852
+              for p in original:
+                  assert z.read('assets/public/'+p.relative_to('public').as_posix())==p.read_bytes()
+              scripts=[x for x in names if x.startswith('assets/public/assets/') and x.endswith('.js')]
+              assert any(version.encode() in z.read(x) for x in scripts)
+              icon_paths=[p for p in Path('android/app/src/main/res').glob('mipmap-*/*.png') if p.name.startswith('ic_launcher')]
+              for p in icon_paths:
+                  matches=[n for n in names if n.startswith('res/'+p.parent.name+'-') and n.endswith('/'+p.name)]
+                  assert len(matches)==1,(str(p),matches)
+                  assert z.read(matches[0])==p.read_bytes(),str(p)
+          digest=hashlib.sha256(apk.read_bytes()).hexdigest()
+          Path(str(apk)+'.sha256').write_text(f'{digest}  {apk.name}\n')
+          report={'version':version,'versionCode':6000098,'package':'com.jqbit.mastilescalas','sourceCommit':os.environ['SOURCE_COMMIT'],'buildRun':os.environ['BUILD_RUN'],'apk':str(apk),'bytes':apk.stat().st_size,'sha256':digest,'signerSha256':fingerprint(signed),'previousSignerSha256':fingerprint(previous),'sameSignerAs6096':fingerprint(signed)==fingerprint(previous),'chordFilesVerifiedByteForByte':len(original),'javascriptChunks':len(scripts),'nativeIconsVerified':len(icon_paths),'androidManifest':badging,'signatureVerification':signed,'zipIntegrity':'passed','gradleTasks':['assembleDebug','lintDebug'],'deviceInstallationTested':False}
+          Path('docs/validation/2026-10-15-android-apk-6.0.98.json').write_text(json.dumps(report,ensure_ascii=False,indent=2)+'\n')
+          print(json.dumps({k:v for k,v in report.items() if k not in ['androidManifest','signatureVerification']},ensure_ascii=False,indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mastil-escalas-v6.0.98
+          path: |
+            releases/mastil-escalas-v6.0.98.apk
+            releases/mastil-escalas-v6.0.98.apk.sha256
+            docs/validation/2026-10-15-android-apk-6.0.98.json
+      - name: Store verified package on task branch
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add releases/mastil-escalas-v6.0.98.apk releases/mastil-escalas-v6.0.98.apk.sha256 docs/validation/2026-10-15-android-apk-6.0.98.json
+          git commit -m "chore: generar APK verificado de Mástil Escalas v6.0.98"
+          git push origin HEAD:refs/heads/chore/android-apk-v6.0.98
