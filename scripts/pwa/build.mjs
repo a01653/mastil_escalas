@@ -17,7 +17,7 @@ export async function listFiles(dir, prefix = '') {
 }
 
 export const manifest = {
-  id: './', name: 'Mástil Escalas', short_name: 'Mástil Escalas', lang: 'es',
+  id: '/mastil_escalas/', name: 'Mástil Escalas', short_name: 'Mástil Escalas', lang: 'es',
   description: 'Escalas, acordes, rutas y standards de guitarra, también sin conexión.',
   start_url: './', scope: './', display: 'standalone',
   background_color: '#f8fafc', theme_color: '#0f172a',

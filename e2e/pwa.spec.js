@@ -86,6 +86,9 @@ test('instala el manifiesto y toda la app: recarga y abre secciones, standards y
   await cdp.send('Network.enable');
   await cdp.send('Network.setCacheDisabled', { cacheDisabled: true });
   await context.setOffline(true);
+  // El navegador puede terminar una comprobación de sw.js que ya estaba en curso.
+  // Cerramos también el servidor: ni esas comprobaciones ni los datos pueden apoyarse en HTTP.
+  await site.close();
   const since = site.log.length;
   await page.reload();
   await ready(page);
@@ -128,7 +131,7 @@ test('la versión nueva espera al clic y respeta la política de configuración 
   await expect.poll(() => marker(page), WAIT).toBe('B');
   await ready(page);
   expect(loads).toBe(1);
-  await expect.poll(async () => JSON.parse(await stored(page, CONFIG_KEY)).appVersion, WAIT).toBe('6.0.98');
+  await expect.poll(async () => JSON.parse(await stored(page, CONFIG_KEY)).appVersion, WAIT).toBe(builds.B.version);
   expect(JSON.parse(await stored(page, PRESETS_KEY))[0].name).toBe('Conservar');
   expect(await stored(page, 'otra-aplicacion')).toBe('conservar');
   await expect.poll(() => keys(page), WAIT).toEqual(expect.arrayContaining([builds.B.cache, ...foreign]));
