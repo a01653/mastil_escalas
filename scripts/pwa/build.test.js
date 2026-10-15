@@ -47,10 +47,20 @@ it('no entrega un catálogo corrupto como descarga offline válida', async () =>
 });
 
 it('el manifiesto se resuelve dentro de la instalación e incluye iconos PNG reales de ambos tamaños', async () => {
-  expect(manifest).toMatchObject({ id: './', start_url: './', scope: './', display: 'standalone', lang: 'es' });
+  expect(manifest).toMatchObject({ id: '/mastil_escalas/', start_url: './', scope: './', display: 'standalone', lang: 'es' });
   for (const icon of manifest.icons) {
     const png = await readFile(new URL('../../public/' + icon.src, import.meta.url));
     const size = Number(icon.sizes.split('x')[0]);
     expect([png.readUInt32BE(16), png.readUInt32BE(20)]).toEqual([size, size]);
   }
+});
+
+it('la identidad PWA pertenece a Mástil Escalas y no al origen compartido con otras aplicaciones', () => {
+  const manifestUrl = 'https://a01653.github.io/mastil_escalas/manifest.webmanifest';
+  const startUrl = new URL(manifest.start_url, manifestUrl);
+  // La especificación resuelve id contra el origen de start_url, no contra el directorio del manifiesto.
+  const identity = new URL(manifest.id, startUrl.origin);
+  expect(identity.href).toBe(startUrl.href);
+  expect(identity.pathname).toBe('/mastil_escalas/');
+  expect(identity.href).not.toBe(new URL('./', startUrl.origin).href);
 });

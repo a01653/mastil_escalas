@@ -10,6 +10,8 @@ const execute = promisify(execFile);
 
 export const BASE = '/mastil_escalas/';
 export async function buildPair(root, output) {
+  const { version } = JSON.parse(await readFile(join(root, 'package.json'), 'utf8'));
+  const nextVersion = version.replace(/\d+$/, number => String(Number(number) + 1));
   const builds = {};
   for (const label of ['A', 'B']) {
     const outDir = join(output, label);
@@ -21,13 +23,13 @@ export async function buildPair(root, output) {
         build: { outDir: ${JSON.stringify(outDir)}, emptyOutDir: true, reportCompressedSize: false },
         plugins: [{ name: 'pwa-e2e-build-marker', transform(source, id) {
           if (id.endsWith('/src/main.jsx')) return source + '\\nglobalThis.__MASTIL_TEST_BUILD__ = ${JSON.stringify(label)};';
-          if (${JSON.stringify(label)} === 'B' && id.endsWith('/src/App.jsx')) return source.replace('const APP_VERSION = "6.0.97"', 'const APP_VERSION = "6.0.98"');
+          if (${JSON.stringify(label)} === 'B' && id.endsWith('/src/App.jsx')) return source.replace('const APP_VERSION = "${version}"', 'const APP_VERSION = "${nextVersion}"');
         }}]
       });`;
     await execute(process.execPath, ['--max-old-space-size=4096', '--input-type=module', '-e', code], { cwd: root, maxBuffer: 2 * 1024 * 1024 });
     const html = await readFile(join(outDir, 'index.html'), 'utf8');
     const id = html.match(/mastil-offline-build" content="([a-f0-9]+)"/)[1];
-    builds[label] = { outDir, id, cache: `mastil-escalas:${BASE}:${id}` };
+    builds[label] = { outDir, id, version: label === 'B' ? nextVersion : version, cache: `mastil-escalas:${BASE}:${id}` };
   }
   return builds;
 }
@@ -53,10 +55,18 @@ export async function startSite(builds) {
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   const origin = `http://127.0.0.1:${server.address().port}`;
+  let closing;
+  const close = () => {
+    if (!closing) closing = new Promise((resolve, reject) => {
+      server.close(error => error ? reject(error) : resolve());
+      server.closeAllConnections();
+    });
+    return closing;
+  };
   return {
     url: origin + BASE, origin, log,
     serve(value) { label = value; },
     fail(value) { fail = value; },
-    close: () => new Promise((resolve, reject) => { server.close(error => error ? reject(error) : resolve()); server.closeAllConnections(); }),
+    close,
   };
 }
