@@ -81,14 +81,14 @@
 \pagestyle{fancy}
 \fancyhf{}
 \fancyhead[C]{\small\sffamily\color{softgray}Mástil Escalas --- Diseño Técnico del Software}
-\fancyfoot[L]{\small\sffamily\color{softgray}v6.0.94 · revisión parcial 6.0.96}
+\fancyfoot[L]{\small\sffamily\color{softgray}v6.0.94 · revisiones 6.0.96 y 6.0.97}
 \fancyfoot[R]{\small\sffamily\color{softgray}\thepage}
 \renewcommand{\headrulewidth}{0.4pt}
 \renewcommand{\headrule}{\hbox to\headwidth{\color{navydeep!40!white}\leaders\hrule height \headrulewidth\hfill}}
 \renewcommand{\footrulewidth}{0pt}
 \fancypagestyle{plain}{
   \fancyhf{}
-  \fancyfoot[L]{\small\sffamily\color{softgray}v6.0.94 · revisión parcial 6.0.96}
+  \fancyfoot[L]{\small\sffamily\color{softgray}v6.0.94 · revisiones 6.0.96 y 6.0.97}
   \fancyfoot[R]{\small\sffamily\color{softgray}\thepage}
   \renewcommand{\headrulewidth}{0pt}
 }
@@ -280,7 +280,7 @@
   \node[anchor=south west,text width=13.5cm,align=left] at ([xshift=1.9cm,yshift=0.9cm]current page.south west) {%
     \sffamily\fontsize{10.5}{15}\selectfont\color{white!92!black}
     \textcolor{amber}{\bfseries Autor:} Jesús Quevedo Rodríguez\\[2pt]
-    \textcolor{amber}{\bfseries Versión analizada:} 6.0.94 · revisión parcial 6.0.96 (acordes y mástil)\\[2pt]
+    \textcolor{amber}{\bfseries Versión analizada:} 6.0.94 · revisiones 6.0.96 y 6.0.97\\[2pt]
     \textcolor{amber}{\bfseries Fecha:} Agosto de 2026 · revisión: octubre de 2026\\[2pt]
     \textcolor{amber}{\bfseries Repositorio:} \url{https://github.com/a01653/mastil_escalas}%
   };
@@ -309,6 +309,15 @@
 \textbf{Versión analizada:} \textbf{6.0.94} (\lstinline!package.json:4!, \lstinline!src/App.jsx:303!)\\[4pt]
 \textbf{Fecha de análisis:} 2026-08-17. Documento generado por auditoría directa del código fuente local, basado principalmente en revisión directa del código: lectura de configuración, estructura completa de \lstinline!src/!, ejecución real de \lstinline!npm test! y \lstinline!npm run build!.\\[4pt]
 \textbf{Revisión parcial 6.0.96} (2026-10-07, rama \lstinline!feat/alteraciones-quinta-novena!, cierre técnico de la entrega): se revisaron y actualizaron las partes afectadas por los cambios de esta entrega --- \textbf{variantes de quinta (\flt5/5/\shp5) y novena (\flt9/9/\shp9)}, \textbf{calidad visible y opción Aumentada}, \textbf{suspensión que conserva quinta y séptima}, \textbf{lecturas \flt9 y \shp5 del detector}, \textbf{explicaciones de opciones deshabilitadas consultables en móvil} y \textbf{cabecera del mástil de Acordes con rango de trastes} --- en \Sref{sec:4}, \Sref{sec:5.1}-\ref{sec:5.4}, \Sref{sec:6.2}, \Sref{sec:7.4} (\Sref{sec:7.4.1}), \Sref{sec:7.6}, \Sref{sec:8.3}, \Sref{sec:8.7} (nuevo), \Sref{sec:9}, \Sref{sec:12}, \Sref{sec:13}, \Sref{sec:14.2}, \Sref{sec:15}, \Sref{sec:16.1}, \Sref{sec:17} y \Sref{sec:18}. El resto del documento sigue describiendo la revisión 6.0.94 analizada originalmente; las cifras de líneas de ficheros no revisados no se han recalculado.
+
+\smallskip
+\textbf{Revisión parcial 6.0.97} (2026-10-15): instalación PWA y
+funcionamiento sin conexión. Se añade la infraestructura de
+\texttt{src/pwa/}, generación de caché en \texttt{scripts/pwa/},
+manifiesto e iconos, empaquetado web de catálogos y standards y pruebas
+de actualización con varias pestañas. Se mantiene la política existente
+de restablecer la configuración al subir la versión; los presets se
+conservan. Los apartados musicales no se han vuelto a auditar.
 \end{notabox}
 
 \textbf{Mástil Escalas} es una aplicación web de página única (SPA), en español, para el estudio interactivo del mástil de guitarra: escalas, patrones de digitación (CAGED, 3NPS, cajas de pentatónica), rutas melódicas, construcción y análisis de acordes (voicings), comparación de acordes cercanos con conducción práctica, y consulta de standards de jazz con sus cifrados armónicos (\lstinline!README.md:1-9!).
@@ -1190,7 +1199,7 @@ No hay integración de tests en el pipeline de CI (ver \Sref{sec:17}).
 \label{sec:16.1}
 
 \begingroup\sloppy
-\lstinline!vite.config.js! define \lstinline!manualChunks!: \lstinline!react-vendor! (React/ReactDOM/scheduler), \lstinline!icons! (lucide-react), \lstinline!music-core! (todo \lstinline!src/music/!), \lstinline!standards-index! (solo \lstinline!jjazzlabStandardsIndex.json!, aislado para no arrastrar el resto de \lstinline!music-core!). Los \textbf{1461 ficheros JSON individuales} de \lstinline!src/standards-jjazzlab/! se cargan vía \lstinline!import.meta.glob! sin \lstinline!eager! (\lstinline!jjazzlabCatalog.js!), por lo que Rollup los trocea automáticamente en un chunk lazy por standard (2-70\,kB cada uno, verificado en el build real).\endgroup
+\lstinline!vite.config.js! define \lstinline!manualChunks!: \lstinline!react-vendor! (React/ReactDOM/scheduler), \lstinline!icons! (lucide-react), \lstinline!music-core! (todo \lstinline!src/music/!), \lstinline!standards-index! (solo \lstinline!jjazzlabStandardsIndex.json!, aislado para no arrastrar el resto de \lstinline!music-core!). Los \textbf{1461 ficheros JSON individuales} de \lstinline!src/standards-jjazzlab/! se cargan vía \lstinline!import.meta.glob! sin \lstinline!eager! (\lstinline!jjazzlabCatalog.js!), Desde 6.0.97 el build web agrupa sus módulos en 32 paquetes deterministas; la carga sigue siendo diferida y no cambia el contenido de los standards. El build Android mantiene la distribución anterior por standard.\endgroup
 
 \textbf{Resultado del build verificado} (6.0.96, cierre: \lstinline!npm run build!, exit 0, 1\,min 38\,s, 3280 módulos; en 6.0.94 eran 49.88\,s y 3274 módulos):
 
@@ -1224,6 +1233,55 @@ CSS (Tailwind compilado) & 48.32\,kB & 9.32\,kB\\
 \label{sec:16.3}
 
 \lstinline!vite.config.android.js! (build separado, \lstinline!base: "./"!, \lstinline!outDir: dist-android/!) + \lstinline!capacitor.config.json! (\lstinline!appId: com.jqbit.mastilescalas!, \lstinline!minSdkVersion: 24!). Verificado en \lstinline!package.json!: script \lstinline!build:android! (\lstinline!vite build --config! \lstinline!vite.config.android.js!), \lstinline!cap:sync! (\lstinline!npx cap sync android!) y \lstinline!cap:build:debug! (encadena ambos). El paso final de generación del \lstinline!.apk! (\lstinline!gradlew assembleDebug!, vía Android Studio/Gradle) no está documentado en ningún fichero del repositorio ni expuesto como script de npm --- no se pudo verificar documentalmente; solo se confirma la existencia del artefacto resultante en \lstinline!releases/mastil-escalas-v6.0.94.apk!.
+
+\section{Instalación PWA y funcionamiento sin conexión (6.0.97)}
+\label{sec:16.4}
+\begingroup\sloppy
+\texttt{scripts/pwa/build.mjs} genera el manifiesto relativo a la
+instalación, un identificador calculado sobre los recursos y la
+plantilla del worker, \texttt{sw.js} y 17 paquetes JSON del catálogo de
+acordes. Cada paquete conserva como texto los bytes originales de los
+archivos de una tónica, incluidos nombres con sostenidos. Los 12 852
+JSON originales permanecen disponibles en sus rutas; el worker responde
+a esas mismas URLs desde los paquetes guardados. El empaquetado reduce
+las peticiones de preparación sin cambiar el modelo musical ni sus
+consumidores.
+
+El worker solo interviene en peticiones GET del mismo origen bajo
+\texttt{/mastil\_escalas/}. La instalación descarga de forma completa
+HTML, JavaScript, CSS, manifiesto, iconos, metadatos y los paquetes de
+datos. Si falla una descarga se rechaza la instalación y se elimina su
+caché parcial; la versión activa anterior conserva la suya. Solo se
+anuncia «Disponible sin conexión.» cuando un worker instalado controla
+la página. La primera carga requiere red y espacio disponible; borrar
+los datos del sitio obliga a repetir la descarga.
+
+Una versión descargada espera al clic en «Actualizar ahora». No hay
+recarga automática. \texttt{src/pwa/register.js} activa el worker y
+recarga una sola vez, también si otra pestaña ya lo activó. El aviso
+explica la política de configuración existente: al cambiar
+\texttt{APP\_VERSION} se restablece la configuración principal, pero se
+conservan presets y exportaciones. El worker no modifica
+\texttt{localStorage} ni \texttt{sessionStorage}.
+
+Cada documento comunica su identificador de build al worker. Mientras
+haya pestañas antiguas o sin identificar se conservan sus cachés y sus
+módulos diferidos; las peticiones usan la copia correspondiente a ese
+documento. Cuando todas las ventanas confirman el build actual, se
+eliminan las cachés anteriores de esta instalación. No se borran cachés
+de Drop Route ni de otra ruta del mismo origen. El build Android no
+habilita el registro PWA y continúa usando los archivos locales de
+Capacitor.
+
+Las pruebas de \texttt{e2e/pwa.spec.js} utilizan dos builds reales,
+servidor HTTP, service workers y CacheStorage del navegador. Cubren
+recarga sin red y sin caché HTTP, acordes y standards no visitados,
+actualización explícita, conservación de presets, varias pestañas y
+descarga incompleta. Las pruebas unitarias comprueban además
+determinismo del build, transporte sin cambios de los JSON, errores de
+instalación y estados del aviso.
+
+\endgroup
 
 % =============================================================================
 \chapter{Limitaciones, deuda técnica y riesgos detectados}
