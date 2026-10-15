@@ -94,7 +94,9 @@ La primera descarga necesita Internet. Espera a que aparezca **«Disponible sin 
 
 Cuando haya una versión nueva aparecerá **«Actualizar ahora»**. La aplicación no se recarga automáticamente. Se mantiene la política de configuración del proyecto: al cambiar de versión se restablece la configuración actual; los presets rápidos se conservan. Guarda un preset o exporta la configuración antes de actualizar si quieres recuperarla.
 
-El APK de Android es otra forma de distribución; la PWA no requiere descargarlo.
+También puedes [descargar el APK de Android 6.0.98](releases/mastil-escalas-v6.0.98.apk). Se instala como aplicación independiente del navegador e incluye sus archivos para funcionar sin conexión. La PWA no requiere descargar este APK.
+
+Si tienes instalada la APK 6.0.96, exporta antes tu configuración desde la aplicación y desinstálala: la APK 6.0.98 utiliza una firma distinta y Android no permite actualizar directamente entre ambas. Después de instalarla, puedes importar la configuración guardada.
 
 ## Instalación para desarrollo
 
