@@ -642,7 +642,13 @@ No hay integración de tests en el pipeline de CI (ver §17).
 
 ### 16.3 Empaquetado Android (Capacitor)
 
-`vite.config.android.js` (build separado, `base: "./"`, `outDir: dist-android/`) + `capacitor.config.json` (`appId: com.jqbit.mastilescalas`, `minSdkVersion: 24`). Verificado en `package.json`: script `build:android` (`vite build --config vite.config.android.js`), `cap:sync` (`npx cap sync android`) y `cap:build:debug` (encadena ambos). El paso final de generación del `.apk` (`gradlew assembleDebug`, vía Android Studio/Gradle) no está documentado en ningún fichero del repositorio ni expuesto como script de npm — no se pudo verificar documentalmente; solo se confirma la existencia del artefacto resultante en `releases/mastil-escalas-v6.0.94.apk`.
+`vite.config.android.js` genera `dist-android/` con base relativa `./`. Capacitor empaqueta estos archivos locales con `appId: com.jqbit.mastilescalas` y Android mínimo 24; el APK no depende del navegador ni registra el service worker de la PWA.
+
+La construcción necesita Node 22 o posterior, JDK 21, Android SDK 36 y las herramientas de compilación 36.0.0. La secuencia es `npm ci`, `NODE_OPTIONS=--max-old-space-size=4096 npm run build:android`, `npm run cap:sync` y, desde `android/`, `bash ./gradlew --no-daemon :app:assembleDebug :app:lintDebug`. El instalador se genera en `android/app/build/outputs/apk/debug/app-debug.apk`; la copia distribuida de esta entrega es `releases/mastil-escalas-v6.0.98.apk`.
+
+`android/app/build.gradle` obtiene `versionName` de `package.json`. Calcula `versionCode` como `major × 1000000 + minor × 10000 + patch`, con límites explícitos para evitar colisiones y superar el máximo de Android. Para 6.0.98 el código es 6000098. Los iconos nativos, incluidos los adaptativos y circulares, utilizan el diseño de `public/pwa/icon.svg`.
+
+El artefacto es una compilación debug. La comprobación del APK valida firma, metadatos, integridad ZIP, iconos empaquetados y los 12 852 JSON de acordes contra sus originales. Una actualización sobre otro APK exige la misma clave de firma; cambiar el número de versión no sustituye este requisito. La firma de 6.0.98 difiere de la de 6.0.96; para pasar entre ambas hay que exportar la configuración, desinstalar la anterior, instalar e importar. Los resultados y las huellas se guardan en `docs/validation/2026-10-15-android-apk-6.0.98.json`. La compilación y la inspección del paquete no equivalen a una prueba de instalación en un teléfono.
 
 ---
 

@@ -1231,8 +1231,43 @@ CSS (Tailwind compilado) & 48.32\,kB & 9.32\,kB\\
 
 \section{Empaquetado Android (Capacitor)}
 \label{sec:16.3}
+\begingroup\sloppy
+\texttt{vite.config.android.js} genera \path{dist-android/} con base
+relativa \path{./}. Capacitor empaqueta estos archivos locales con
+\texttt{appId: com.jqbit.mastilescalas} y Android mínimo 24; el APK no
+depende del navegador ni registra el service worker de la PWA.
 
-\lstinline!vite.config.android.js! (build separado, \lstinline!base: "./"!, \lstinline!outDir: dist-android/!) + \lstinline!capacitor.config.json! (\lstinline!appId: com.jqbit.mastilescalas!, \lstinline!minSdkVersion: 24!). Verificado en \lstinline!package.json!: script \lstinline!build:android! (\lstinline!vite build --config! \lstinline!vite.config.android.js!), \lstinline!cap:sync! (\lstinline!npx cap sync android!) y \lstinline!cap:build:debug! (encadena ambos). El paso final de generación del \lstinline!.apk! (\lstinline!gradlew assembleDebug!, vía Android Studio/Gradle) no está documentado en ningún fichero del repositorio ni expuesto como script de npm --- no se pudo verificar documentalmente; solo se confirma la existencia del artefacto resultante en \lstinline!releases/mastil-escalas-v6.0.94.apk!.
+La construcción necesita Node 22 o posterior, JDK 21, Android SDK 36 y
+las herramientas de compilación 36.0.0. La secuencia es
+\texttt{npm ci},
+\texttt{NODE\_OPTIONS=-\/-max-old-space-size=4096 npm run build:android},
+\texttt{npm run cap:sync} y, desde \path{android/},
+\texttt{bash ./gradlew -\/-no-daemon :app:assembleDebug :app:lintDebug}.
+El instalador se genera en
+\path{android/app/build/outputs/apk/debug/app-debug.apk}; la copia
+distribuida de esta entrega es
+\path{releases/mastil-escalas-v6.0.98.apk}.
+
+\path{android/app/build.gradle} obtiene \texttt{versionName} de
+\texttt{package.json}. Calcula \texttt{versionCode} como
+\texttt{major × 1000000 + minor × 10000 + patch}, con límites
+explícitos para evitar colisiones y superar el máximo de Android. Para
+6.0.98 el código es 6000098. Los iconos nativos, incluidos los
+adaptativos y circulares, utilizan el diseño de
+\path{public/pwa/icon.svg}.
+
+El artefacto es una compilación debug. La comprobación del APK valida
+firma, metadatos, integridad ZIP, iconos empaquetados y los 12 852 JSON
+de acordes contra sus originales. Una actualización sobre otro APK exige
+la misma clave de firma; cambiar el número de versión no sustituye este
+requisito. La firma de 6.0.98 difiere de la de 6.0.96; para pasar entre
+ambas hay que exportar la configuración, desinstalar la anterior,
+instalar e importar. Los resultados y las huellas se guardan en
+\path{docs/validation/2026-10-15-android-apk-6.0.98.json}. La
+compilación y la inspección del paquete no equivalen a una prueba de
+instalación en un teléfono.
+
+\endgroup
 
 \section{Instalación PWA y funcionamiento sin conexión (6.0.97)}
 \label{sec:16.4}
