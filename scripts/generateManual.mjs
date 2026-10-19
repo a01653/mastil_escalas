@@ -123,20 +123,11 @@ async function captureAll(page, appUrl) {
   });
   await sleep(400);
 
-  // 6. Acordes – Investigar en mástil (es un checkbox, no un button)
+  // 6. Acordes – Investigar en mástil (selector Auto / Manual de la cabecera de Acordes)
   await page.evaluate(() => {
-    // Buscar el input checkbox con label "Investigar en mástil"
-    for (const input of document.querySelectorAll("input[type='checkbox']")) {
-      const label = input.closest("label") || input.parentElement;
-      if (label && label.textContent.includes("Investigar")) {
-        input.click();
-        return;
-      }
-    }
-    // Fallback: buscar la label directamente
-    for (const label of document.querySelectorAll("label")) {
-      if (label.textContent.includes("Investigar")) {
-        label.click();
+    for (const btn of document.querySelectorAll("button")) {
+      if (btn.textContent.trim() === "Manual") {
+        btn.click();
         return;
       }
     }
@@ -144,13 +135,15 @@ async function captureAll(page, appUrl) {
   await sleep(800);
   const investigar = await shot(page, "06_acordes_investigar");
 
-  // desactivar Investigar
+  // volver a Auto: el botón «Auto» que comparte contenedor con «Manual»
   await page.evaluate(() => {
-    for (const input of document.querySelectorAll("input[type='checkbox']")) {
-      const label = input.closest("label") || input.parentElement;
-      if (label && label.textContent.includes("Investigar") && input.checked) {
-        input.click();
-        return;
+    for (const btn of document.querySelectorAll("button")) {
+      if (btn.textContent.trim() !== "Manual") continue;
+      for (const hermano of btn.parentElement.querySelectorAll("button")) {
+        if (hermano.textContent.trim() === "Auto") {
+          hermano.click();
+          return;
+        }
       }
     }
   });
