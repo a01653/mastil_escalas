@@ -72,6 +72,9 @@ export default function ManualOverlay({ open, onClose, UI_BTN_SM }) {
               <div>Construye acordes a partir de tono, calidad, estructura, forma, inversión y extensiones.</div>
               <div>La app busca voicings reales y los puedes recorrer con las flechas o el desplegable.</div>
               <div><b>Estudiar</b> abre un análisis del acorde, el voicing y sus tensiones.</div>
+              <div>Las listas <b>Quinta</b> y <b>Novena</b> permiten alterar la quinta (♭5, 5, ♯5) y la novena (♭9, 9, ♯9). Elegir ♯5 sobre un acorde mayor o dominante lo muestra como <b>Aumentada</b>.</div>
+              <div><b>sus2</b> y <b>sus4</b> sustituyen solo la tercera: conservan la quinta y la séptima, y al quitarlas vuelve el mismo acorde. Las opciones no disponibles se desactivan y explican el motivo (en móvil, con el icono de información).</div>
+              <div>El rango de trastes sobre el mástil de Acordes limita los trastes donde se buscan y se muestran los voicings; <b>Todo el mástil</b> lo restablece. En móvil no se aplica.</div>
             </div>
           </section>
 
@@ -95,6 +98,25 @@ export default function ManualOverlay({ open, onClose, UI_BTN_SM }) {
               <div>Con <b>Auto</b> activado, los acordes se generan según la raíz, escala y armonización activas; <b>Estilo</b> y <b>Progresión</b> controlan el tipo de armonía.</div>
               <div>Con <b>Auto</b> desactivado, cada acorde queda bajo edición manual.</div>
               <div>Sirve para estudiar progresiones, voice leading y tonalidades posibles.</div>
+            </div>
+          </section>
+
+          <section className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+            <div className="text-sm font-semibold text-slate-800">Standards</div>
+            <div className="mt-2 space-y-1 text-xs text-slate-600">
+              <div>Catálogo de más de 1400 standards que puedes filtrar por título, autor, año y tonalidad.</div>
+              <div>La ficha muestra los datos del tema y la <b>Forma</b>, con el cifrado compás a compás.</div>
+              <div>Selecciona hasta 4 acordes de la forma y envíalos a <b>Acordes cercanos</b> para estudiar sus voicings.</div>
+              <div>Los cifrados que la app aún no sabe construir se conservan en pantalla, pero no se cargan: el hueco queda desactivado y se avisa del motivo.</div>
+            </div>
+          </section>
+
+          <section className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+            <div className="text-sm font-semibold text-slate-800">Instalar y usar sin conexión</div>
+            <div className="mt-2 space-y-1 text-xs text-slate-600">
+              <div>Puedes instalar la página como aplicación desde el navegador (en iPhone o iPad, con «Añadir a pantalla de inicio» desde Safari).</div>
+              <div>La primera vez necesita Internet. Espera al aviso <b>Disponible sin conexión</b>; después funciona sin red, con todos los standards.</div>
+              <div>Cuando hay una versión nueva aparece <b>Actualizar ahora</b>. Si cambia la versión, la configuración actual se restablece y los presets se conservan: guarda un preset o exporta la configuración antes de actualizar.</div>
             </div>
           </section>
 
