@@ -206,6 +206,18 @@ Cuando `docs/DTS.md` cambie de forma material:
 
 La versión indicada en el DTS representa la revisión técnica realmente analizada; no debe cambiarse mecánicamente si el contenido técnico no se ha revisado.
 
+### 8.4 Documentación de cierre de cada entrega
+
+Además del DTS, cada entrega que publique una aplicación distinta (apartado 10.1) actualiza estos documentos dentro de la misma rama, durante la preparación del cierre técnico (apartado 7) y antes de la batería final, de modo que ésta valide el estado exacto que se va a fusionar:
+
+1. **`CHANGELOG.md`**: añade la entrada de la versión fijada, con fecha y cambios visibles para el usuario. Si cambia el formato de la configuración exportada o la persistencia, indícalo y di si las versiones anteriores la aceptan.
+2. **Manual de uso en la aplicación** (`src/components/help/ManualOverlay.jsx`): revisa si el cambio añade, quita o modifica algo que el usuario ve o usa, y actualiza el texto. Una sección de navegación (cabecera) sin mención en el manual es una omisión.
+3. **Manual en PDF/HTML** (`manual/`, `npm run generate:manual`): regéneralo cuando cambien la interfaz o el flujo documentados, con la compilación actual servida en el preview. Tras regenerarlo, revisa visualmente las páginas y comprueba que ninguna captura muestra secciones eliminadas.
+4. **Informe de validación** en `docs/validation/AAAA-MM-DD-<asunto>.md`: archivos cambiados, pruebas ejecutadas con su resultado real y pendientes. No afirmes pruebas o revisiones que no se hayan realizado.
+5. **DTS**: aplica el apartado 8.2; si no procede, indícalo en el resumen final.
+
+Las entregas que no cambian la aplicación (documentación, limpieza, pruebas) no incrementan versión ni añaden entrada al `CHANGELOG.md`. El informe final (apartado 16) enumera qué documentos se han actualizado y cuáles no requerían cambio, con el motivo.
+
 ## 9. Batería final antes del merge
 
 La batería final se ejecuta una sola vez, cuando el usuario confirme que han terminado los ajustes, y sobre el estado exacto que se va a fusionar. Durante las iteraciones no se ejecuta completa (apartado 5).
@@ -392,6 +404,7 @@ Al cerrar una tarea, informa de:
 - pruebas dirigidas realizadas durante el desarrollo, con el motivo de su selección;
 - resultados de `lint`, unitarios, build, E2E y auditorías aplicables;
 - estado del DTS: actualizado o no requerido, con motivo;
+- estado del resto de la documentación de cierre (apartado 8.4): `CHANGELOG.md`, manual en la aplicación, manual PDF/HTML e informe de validación, cada uno actualizado o no requerido, con motivo;
 - versión anterior y nueva, si aplica;
 - tag creado, si aplica;
 - resultado del push y del workflow de despliegue;
