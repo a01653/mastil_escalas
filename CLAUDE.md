@@ -212,7 +212,7 @@ Además del DTS, cada entrega que publique una aplicación distinta (apartado 10
 
 1. **`CHANGELOG.md`**: añade la entrada de la versión fijada, con fecha y cambios visibles para el usuario. Si cambia el formato de la configuración exportada o la persistencia, indícalo y di si las versiones anteriores la aceptan.
 2. **Manual de uso en la aplicación** (`src/components/help/ManualOverlay.jsx`): revisa si el cambio añade, quita o modifica algo que el usuario ve o usa, y actualiza el texto. Una sección de navegación (cabecera) sin mención en el manual es una omisión.
-3. **Manual en PDF/HTML** (`manual/`, `npm run generate:manual`): regéneralo cuando cambien la interfaz o el flujo documentados, con la compilación actual servida en el preview. Tras regenerarlo, revisa visualmente las páginas y comprueba que ninguna captura muestra secciones eliminadas.
+3. **Manual en PDF/HTML** (`manual/`, `npm run generate:manual`): `manual/` no se versiona, pero el generador copia el PDF a `public/ayuda/mastil_escalas_manual.pdf`, que sí se versiona y es el que abre el botón de ayuda de la aplicación. Regéneralo cuando cambien la interfaz o el flujo documentados, con la compilación actual servida en el preview. Tras regenerarlo, revisa visualmente las páginas y comprueba que ninguna captura muestra secciones eliminadas.
 4. **Informe de validación** en `docs/validation/AAAA-MM-DD-<asunto>.md`: archivos cambiados, pruebas ejecutadas con su resultado real y pendientes. No afirmes pruebas o revisiones que no se hayan realizado.
 5. **DTS**: aplica el apartado 8.2; si no procede, indícalo en el resumen final.
 
