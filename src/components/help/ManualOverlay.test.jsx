@@ -20,6 +20,11 @@ it('documenta las funciones añadidas desde la 6.0.96', () => {
   }
 });
 
+it('enlaza al manual en PDF dentro de la base de la aplicación', () => {
+  expect(html).toContain('ayuda/mastil_escalas_manual.pdf');
+  expect(html).toContain('Abrir el manual en PDF');
+});
+
 it('no menciona secciones eliminadas', () => {
   expect(html).not.toContain('Patrones');
 });

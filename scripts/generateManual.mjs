@@ -9,11 +9,13 @@
  *   node scripts/generateManual.mjs [--url http://localhost:4174/mastil_escalas/]
  *
  * Salida: manual/mastil_escalas_manual.pdf  +  manual/manual.html
+ * (manual/ no se versiona). El PDF se copia a public/ayuda/, desde donde lo enlaza el
+ * botón de ayuda de la aplicación y se incluye en la copia sin conexión.
  */
 
 import puppeteer from "puppeteer-core";
 import http from "http";
-import { writeFileSync, readFileSync, mkdirSync } from "fs";
+import { writeFileSync, readFileSync, mkdirSync, copyFileSync } from "fs";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 

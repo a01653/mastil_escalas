@@ -14,6 +14,20 @@ export default function ManualOverlay({ open, onClose, UI_BTN_SM }) {
           </button>
         </div>
 
+        <div className="mb-3 flex flex-wrap items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3">
+          <a
+            className={UI_BTN_SM + " w-auto px-3 no-underline"}
+            href={`${import.meta.env.BASE_URL}ayuda/mastil_escalas_manual.pdf`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Abrir el manual en PDF
+          </a>
+          <div className="min-w-0 flex-1 text-xs leading-5 text-slate-600">
+            Manual completo con capturas de la aplicación. Si tu navegador lo descarga en lugar de mostrarlo, ábrelo desde la carpeta de descargas.
+          </div>
+        </div>
+
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           <section className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
             <div className="text-sm font-semibold text-slate-800">Qué hace</div>
