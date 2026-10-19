@@ -1,5 +1,7 @@
 # CLAUDE.md
 
+@AGENTS.md
+
 Este fichero define la forma de trabajo permanente para este repositorio.
 
 ## 1. Idioma y comunicación
@@ -215,6 +217,9 @@ Además del DTS, cada entrega que publique una aplicación distinta (apartado 10
 3. **Manual en PDF/HTML** (`manual/`, `npm run generate:manual`): `manual/` no se versiona, pero el generador copia el PDF a `public/ayuda/mastil_escalas_manual.pdf`, que sí se versiona y es el que abre el botón de ayuda de la aplicación. Regéneralo cuando cambien la interfaz o el flujo documentados, con la compilación actual servida en el preview. Tras regenerarlo, revisa visualmente las páginas y comprueba que ninguna captura muestra secciones eliminadas.
 4. **Informe de validación** en `docs/validation/AAAA-MM-DD-<asunto>.md`: archivos cambiados, pruebas ejecutadas con su resultado real y pendientes. No afirmes pruebas o revisiones que no se hayan realizado.
 5. **DTS**: aplica el apartado 8.2; si no procede, indícalo en el resumen final.
+6. **README**: actualiza los enlaces y la descripción de funcionalidad, requisitos, instalación y validación para que representen lo que está publicado en GitHub. Mantén los resultados concretos de cada entrega en el informe de validación.
+
+Para el estilo editorial del manual, toma como referencia Compás a compás: organiza por tareas, usa pasos breves con nombres exactos de controles, incluye ejemplos y límites claros, y explica las capturas. Conserva la ayuda contextual compacta de Mástil y enlaza desde ella al manual completo.
 
 Las entregas que no cambian la aplicación (documentación, limpieza, pruebas) no incrementan versión ni añaden entrada al `CHANGELOG.md`. El informe final (apartado 16) enumera qué documentos se han actualizado y cuáles no requerían cambio, con el motivo.
 
@@ -404,7 +409,7 @@ Al cerrar una tarea, informa de:
 - pruebas dirigidas realizadas durante el desarrollo, con el motivo de su selección;
 - resultados de `lint`, unitarios, build, E2E y auditorías aplicables;
 - estado del DTS: actualizado o no requerido, con motivo;
-- estado del resto de la documentación de cierre (apartado 8.4): `CHANGELOG.md`, manual en la aplicación, manual PDF/HTML e informe de validación, cada uno actualizado o no requerido, con motivo;
+- estado del resto de la documentación de cierre (apartado 8.4): `CHANGELOG.md`, manual en la aplicación, manual PDF/HTML, README e informe de validación, cada uno actualizado o no requerido, con motivo;
 - versión anterior y nueva, si aplica;
 - tag creado, si aplica;
 - resultado del push y del workflow de despliegue;

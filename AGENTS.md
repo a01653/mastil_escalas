@@ -252,3 +252,36 @@ Codex debe indicar al final de cada entrega:
 - Si ejecutó npm run preview o no.
 - URL del preview si está activo.
 - Si quedan shells/previews abiertos.
+
+## Flujo común de trabajo y cierre
+
+Estas reglas armonizan Mástil Escalas con Drop Route y Compás a compás. Las comprobaciones musicales, de arquitectura y de publicación específicas de Mástil se mantienen en sus secciones anteriores.
+
+### Rama y alcance
+
+- Dedica una rama a un solo objetivo. Antes de editar, revisa `git status --short` y la rama activa.
+- Si el árbol está limpio, actualiza `main` con `git pull --ff-only origin main` y crea la rama de tarea antes del primer cambio. No edites directamente en `main`.
+- Si hay cambios ajenos, no los descartes, sobrescribas, ocultes con `stash` ni incluyas en la tarea. Identifícalos y continúa dejando esos archivos intactos.
+- Durante el desarrollo ejecuta pruebas dirigidas; no repitas toda la batería tras cada ajuste.
+
+### Cierre y pruebas
+
+- Cuando el alcance funcional esté cerrado, actualiza la documentación aplicable y ejecuta una sola batería final sobre el árbol exacto que se propone integrar.
+- Para cambios de aplicación, ejecuta `npm run lint`, `npm test`, `npm run build` y `npm run test:e2e`; añade solo las auditorías musicales afectadas por el cambio, según la matriz de este archivo.
+- En cambios solo documentales, valida los archivos modificados y las herramientas documentales afectadas; no ejecutes E2E ni pruebas de aplicación si no cambia su comportamiento.
+- Si cambias manual o DTS, ejecuta las pruebas que cubren el generador y el texto, regenera los derivados y revisa visualmente todas las páginas PDF. Si la rama también cambia la aplicación, ejecuta además las pruebas de aplicación afectadas.
+- Si falla una validación, corrige y repite la prueba afectada y las comprobaciones que pueda alcanzar la corrección. No declares validado un estado distinto del revisado.
+
+### Manual, DTS y README
+
+- Actualiza la ayuda dentro de la aplicación y el manual PDF cuando cambien las acciones, etiquetas, flujos, límites o requisitos que explican. Conserva la fuente y la generación de este proyecto: `src/components/help/ManualOverlay.jsx`, `scripts/generateManual.mjs` y el PDF publicado en `public/ayuda/mastil_escalas_manual.pdf`.
+- Usa como modelo editorial el manual de Compás a compás: organización por tareas del usuario, pasos numerados cuando el orden importe, nombres exactos de la interfaz, ejemplos y límites explicados, capturas actuales con pies que indiquen qué muestran. En Mástil, mantén la ayuda breve y enlaza con el manual completo; no fuerces su diseño compacto a imitar la maquetación del PDF.
+- Mantén `docs/DTS.md` como fuente técnica. Actualízalo en la misma rama si cambian de forma material arquitectura, estado, persistencia, navegación, lógica musical documentada, construcción, despliegue, pruebas o límites. Regenera y revisa visualmente sus derivados LaTeX/PDF. Si no aplica, deja constancia del motivo en el cierre.
+- Actualiza `README.md` cuando cambien las funciones disponibles, requisitos, instalación, comandos, documentación enlazada, límites o URL pública. Debe describir lo que ya existe en la rama publicada; no presentes una rama local como desplegada. Deja el detalle de pruebas, commit y despliegue en el informe de validación, no como una lista de commits en el README.
+- Mantén fuentes, derivados y capturas en la misma rama. No cambies versión por documentación sola.
+
+### Publicación y entrega
+
+- Commit, fusión, tag, push, release y despliegue requieren autorización expresa. La orden de publicar no permite saltarse una validación obligatoria fallida.
+- Con autorización, verifica el SHA remoto, las comprobaciones de GitHub Actions y el resultado de Pages antes de afirmar que está publicado.
+- Al cerrar, informa de la rama, archivos modificados, documentación actualizada o no requerida, comandos ejecutados y resultados; separa los pendientes. No atribuyas validaciones a GitHub si no consultaste sus ejecuciones.
