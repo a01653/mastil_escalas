@@ -130,6 +130,15 @@ Playwright genera el build, inicia el preview durante la prueba y lo cierra al t
 npm run preview
 ```
 
+## Documentación y estado de GitHub
+
+- [Manual de uso en PDF](public/ayuda/mastil_escalas_manual.pdf), generado desde el manual del proyecto.
+- [DTS en Markdown](docs/DTS.md) y [DTS en PDF](docs/latex/DTS_Mastil_Escalas.pdf).
+- [Instrucciones de trabajo](AGENTS.md) y [flujo de Claude Code](CLAUDE.md).
+- [Repositorio y cambios de `main`](https://github.com/a01653/mastil_escalas) · [GitHub Actions](https://github.com/a01653/mastil_escalas/actions) · [aplicación publicada](https://a01653.github.io/mastil_escalas/).
+
+El README describe las funciones, requisitos, documentación y URL disponibles en la rama publicada. Para el estado de una entrega concreta, consulta su [registro de validación](docs/validation/).
+
 ## Estructura general del proyecto
 
 * **Escalas**: selección de tonalidad, escala y visualización
