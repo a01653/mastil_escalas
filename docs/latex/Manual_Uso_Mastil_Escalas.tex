@@ -1,0 +1,432 @@
+% !TeX program = xelatex
+\documentclass[a4paper,11pt]{article}
+\usepackage{fontspec}
+\IfFontExistsTF{TeX Gyre Pagella}{\setmainfont{TeX Gyre Pagella}}{\setmainfont{P052}}
+\IfFontExistsTF{TeX Gyre Heros}{\setsansfont{TeX Gyre Heros}}{\setsansfont{Nimbus Sans}}
+\IfFontExistsTF{TeX Gyre Cursor}{\setmonofont{TeX Gyre Cursor}[Scale=0.88]}{\setmonofont{Nimbus Mono PS}[Scale=0.88]}
+\usepackage{babel}
+\babelprovide[import,main]{spanish}
+\usepackage{microtype}
+\usepackage[a4paper,margin=2.4cm,headheight=23pt,headsep=10pt,footskip=1.1cm]{geometry}
+\raggedbottom
+\setlength{\emergencystretch}{3em}
+\hyphenpenalty=10000
+\exhyphenpenalty=10000
+\clubpenalty=10000
+\widowpenalty=10000
+\usepackage{xcolor}
+\definecolor{navybg}{HTML}{0B1D2E}
+\definecolor{navydeep}{HTML}{123049}
+\definecolor{lightblue}{HTML}{8FD3FE}
+\definecolor{gold}{HTML}{C9A24A}
+\definecolor{softgray}{HTML}{5B6570}
+\usepackage{titlesec,needspace}
+\setcounter{secnumdepth}{-1}
+\setcounter{tocdepth}{2}
+\titleformat{\section}{\sffamily\Large\bfseries\color{navydeep}\raggedright}{}{0pt}{}
+\titleformat{\subsection}{\sffamily\large\bfseries\color{navydeep}\raggedright}{}{0pt}{}
+\titlespacing*{\section}{0pt}{20pt}{9pt}
+\titlespacing*{\subsection}{0pt}{14pt}{6pt}
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\sffamily\color{softgray}Mástil Escalas}
+\fancyhead[R]{\small\sffamily\color{softgray}Manual de uso}
+\fancyfoot[L]{\small\sffamily\color{softgray}Aplicación 6.0.98 · 20/10/2026}
+\fancyfoot[R]{\small\sffamily\color{softgray}\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\usepackage{array,longtable,booktabs,calc}
+\newcounter{none}
+\renewcommand{\arraystretch}{1.15}
+\usepackage{enumitem}
+\setlist[itemize]{leftmargin=1.4em,itemsep=3pt,topsep=5pt}
+\setlist[enumerate]{leftmargin=1.8em,itemsep=3pt,topsep=5pt}
+\usepackage{fvextra,framed,seqsplit}
+\fvset{fontsize=\small,breaklines=true,breakanywhere=true,frame=leftline,framerule=1.4pt,rulecolor=\color{gold},framesep=8pt}
+\RecustomVerbatimEnvironment{verbatim}{Verbatim}{breaklines,breakanywhere,samepage=true,fontsize=\small}
+\let\originaltexttt\texttt
+\renewcommand{\texttt}[1]{\originaltexttt{\seqsplit{#1}}}
+\providecommand{\tightlist}{\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}}
+% Pandoc 3.2+ envuelve las imágenes en \pandocbounded; con versiones anteriores no existe y esta definición no cambia nada.
+\providecommand{\pandocbounded}[1]{#1}
+\usepackage{graphicx,xurl,tikz}
+\usepackage[section]{placeins}
+\usepackage{amssymb,newunicodechar}
+\usepackage[colorlinks=true,linkcolor=navydeep,urlcolor=navydeep,pdftitle={Mástil Escalas - Manual de uso},pdfauthor={Jesús Quevedo Rodríguez}]{hyperref}
+\usepackage{bookmark}
+\newunicodechar{♭}{\texorpdfstring{\ensuremath{\flat}}{\unichar{9837}}}
+\newunicodechar{♯}{\texorpdfstring{\ensuremath{\sharp}}{\unichar{9839}}}
+\newunicodechar{✓}{\texorpdfstring{\ensuremath{\checkmark}}{\unichar{10003}}}
+\newunicodechar{✗}{\texorpdfstring{\ensuremath{\times}}{\unichar{10007}}}
+\newunicodechar{→}{\texorpdfstring{\ensuremath{\rightarrow}}{\unichar{8594}}}
+\newunicodechar{←}{\texorpdfstring{\ensuremath{\leftarrow}}{\unichar{8592}}}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{6pt}
+\renewcommand{\topfraction}{0.95}
+\renewcommand{\bottomfraction}{0.95}
+\renewcommand{\textfraction}{0.05}
+\renewcommand{\floatpagefraction}{0.6}
+\setcounter{topnumber}{3}
+\setcounter{totalnumber}{4}
+\begin{document}
+\begin{titlepage}
+\newgeometry{margin=0cm}
+\thispagestyle{empty}
+\pagecolor{navybg}
+\color{white}
+\vspace*{3cm}
+\begin{center}
+{\sffamily\bfseries\fontsize{16}{19}\selectfont\color{gold} MÁSTIL ESCALAS\par}
+\vspace{1cm}
+\begin{tikzpicture}[x=0.7cm,y=0.28cm]
+\foreach \y in {0,...,5} {\draw[gold!60,line width=0.5pt] (-3,\y)--(3,\y);}
+\foreach \x in {-3,-1,1,3} {\draw[gold!70,line width=0.6pt] (\x,0)--(\x,5);}
+\fill[gold] (-2,1) circle[x radius=0.16cm,y radius=0.16cm];
+\fill[white] (0,3) circle[x radius=0.16cm,y radius=0.16cm];
+\fill[gold] (2,4) circle[x radius=0.16cm,y radius=0.16cm];
+\end{tikzpicture}\par
+\vspace{1.4cm}
+{\sffamily\bfseries\fontsize{30}{38}\selectfont Manual de uso\par}
+\vspace{0.8cm}
+{\sffamily\fontsize{14}{20}\selectfont\color{lightblue} Escalas, rutas y acordes sobre el mástil de la guitarra\par}
+\vfill
+{\sffamily\small Autor del proyecto: Jesús Quevedo Rodríguez\par}
+{\sffamily\small Aplicación 6.0.98 · 20/10/2026\par}
+{\sffamily\small Repositorio: a01653/mastil\_escalas\par}
+\vspace{2cm}
+\end{center}
+\end{titlepage}
+\nopagecolor
+\restoregeometry
+\setcounter{page}{2}
+\tableofcontents
+\newpage
+\Needspace{3.5cm}
+\section{Empezar}\label{empezar}
+
+Mástil Escalas es una página para guitarristas. Muestra escalas, compara dos escalas, calcula rutas y construye acordes con digitaciones reales sobre el mástil. Funciona en el navegador, en escritorio y en móvil, y se puede instalar para usarla sin conexión.
+
+Se organiza en secciones que eliges en la barra \textbf{Menu} (escritorio) o en la barra inferior (móvil):
+
+{\def\LTcaptype{none} % do not increment counter
+\begin{longtable}[]{@{}>{\raggedright\arraybackslash}p{\dimexpr0.320000\linewidth-1.000000\tabcolsep\relax}>{\raggedright\arraybackslash}p{\dimexpr0.680000\linewidth-1.000000\tabcolsep\relax}@{}}
+\toprule\noalign{}
+Sección & Para qué sirve \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+Escala & Ver en el mástil las notas de una escala y sus grados. \\
+Ruta & Calcular un recorrido tocable entre una nota inicial y una final. \\
+Acordes & Construir un acorde, recorrer sus voicings y estudiarlo. \\
+Acordes cercanos & Comparar hasta cuatro acordes en una misma zona del mástil. \\
+Comparar & Ver dos escalas a la vez sobre el mismo mástil. \\
+Standards & Consultar el cifrado de standards y enviar acordes a Acordes cercanos. \\
+Configuración & Guardar presets, exportar e importar la configuración. \\
+\end{longtable}
+}
+
+El interrogante de la cabecera abre una ayuda breve con el botón \textbf{Abrir el manual en PDF}, que muestra este documento. En móvil, el menú de tres rayas abre la configuración y la barra inferior cambia de sección.
+
+\Needspace{11.5cm}
+\pandocbounded{\includegraphics[width=\linewidth,height=0.44\textheight,keepaspectratio]{../manuals/capturas/escala.png}}
+
+\emph{Figura 1. Sección Escala con la barra Menu y los controles de la escala activa.}
+
+\Needspace{3.5cm}
+\section{Elegir la tonalidad y la escala}\label{elegir-la-tonalidad-y-la-escala}
+
+Estos ajustes se aplican a todas las secciones. Cámbialos primero y el resto se actualiza solo.
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\tightlist
+\item
+  Elige la \textbf{Nota raíz}.
+\item
+  Elige la \textbf{Escala} (mayor, menor natural, pentatónica, modos\ldots).
+\item
+  Decide qué ver en las celdas: \textbf{Notas}, \textbf{Intervalos} o ambos. Si empiezas, usa Notas; cuando ubiques bien el mástil, añade Intervalos.
+\item
+  Ajusta \textbf{Trastes} para ampliar o reducir el rango visible.
+\end{enumerate}
+
+\Needspace{3.5cm}
+\section{Ver una escala en el mástil}\label{ver-una-escala-en-el-muxe1stil}
+
+La sección \textbf{Escala} resalta la raíz, la tercera, la quinta y el resto de notas de la escala activa.
+
+\begin{itemize}
+\tightlist
+\item
+  \textbf{Notas extra} añade tensiones u otras notas ajenas a la escala sin cambiarla.
+\item
+  \textbf{Ver todo} muestra también las notas que no pertenecen a la escala.
+\item
+  Al pasar el ratón por una celda vacía aparece el nombre de la nota de ese traste.
+\end{itemize}
+
+\Needspace{3.5cm}
+\section{Comparar dos escalas}\label{comparar-dos-escalas}
+
+La sección \textbf{Comparar} muestra hasta dos escalas a la vez, cada una con su color.
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\tightlist
+\item
+  Activa una fila con \textbf{Ver} y elige su \textbf{Nota raíz} y su \textbf{Escala}.
+\item
+  Activa una segunda fila. Solo pueden estar visibles dos filas: al activar una tercera se desactiva la más antigua.
+\item
+  Lee el mástil: una nota exclusiva de una escala aparece en un círculo de su color; si las dos escalas comparten una nota, se ven dos círculos juntos en el mismo traste.
+\item
+  Con dos escalas activas, \textbf{Puntos de resolución} muestra dónde convergen o divergen las tensiones de ambas.
+\end{enumerate}
+
+Sirve para comparar un modo con su escala paralela, ver el solapamiento entre tonalidades relativas o estudiar sustituciones.
+
+\Needspace{11.5cm}
+\pandocbounded{\includegraphics[width=\linewidth,height=0.44\textheight,keepaspectratio]{../manuals/capturas/comparar.png}}
+
+\emph{Figura 2. Sección Comparar: filas de escalas y mástil con las notas de cada una.}
+
+\Needspace{3.5cm}
+\section{Calcular una ruta}\label{calcular-una-ruta}
+
+La sección \textbf{Ruta} busca un recorrido, siguiendo la escala, entre una nota inicial y una final.
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\tightlist
+\item
+  Indica \textbf{Inicio} y \textbf{Fin}. Puedes escribir una posición como \texttt{61} o elegirla con un clic en el mástil.
+\item
+  Ajusta \textbf{Máx. notas} por cuerda. Es un límite orientativo: la ruta intenta respetarlo, pero puede hacer un desplazamiento si mejora la digitación.
+\item
+  Revisa el recorrido resultante sobre el mástil.
+\end{enumerate}
+
+La ruta prioriza avanzar con lógica de guitarrista: evita retrocesos absurdos de cuerda y favorece las trayectorias diagonales naturales.
+
+\Needspace{11.5cm}
+\pandocbounded{\includegraphics[width=\linewidth,height=0.44\textheight,keepaspectratio]{../manuals/capturas/ruta.png}}
+
+\emph{Figura 3. Sección Ruta con los controles Inicio, Fin y Máx. notas.}
+
+\Needspace{3.5cm}
+\section{Construir un acorde}\label{construir-un-acorde}
+
+La sección \textbf{Acordes} parte de un acorde que defines y busca voicings reales en el mástil.
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\tightlist
+\item
+  Elige el \textbf{Tono} y la \textbf{calidad} del acorde.
+\item
+  Elige la \textbf{estructura} (por ejemplo, tríada o cuatriada), la \textbf{forma} y la \textbf{inversión}, es decir, qué nota queda en el bajo.
+\item
+  Marca las \textbf{extensiones} que quieras (6, 7, 9, 11, 13). Las opciones que no son posibles con la estructura activa se desactivan y explican el motivo; en móvil, con el icono de información.
+\item
+  Recorre los voicings con las flechas o con el desplegable. \textbf{Dist.} limita la distancia entre la nota más grave y la más aguda.
+\item
+  Para copiar la digitación activa, pulsa el icono de copiar de la cabecera.
+\end{enumerate}
+
+Otras opciones del constructor:
+
+\begin{itemize}
+\tightlist
+\item
+  Las listas \textbf{Quinta} y \textbf{Novena} permiten alterar la quinta (♭5, 5, ♯5) y la novena (♭9, 9, ♯9). Elegir ♯5 sobre un acorde mayor o dominante lo muestra como \textbf{Aumentada}.
+\item
+  \textbf{sus2} y \textbf{sus4} sustituyen solo la tercera: conservan la quinta y la séptima, y al quitarlas vuelve el mismo acorde.
+\item
+  \textbf{Cuerdas al aire} permite que los voicings incluyan cuerdas abiertas.
+\item
+  El rango de trastes sobre el mástil limita los trastes donde se buscan y se muestran los voicings. \textbf{Todo el mástil} lo restablece. En móvil no se aplica.
+\end{itemize}
+
+\Needspace{11.5cm}
+\pandocbounded{\includegraphics[width=\linewidth,height=0.44\textheight,keepaspectratio]{../manuals/capturas/acordes.png}}
+
+\emph{Figura 4. Sección Acordes: constructor, mástil con el voicing activo y selector de voicing.}
+
+\Needspace{3.5cm}
+\section{Estudiar un acorde}\label{estudiar-un-acorde}
+
+Pulsa \textbf{Estudiar} junto al voicing para abrir el análisis del acorde, del voicing y de sus tensiones. El botón \textbf{Ver análisis} abre el mismo estudio y \textbf{Ocultar} lo cierra.
+
+El análisis agrupa la información en bloques, entre ellos:
+
+\begin{itemize}
+\tightlist
+\item
+  \textbf{Identidad} y \textbf{Por qué se nombra así}: el nombre del acorde y la razón de esa lectura.
+\item
+  \textbf{Compatibilidad con la escala}: si el acorde encaja en la escala activa.
+\item
+  \textbf{Dominantes externos hacia la raíz detectada}.
+\item
+  \textbf{Construcción} y \textbf{Voicing actual}: las notas y la digitación.
+\item
+  \textbf{Tensiones según escala} y \textbf{Reglas}.
+\item
+  \textbf{Pentagrama del voicing real}.
+\end{itemize}
+
+\textbf{Exportar PDF} genera un resumen imprimible del análisis visible.
+
+\Needspace{11.5cm}
+\pandocbounded{\includegraphics[width=\linewidth,height=0.44\textheight,keepaspectratio]{../manuals/capturas/acordes-estudio.png}}
+
+\emph{Figura 5. Sección Acordes con el estudio del acorde abierto.}
+
+\Needspace{3.5cm}
+\section{Investigar notas en el mástil}\label{investigar-notas-en-el-muxe1stil}
+
+El modo \textbf{Manual} invierte el flujo: marcas notas en el mástil y la aplicación propone qué acorde forman. Se activa con el selector \textbf{Auto} / \textbf{Manual} de la cabecera de Acordes.
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\tightlist
+\item
+  Pulsa \textbf{Manual}. El cuadro de acorde queda bloqueado.
+\item
+  Pulsa las notas en el mástil. Solo puede haber una nota por cuerda: si pulsas otra en la misma cuerda, sustituye a la anterior.
+\item
+  Lee las lecturas posibles que propone la aplicación y copia la que prefieras a la sección de arriba para seguir editándola.
+\item
+  Pulsa \textbf{Auto} para volver al constructor.
+\end{enumerate}
+
+Opciones útiles:
+
+\begin{itemize}
+\tightlist
+\item
+  Arriba a la derecha tienes los iconos de altavoz, \textbf{Play} y limpiar. El altavoz tachado indica que el sonido al pulsar está apagado. \textbf{Play} recorre la selección cuerda a cuerda, de 6ª a 1ª, y resalta cada nota.
+\item
+  \textbf{Mantener lectura anterior} conserva la lectura funcional previa cuando el cambio de notas es pequeño. Si está apagado, siempre se elige el primer candidato del motor.
+\item
+  \textbf{Priorizar acorde de referencia} reordena los candidatos favoreciendo la raíz y la calidad indicadas, sin eliminar ninguna lectura.
+\end{itemize}
+
+\Needspace{11.5cm}
+\pandocbounded{\includegraphics[width=\linewidth,height=0.44\textheight,keepaspectratio]{../manuals/capturas/acordes-manual.png}}
+
+\emph{Figura 6. Modo Manual: el cuadro de acorde queda bloqueado y el mástil admite la selección de notas.}
+
+\Needspace{3.5cm}
+\section{Comparar acordes cercanos}\label{comparar-acordes-cercanos}
+
+La sección \textbf{Acordes cercanos} compara hasta cuatro acordes en una misma zona del mástil, para estudiar progresiones y conducción de voces.
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\tightlist
+\item
+  Define los acordes de cada hueco, o activa \textbf{Auto escala} para que se generen según la raíz, la escala y la armonización activas. \textbf{Estilo} y \textbf{Progresión} controlan el tipo de armonía.
+\item
+  Con \textbf{Auto escala} desactivado, cada acorde queda en edición manual.
+\item
+  Fija el rango de trastes donde se buscan las digitaciones.
+\item
+  Revisa las digitaciones propuestas: se ordenan por cercanía al acorde de referencia.
+\item
+  Pulsa \textbf{Estudiar} en un hueco para analizar ese acorde.
+\end{enumerate}
+
+Un flujo habitual para un ii-V-I en Do mayor: activa \textbf{Auto escala} con Do mayor y desplaza el rango de trastes hasta encontrar la posición con mejor conducción de voces.
+
+\Needspace{11.5cm}
+\pandocbounded{\includegraphics[width=\linewidth,height=0.44\textheight,keepaspectratio]{../manuals/capturas/cercanos.png}}
+
+\emph{Figura 7. Sección Acordes cercanos con sus huecos de acorde y el mástil.}
+
+\Needspace{3.5cm}
+\section{Trabajar con Standards}\label{trabajar-con-standards}
+
+La sección \textbf{Standards} es un catálogo de más de 1400 temas.
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\tightlist
+\item
+  Filtra el catálogo por título, autor, año o tonalidad y elige un tema.
+\item
+  En la ficha, lee los datos del tema y su \textbf{Forma}, el cifrado compás a compás.
+\item
+  Selecciona hasta cuatro acordes de la forma y envíalos a \textbf{Acordes cercanos} para estudiar sus voicings.
+\end{enumerate}
+
+Los cifrados que la aplicación aún no sabe construir se conservan en pantalla, pero no se cargan: el hueco queda desactivado y se avisa del motivo.
+
+\Needspace{11.5cm}
+\pandocbounded{\includegraphics[width=\linewidth,height=0.44\textheight,keepaspectratio]{../manuals/capturas/standards.png}}
+
+\emph{Figura 8. Catálogo de standards con sus filtros.}
+
+\Needspace{11.5cm}
+\pandocbounded{\includegraphics[width=\linewidth,height=0.44\textheight,keepaspectratio]{../manuals/capturas/standards-forma.png}}
+
+\emph{Figura 9. Ficha de un standard seleccionado, con su Forma.}
+
+\Needspace{3.5cm}
+\section{Guardar y recuperar la configuración}\label{guardar-y-recuperar-la-configuraciuxf3n}
+
+La sección \textbf{Configuración} reúne los ajustes generales.
+
+\begin{itemize}
+\tightlist
+\item
+  \textbf{Presets rápidos} guardan y recuperan configuraciones habituales.
+\item
+  \textbf{Exportar config} guarda toda la configuración en un archivo JSON.
+\item
+  \textbf{Importar config} recupera una configuración anterior.
+\item
+  \textbf{Restablecer} vuelve a los valores por defecto.
+\end{itemize}
+
+\Needspace{11.5cm}
+\pandocbounded{\includegraphics[width=\linewidth,height=0.44\textheight,keepaspectratio]{../manuals/capturas/configuracion.png}}
+
+\emph{Figura 10. Panel de Configuración.}
+
+\Needspace{3.5cm}
+\section{Instalar y usar sin conexión}\label{instalar-y-usar-sin-conexiuxf3n}
+
+Puedes instalar la página como aplicación desde el navegador. En iPhone o iPad, usa «Añadir a pantalla de inicio» desde Safari.
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\tightlist
+\item
+  Abre la página con conexión a Internet la primera vez.
+\item
+  Espera al aviso \textbf{Disponible sin conexión}. A partir de ahí funciona sin red, con todos los standards.
+\item
+  Cuando hay una versión nueva aparece \textbf{Actualizar ahora}.
+\end{enumerate}
+
+Si cambia la versión de la aplicación, la configuración actual se restablece y los presets se conservan. Antes de actualizar, guarda un preset o exporta la configuración.
+
+\Needspace{3.5cm}
+\section{Límites y consejos}\label{luxedmites-y-consejos}
+
+\begin{itemize}
+\tightlist
+\item
+  El límite de notas por cuerda en Ruta es orientativo, no estricto.
+\item
+  Algunas combinaciones de estructura, inversión y extensiones no tienen voicing tocable; la aplicación lo indica en lugar de mostrar una digitación incorrecta.
+\item
+  El rango de trastes de Acordes no se aplica en móvil.
+\item
+  Para estudiar armonía, combina \textbf{Acordes}, \textbf{Estudiar} y \textbf{Acordes cercanos}.
+\item
+  Empieza con una escala simple, por ejemplo mayor o pentatónica menor.
+\end{itemize}
+\end{document}
