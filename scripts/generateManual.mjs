@@ -1,29 +1,48 @@
 /**
- * Genera el manual de usuario de Mástil Escalas en PDF.
+ * Genera el manual de usuario de Mástil Escalas en PDF (XeLaTeX, A4 vertical).
  *
- * Requiere que el servidor preview esté corriendo:
+ * Fuentes versionadas:
+ *   docs/manuals/USO.md                 texto del manual
+ *   docs/manuals/capturas/*.png         capturas de la aplicación
+ *   docs/latex/manual-template.tex      plantilla Pandoc (portada, índice, estilo)
+ *
+ * Salidas versionadas:
+ *   docs/latex/Manual_Uso_Mastil_Escalas.tex y .pdf   PDF fuente del manual
+ *   public/ayuda/mastil_escalas_manual.pdf            copia que abre el botón de ayuda
+ *
+ * Requisitos: Pandoc 3.x y XeLaTeX en el PATH. Las capturas necesitan además Chrome y el
+ * servidor preview sirviendo la compilación actual:
  *   npm run build && npm run preview
  *
  * Uso:
- *   npm run generate:manual
+ *   npm run generate:manual                       capturas + PDF
+ *   node scripts/generateManual.mjs --solo-pdf    reutiliza las capturas existentes
+ *   node scripts/generateManual.mjs --solo-capturas
  *   node scripts/generateManual.mjs [--url http://localhost:4174/mastil_escalas/]
- *
- * Salida: manual/mastil_escalas_manual.pdf  +  manual/manual.html
- * (manual/ no se versiona). El PDF se copia a public/ayuda/, desde donde lo enlaza el
- * botón de ayuda de la aplicación y se incluye en la copia sin conexión.
  */
 
-import puppeteer from "puppeteer-core";
 import http from "http";
-import { writeFileSync, readFileSync, mkdirSync, copyFileSync } from "fs";
-import { resolve, dirname } from "path";
+import { spawnSync } from "child_process";
+import {
+  copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync,
+} from "fs";
+import { tmpdir } from "os";
+import { basename, dirname, join, resolve } from "path";
 import { fileURLToPath } from "url";
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
-const OUT_DIR = resolve(ROOT, "manual");
+const SOURCE = resolve(ROOT, "docs", "manuals", "USO.md");
+const CAPTURES_DIR = resolve(ROOT, "docs", "manuals", "capturas");
+const TEMPLATE = resolve(ROOT, "docs", "latex", "manual-template.tex");
+const LATEX_DIR = resolve(ROOT, "docs", "latex");
+const DOC_NAME = "Manual_Uso_Mastil_Escalas";
+const APP_PDF = resolve(ROOT, "public", "ayuda", "mastil_escalas_manual.pdf");
+
+const COVER_TITLE = "Manual de uso";
+const COVER_SUBTITLE = "Escalas, rutas y acordes sobre el mástil de la guitarra";
 
 const CHROME_PATHS = [
   "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe",
@@ -32,27 +51,30 @@ const CHROME_PATHS = [
   "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
 ];
 
+const args = process.argv.slice(2);
+const ONLY_PDF = args.includes("--solo-pdf");
+const ONLY_CAPTURES = args.includes("--solo-capturas");
 const CUSTOM_URL = (() => {
-  const idx = process.argv.indexOf("--url");
-  return idx >= 0 ? process.argv[idx + 1] : null;
+  const idx = args.indexOf("--url");
+  return idx >= 0 ? args[idx + 1] : null;
 })();
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function checkPort(port) {
-  return new Promise((resolve) => {
+  return new Promise((done) => {
     const req = http.get(`http://localhost:${port}/mastil_escalas/`, (res) => {
-      resolve(res.statusCode < 400);
+      done(res.statusCode < 400);
       res.resume();
     });
-    req.on("error", () => resolve(false));
-    req.setTimeout(2000, () => { req.destroy(); resolve(false); });
+    req.on("error", () => done(false));
+    req.setTimeout(2000, () => { req.destroy(); done(false); });
   });
 }
 
 async function findAppUrl() {
   if (CUSTOM_URL) return CUSTOM_URL;
-  for (const port of [4173, 4174, 4175, 4176]) {
+  for (const port of [4173, 4174, 4175, 4176, 4185, 4186]) {
     if (await checkPort(port)) return `http://localhost:${port}/mastil_escalas/`;
   }
   return null;
@@ -60,818 +82,353 @@ async function findAppUrl() {
 
 function findChrome() {
   for (const p of CHROME_PATHS) {
-    try { readFileSync(p); return p; } catch { /* not found */ }
+    if (existsSync(p)) return p;
   }
   return null;
 }
 
-async function clickNavButton(page, label) {
-  await page.evaluate((lbl) => {
-    for (const btn of document.querySelectorAll("button")) {
-      if (btn.textContent.trim().includes(lbl) && !btn.disabled) {
-        btn.click();
-        return;
-      }
-    }
-  }, label);
-  await sleep(900);
+function readAppVersion() {
+  const src = readFileSync(resolve(ROOT, "src", "App.jsx"), "utf-8");
+  const m = src.match(/APP_VERSION\s*=\s*["']([^"']+)["']/);
+  if (!m) throw new Error("No se encuentra APP_VERSION en src/App.jsx");
+  return m[1];
 }
 
-async function shot(page, name, fullPage = false) {
-  const path = resolve(OUT_DIR, `${name}.png`);
-  await page.screenshot({ path, fullPage });
-  const data = readFileSync(path).toString("base64");
-  return { path, data };
+function run(command, commandArgs, options = {}) {
+  const result = spawnSync(command, commandArgs, { encoding: "utf-8", ...options });
+  if (result.error) {
+    throw new Error(`No se puede ejecutar «${command}»: ${result.error.message}`);
+  }
+  if (result.status !== 0) {
+    throw new Error(`${command} terminó con error:\n${(result.stdout || "").slice(-4000)}\n${(result.stderr || "").slice(-3000)}`);
+  }
+  return result;
 }
 
 // ─── Capturas ────────────────────────────────────────────────────────────────
 
-async function captureAll(page, appUrl) {
-  await page.goto(appUrl, { waitUntil: "networkidle2", timeout: 30000 });
-  await sleep(1200);
+// Escritorio ≥ 1280 px: la barra Menu solo se muestra a partir del breakpoint xl.
+const VIEWPORT = { width: 1440, height: 900, deviceScaleFactor: 1.25 };
 
-  // 1. Escala
-  await clickNavButton(page, "Escala");
-  const escala = await shot(page, "01_escala");
+async function clickTestId(page, testId) {
+  const selector = `[data-testid="${testId}"]`;
+  await page.waitForSelector(selector, { visible: true, timeout: 8000 });
+  await page.click(selector);
+  await sleep(900);
+}
 
-  // 2. Comparador de escalas
-  await clickNavButton(page, "Comparar");
-  const patrones = await shot(page, "02_comparar");
-
-  // 3. Ruta
-  await clickNavButton(page, "Ruta");
-  const ruta = await shot(page, "03_ruta");
-
-  // 4. Acordes
-  await clickNavButton(page, "Acordes");
-  await sleep(400);
-  const acordes = await shot(page, "04_acordes");
-
-  // 5. Acordes – abrir Modo Estudio ("Ver análisis")
-  await page.evaluate(() => {
+async function clickButtonByText(page, label) {
+  const ok = await page.evaluate((lbl) => {
     for (const btn of document.querySelectorAll("button")) {
-      const t = btn.textContent.trim();
-      if (t === "Ver análisis" || t === "Ocultar") { btn.click(); return; }
-    }
-  });
-  await sleep(800);
-  const estudio = await shot(page, "05_acordes_estudio", true);
-
-  // cerrar Modo Estudio si está abierto
-  await page.evaluate(() => {
-    for (const btn of document.querySelectorAll("button")) {
-      if (btn.textContent.trim() === "Ocultar") { btn.click(); return; }
-    }
-  });
-  await sleep(400);
-
-  // 6. Acordes – Investigar en mástil (selector Auto / Manual de la cabecera de Acordes)
-  await page.evaluate(() => {
-    for (const btn of document.querySelectorAll("button")) {
-      if (btn.textContent.trim() === "Manual") {
+      if (btn.textContent.trim() === lbl && !btn.disabled) {
         btn.click();
-        return;
+        return true;
       }
     }
-  });
+    return false;
+  }, label);
+  if (!ok) throw new Error(`No se encuentra el botón «${label}»`);
   await sleep(800);
-  const investigar = await shot(page, "06_acordes_investigar");
+}
 
-  // volver a Auto: el botón «Auto» que comparte contenedor con «Manual»
+async function shot(page, name) {
+  mkdirSync(CAPTURES_DIR, { recursive: true });
+  const path = resolve(CAPTURES_DIR, `${name}.png`);
+  await page.screenshot({ path });
+  console.log(`  ✓ ${name}.png`);
+}
+
+async function shotElement(page, selector, name) {
+  const handle = await page.waitForSelector(selector, { visible: true, timeout: 8000 });
+  mkdirSync(CAPTURES_DIR, { recursive: true });
+  await handle.screenshot({ path: resolve(CAPTURES_DIR, `${name}.png`) });
+  console.log(`  ✓ ${name}.png`);
+}
+
+async function freshPage(page, appUrl) {
+  await page.goto(appUrl, { waitUntil: "networkidle2", timeout: 30000 });
+  await page.evaluate(() => { localStorage.clear(); sessionStorage.clear(); });
+  await page.goto(appUrl, { waitUntil: "networkidle2", timeout: 30000 });
+  // Solo para las capturas: oculta el botón «dbg» que el servidor de desarrollo añade al
+  // selector de voicings. No modifica la aplicación.
+  await page.addStyleTag({
+    content: 'button[title="Copiar debug voicings (solo DEV)"] { display: none !important; }',
+  });
+  await sleep(1200);
+}
+
+// Panel de Ruta completo (controles, recorrido en el mástil y escalas activas). El pentagrama
+// queda debajo y no cabe en una captura legible junto al resto, así que se oculta un momento.
+async function captureRoutePanel(page) {
+  const selector = '[data-testid="route-panel"]';
+  await page.waitForSelector(selector, { visible: true, timeout: 8000 });
+  const state = await page.evaluate((sel) => {
+    const panel = document.querySelector(sel);
+    const label = [...panel.querySelectorAll("div")].find((d) => d.textContent.trim() === "Pentagrama 4/4");
+    const staffBlock = label ? label.parentElement : null;
+    if (staffBlock) staffBlock.style.display = "none";
+    return { hasRoute: /pasos:/.test(panel.textContent), hidStaff: !!staffBlock };
+  }, selector);
+  if (!state.hasRoute) {
+    throw new Error("El panel de Ruta no muestra un recorrido calculado (falta «pasos:» en la cabecera)");
+  }
+  await sleep(300);
+  await shotElement(page, selector, "ruta");
+  if (state.hidStaff) {
+    await page.evaluate((sel) => {
+      const panel = document.querySelector(sel);
+      const label = [...panel.querySelectorAll("div")].find((d) => d.textContent.trim() === "Pentagrama 4/4");
+      if (label) label.parentElement.style.display = "";
+    }, selector);
+  }
+}
+
+// Modo Manual con un F mayor (xx3211: F-A-C-F) marcado con clics reales sobre el mástil.
+// Cuerdas del mástil: 0 = 1ª (mi agudo) … 5 = 6ª (mi grave).
+const MANUAL_CHORD_CELLS = [
+  { sIdx: 3, fret: 3 }, // 4ª cuerda, traste 3: F
+  { sIdx: 2, fret: 2 }, // 3ª cuerda, traste 2: A
+  { sIdx: 1, fret: 1 }, // 2ª cuerda, traste 1: C
+  { sIdx: 0, fret: 1 }, // 1ª cuerda, traste 1: F
+];
+
+async function captureManualMode(page) {
+  await clickButtonByText(page, "Manual");
+
+  for (const { sIdx, fret } of MANUAL_CHORD_CELLS) {
+    const selector = `[data-testid="chord-detect-cell-${sIdx}-${fret}"]`;
+    try {
+      await page.waitForSelector(selector, { visible: true, timeout: 8000 });
+    } catch {
+      throw new Error(`Modo Manual: no se encuentra la celda ${selector} del mástil`);
+    }
+    await page.click(selector);
+    await sleep(250);
+  }
+
+  const readingSelector = '[data-testid="detected-chord-list"] [data-testid^="detected-chord-name-"]';
+  try {
+    await page.waitForSelector(readingSelector, { visible: true, timeout: 8000 });
+  } catch {
+    throw new Error("Modo Manual: tras marcar F-A-C-F no aparece ninguna lectura en «Posibles acordes»");
+  }
+  const reading = await page.$eval(readingSelector, (el) => el.textContent.trim());
+  if (!reading) throw new Error("Modo Manual: la primera lectura propuesta está vacía");
+  console.log(`  · Modo Manual: lectura propuesta «${reading}»`);
+
+  // Vista algo más alta para que entren a la vez la cabecera, el mástil con las notas y las lecturas.
+  await page.setViewport({ ...VIEWPORT, height: 1100 });
+  await page.evaluate(() => {
+    const cell = document.querySelector('[data-testid="chord-detect-cell-0-0"]');
+    cell.scrollIntoView({ block: "start" });
+    window.scrollBy(0, -220);
+  });
+  await sleep(300);
+  // Si la primera lectura queda por debajo del borde, baja lo justo.
+  await page.evaluate((sel) => {
+    const r = document.querySelector(sel).getBoundingClientRect();
+    if (r.bottom > window.innerHeight - 24) window.scrollBy(0, r.bottom - window.innerHeight + 48);
+  }, readingSelector);
+  await sleep(300);
+  const visible = await page.$eval(readingSelector, (el) => {
+    const r = el.getBoundingClientRect();
+    return r.top >= 0 && r.bottom <= window.innerHeight;
+  });
+  if (!visible) throw new Error("Modo Manual: la lectura propuesta no cabe en la captura");
+  await shot(page, "acordes-manual");
+  await page.setViewport(VIEWPORT);
+  await page.evaluate(() => window.scrollTo(0, 0));
+}
+
+async function captureAll(page, appUrl) {
+  await freshPage(page, appUrl);
+
+  await clickTestId(page, "nav-scale");
+  await shot(page, "escala");
+
+  await clickTestId(page, "nav-scale-compare");
+  await shot(page, "comparar");
+
+  await clickTestId(page, "nav-route");
+  await captureRoutePanel(page);
+
+  await clickTestId(page, "nav-chords");
+  await shot(page, "acordes");
+
+  // Estudio del acorde principal: el botón «Estudiar» de la cabecera del mástil.
+  await clickButtonByText(page, "Estudiar");
+  await page.evaluate(() => {
+    document.querySelector('[data-testid="study-toggle"]')?.scrollIntoView({ block: "start" });
+  });
+  await sleep(500);
+  await shot(page, "acordes-estudio");
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.evaluate(() => {
+    const toggle = document.querySelector('[data-testid="study-toggle"]');
+    if (toggle && toggle.textContent.trim() === "Ocultar") toggle.click();
+  });
+  await sleep(400);
+
+  // Modo Manual del selector Auto / Manual de la cabecera de Acordes.
+  await captureManualMode(page);
   await page.evaluate(() => {
     for (const btn of document.querySelectorAll("button")) {
       if (btn.textContent.trim() !== "Manual") continue;
       for (const hermano of btn.parentElement.querySelectorAll("button")) {
-        if (hermano.textContent.trim() === "Auto") {
-          hermano.click();
-          return;
-        }
+        if (hermano.textContent.trim() === "Auto") { hermano.click(); return; }
       }
     }
   });
   await sleep(400);
 
-  // 7. Acordes cercanos
-  await clickNavButton(page, "Acordes cercanos");
-  const cercanos = await shot(page, "07_cercanos");
+  await clickTestId(page, "nav-near-chords");
+  await shot(page, "cercanos");
 
-  // 8. Standards
-  await clickNavButton(page, "Standards");
-  await sleep(600);
-  const standards = await shot(page, "08_standards");
+  await clickTestId(page, "nav-standards");
+  await page.waitForSelector('[data-testid="standards-list"]', { timeout: 8000 });
+  await shot(page, "standards");
 
-  // 9. Standards – seleccionar un standard para ver el chart
-  await page.evaluate(() => {
-    const selects = document.querySelectorAll("select");
-    for (const sel of selects) {
-      if (sel.options.length > 1) {
-        sel.value = sel.options[1].value;
-        sel.dispatchEvent(new Event("change", { bubbles: true }));
-        return;
-      }
-    }
+  const opened = await page.evaluate(() => {
+    const item = document.querySelector('[data-testid="standards-list"] button');
+    if (!item) return false;
+    item.click();
+    return true;
   });
-  await sleep(1000);
-  const standardsChart = await shot(page, "09_standards_chart");
+  if (!opened) throw new Error("No se encuentra ningún standard en [data-testid=\"standards-list\"]");
+  await page.waitForSelector('[data-testid="standards-chart-panel"]', { timeout: 8000 });
+  await sleep(800);
+  await shot(page, "standards-forma");
 
-  return { escala, patrones, ruta, acordes, estudio, investigar, cercanos, standards, standardsChart };
+  await clickTestId(page, "nav-configuration");
+  await shot(page, "configuracion");
 }
 
-// ─── HTML del manual ─────────────────────────────────────────────────────────
-
-function img(data, alt) {
-  return `<img src="data:image/png;base64,${data}" alt="${alt}" class="screenshot" />`;
-}
-
-function buildHtml(shots, appUrl, appVersion) {
-  const today = new Date().toLocaleDateString("es-ES", { year: "numeric", month: "long", day: "numeric" });
-  return `<!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="UTF-8" />
-<title>Mástil Escalas — Manual de uso v${appVersion}</title>
-<style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-  :root {
-    --accent:  #1e4fa8;
-    --accent2: #2563eb;
-    --muted:   #64748b;
-    --border:  #cbd5e1;
-    --body-bg: #f8fafc;
-    --text:    #1e293b;
-  }
-
-  body {
-    font-family: "Segoe UI", system-ui, sans-serif;
-    font-size: 11pt;
-    line-height: 1.6;
-    color: var(--text);
-    background: var(--body-bg);
-  }
-
-  /* ── Página ── */
-  .page {
-    width: 210mm;
-    min-height: 297mm;
-    margin: 0 auto;
-    background: white;
-    padding: 18mm 18mm 18mm 22mm;
-    page-break-after: always;
-  }
-  .page:last-of-type { page-break-after: auto; }
-
-  /* ── Portada ── */
-  .cover {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: flex-start;
-    min-height: 260mm;
-    gap: 8px;
-  }
-  .cover-logo {
-    font-size: 9pt;
-    font-weight: 700;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--accent2);
-    margin-bottom: 20px;
-  }
-  .cover h1 {
-    font-size: 28pt;
-    font-weight: 800;
-    color: var(--accent);
-    line-height: 1.15;
-    margin-bottom: 6px;
-  }
-  .cover .subtitle {
-    font-size: 14pt;
-    color: var(--muted);
-    margin-bottom: 32px;
-  }
-  .cover .meta {
-    font-size: 9.5pt;
-    color: var(--muted);
-    line-height: 1.8;
-  }
-  .cover-rule {
-    width: 60px;
-    height: 4px;
-    background: var(--accent2);
-    border-radius: 2px;
-    margin-bottom: 28px;
-  }
-
-  /* ── Índice ── */
-  .toc { list-style: none; }
-  .toc li {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    padding: 4px 0;
-    border-bottom: 1px dotted var(--border);
-    font-size: 10.5pt;
-  }
-  .toc li .toc-num {
-    font-weight: 600;
-    color: var(--accent);
-    min-width: 26px;
-  }
-  .toc li .toc-title { flex: 1; padding: 0 8px; }
-  .toc li .toc-page { color: var(--muted); font-size: 9.5pt; }
-  .toc-section { margin: 18px 0 6px; font-size: 9pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); }
-
-  /* ── Headings ── */
-  h1.section-title {
-    font-size: 20pt;
-    font-weight: 800;
-    color: var(--accent);
-    margin-bottom: 4px;
-    padding-bottom: 6px;
-    border-bottom: 3px solid var(--accent2);
-  }
-  h2 {
-    font-size: 13pt;
-    font-weight: 700;
-    color: var(--accent);
-    margin: 20px 0 8px;
-  }
-  h3 {
-    font-size: 11pt;
-    font-weight: 700;
-    color: var(--text);
-    margin: 16px 0 6px;
-  }
-  .section-subtitle {
-    font-size: 10pt;
-    color: var(--muted);
-    margin-bottom: 14px;
-  }
-
-  /* ── Párrafos y listas ── */
-  p { margin-bottom: 10px; }
-  ul, ol { padding-left: 20px; margin-bottom: 10px; }
-  li { margin-bottom: 4px; }
-
-  /* ── Capturas ── */
-  .screenshot {
-    width: 100%;
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    box-shadow: 0 2px 8px rgba(0,0,0,.08);
-    display: block;
-    margin: 12px 0 6px;
-  }
-  .screenshot-caption {
-    font-size: 8.5pt;
-    color: var(--muted);
-    text-align: center;
-    margin-bottom: 14px;
-    font-style: italic;
-  }
-
-  /* ── Cajas de descripción numerada ── */
-  .callout-list { margin: 10px 0 16px; }
-  .callout-list li {
-    display: grid;
-    grid-template-columns: 22px 1fr;
-    gap: 6px;
-    margin-bottom: 6px;
-    font-size: 10pt;
-  }
-  .callout-num {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    background: var(--accent2);
-    color: white;
-    font-size: 8pt;
-    font-weight: 700;
-    flex-shrink: 0;
-    margin-top: 2px;
-  }
-
-  /* ── Nota / consejo ── */
-  .note {
-    background: #eff6ff;
-    border-left: 3px solid var(--accent2);
-    border-radius: 4px;
-    padding: 8px 12px;
-    font-size: 10pt;
-    margin: 10px 0;
-  }
-  .note strong { color: var(--accent); }
-
-  /* ── Tabla ── */
-  table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 10pt; }
-  th { background: var(--accent); color: white; padding: 6px 8px; text-align: left; font-size: 9.5pt; }
-  td { padding: 5px 8px; border-bottom: 1px solid var(--border); }
-  tr:nth-child(even) td { background: #f8fafc; }
-
-  /* ── Impresión ── */
-  @page { size: A4; margin: 0; }
-  @media print {
-    body { background: white; }
-    .page { margin: 0; box-shadow: none; page-break-after: always; }
-  }
-</style>
-</head>
-<body>
-
-<!-- ═══════════════════════════════════════════════════════ PORTADA -->
-<div class="page">
-  <div class="cover">
-    <div class="cover-logo">Manual de usuario</div>
-    <h1>Mástil Escalas</h1>
-    <div class="subtitle">Escalas, patrones, rutas y acordes para guitarra</div>
-    <div class="cover-rule"></div>
-    <div class="meta">
-      Versión ${appVersion}<br />
-      ${today}<br />
-      <span style="color:#94a3b8">${appUrl}</span>
-    </div>
-  </div>
-</div>
-
-<!-- ═══════════════════════════════════════════════════════ ÍNDICE -->
-<div class="page">
-  <h1 class="section-title">Índice</h1>
-  <p style="margin-top:12px;color:var(--muted);font-size:10pt">Este manual describe todas las secciones de la aplicación con capturas reales de pantalla.</p>
-
-  <div class="toc-section">General</div>
-  <ul class="toc">
-    <li><span class="toc-num">1</span><span class="toc-title">Introducción — ¿qué es Mástil Escalas?</span><span class="toc-page">3</span></li>
-    <li><span class="toc-num">2</span><span class="toc-title">Contexto tonal — Raíz y escala activa</span><span class="toc-page">3</span></li>
-  </ul>
-
-  <div class="toc-section">Secciones principales</div>
-  <ul class="toc">
-    <li><span class="toc-num">3</span><span class="toc-title">Escala — diapasón con resaltado de grados</span><span class="toc-page">4</span></li>
-    <li><span class="toc-num">4</span><span class="toc-title">Comparador de escalas — dos escalas simultáneas en el mástil</span><span class="toc-page">5</span></li>
-    <li><span class="toc-num">5</span><span class="toc-title">Ruta musical</span><span class="toc-page">6</span></li>
-    <li><span class="toc-num">6</span><span class="toc-title">Acordes — constructor, digitaciones y Modo Estudio</span><span class="toc-page">7</span></li>
-    <li><span class="toc-num">7</span><span class="toc-title">Acordes cercanos — búsqueda por proximidad</span><span class="toc-page">10</span></li>
-    <li><span class="toc-num">8</span><span class="toc-title">Standards — charts de jazz</span><span class="toc-page">11</span></li>
-  </ul>
-
-  <div class="toc-section">Herramientas</div>
-  <ul class="toc">
-    <li><span class="toc-num">9</span><span class="toc-title">Consola de diagnóstico (mastilDebug)</span><span class="toc-page">12</span></li>
-    <li><span class="toc-num">10</span><span class="toc-title">Analizar digitaciones desde terminal (acorde.bat)</span><span class="toc-page">12</span></li>
-  </ul>
-</div>
-
-<!-- ═══════════════════════════════════════════════════════ INTRO + CONTEXTO TONAL -->
-<div class="page">
-  <h1 class="section-title">1 — Introducción</h1>
-  <div class="section-subtitle">¿Qué es Mástil Escalas?</div>
-
-  <p>
-    <strong>Mástil Escalas</strong> es una aplicación web interactiva para guitarristas que quieren
-    explorar escalas, comparar escalas entre sí, rutas melódicas y acordes sobre el diapasón real.
-    Funciona en el navegador, sin instalación, y está optimizada tanto para escritorio como para móvil.
-  </p>
-
-  <p>La aplicación se organiza en <strong>seis secciones principales</strong> accesibles desde el menú
-  superior (escritorio) o la barra inferior (móvil):</p>
-
-  <table>
-    <tr><th>Sección</th><th>Qué hace</th></tr>
-    <tr><td><strong>Escala</strong></td><td>Muestra el diapasón completo con las notas de la escala activa, resaltando raíz, 3ª y 5ª.</td></tr>
-    <tr><td><strong>Comparar</strong></td><td>Muestra hasta 2 escalas simultáneamente en el mástil con sus colores, intervalos y solapamientos.</td></tr>
-    <tr><td><strong>Ruta</strong></td><td>Recorre la escala en orden de altura siguiendo posiciones de mástil lógicas.</td></tr>
-    <tr><td><strong>Acordes</strong></td><td>Constructor de acordes con digitaciones reales, Modo Estudio y modo Investigar en mástil.</td></tr>
-    <tr><td><strong>Acordes cercanos</strong></td><td>Busca digitaciones de hasta 4 acordes dentro de una ventana de trastes.</td></tr>
-    <tr><td><strong>Standards</strong></td><td>Charts armónicos de standards de jazz para trabajar el repertorio.</td></tr>
-  </table>
-
-  <h1 class="section-title" style="margin-top:24px">2 — Contexto tonal</h1>
-  <div class="section-subtitle">Raíz y escala activa — afectan a todas las secciones</div>
-
-  <p>
-    El <strong>Contexto tonal</strong> es el ajuste global más importante de la app.
-    Aparece en el panel lateral de configuración (escritorio) y en el menú hamburguesa (móvil).
-    Afecta simultáneamente a Escala, Comparador, Ruta y al contexto armónico de Acordes y Acordes cercanos.
-  </p>
-
-  <ul>
-    <li><strong>Tono (raíz)</strong>: la nota tónica de referencia. Por defecto C.</li>
-    <li><strong>Escala</strong>: tipo de escala (Mayor, Menor natural, Dorico, Pentatónica mayor, etc.).</li>
-    <li><strong>#/b</strong>: grafía de las alteraciones. En modo Auto usa la armadura natural de la tonalidad; se puede forzar a sostenidos o bemoles.</li>
-    <li><strong>Trastes visibles</strong>: rango del diapasón mostrado (p.ej. trastes 0-12).</li>
-    <li><strong>Vista</strong>: muestra las celdas del mástil como <em>Notas</em> (nombre de nota) o <em>Intervalos</em> (grado respecto a la raíz).</li>
-  </ul>
-
-  <div class="note">
-    <strong>Consejo:</strong> cambia el Tono y la Escala primero, antes de explorar el resto de secciones.
-    Todo lo demás se actualiza automáticamente.
-  </div>
-</div>
-
-<!-- ═══════════════════════════════════════════════════════ ESCALA -->
-<div class="page">
-  <h1 class="section-title">3 — Escala</h1>
-  <div class="section-subtitle">Diapasón completo con resaltado de grados</div>
-
-  ${img(shots.escala.data, "Sección Escala")}
-  <div class="screenshot-caption">Sección Escala — diapasón con raíz, 3ª y 5ª resaltadas</div>
-
-  <p>
-    La sección <strong>Escala</strong> muestra el diapasón de guitarra en su totalidad
-    (o el rango de trastes elegido en el Contexto tonal). Cada celda contiene el nombre de la nota
-    o su intervalo según la vista activa.
-  </p>
-
-  <h3>Colores de los grados</h3>
-  <ul class="callout-list">
-    <li><span class="callout-num">●</span><span><strong>Raíz (1)</strong>: color más intenso (azul oscuro por defecto). Es la tónica de la escala.</span></li>
-    <li><span class="callout-num">●</span><span><strong>3ª</strong>: segundo color de acento. Indica la calidad mayor o menor de la escala.</span></li>
-    <li><span class="callout-num">●</span><span><strong>5ª</strong>: tercer color de acento. Nota de estabilidad armónica.</span></li>
-    <li><span class="callout-num">●</span><span><strong>Resto de notas</strong>: color neutro (gris/azul claro). Notas de paso y tensiones.</span></li>
-    <li><span class="callout-num">●</span><span><strong>Notas fuera de escala</strong>: no aparecen (celdas vacías).</span></li>
-  </ul>
-
-  <h3>Extras (notas adicionales)</h3>
-  <p>
-    Bajo la selección de escala hay un campo <strong>Extras</strong> que permite añadir notas
-    individuales al diapasón sin cambiar la escala base. Útil para mostrar tensiones cromáticas
-    (p.ej. b9, #11) o notas de paso sobre la escala activa.
-  </p>
-
-  <h3>Vista Notas / Intervalos</h3>
-  <p>
-    El selector <strong>Vista</strong> (en Contexto tonal o en el propio panel) alterna entre
-    mostrar el nombre de la nota (C, D, Eb…) o el intervalo relativo a la raíz (1, 2, b3, 4, 5…).
-    La vista por intervalos es especialmente útil para ver la estructura de la escala
-    independientemente de la tonalidad.
-  </p>
-</div>
-
-<!-- ═══════════════════════════════════════════════════════ COMPARADOR -->
-<div class="page">
-  <h1 class="section-title">4 — Comparador de escalas</h1>
-  <div class="section-subtitle">Dos escalas simultáneas en el mástil</div>
-
-  ${img(shots.patrones.data, "Sección Comparador de escalas")}
-  <div class="screenshot-caption">Sección Comparador — dos escalas activas, cada una con su color y sus intervalos</div>
-
-  <p>
-    La sección <strong>Comparador de escalas</strong> muestra hasta dos escalas simultáneamente
-    sobre el mástil. Cada escala tiene su propia nota raíz, tipo de escala y color.
-    Las notas se muestran como círculos de color con el intervalo o nombre de nota dentro.
-  </p>
-
-  <h3>Cómo funciona</h3>
-  <table>
-    <tr><th>Elemento</th><th>Descripción</th></tr>
-    <tr><td><strong>Ver</strong></td><td>Activa o desactiva una escala en el mástil. Solo 2 pueden estar visibles a la vez (FIFO).</td></tr>
-    <tr><td><strong>Tono</strong></td><td>Nota raíz de la escala (letra + bemol/sostenido).</td></tr>
-    <tr><td><strong>Escala</strong></td><td>Tipo de escala (Mayor, Menor natural, Dórico, Pentatónica, etc.).</td></tr>
-    <tr><td><strong>Fondo</strong></td><td>Color del círculo de esa escala en el mástil.</td></tr>
-  </table>
-
-  <h3>Notas en el mástil</h3>
-  <ul>
-    <li>Una nota exclusiva de la Escala 1 → un círculo con el color de la Escala 1.</li>
-    <li>Una nota exclusiva de la Escala 2 → un círculo con el color de la Escala 2.</li>
-    <li>Una nota compartida por ambas → dos círculos lado a lado, cada uno con su color.</li>
-  </ul>
-
-  <div class="note">
-    <strong>Casos de uso:</strong> comparar un modo con su escala paralela, ver el solapamiento entre
-    dos tonalidades relativas, o explorar sustituciones melódicas entre escalas.
-  </div>
-</div>
-
-<!-- ═══════════════════════════════════════════════════════ RUTA -->
-<div class="page">
-  <h1 class="section-title">5 — Ruta musical</h1>
-  <div class="section-subtitle">Recorre la escala en orden de altura siguiendo posiciones lógicas</div>
-
-  ${img(shots.ruta.data, "Sección Ruta")}
-  <div class="screenshot-caption">Sección Ruta — notas de la escala ordenadas por altura y posición en el mástil</div>
-
-  <p>
-    La <strong>Ruta musical</strong> toma las notas de la escala activa y las ordena por altura
-    (de grave a agudo o viceversa), mostrando una secuencia de posiciones en el diapasón que
-    puedes seguir nota a nota.
-  </p>
-
-  <h3>Diferencia con Escala y Comparador</h3>
-  <ul>
-    <li><strong>Escala</strong>: muestra <em>dónde</em> están todas las notas, sin orden.</li>
-    <li><strong>Comparador</strong>: muestra <em>qué notas comparte</em> una escala con otra.</li>
-    <li><strong>Ruta</strong>: muestra <em>en qué orden</em> tocar las notas para subir/bajar por la escala, usando la posición de mano más lógica para cada momento.</li>
-  </ul>
-
-  <h3>Controles</h3>
-  <ul>
-    <li><strong>Ascendente / Descendente</strong>: dirección del recorrido.</li>
-    <li><strong>Patrón activo</strong>: la ruta se restringe a las notas del patrón seleccionado en la sección Patrones. Si no hay patrón activo, usa todas las notas de la escala.</li>
-    <li><strong>Avanzar / Retroceder</strong>: navega nota a nota con los botones de flecha o teclado.</li>
-  </ul>
-
-  <div class="note">
-    <strong>Uso pedagógico:</strong> activa un patrón 3NPS, ve a Ruta y recorre la posición de grave a agudo.
-    Es la forma más directa de interiorizar el fingering completo de una posición.
-  </div>
-</div>
-
-<!-- ═══════════════════════════════════════════════════════ ACORDES -->
-<div class="page">
-  <h1 class="section-title">6 — Acordes</h1>
-  <div class="section-subtitle">Constructor, digitaciones reales, Modo Estudio e Investigar en mástil</div>
-
-  ${img(shots.acordes.data, "Sección Acordes")}
-  <div class="screenshot-caption">Sección Acordes — editor superior, mástil con voicing y panel de resumen</div>
-
-  <p>
-    La sección <strong>Acordes</strong> es la más compleja de la app. Combina un constructor
-    de acordes, un diapasón con digitaciones reales, un análisis teórico (Modo Estudio)
-    y un modo de investigación libre sobre el mástil.
-  </p>
-
-  <h2>6.1 — Editor de acorde</h2>
-  <p>El panel superior define el acorde que quieres construir:</p>
-
-  <ul class="callout-list">
-    <li><span class="callout-num">1</span><span><strong>Tono</strong>: nota raíz del acorde (C, C#, D, Eb…).</span></li>
-    <li><span class="callout-num">2</span><span><strong>Calidad / Sus</strong>: color armónico base — mayor (maj), menor (m), dominante (7), semidisminuido (m7b5), disminuido, etc. También incluye acordes sus2 y sus4.</span></li>
-    <li><span class="callout-num">3</span><span><strong>Estructura</strong>: número de voces y tipo de voicing — tríada, cuatriada, drop 2, drop 3, drop 2+4, notas guía, cuartal, etc.</span></li>
-    <li><span class="callout-num">4</span><span><strong>Inversión</strong>: qué nota queda en el bajo — fundamental, 1ª inversión (3ª en el bajo), 2ª inversión (5ª en el bajo), etc.</span></li>
-    <li><span class="callout-num">5</span><span><strong>Extensiones</strong>: casillas 6, 7, 9, 11, 13 para añadir tensiones al acorde según la estructura activa.</span></li>
-    <li><span class="callout-num">6</span><span><strong>Dist.</strong>: distancia máxima en semitonos entre la nota más baja y la más alta del voicing (controla la apertura).</span></li>
-  </ul>
-
-  <h2>6.2 — Mástil del acorde</h2>
-  <ul class="callout-list">
-    <li><span class="callout-num">1</span><span><strong>Voicing X/Y</strong>: selector que indica qué digitación concreta estás viendo (X de las Y encontradas). Usa las flechas o el desplegable para navegar.</span></li>
-    <li><span class="callout-num">2</span><span><strong>Cuerdas al aire</strong>: si está activo, los voicings pueden incluir cuerdas abiertas sin contarlas para la distancia.</span></li>
-    <li><span class="callout-num">3</span><span>El mástil muestra la digitación real con los <strong>números de traste</strong> sobre cada cuerda. Las notas se colorean según el grado (raíz, 3ª, 5ª, 7ª…).</span></li>
-  </ul>
-</div>
-
-<!-- ═══════════════════════════════════════════════════════ MODO ESTUDIO -->
-<div class="page">
-  <h1 class="section-title">6.3 — Modo Estudio</h1>
-  <div class="section-subtitle">Análisis armónico del acorde en el contexto de la escala activa</div>
-
-  ${img(shots.estudio.data, "Modo Estudio")}
-  <div class="screenshot-caption">Modo Estudio — análisis del voicing activo en relación con la escala</div>
-
-  <p>
-    El <strong>Modo Estudio</strong> analiza el acorde activo (el que tienes construido en el editor)
-    en relación con la escala del Contexto tonal. Se abre y cierra con el botón <em>Ver análisis</em>.
-  </p>
-
-  <h3>Información que muestra</h3>
-  <ul class="callout-list">
-    <li><span class="callout-num">1</span><span><strong>Diatónico / No diatónico</strong>: si el acorde pertenece completamente a la escala activa o tiene notas fuera de ella (con cuáles y qué intervalo representan).</span></li>
-    <li><span class="callout-num">2</span><span><strong>Función armónica</strong>: grado que ocupa en la escala (Imaj7, IIm7, V7, VIm7…) o si es un dominante secundario, sustituto tritonal, backdoor dominant, etc.</span></li>
-    <li><span class="callout-num">3</span><span><strong>Sustituciones diatónicas</strong>: acordes de la misma escala con función similar que se pueden intercambiar.</span></li>
-    <li><span class="callout-num">4</span><span><strong>Sustituciones cromáticas / jazz</strong>: ii-V-I de destino, sustituto tritonal, upper structures.</span></li>
-    <li><span class="callout-num">5</span><span><strong>Análisis del voicing</strong>: tensiones presentes, notas reales en el voicing actual y su relación con la escala.</span></li>
-    <li><span class="callout-num">6</span><span><strong>Exportar PDF</strong>: genera un resumen imprimible del análisis visible.</span></li>
-  </ul>
-
-  <div class="note">
-    <strong>Ejemplo:</strong> con Contexto tonal C Mayor y acorde G7 activo, el Modo Estudio mostrará:
-    diatónico ✓, función V7 de C Mayor, ii-V-I sugerido Dm7–G7–Cmaj7, sustituto tritonal Db7,
-    upper structure A mayor/G7, y backdoor bVII7 = F7.
-  </div>
-
-  <h1 class="section-title" style="margin-top:28px">6.4 — Investigar en mástil</h1>
-  <div class="section-subtitle">Selección libre de notas para identificar acordes</div>
-
-  ${img(shots.investigar.data, "Investigar en mástil")}
-  <div class="screenshot-caption">Investigar en mástil — el editor queda bloqueado y puedes seleccionar notas libremente</div>
-
-  <p>
-    El modo <strong>Investigar en mástil</strong> invierte el flujo habitual: en lugar de construir
-    un acorde y ver las digitaciones, <em>tú marcas notas directamente en el diapasón</em> y la app
-    propone qué acorde es.
-  </p>
-
-  <ul class="callout-list">
-    <li><span class="callout-num">1</span><span>El editor de acorde queda <strong>bloqueado</strong> mientras estás en este modo.</span></li>
-    <li><span class="callout-num">2</span><span>Haz clic en cualquier celda del mástil para <strong>seleccionar o deseleccionar</strong> una nota. Puedes seleccionar hasta una nota por cuerda.</span></li>
-    <li><span class="callout-num">3</span><span>La sección <strong>Lecturas posibles</strong> lista todos los acordes compatibles con las notas seleccionadas, ordenados por probabilidad.</span></li>
-    <li><span class="callout-num">4</span><span><strong>Copiar en Acorde</strong>: carga la lectura elegida de vuelta en el constructor, para seguir editando desde ahí.</span></li>
-    <li><span class="callout-num">5</span><span>Para salir del modo investigación, pulsa <em>Salir</em> o haz clic en el mismo botón que abrió el modo.</span></li>
-  </ul>
-</div>
-
-<!-- ═══════════════════════════════════════════════════════ ACORDES CERCANOS -->
-<div class="page">
-  <h1 class="section-title">7 — Acordes cercanos</h1>
-  <div class="section-subtitle">Busca y compara digitaciones de varios acordes dentro de una ventana de trastes</div>
-
-  ${img(shots.cercanos.data, "Sección Acordes cercanos")}
-  <div class="screenshot-caption">Acordes cercanos — hasta 4 acordes buscados en un rango del mástil</div>
-
-  <p>
-    <strong>Acordes cercanos</strong> permite buscar simultáneamente hasta <strong>4 acordes</strong>
-    dentro de una ventana de trastes y los ordena por proximidad al primer acorde activo.
-    Es la herramienta ideal para construir progresiones con movimiento de voz eficiente.
-  </p>
-
-  <h3>Controles principales</h3>
-  <ul class="callout-list">
-    <li><span class="callout-num">1</span><span><strong>Ranura 1–4</strong>: cada ranura define un acorde independiente (tono, calidad, estructura, inversión). Las ranuras se activan/desactivan individualmente.</span></li>
-    <li><span class="callout-num">2</span><span><strong>Ventana de trastes</strong>: rango del mástil donde se buscan las digitaciones (p.ej. trastes 4–9).</span></li>
-    <li><span class="callout-num">3</span><span><strong>Proximidad</strong>: el primer acorde activo ancla la búsqueda; los demás se ordenan por distancia media entre sus notas y las de ese acorde de referencia.</span></li>
-    <li><span class="callout-num">4</span><span><strong>Auto escala</strong>: si está activo, las ranuras se rellenan automáticamente con los acordes diatónicos de la escala activa (IIm7, V7, Imaj7…). Con Auto escala OFF cada ranura es editable manualmente.</span></li>
-    <li><span class="callout-num">5</span><span><strong>Cargar en Acordes</strong>: pasa la digitación seleccionada de una ranura a la sección Acordes para análisis más detallado.</span></li>
-  </ul>
-
-  <div class="note">
-    <strong>Flujo recomendado para un ii-V-I en C:</strong>
-    activa Auto escala con C Mayor, la app rellenará automáticamente Dm7 – G7 – Cmaj7.
-    Mueve la ventana de trastes para encontrar la posición del mástil con mejor conducción de voces.
-  </div>
-</div>
-
-<!-- ═══════════════════════════════════════════════════════ STANDARDS -->
-<div class="page">
-  <h1 class="section-title">8 — Standards</h1>
-  <div class="section-subtitle">Charts armónicos de jazz y repertorio pedagógico</div>
-
-  ${img(shots.standards.data, "Sección Standards — selector")}
-  <div class="screenshot-caption">Sección Standards — selección del tema</div>
-
-  ${img(shots.standardsChart.data, "Standards — chart de un tema")}
-  <div class="screenshot-caption">Chart de un standard — compases con los cambios de acorde</div>
-
-  <p>
-    La sección <strong>Standards</strong> reúne charts armónicos sin melodía de temas de jazz,
-    organizados por secciones y compases. Está pensada para trabajar repertorio dentro del flujo
-    de análisis de esta app.
-  </p>
-
-  <h3>Fuentes de datos</h3>
-  <ul>
-    <li><strong>Charts reales</strong> (JJazzLab): forma completa compás a compás con todos los cambios de acorde tal como aparecen en los libros de repertorio.</li>
-    <li><strong>Reducción pedagógica</strong>: versión simplificada que aísla las funciones principales (ii-V-I, cadencias), ideal para empezar a estudiar el tema.</li>
-  </ul>
-
-  <h3>Flujo de trabajo con Standards</h3>
-  <ul class="callout-list">
-    <li><span class="callout-num">1</span><span><strong>Selecciona el tema</strong> en el desplegable. La app carga el chart y el tono original del estándar.</span></li>
-    <li><span class="callout-num">2</span><span><strong>Navega los compases</strong>: cada celda muestra el acorde del compás. Haz clic para seleccionarlo.</span></li>
-    <li><span class="callout-num">3</span><span><strong>Carga en Acordes cercanos</strong>: selecciona hasta 4 compases y pulsa <em>Cargar en Cercanos</em>. La app abre la sección Acordes cercanos con esos acordes precargados para buscar digitaciones.</span></li>
-    <li><span class="callout-num">4</span><span><strong>Tono</strong>: puedes transponer el tema a cualquier tonalidad con el selector de Tono. La app reescribe todos los símbolos del chart.</span></li>
-  </ul>
-
-  <div class="note">
-    <strong>Consejo:</strong> usa Standards + Acordes cercanos juntos. Selecciona un ii-V-I del chart,
-    cárgalo en Cercanos y busca digitaciones en la posición del mástil que estés trabajando.
-  </div>
-</div>
-
-<!-- ═══════════════════════════════════════════════════════ HERRAMIENTAS -->
-<div class="page">
-  <h1 class="section-title">9 — Consola de diagnóstico</h1>
-  <div class="section-subtitle">window.mastilDebug — disponible en desarrollo o con ?debug=1</div>
-
-  <p>
-    En modo desarrollo (<code>npm run dev</code>) o añadiendo <code>?debug=1</code> a la URL
-    en producción, se activa el objeto <code>window.mastilDebug</code> con dos funciones de análisis:
-  </p>
-
-  <table>
-    <tr><th>Función</th><th>Uso</th></tr>
-    <tr>
-      <td><code>analyzeNotes(names, bass?)</code></td>
-      <td>Analiza un conjunto de notas por nombre e imprime todas las lecturas posibles.<br />
-      <code>window.mastilDebug.analyzeNotes(["C","E","G","B"])</code></td>
-    </tr>
-    <tr>
-      <td><code>analyzeFrets(tab)</code></td>
-      <td>Analiza una digitación en formato LowE→HighE.<br />
-      <code>window.mastilDebug.analyzeFrets("x32010")</code><br />
-      <code>window.mastilDebug.analyzeFrets("x-10-9-8-7-x")</code></td>
-    </tr>
-  </table>
-
-  <p>
-    Ambas funciones imprimen en consola las lecturas detectadas, la nota primaria, los scores de
-    ranking y los intervalos visibles / ausentes.
-  </p>
-
-  <h1 class="section-title" style="margin-top:28px">10 — Analizar digitaciones desde terminal</h1>
-  <div class="section-subtitle">acorde.bat y npm run analyze:frets</div>
-
-  <p>
-    Para analizar digitaciones sin abrir el navegador, la app incluye dos opciones de terminal:
-  </p>
-
-  <table>
-    <tr><th>Método</th><th>Uso</th></tr>
-    <tr>
-      <td><strong>acorde.bat</strong> (Windows)</td>
-      <td>Desde la carpeta del proyecto:<br /><code>acorde x5555x</code><br /><code>acorde 3x343x</code></td>
-    </tr>
-    <tr>
-      <td><strong>npm run analyze:frets</strong></td>
-      <td><code>npm run analyze:frets -- x32010</code><br /><code>npm run analyze:frets -- x-10-9-8-7-x</code></td>
-    </tr>
-  </table>
-
-  <h3>Formato de digitación</h3>
-  <ul>
-    <li>Orden de cuerdas: <strong>6 (LowE) → 1 (HighE)</strong>.</li>
-    <li><code>x</code> = cuerda silenciada.</li>
-    <li>Un carácter por cuerda para trastes 0–9: <code>x32010</code> = C Mayor abierto.</li>
-    <li>Separado por <code>-</code>, <code>,</code> o espacio para trastes de 2 dígitos: <code>x-10-9-8-7-x</code>.</li>
-  </ul>
-
-  <h3>Salida</h3>
-  <p>El script imprime en consola: patrón, notas detectadas, bajo real, acorde primario y
-  lista completa de lecturas posibles con fórmula, raíz, bajo y score de ranking.</p>
-
-  <div class="note" style="margin-top:24px">
-    <strong>Versión de este manual:</strong> ${appVersion} — generado automáticamente el ${today}.
-    Los contenidos y capturas corresponden al estado de la aplicación en esa versión.
-  </div>
-</div>
-
-</body>
-</html>`;
-}
-
-// ─── Main ─────────────────────────────────────────────────────────────────────
-
-async function main() {
-  mkdirSync(OUT_DIR, { recursive: true });
+async function captureManual() {
+  const puppeteer = (await import("puppeteer-core")).default;
 
   const appUrl = await findAppUrl();
   if (!appUrl) {
-    console.error("\x1b[33mError: no se detecta servidor preview en puertos 4173-4176.\x1b[0m");
-    console.error("Ejecuta primero:  npm run build && npm run preview");
-    process.exit(1);
+    throw new Error("No se detecta servidor preview. Ejecuta primero:  npm run build && npm run preview");
   }
-  console.log(`\x1b[36mApp URL: ${appUrl}\x1b[0m`);
+  console.log(`App URL: ${appUrl}`);
 
   const chromePath = findChrome();
-  if (!chromePath) {
-    console.error("\x1b[33mNo se encuentra Chrome. Instala Google Chrome.\x1b[0m");
-    process.exit(1);
-  }
-  console.log(`\x1b[36mChrome: ${chromePath}\x1b[0m`);
+  if (!chromePath) throw new Error("No se encuentra Chrome. Instala Google Chrome.");
 
-  // Leer APP_VERSION del bundle o del fuente
-  let appVersion = "?";
-  try {
-    const src = readFileSync(resolve(ROOT, "src", "App.jsx"), "utf-8");
-    const m = src.match(/APP_VERSION\s*=\s*["']([^"']+)["']/);
-    if (m) appVersion = m[1];
-  } catch { /* ignore */ }
-
-  console.log("\x1b[1mLanzando Puppeteer…\x1b[0m");
   const browser = await puppeteer.launch({
     executablePath: chromePath,
     headless: "new",
     args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
   });
-
   try {
     const page = await browser.newPage();
-    await page.setViewport({ width: 1440, height: 900, deviceScaleFactor: 1.5 });
-
+    await page.setViewport(VIEWPORT);
     console.log("Capturando secciones…");
-    const shots = await captureAll(page, appUrl);
-
-    const steps = Object.keys(shots);
-    console.log(`  ✓ ${steps.length} capturas: ${steps.join(", ")}`);
-
-    const html = buildHtml(shots, appUrl, appVersion);
-    const htmlPath = resolve(OUT_DIR, "manual.html");
-    writeFileSync(htmlPath, html);
-    console.log(`  ✓ HTML: ${htmlPath}`);
-
-    console.log("Generando PDF…");
-    const pdfPage = await browser.newPage();
-    await pdfPage.setViewport({ width: 1200, height: 900 });
-    await pdfPage.goto(`file:///${htmlPath.replace(/\\/g, "/")}`, { waitUntil: "networkidle0" });
-    await sleep(1500);
-
-    const pdfPath = resolve(OUT_DIR, "mastil_escalas_manual.pdf");
-    await pdfPage.pdf({
-      path: pdfPath,
-      format: "A4",
-      printBackground: true,
-      margin: { top: "0", right: "0", bottom: "0", left: "0" },
-    });
-
-    console.log(`\n\x1b[32m✓ Manual generado:\x1b[0m ${pdfPath}`);
-    console.log(`\x1b[2m  HTML fuente:       ${htmlPath}\x1b[0m`);
+    await captureAll(page, appUrl);
   } finally {
     await browser.close();
   }
 }
 
-main().catch((err) => { console.error(err); process.exit(1); });
+// ─── PDF (Pandoc + XeLaTeX) ──────────────────────────────────────────────────
+
+const IMAGE_RE = /!\[[^\]\n]*\]\((capturas\/[a-z0-9-]+\.png)\)/g;
+
+function buildPdf() {
+  const appVersion = readAppVersion();
+  const edition = new Date().toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit", year: "numeric" });
+
+  // El primer encabezado de nivel 1 es el título del documento: va en la portada.
+  const body = readFileSync(SOURCE, "utf-8").replace(/^# [^\n]+\n/, "");
+  const captures = [...new Set([...body.matchAll(IMAGE_RE)].map((m) => m[1]))];
+  const missing = captures.filter((c) => !existsSync(resolve(CAPTURES_DIR, basename(c))));
+  if (missing.length) {
+    throw new Error(`Faltan capturas en docs/manuals/capturas: ${missing.map((c) => basename(c)).join(", ")}`);
+  }
+
+  const work = mkdtempSync(join(tmpdir(), "mastil-manual-"));
+  try {
+    const mdPath = join(work, "body.md");
+    writeFileSync(mdPath, body, "utf-8");
+    const texRaw = join(work, `${DOC_NAME}.raw.tex`);
+
+    console.log("Pandoc…");
+    run("pandoc", [
+      mdPath, "--from=gfm", "--to=latex", "--standalone", "--no-highlight",
+      "--shift-heading-level-by=-1", "--columns=10000",
+      `--template=${TEMPLATE}`, `--output=${texRaw}`,
+      `--variable=covertitle:${COVER_TITLE}`, `--variable=coversubtitle:${COVER_SUBTITLE}`,
+      `--variable=headtitle:${COVER_TITLE}`, `--variable=appversion:${appVersion}`,
+      `--variable=edition:${edition}`,
+    ], { cwd: ROOT });
+
+    let latex = readFileSync(texRaw, "utf-8");
+
+    // Tablas: primera columna estrecha, segunda ancha; el texto se ajusta dentro de la celda.
+    latex = latex.replace(/\\begin\{longtable\}\[\]\{@\{\}([lcr]+)@\{\}\}/g, (_m, cols) => {
+      const count = cols.length;
+      const fractions = count === 2 ? [0.32, 0.68] : Array(count).fill(1 / count);
+      const padding = (2 * count - 2) / count;
+      const specs = fractions
+        .map((part) => `>{\\raggedright\\arraybackslash}p{\\dimexpr${part.toFixed(6)}\\linewidth-${padding.toFixed(6)}\\tabcolsep\\relax}`)
+        .join("");
+      return `\\begin{longtable}[]{@{}${specs}@{}}`;
+    });
+    // Cada sección empieza con espacio suficiente para no quedar huérfana al pie.
+    latex = latex.replace(/^(\\hypertarget\{[^\n]+\}\{%\s*\\section|\\section)/gm, "\\Needspace{3.5cm}\n$1");
+    // Las capturas se leen de ../manuals/capturas, igual que en el repositorio.
+    latex = latex.replace(
+      /\\includegraphics(\[[^\]]*\])?\{capturas\//g,
+      "\\includegraphics[width=\\linewidth,height=0.44\\textheight,keepaspectratio]{../manuals/capturas/",
+    );
+    // Cada captura reserva espacio para ella y su pie, de modo que no se separen.
+    latex = latex.replace(/^(\\pandocbounded\{)?\\includegraphics/gm, (m) => `\\Needspace{11.5cm}\n${m}`);
+
+    const buildDir = join(work, "docs", "latex");
+    const captureDir = join(work, "docs", "manuals", "capturas");
+    mkdirSync(buildDir, { recursive: true });
+    mkdirSync(captureDir, { recursive: true });
+    for (const c of captures) copyFileSync(resolve(CAPTURES_DIR, basename(c)), join(captureDir, basename(c)));
+    const texName = `${DOC_NAME}.tex`;
+    writeFileSync(join(buildDir, texName), latex, "utf-8");
+
+    // Tres pasadas para resolver índice y referencias.
+    for (let i = 1; i <= 3; i++) {
+      console.log(`XeLaTeX (${i}/3)…`);
+      run("xelatex", ["-interaction=nonstopmode", "-halt-on-error", "-output-directory=.", texName], { cwd: buildDir });
+    }
+
+    const log = readFileSync(join(buildDir, `${DOC_NAME}.log`), "utf-8");
+    const issues = ["Overfull \\hbox", "Overfull \\vbox", "Missing character", "Float too large", "undefined references"]
+      .filter((item) => log.includes(item));
+    if (issues.length) {
+      const lines = log.split("\n");
+      const details = lines
+        .map((line, i) => (issues.some((issue) => line.includes(issue)) ? lines.slice(i, i + 5).join("\n") : null))
+        .filter(Boolean)
+        .join("\n");
+      throw new Error(`Problemas LaTeX: ${issues.join(", ")}\n${details}`);
+    }
+
+    mkdirSync(LATEX_DIR, { recursive: true });
+    mkdirSync(dirname(APP_PDF), { recursive: true });
+    copyFileSync(join(buildDir, texName), resolve(LATEX_DIR, texName));
+    copyFileSync(join(buildDir, `${DOC_NAME}.pdf`), resolve(LATEX_DIR, `${DOC_NAME}.pdf`));
+    copyFileSync(join(buildDir, `${DOC_NAME}.pdf`), APP_PDF);
+  } finally {
+    rmSync(work, { recursive: true, force: true });
+  }
+
+  console.log(`\n✓ PDF fuente:   docs/latex/${DOC_NAME}.pdf`);
+  console.log(`✓ PDF de la app: public/ayuda/mastil_escalas_manual.pdf (versión ${appVersion}, edición ${edition})`);
+}
+
+// ─── Main ────────────────────────────────────────────────────────────────────
+
+async function main() {
+  if (ONLY_PDF && ONLY_CAPTURES) throw new Error("--solo-pdf y --solo-capturas son incompatibles");
+  if (!ONLY_PDF) await captureManual();
+  if (!ONLY_CAPTURES) buildPdf();
+}
+
+main().catch((err) => { console.error(err.message || err); process.exit(1); });

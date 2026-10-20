@@ -365,27 +365,32 @@ MEJORAS FUTURAS PENDIENTES EN EL MOTOR DE ANÁLISIS TONAL
 
 GENERAR MANUAL DE USUARIO (PDF)
 ---------------------------------
-  Requiere que el servidor preview esté corriendo:
+  Requisitos: Pandoc 3.x y XeLaTeX en el PATH. Para tomar capturas hace
+  falta además Chrome y el servidor preview con la compilación actual:
     npm run build
     npm run preview
 
   Luego, en otra terminal:
     npm run generate:manual
 
-  Salida:
-    manual/mastil_escalas_manual.pdf   — manual completo (A4, ~10 págs.)
-    manual/manual.html                  — fuente HTML del manual
-    manual/*.png                        — capturas intermedias
+  Fuentes versionadas:
+    docs/manuals/USO.md                 — texto del manual
+    docs/manuals/capturas/*.png         — capturas de la aplicación
+    docs/latex/manual-template.tex      — plantilla (A4 vertical, XeLaTeX)
 
-  El script abre Chrome headless, navega automáticamente por todas las
-  secciones (Escala, Patrones, Ruta, Acordes, Modo Estudio, Investigar,
-  Acordes cercanos, Standards), toma capturas reales y genera el PDF.
+  Salida versionada:
+    docs/latex/Manual_Uso_Mastil_Escalas.pdf (y .tex)  — PDF fuente
+    public/ayuda/mastil_escalas_manual.pdf             — copia que abre la app
 
-  NOTA: la carpeta manual/ está en .gitignore (binarios derivados).
-  Regenerar el manual siempre desde el source con este comando.
+  El script abre Chrome headless, navega por Escala, Comparar, Ruta, Acordes
+  (estudio y modo Manual), Acordes cercanos, Standards y Configuración, toma
+  las capturas y compila el PDF con Pandoc y XeLaTeX. Revisa visualmente todas
+  las páginas antes de dar el manual por bueno.
 
-  Para especificar una URL manualmente:
-    node scripts/generateManual.mjs --url http://localhost:4174/mastil_escalas/
+  Opciones:
+    --solo-pdf        reutiliza las capturas existentes (no abre Chrome)
+    --solo-capturas   solo actualiza las capturas
+    --url http://localhost:4174/mastil_escalas/   URL del preview
 
 
 ACTUALIZAR VERSIÓN ANTES DE UN BUILD FINAL
