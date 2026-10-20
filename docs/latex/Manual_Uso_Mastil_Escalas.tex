@@ -138,6 +138,23 @@
 \usepackage[section]{placeins}
 \usepackage{amssymb,newunicodechar}
 
+% Capturas: figuras flotantes que genera scripts/generateManual.mjs. Cada captura lleva un
+% marco fino (la interfaz tiene fondos claros que, sin él, se confunden con la página) y un
+% pie numerado a mano en el Markdown, por eso se usa \caption* sin etiqueta automática.
+\usepackage{caption}
+\captionsetup{font={small,sf},labelformat=empty,justification=centering,skip=6pt}
+\setlength{\intextsep}{12pt}
+\setlength{\textfloatsep}{14pt}
+\newcommand{\manualcapture}[2]{%
+  {\setlength{\fboxsep}{0pt}\setlength{\fboxrule}{0.4pt}%
+   \fcolorbox{navydeep!25}{white}{\includegraphics[width=\dimexpr#1-0.8pt\relax]{#2}}}}
+
+% Recuadros «Consejo» y «Atención»: en el Markdown son citas (> **Consejo.** …).
+\renewenvironment{quote}{%
+  \def\FrameCommand{{\color{amber}\vrule width 3pt}\fboxsep=7pt\colorbox{amber!9}}%
+  \MakeFramed{\advance\hsize-\width\FrameRestore}\small\noindent\ignorespaces}%
+  {\endMakeFramed}
+
 % ---------------------------------------------------------------------------
 % Enlaces
 % ---------------------------------------------------------------------------
@@ -154,6 +171,7 @@
 \newunicodechar{✗}{\texorpdfstring{\ensuremath{\times}}{\unichar{10007}}}
 \newunicodechar{→}{\texorpdfstring{\ensuremath{\rightarrow}}{\unichar{8594}}}
 \newunicodechar{←}{\texorpdfstring{\ensuremath{\leftarrow}}{\unichar{8592}}}
+\newunicodechar{Δ}{\texorpdfstring{\ensuremath{\Delta}}{\unichar{916}}}
 \renewcommand{\topfraction}{0.95}
 \renewcommand{\bottomfraction}{0.95}
 \renewcommand{\textfraction}{0.05}
@@ -238,319 +256,1253 @@
 \pagenumbering{arabic}
 \setcounter{page}{1}
 
-\chapter{Empezar}\label{empezar}
+\chapter{Primeros pasos}\label{primeros-pasos}
 
-Mástil Escalas es una página para guitarristas. Muestra escalas, compara dos escalas, calcula rutas y construye acordes con digitaciones reales sobre el mástil. Funciona en el navegador, en escritorio y en móvil, y se puede instalar para usarla sin conexión.
+\Needspace{3.5cm}
+\section{Qué es Mástil Escalas}\label{quuxe9-es-muxe1stil-escalas}
 
-Se organiza en secciones que eliges en la barra \textbf{Menu} (escritorio) o en la barra inferior (móvil):
+Mástil Escalas es una aplicación para guitarristas que dibuja sobre el mástil todo lo que se suele estudiar en papel: escalas y sus grados, la comparación entre dos escalas, recorridos melódicos entre dos notas y acordes con digitaciones reales. Además analiza los acordes que construyes o que marcas a mano, propone otras lecturas y sustituciones, y te permite trabajar la armonía de más de 1400 standards de jazz.
 
+Funciona en el navegador, en ordenador y en móvil, y se puede instalar para usarla sin conexión (capítulo 12). No necesita cuenta ni guarda nada fuera de tu dispositivo.
+
+Este manual está organizado por tareas. Si es la primera vez que abres la aplicación, lee este capítulo y el siguiente; después puedes ir directamente al capítulo de la tarea que te interese.
+
+\Needspace{3.5cm}
+\section{La pantalla principal}\label{la-pantalla-principal}
+
+En ordenador, la parte superior es siempre la misma: el título, la barra de secciones y, debajo, los paneles de la sección activa. Solo se ve una sección a la vez.
+
+\begin{figure}[!htbp]
+\centering
+\manualcapture{446.0pt}{../manuals/capturas/pantalla-general.png}
+\caption*{\textbf{Figura 1.} Pantalla principal con la sección Escala activa. Los números identifican las zonas descritas en la tabla siguiente.}
+\end{figure}
 {\def\LTcaptype{none} % do not increment counter
-\begin{longtable}[]{@{}>{\raggedright\arraybackslash}p{\dimexpr0.320000\linewidth-1.000000\tabcolsep\relax}>{\raggedright\arraybackslash}p{\dimexpr0.680000\linewidth-1.000000\tabcolsep\relax}@{}}
+\begin{longtable}[]{@{}>{\raggedright\arraybackslash}p{\dimexpr0.060000\linewidth-1.333333\tabcolsep\relax}>{\raggedright\arraybackslash}p{\dimexpr0.270000\linewidth-1.333333\tabcolsep\relax}>{\raggedright\arraybackslash}p{\dimexpr0.670000\linewidth-1.333333\tabcolsep\relax}@{}}
 \toprule\noalign{}
-Sección & Para qué sirve \\
+Nº & Zona & Para qué sirve \\
 \midrule\noalign{}
 \endhead
 \bottomrule\noalign{}
 \endlastfoot
-Escala & Ver en el mástil las notas de una escala y sus grados. \\
-Ruta & Calcular un recorrido tocable entre una nota inicial y una final. \\
-Acordes & Construir un acorde, recorrer sus voicings y estudiarlo. \\
-Acordes cercanos & Comparar hasta cuatro acordes en una misma zona del mástil. \\
-Comparar & Ver dos escalas a la vez sobre el mismo mástil. \\
-Standards & Consultar el cifrado de standards y enviar acordes a Acordes cercanos. \\
-Configuración & Guardar presets, exportar e importar la configuración. \\
+1 & Barra \textbf{Menu} & Cambia de sección: Escala, Ruta, Acordes, Acordes cercanos, Comparar, Standards y Configuración. El botón resaltado indica la sección activa. \\
+2 & Botón de ayuda (interrogante) & Abre la ayuda breve, con el botón \textbf{Abrir el manual en PDF} que muestra este documento (apartado 12.2). \\
+3 & Aviso de estado & Indica, por ejemplo, \textbf{Disponible sin conexión} o que hay una versión nueva con \textbf{Actualizar ahora}. \\
+4 & \textbf{Contexto tonal} & Nota raíz, escala y armonización con las que trabajan todas las secciones (capítulo 2). \\
+5 & Panel de la sección & En la figura, el mástil de la escala activa. Cada sección tiene sus propios paneles. \\
+6 & Versión & Número de versión de la aplicación instalada. Indícalo si comunicas un problema. \\
 \end{longtable}
 }
 
-El interrogante de la cabecera abre una ayuda breve con el botón \textbf{Abrir el manual en PDF}, que muestra este documento. En móvil, el menú de tres rayas abre la configuración y la barra inferior cambia de sección.
+Las secciones de la barra son:
 
-\Needspace{11.5cm}
-\noindent\pandocbounded{\includegraphics[width=\linewidth,height=0.44\textheight,keepaspectratio]{../manuals/capturas/escala.png}}
+{\def\LTcaptype{none} % do not increment counter
+\begin{longtable}[]{@{}>{\raggedright\arraybackslash}p{\dimexpr0.220000\linewidth-1.333333\tabcolsep\relax}>{\raggedright\arraybackslash}p{\dimexpr0.600000\linewidth-1.333333\tabcolsep\relax}>{\raggedright\arraybackslash}p{\dimexpr0.180000\linewidth-1.333333\tabcolsep\relax}@{}}
+\toprule\noalign{}
+Sección & Para qué sirve & Capítulo \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+Escala & Ver las notas de una escala y sus grados en todo el mástil. & 3 \\
+Ruta & Calcular un recorrido tocable, nota a nota, entre dos posiciones. & 5 \\
+Acordes & Construir un acorde, recorrer sus digitaciones, estudiarlo o identificar notas marcadas a mano. & 6, 7 y 8 \\
+Acordes cercanos & Ver hasta cuatro acordes en la misma zona del mástil para trabajar progresiones. & 9 \\
+Comparar & Superponer dos escalas y ver hacia dónde resuelven sus notas. & 4 \\
+Standards & Consultar la forma de un standard y llevar sus acordes a Acordes cercanos. & 10 \\
+Configuración & Vista del mástil, presets, copia de seguridad y colores. & 11 \\
+\end{longtable}
+}
 
-\noindent\emph{Figura 1. Sección Escala con la barra Menu y los controles de la escala activa.}
+Muchos controles tienen un icono de información (una «i» dentro de un círculo). Al pasar el ratón por encima, o al pulsarlo en móvil, explica qué hace ese control o por qué una opción está desactivada.
 
-\chapter{Elegir la tonalidad y la escala}\label{elegir-la-tonalidad-y-la-escala}
+\Needspace{3.5cm}
+\section{Cómo leer el mástil}\label{cuxf3mo-leer-el-muxe1stil}
 
-Estos ajustes se aplican a todas las secciones. Cámbialos primero y el resto se actualiza solo.
+Todos los mástiles de la aplicación siguen la misma convención: la guitarra se ve como si la tuvieras en las manos y miraras hacia abajo.
+
+\begin{figure}[!htbp]
+\centering
+\manualcapture{380.0pt}{../manuals/capturas/escala-mastil.png}
+\caption*{\textbf{Figura 2.} Primeros trastes del mástil de Escala con Fa mayor. Cada círculo es una nota de la escala; el número indica su grado.}
+\end{figure}
+\begin{itemize}
+\tightlist
+\item
+  \textbf{Cuerdas.} Las filas son las cuerdas, numeradas como es habitual: la \textbf{1ª (E)} es la más aguda y está arriba; la \textbf{6ª (E)}, la más grave, abajo.
+\item
+  \textbf{Trastes.} Las columnas son los trastes. El \textbf{0} es la cuerda al aire. Los puntos bajo los números de traste (3, 5, 7, 9 y doble en el 12) son las marcas de posición del diapasón.
+\item
+  \textbf{Colores.} Cada nota de la escala se dibuja con el color de su función:
+\end{itemize}
+
+{\def\LTcaptype{none} % do not increment counter
+\begin{longtable}[]{@{}>{\raggedright\arraybackslash}p{\dimexpr0.320000\linewidth-1.000000\tabcolsep\relax}>{\raggedright\arraybackslash}p{\dimexpr0.680000\linewidth-1.000000\tabcolsep\relax}@{}}
+\toprule\noalign{}
+Color por defecto & Significado \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+Rojo & Raíz (1). \\
+Azul & Tercera, mayor o menor (3 o b3). \\
+Verde & Quinta justa (5). \\
+Gris & Resto de notas de la escala. \\
+Naranja & Notas extra añadidas a la escala (apartado 2.5). \\
+Violeta & Casillas que forman parte de una ruta (capítulo 5). \\
+\end{longtable}
+}
+
+Puedes cambiar estos colores en Configuración (apartado 11.4).
+
+En varias partes de la aplicación aparecen dos notaciones compactas que conviene reconocer:
+
+\begin{itemize}
+\tightlist
+\item
+  \textbf{Posición de una nota}: cuerda seguida del traste. \texttt{61} es la 6ª cuerda en el traste 1 (un F); \texttt{113} es la 1ª cuerda en el traste 13. Se usa en Ruta.
+\item
+  \textbf{Digitación de un acorde}: seis caracteres, uno por cuerda, de la 6ª a la 1ª. Un número es el traste que se pisa, \texttt{0} la cuerda al aire y \texttt{x} una cuerda que no suena. A partir del traste 10 se usan letras: \texttt{a} = 10, \texttt{b} = 11, \texttt{c} = 12, \texttt{d} = 13, \texttt{e} = 14 y \texttt{f} = 15. Así, \texttt{x7958x} es: 6ª muda, 5ª en el 7, 4ª en el 9, 3ª en el 5, 2ª en el 8 y 1ª muda.
+\end{itemize}
+
+\Needspace{3.5cm}
+\section{Un primer recorrido}\label{un-primer-recorrido}
+
+Este recorrido de cinco minutos toca las funciones principales. No hace falta cambiar nada antes de empezar: la aplicación arranca en Fa mayor.
 
 \begin{enumerate}
 \def\labelenumi{\arabic{enumi}.}
 \tightlist
 \item
-  Elige la \textbf{Nota raíz}.
+  En \textbf{Contexto tonal}, elige \texttt{C} en \textbf{Nota raíz} y deja \textbf{Mayor} en \textbf{Escala}. El mástil de \textbf{Escala} muestra Do mayor.
 \item
-  Elige la \textbf{Escala} (mayor, menor natural, pentatónica, modos\ldots).
+  Abre \textbf{Comparar}. Re mayor y Sol mayor aparecen superpuestas, cada una con su color; observa dónde se separan: Re mayor tiene C\# y Sol mayor tiene C.
 \item
-  Decide qué ver en las celdas: \textbf{Notas}, \textbf{Intervalos} o ambos. Si empiezas, usa Notas; cuando ubiques bien el mástil, añade Intervalos.
+  Abre \textbf{Acordes}. Elige \textbf{Tono} \texttt{C}, \textbf{Estructura} \textbf{Cuatriada} y recorre las digitaciones con las flechas del selector \textbf{Voicing}. Pulsa \textbf{Estudiar} para ver el análisis del acorde.
 \item
-  Ajusta \textbf{Trastes} para ampliar o reducir el rango visible.
+  Abre \textbf{Acordes cercanos}. Con \textbf{Auto escala} activado verás los acordes I, ii, IV y V de la tonalidad; marca \textbf{Activo} en los huecos 2 a 4 y compara cómo quedan los cuatro en la misma zona del mástil.
+\item
+  Abre \textbf{Standards}, escribe \texttt{autumn} en \textbf{Título}, abre \emph{Autumn Leaves}, selecciona sus cuatro primeros acordes y pulsa \textbf{Cargar selección}. Vuelve a \textbf{Acordes cercanos}: el ii-V-I del tema ya está allí.
 \end{enumerate}
 
-\chapter{Ver una escala en el mástil}\label{ver-una-escala-en-el-muxe1stil}
+\chapter{Contexto tonal: la base de todo}\label{contexto-tonal-la-base-de-todo}
 
-La sección \textbf{Escala} resalta la raíz, la tercera, la quinta y el resto de notas de la escala activa.
+El panel \textbf{Contexto tonal} aparece encima de casi todas las secciones. Define la tonalidad con la que trabaja la aplicación: qué escala se dibuja en Escala y Ruta, qué acordes se generan en Acordes cercanos y con qué escala se comparan los acordes en el Modo estudio. Cambiarlo afecta a todas las secciones a la vez.
+
+\Needspace{3.5cm}
+\section{Los controles del contexto tonal}\label{los-controles-del-contexto-tonal}
+
+\begin{figure}[!htbp]
+\centering
+\manualcapture{446.0pt}{../manuals/capturas/contexto-tonal.png}
+\caption*{\textbf{Figura 3.} Controles del panel Contexto tonal con Fa mayor y armonización diatónica.}
+\end{figure}
+{\def\LTcaptype{none} % do not increment counter
+\begin{longtable}[]{@{}>{\raggedright\arraybackslash}p{\dimexpr0.060000\linewidth-1.333333\tabcolsep\relax}>{\raggedright\arraybackslash}p{\dimexpr0.270000\linewidth-1.333333\tabcolsep\relax}>{\raggedright\arraybackslash}p{\dimexpr0.670000\linewidth-1.333333\tabcolsep\relax}@{}}
+\toprule\noalign{}
+Nº & Control & Qué hace \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+1 & \textbf{Nota raíz} & Elige la tónica. El desplegable da la letra y los botones \textbf{b} y \textbf{\#} la bajan o suben un semitono; si ya está alterada, vuelven a la nota natural. \\
+2 & \textbf{Notación} & Decide cómo se escriben las notas alteradas: \textbf{Auto}, \textbf{\#} (sostenidos) o \textbf{b} (bemoles). \\
+3 & \textbf{Escala} & La escala o modo activo. Entre paréntesis aparecen sus grados. \\
+4 & \textbf{Armonización} & \textbf{Diatónica} o \textbf{Funcional menor (V7)}. Cambia los acordes que se derivan de la escala. \\
+5 & \textbf{Notas extra} & Añade notas ajenas a la escala sin cambiarla. El botón \textbf{Extra OFF / Extra ON} las muestra u oculta. \\
+6 & \textbf{Grados} & Los acordes de cuatro notas de cada grado de la escala, en números romanos. \\
+7 & \textbf{Notas} & Los mismos acordes con su nombre real en la tonalidad activa. \\
+\end{longtable}
+}
+
+A la derecha de la cabecera del panel, un resumen recuerda la tonalidad activa, por ejemplo \emph{F Mayor · armonización diatónica}. En el móvil, donde el panel aparece plegado, ese resumen es lo único que se ve hasta que lo despliegas.
+
+\Needspace{3.5cm}
+\section{Nota raíz y notación}\label{nota-rauxedz-y-notaciuxf3n}
+
+Elige la letra en el desplegable y altérala con \textbf{b} o \textbf{\#}. Para Si bemol, por ejemplo, elige \texttt{B} y pulsa \textbf{b}.
+
+\textbf{Notación} no cambia ninguna nota, solo su nombre. Con \textbf{Auto} la aplicación usa la armadura esperada de la tonalidad: en Fa mayor escribe Bb y no A\#, y en Mi mayor escribe G\# y no Ab. Fuerza \textbf{\#} o \textbf{b} solo si quieres ver todas las notas con un mismo tipo de alteración.
+
+\Needspace{3.5cm}
+\section{La escala}\label{la-escala}
+
+El desplegable \textbf{Escala} reúne más de treinta escalas, ordenadas alfabéticamente:
 
 \begin{itemize}
 \tightlist
 \item
-  \textbf{Notas extra} añade tensiones u otras notas ajenas a la escala sin cambiarla.
+  \textbf{Mayor y modos griegos}: Jónica, Dórica, Frigia, Lidia, Mixolidia, Eólica y Locria.
 \item
-  \textbf{Ver todo} muestra también las notas que no pertenecen a la escala.
+  \textbf{Menores}: Menor natural, Menor armónica y Menor melódica (asc), con sus modos más usados, como Lidia dominante, Frigia dominante o Alterada (Superlocria).
 \item
-  Al pasar el ratón por una celda vacía aparece el nombre de la nota de ese traste.
+  \textbf{Pentatónicas} mayor y menor, y sus variantes con \emph{blue note}.
+\item
+  \textbf{Bebop} (escalas de ocho notas): mayor, dominante, dórica, menor armónica, menor melódica, frigia dominante y locria.
+\item
+  \textbf{Simétricas y otras}: Disminuida (H-W y W-H), Tonos enteros, Doble armónica, Húngara menor, Hirajoshi y Mayor armónica.
+\item
+  \textbf{Personalizada}: al elegirla aparece el campo \textbf{Intervalos personalizados}, donde escribes la escala separando los elementos con espacios. Admite grados (\texttt{1\ b3\ 4\ 5\ b7}), nombres de nota (\texttt{F\ Ab\ C}) o semitonos desde la raíz (\texttt{s3}). La raíz se añade siempre.
+\end{itemize}
+
+\Needspace{3.5cm}
+\section{Armonización, grados y notas}\label{armonizaciuxf3n-grados-y-notas}
+
+Las líneas \textbf{Grados} y \textbf{Notas} muestran los acordes de cuatro notas que se forman sobre cada grado de la escala. En Fa mayor, por ejemplo, el I es Fmaj7, el ii Gm7 y el V C7.
+
+\textbf{Armonización} solo cambia algo en las escalas menores:
+
+\begin{itemize}
+\tightlist
+\item
+  \textbf{Diatónica} construye cada acorde con las notas de la escala tal cual. En La menor natural el V es Em7.
+\item
+  \textbf{Funcional menor (V7)} convierte el acorde del V grado en dominante, como hace la práctica tonal al subir la sensible. En La menor el V pasa a ser E7.
+\end{itemize}
+
+La armonización elegida es la que usa Acordes cercanos al generar progresiones (capítulo 9).
+
+\Needspace{3.5cm}
+\section{Notas extra}\label{notas-extra}
+
+\textbf{Notas extra} resalta en naranja notas que no pertenecen a la escala, sin cambiarla: una tensión que quieres localizar, una nota de paso cromática o la \emph{blue note} de una pentatónica.
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\tightlist
+\item
+  Escribe las notas en el campo, separadas por espacios. Admite el mismo formato que la escala Personalizada: grados (\texttt{b2}, \texttt{\#4}), notas (\texttt{Gb}) o semitonos (\texttt{s1}).
+\item
+  Pulsa \textbf{Extra OFF} para que pase a \textbf{Extra ON}.
+\item
+  Debajo del mástil aparecen dos líneas \emph{Extra} con los grados y las notas añadidas.
+\end{enumerate}
+
+\begin{figure}[!htbp]
+\centering
+\manualcapture{380.0pt}{../manuals/capturas/escala-notas-extra.png}
+\caption*{\textbf{Figura 4.} Fa mayor con la nota extra b2 (Gb) activada: aparece en naranja en todas las cuerdas.}
+\end{figure}
+\Needspace{3.5cm}
+\section{Casita blues}\label{casita-blues}
+
+Cuando la escala activa es una pentatónica (mayor o menor, con o sin \emph{blue note}), aparece en el contexto tonal el control \textbf{Casita blues}. Resalta sobre el mástil de Escala las dos «casitas» clásicas del blues, dos pequeñas zonas de las tres cuerdas agudas que se colocan a partir de cada raíz de la 2ª cuerda. Sus notas llevan un contorno de color:
+
+\begin{itemize}
+\tightlist
+\item
+  \textbf{B.B. King}: la raíz de la 2ª cuerda y los dos trastes siguientes hacia el puente. En una tonalidad menor reúne la raíz, la 2, la 4, la \#4, la 5 y la 6.
+\item
+  \textbf{Albert}: la raíz de la 2ª cuerda y los dos trastes anteriores hacia el clavijero, con la b3, la 4, la 5, la b7 y la raíz.
+\item
+  \textbf{Ambas}: las dos a la vez.
+\end{itemize}
+
+Marca \textbf{Casita}, elige cuál en el desplegable y, si quieres, cambia el color de cada una con las muestras \textbf{BB} y \textbf{A}.
+
+\begin{figure}[!htbp]
+\centering
+\manualcapture{446.0pt}{../manuals/capturas/escala-casita.png}
+\caption*{\textbf{Figura 5.} La pentatónica menor con las dos casitas activadas. Las notas de cada casita llevan un contorno de color, y aparecen notas de apoyo fuera de la escala (2, \#4, 6) que forman parte de esas frases.}
+\end{figure}
+\chapter{Ver y estudiar una escala}\label{ver-y-estudiar-una-escala}
+
+\Needspace{3.5cm}
+\section{La sección Escala}\label{la-secciuxf3n-escala}
+
+La sección \textbf{Escala} dibuja la escala del contexto tonal en todo el rango de trastes visible. Debajo del mástil, dos líneas resumen la escala activa: sus grados (\emph{1 -- 2 -- 3 -- 4 -- 5 -- 6 -- 7}) y sus notas (\emph{F -- G -- A -- Bb -- C -- D -- E}).
+
+Al pasar el ratón por una casilla vacía aparece el nombre de la nota de ese traste, aunque no pertenezca a la escala. Es una forma rápida de orientarte sin cambiar la vista.
+
+\Needspace{3.5cm}
+\section{Notas, intervalos o ambos}\label{notas-intervalos-o-ambos}
+
+El texto que aparece dentro de cada círculo se elige en Configuración, en \textbf{Vista} (apartado 11.1). \textbf{Notas} e \textbf{Intervalos} son dos interruptores independientes:
+
+\begin{itemize}
+\tightlist
+\item
+  Solo \textbf{Intervalos} (la opción por defecto): cada círculo muestra su grado (1, 3, b7\ldots). Es la vista más útil para entender la función de cada nota y trasladar lo aprendido a otras tonalidades.
+\item
+  Solo \textbf{Notas}: cada círculo muestra el nombre de la nota (F, Bb\ldots).
+\item
+  Los dos activos: cada círculo muestra grado y nota, por ejemplo \texttt{1-F} o \texttt{4-Bb}.
+\end{itemize}
+
+\begin{figure}[!htbp]
+\centering
+\manualcapture{380.0pt}{../manuals/capturas/escala-vista-ambas.png}
+\caption*{\textbf{Figura 6.} Vista con Notas e Intervalos activos a la vez: cada círculo muestra el grado y el nombre de la nota.}
+\end{figure}
+\begin{quote}
+\textbf{Consejo.} Si empiezas, activa solo Notas hasta que localices bien las notas en el mástil. Después cambia a Intervalos: verás que los patrones de la escala son los mismos en cualquier tonalidad.
+\end{quote}
+
+\Needspace{3.5cm}
+\section{Ver todas las notas}\label{ver-todas-las-notas}
+
+\textbf{Ver todo}, en Configuración (\textbf{Fondo}), muestra en gris claro el nombre de todas las notas que no pertenecen a la escala. Sirve para ver de un vistazo qué hay entre las notas de la escala y localizar cromatismos.
+
+\begin{figure}[!htbp]
+\centering
+\manualcapture{380.0pt}{../manuals/capturas/escala-ver-todo.png}
+\caption*{\textbf{Figura 7.} Vista de Notas con Ver todo: las notas de la escala en círculos y el resto de notas del mástil escritas en gris.}
+\end{figure}
+\Needspace{3.5cm}
+\section{Rango de trastes}\label{rango-de-trastes}
+
+El control \textbf{Trastes} de Configuración fija hasta qué traste se dibujan los mástiles: 0--12, 0--15 (por defecto), 0--18, 0--21 o 0--24. Un rango corto hace las casillas más anchas y más fáciles de leer; uno largo permite trabajar las posiciones agudas.
+
+\Needspace{3.5cm}
+\section{Ideas para estudiar una escala}\label{ideas-para-estudiar-una-escala}
+
+\begin{itemize}
+\tightlist
+\item
+  \textbf{Localiza las raíces primero.} Con la vista de Intervalos, busca los círculos rojos en la 6ª y la 5ª cuerda: son los puntos de partida de las digitaciones más habituales.
+\item
+  \textbf{Trabaja por zonas.} Elige un rango corto y recorre la escala entre dos raíces sin salir de cuatro o cinco trastes.
+\item
+  \textbf{Compara modos.} Cambia de Jónica a Dórica o a Mixolidia sin mover la raíz y observa qué círculos cambian: son las notas características de cada modo.
+\item
+  \textbf{Combina con Ruta.} Cuando conozcas una zona, calcula una ruta (capítulo 5) para enlazarla con la siguiente.
 \end{itemize}
 
 \chapter{Comparar dos escalas}\label{comparar-dos-escalas}
 
-La sección \textbf{Comparar} muestra hasta dos escalas a la vez, cada una con su color.
+La sección \textbf{Comparar} superpone dos escalas en el mismo mástil, cada una con su color. Es útil para ver qué notas cambian entre dos tonalidades, comparar un modo con su escala paralela o preparar el cambio de escala sobre un cambio de acorde.
 
-\begin{enumerate}
-\def\labelenumi{\arabic{enumi}.}
+\Needspace{3.5cm}
+\section{Las filas del comparador}\label{las-filas-del-comparador}
+
+El comparador tiene cuatro filas configurables, pero solo dos pueden verse a la vez.
+
+\begin{figure}[!htbp]
+\centering
+\manualcapture{446.0pt}{../manuals/capturas/comparar-filas.png}
+\caption*{\textbf{Figura 8.} Las cuatro filas del comparador. Re mayor (azul) y Sol mayor (amarillo) están activas.}
+\end{figure}
+{\def\LTcaptype{none} % do not increment counter
+\begin{longtable}[]{@{}>{\raggedright\arraybackslash}p{\dimexpr0.060000\linewidth-1.333333\tabcolsep\relax}>{\raggedright\arraybackslash}p{\dimexpr0.270000\linewidth-1.333333\tabcolsep\relax}>{\raggedright\arraybackslash}p{\dimexpr0.670000\linewidth-1.333333\tabcolsep\relax}@{}}
+\toprule\noalign{}
+Nº & Control & Qué hace \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+1 & \textbf{Ver} & Activa o desactiva la fila. Activa aparece resaltada. \\
+2 & \textbf{Tono} & Tónica de la escala de esa fila, con los botones \textbf{b} y \textbf{\#}. \\
+3 & \textbf{Escala} & Escala de la fila. \\
+4 & \textbf{Fondo} & Color de esa escala en el mástil y en la leyenda. \\
+5 & \textbf{Ver} (fila inactiva) & Al activar una tercera fila se desactiva automáticamente la que lleva más tiempo activa. \\
+6 & Leyenda & Recuerda el color de cada escala visible. \\
+7 & \textbf{Puntos de resolución} & Interruptor que dibuja las flechas de resolución entre las dos escalas (apartado 4.3). \\
+\end{longtable}
+}
+
+\Needspace{3.5cm}
+\section{Leer el mástil comparado}\label{leer-el-muxe1stil-comparado}
+
+\begin{itemize}
 \tightlist
 \item
-  Activa una fila con \textbf{Ver} y elige su \textbf{Nota raíz} y su \textbf{Escala}.
+  Una nota que solo pertenece a una escala aparece en un círculo del color de esa escala.
 \item
-  Activa una segunda fila. Solo pueden estar visibles dos filas: al activar una tercera se desactiva la más antigua.
+  Una nota que comparten las dos escalas aparece como \textbf{dos círculos juntos} en el mismo traste, uno de cada color.
 \item
-  Lee el mástil: una nota exclusiva de una escala aparece en un círculo de su color; si las dos escalas comparten una nota, se ven dos círculos juntos en el mismo traste.
-\item
-  Con dos escalas activas, \textbf{Puntos de resolución} muestra dónde convergen o divergen las tensiones de ambas.
-\end{enumerate}
+  Dentro de cada círculo se ve el grado que esa nota tiene en su escala (o la nota, según la Vista de Configuración). Así, en un mismo traste puedes leer que una nota es la 5 de una escala y la 1 de la otra.
+\end{itemize}
 
-Sirve para comparar un modo con su escala paralela, ver el solapamiento entre tonalidades relativas o estudiar sustituciones.
+Re mayor y Sol mayor, por ejemplo, comparten seis notas y solo se diferencian en una: C\# en Re mayor y C en Sol mayor.
 
-\Needspace{11.5cm}
-\noindent\pandocbounded{\includegraphics[width=\linewidth,height=0.44\textheight,keepaspectratio]{../manuals/capturas/comparar.png}}
+\Needspace{3.5cm}
+\section{Puntos de resolución}\label{puntos-de-resoluciuxf3n}
 
-\noindent\emph{Figura 2. Sección Comparar: filas de escalas y mástil con las notas de cada una.}
+Con dos escalas visibles, activa \textbf{Puntos de resolución}. La aplicación dibuja flechas desde notas de la escala \textbf{origen} hacia las notas más importantes de la escala \textbf{destino} que están a uno o dos trastes en la misma cuerda. Las notas objetivo son la 3ª y la 7ª (mayores o menores), la raíz y la 5ª, y la nota característica cuando la escala destino es un modo: \#4 en Lidia, b7 en Mixolidia, 6 en Dórica y b2 en Frigia.
+
+\begin{figure}[!htbp]
+\centering
+\manualcapture{446.0pt}{../manuals/capturas/comparar-resolucion.png}
+\caption*{\textbf{Figura 9.} Puntos de resolución de Re mayor (origen) hacia Sol mayor (destino), con las flechas sobre el mástil y las primeras conexiones de la lista.}
+\end{figure}
+{\def\LTcaptype{none} % do not increment counter
+\begin{longtable}[]{@{}>{\raggedright\arraybackslash}p{\dimexpr0.060000\linewidth-1.333333\tabcolsep\relax}>{\raggedright\arraybackslash}p{\dimexpr0.270000\linewidth-1.333333\tabcolsep\relax}>{\raggedright\arraybackslash}p{\dimexpr0.670000\linewidth-1.333333\tabcolsep\relax}@{}}
+\toprule\noalign{}
+Nº & Control & Qué hace \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+1 & \textbf{Puntos de resolución} & Activa o desactiva las flechas. Solo funciona con dos escalas visibles. \\
+2 & \textbf{Origen} y \textbf{Destino} & Indican de qué escala sale cada flecha y a cuál llega. \\
+3 & \textbf{Intercambiar} & Invierte el sentido: la escala destino pasa a ser el origen. \\
+4 & Lista \textbf{Hacia\ldots{}} & Las conexiones más útiles, hasta doce, ordenadas por importancia. \\
+\end{longtable}
+}
+
+Cada línea de la lista se lee así: \emph{1ª (E) tr.3→2 4→7 (7ª) −1} significa que en la 1ª cuerda, del traste 3 al 2, la 4 de la escala origen (G en Re mayor) baja un traste hasta la 7 de la escala destino (F\# en Sol mayor). El número final es el desplazamiento en trastes: negativo hacia el clavijero y positivo hacia el puente.
+
+\begin{quote}
+\textbf{Consejo.} Usa las flechas para preparar los cambios de acorde: tocar en el último tiempo una nota que resuelve por semitono en la 3ª o la 7ª del acorde siguiente hace que la frase «aterrice» con claridad.
+\end{quote}
 
 \chapter{Calcular una ruta}\label{calcular-una-ruta}
 
-La sección \textbf{Ruta} busca un recorrido, siguiendo la escala, entre una nota inicial y una final.
+La sección \textbf{Ruta} busca un recorrido por las notas de la escala activa entre una posición inicial y una final, con una digitación razonable para la mano izquierda. Sirve para enlazar posiciones, practicar escalas en diagonal o encontrar un camino entre dos notas concretas.
+
+\Needspace{3.5cm}
+\section{Los controles de Ruta}\label{los-controles-de-ruta}
+
+\begin{figure}[!htbp]
+\centering
+\manualcapture{446.0pt}{../manuals/capturas/ruta.png}
+\caption*{\textbf{Figura 10.} Ruta de 61 a 113 en Fa mayor: 22 pasos numerados sobre el mástil.}
+\end{figure}
+{\def\LTcaptype{none} % do not increment counter
+\begin{longtable}[]{@{}>{\raggedright\arraybackslash}p{\dimexpr0.060000\linewidth-1.333333\tabcolsep\relax}>{\raggedright\arraybackslash}p{\dimexpr0.270000\linewidth-1.333333\tabcolsep\relax}>{\raggedright\arraybackslash}p{\dimexpr0.670000\linewidth-1.333333\tabcolsep\relax}@{}}
+\toprule\noalign{}
+Nº & Control & Qué hace \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+1 & \textbf{Inicio} & Posición de la primera nota, en formato cuerda + traste (\texttt{61} = 6ª cuerda, traste 1). \\
+2 & \textbf{Fin} & Posición de la última nota, en el mismo formato. \\
+3 & \textbf{Máx. notas} & Número de notas por cuerda que la ruta intenta no superar (de 1 a 5; por defecto, 4). \\
+4 & Resumen & Inicio, fin y número de pasos de la ruta calculada. \\
+\end{longtable}
+}
+
+\Needspace{3.5cm}
+\section{Indicar el inicio y el fin}\label{indicar-el-inicio-y-el-fin}
+
+Hay dos formas de indicar las posiciones:
+
+\begin{itemize}
+\tightlist
+\item
+  \textbf{Escribiéndolas} en \textbf{Inicio} y \textbf{Fin}: primero el número de cuerda (1 a 6) y después el traste. \texttt{52} es la 5ª cuerda en el traste 2; \texttt{110} es la 1ª cuerda en el traste 10.
+\item
+  \textbf{Pulsando en el mástil}: el primer clic fija el inicio y el siguiente el fin, alternando. Solo se pueden pulsar notas de la escala activa.
+\end{itemize}
+
+La ruta se recalcula en cuanto cambias cualquiera de los dos.
+
+\Needspace{3.5cm}
+\section{Leer el recorrido}\label{leer-el-recorrido}
+
+Las casillas de la ruta se dibujan con fondo violeta y un número pequeño encima que indica el orden: 1 es la nota inicial y el último número, la final. Sigue los números para tocar la ruta. Las notas de la escala que no forman parte del recorrido se mantienen visibles para que veas la ruta dentro de su contexto.
+
+\Needspace{3.5cm}
+\section{El pentagrama de la ruta}\label{el-pentagrama-de-la-ruta}
+
+Debajo del mástil, el \textbf{Pentagrama 4/4} escribe la ruta en notación musical, con la armadura de la tonalidad y el nombre de cada nota. Ayuda a comprobar la dirección de la melodía y a leerla como un ejercicio escrito.
+
+\begin{figure}[!htbp]
+\centering
+\manualcapture{446.0pt}{../manuals/capturas/ruta-pentagrama.png}
+\caption*{\textbf{Figura 11.} La misma ruta escrita en el pentagrama, con la armadura de Fa mayor (un bemol).}
+\end{figure}
+\Needspace{3.5cm}
+\section{Cómo decide la ruta}\label{cuxf3mo-decide-la-ruta}
+
+La ruta intenta avanzar como lo haría un guitarrista: evita retrocesos absurdos de cuerda y favorece las trayectorias diagonales naturales. \textbf{Máx. notas} es un límite orientativo: si respetarlo obliga a una digitación peor, la ruta puede colocar alguna nota más en una cuerda o hacer un pequeño desplazamiento.
+
+El botón \textbf{Debug} de Configuración muestra detalles técnicos del cálculo de la ruta. No es necesario para el uso normal.
+
+\chapter{Construir acordes}\label{construir-acordes}
+
+La sección \textbf{Acordes} construye un acorde a partir de sus características (tono, calidad, estructura, forma, inversión y extensiones) y busca todas las digitaciones reales que lo cumplen. Tiene dos modos, elegidos con el selector \textbf{Auto / Manual} de su cabecera: en \textbf{Auto} defines el acorde y la aplicación busca las digitaciones; en \textbf{Manual} marcas tú las notas y la aplicación dice qué acorde forman (capítulo 8).
+
+\Needspace{3.5cm}
+\section{El constructor}\label{el-constructor}
+
+\begin{figure}[!htbp]
+\centering
+\manualcapture{446.0pt}{../manuals/capturas/acordes-constructor.png}
+\caption*{\textbf{Figura 12.} Constructor de acordes en modo Auto, con la tríada de Fa mayor que aparece al abrir la aplicación.}
+\end{figure}
+{\def\LTcaptype{none} % do not increment counter
+\begin{longtable}[]{@{}>{\raggedright\arraybackslash}p{\dimexpr0.060000\linewidth-1.333333\tabcolsep\relax}>{\raggedright\arraybackslash}p{\dimexpr0.270000\linewidth-1.333333\tabcolsep\relax}>{\raggedright\arraybackslash}p{\dimexpr0.670000\linewidth-1.333333\tabcolsep\relax}@{}}
+\toprule\noalign{}
+Nº & Control & Qué hace \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+1 & \textbf{Auto / Manual} & Cambia entre construir el acorde y marcar notas en el mástil (capítulo 8). \\
+2 & Título & Nombre del acorde y resumen de la estructura, la forma y la inversión elegidas. \\
+3 & Notas del acorde & Cada nota con su grado en color; la etiqueta \textbf{Bajo} indica la nota más grave del voicing activo. \\
+4 & \textbf{Voicings} & Filtra la lista de digitaciones: \textbf{Todos}, \textbf{Habituales} o \textbf{Esenciales} (apartado 6.3). \\
+5 & Copiar & Copia al portapapeles la digitación activa, por ejemplo \texttt{13x2xx}. \\
+6 & \textbf{Voicing} & Lista de digitaciones encontradas, con flechas para pasar a la anterior o la siguiente. \\
+7 & \textbf{Dist.} & Número máximo de trastes que puede abarcar una digitación. \\
+8 & \textbf{Estudiar} & Abre el Modo estudio del acorde (capítulo 7). \\
+9 & \textbf{Tono} & Nota base del acorde, con \textbf{b} y \textbf{\#}. \\
+10 & \textbf{Familia} & \textbf{Terciaria} (acordes por terceras), \textbf{Cuartal} o \textbf{Notas guía} (apartado 6.6). \\
+11 & \textbf{Calidad / Sus} & Calidad del acorde y, en el segundo desplegable, una suspensión. \\
+12 & \textbf{Estructura} & \textbf{Triada}, \textbf{Cuatriada} o \textbf{Acorde} (con extensiones superiores). \\
+13 & \textbf{Forma} & Disposición de las voces: cerrada, abierta o drop. \\
+14 & \textbf{Inversión} & Qué nota del acorde queda en el bajo. \\
+15 & \textbf{Extensiones} & Casillas 7, 6, 9, 11 y 13, según la estructura. \\
+16 & \textbf{Quinta / Novena} & Alteraciones de la quinta (♭5, 5, ♯5) y de la novena (♭9, 9, ♯9). \\
+17 & \textbf{Omitir} & Quita la raíz, la tercera o la quinta del acorde. \\
+\end{longtable}
+}
+
+\Needspace{3.5cm}
+\section{Qué significa cada control}\label{quuxe9-significa-cada-control}
+
+\textbf{Tono.} Es la raíz del acorde y es independiente de la nota raíz del contexto tonal: puedes construir un G7 mientras trabajas en Do mayor.
+
+\textbf{Calidad / Sus.} Las calidades disponibles son \textbf{Mayor}, \textbf{Dominante (7)}, \textbf{Aumentada}, \textbf{Menor}, \textbf{m(maj7)}, \textbf{Disminuido} y \textbf{m7(b5)}. \textbf{Aumentada} combina tercera mayor y ♯5 conservando el tipo de séptima, de modo que da Caug, C7(♯5) o Cmaj7(♯5). El segundo desplegable añade \textbf{sus2} o \textbf{sus4}, que sustituyen solo la tercera por la segunda o la cuarta: la quinta y la séptima se conservan, y al quitar la suspensión vuelve el mismo acorde.
+
+\textbf{Estructura.} \textbf{Triada} usa tres notas (1, 3, 5); \textbf{Cuatriada}, cuatro (añade la séptima o la sexta); \textbf{Acorde} permite además las extensiones 9, 11 y 13.
+
+\textbf{Forma.} Decide cómo se reparten las voces:
+
+\begin{itemize}
+\tightlist
+\item
+  \textbf{Cerrado}: las notas apiladas en el orden más compacto posible.
+\item
+  \textbf{Abierto}: una voz se reparte a otra octava para dar más amplitud.
+\item
+  \textbf{Drop 2}: parte del acorde cerrado y baja una octava la segunda voz contando desde arriba. Es la forma drop más usada: las cuatro notas quedan en cuatro cuerdas seguidas.
+\item
+  \textbf{Drop 3}: baja una octava la tercera voz desde arriba. Deja una cuerda muda justo después del bajo.
+\item
+  \textbf{Drop 2+4}: baja a la vez la segunda y la cuarta voz. La cuerda muda queda en medio del voicing.
+\item
+  \textbf{Set}: el grupo de cuerdas en que se coloca la forma drop, del más agudo (\textbf{Set 1}) al más grave. Drop 2 cabe en tres sets (cuerdas 4ª--1ª, 5ª--2ª y 6ª--3ª); Drop 3 y Drop 2+4, por su cuerda muda, caben en dos.
+\end{itemize}
+
+Las formas drop solo están disponibles en cuatriadas de exactamente cuatro notas.
+
+\textbf{Inversión.} \textbf{Fundamental} pone la raíz en el bajo; \textbf{1ª inversión}, la tercera; \textbf{2ª inversión}, la quinta; \textbf{3ª inversión}, la séptima (solo en cuatriadas). \textbf{Todas} muestra las digitaciones de cualquier inversión.
+
+\textbf{Extensiones.} Añaden la 7, la 6, la 9, la 11 o la 13. Las que no tienen sentido con la estructura activa no aparecen o están desactivadas. Al elegir \textbf{Cuatriada} se marca automáticamente la 7.
+
+\textbf{Quinta / Novena.} ♭5 o ♯5 sustituyen a la quinta; si la combinación tiene nombre propio, la calidad se ajusta (un m7 con ♭5 pasa a ser m7(♭5), y ♯5 sobre un acorde mayor o dominante lo muestra como \textbf{Aumentada}). La novena solo puede alterarse cuando el acorde la incluye; en una tríada está desactivada.
+
+\textbf{Omitir.} Quita una nota del acorde para aligerar el voicing: la raíz (habitual cuando la toca el bajista), la quinta (la menos característica) o incluso la tercera. El nombre del acorde lo indica, por ejemplo con \emph{no5}.
+
+Cuando una opción no es posible con el resto de la configuración, aparece desactivada y su icono de información explica el motivo. En móvil, pulsa el icono para leerlo.
+
+\Needspace{3.5cm}
+\section{Elegir la digitación}\label{elegir-la-digitaciuxf3n}
+
+El desplegable \textbf{Voicing} enumera las digitaciones encontradas con el formato \emph{número. digitación (dist N)}; por ejemplo, \emph{1. 13x2xx (dist 3)}. Las flechas a su lado pasan a la anterior o a la siguiente, y el mástil se actualiza al momento.
+
+\begin{itemize}
+\tightlist
+\item
+  \textbf{Dist.} limita cuántos trastes puede abarcar la digitación, \textbf{contando el primero y el último}. \texttt{13x2xx} usa los trastes 1, 2 y 3: abarca 3 trastes. Las cuerdas al aire no cuentan. Elige 4, 5 o 6.
+\item
+  \textbf{Voicings} filtra la lista. \textbf{Todos} muestra todo lo que se ha encontrado, incluidas variantes generadas automáticamente. \textbf{Habituales} se queda con las formas de catálogo que se tocan de verdad, sin cuerdas muertas en medio. \textbf{Esenciales} reduce aún más la lista: una forma por zona del mástil, dentro de la primera octava.
+\item
+  El botón de copiar pone en el portapapeles la digitación activa, lista para pegarla en tus notas.
+\end{itemize}
+
+\Needspace{3.5cm}
+\section{El mástil de Acordes}\label{el-muxe1stil-de-acordes}
+
+Debajo del constructor, el mástil muestra la digitación activa. A la izquierda de cada cuerda aparece el nombre de la nota que suena en ella.
+
+\begin{figure}[!htbp]
+\centering
+\manualcapture{446.0pt}{../manuals/capturas/acordes-mastil.png}
+\caption*{\textbf{Figura 13.} Mástil de Acordes con la digitación 13x2xx de Fa mayor y sus controles.}
+\end{figure}
+{\def\LTcaptype{none} % do not increment counter
+\begin{longtable}[]{@{}>{\raggedright\arraybackslash}p{\dimexpr0.060000\linewidth-1.333333\tabcolsep\relax}>{\raggedright\arraybackslash}p{\dimexpr0.270000\linewidth-1.333333\tabcolsep\relax}>{\raggedright\arraybackslash}p{\dimexpr0.670000\linewidth-1.333333\tabcolsep\relax}@{}}
+\toprule\noalign{}
+Nº & Control & Qué hace \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+1 & \textbf{Permitir cuerdas al aire} (círculo) & Deja que las digitaciones usen cuerdas al aire. Tachado significa desactivado. \\
+2 & \textbf{Mantener zona anterior} (diana) & Al cambiar de acorde, elige la digitación más cercana a la anterior. Tachada significa desactivada. \\
+3 & \textbf{Rango} & Las flechas desplazan un traste el rango donde se buscan las digitaciones. \\
+4 & \textbf{Tamaño} & Número de trastes que abarca el rango. \\
+5 & \textbf{Todo el mástil} & Restablece el rango desde el traste 1 hasta el último. \\
+6 & Cuerda muda & Una \textbf{X} junto al traste 0 indica que esa cuerda no se toca. \\
+7 & Nota de la cuerda & Nombre de la nota que suena en cada cuerda del voicing. \\
+\end{longtable}
+}
+
+El rango limita la búsqueda: solo se ofrecen digitaciones cuyas notas pisadas caen entre los trastes indicados. Las cuerdas al aire, si están permitidas, se admiten aunque el traste 0 quede fuera del rango. El rango no se aplica en móvil, donde se muestran las posiciones de todo el mástil.
+
+\begin{quote}
+\textbf{Consejo.} Activa \textbf{Mantener zona anterior} cuando practiques una progresión acorde a acorde: la mano se queda en la misma zona y verás la conducción de voces sin saltos.
+\end{quote}
+
+\Needspace{3.5cm}
+\section{Ejemplo: Cmaj7 en Drop 2 con la 3ª en el bajo}\label{ejemplo-cmaj7-en-drop-2-con-la-3uxaa-en-el-bajo}
+
+Este ejemplo construye un voicing muy usado en jazz y muestra qué hacer cuando la aplicación no encuentra digitaciones.
 
 \begin{enumerate}
 \def\labelenumi{\arabic{enumi}.}
 \tightlist
 \item
-  Indica \textbf{Inicio} y \textbf{Fin}. Puedes escribir una posición como \texttt{61} o elegirla con un clic en el mástil.
+  En \textbf{Contexto tonal}, pon la \textbf{Nota raíz} en \texttt{C} para trabajar en Do mayor.
 \item
-  Ajusta \textbf{Máx. notas} por cuerda. Es un límite orientativo: la ruta intenta respetarlo, pero puede hacer un desplazamiento si mejora la digitación.
+  En el constructor, elige \textbf{Tono} \texttt{C}, \textbf{Calidad} \textbf{Mayor} y \textbf{Estructura} \textbf{Cuatriada}. La casilla 7 se marca sola y el acorde pasa a ser Cmaj7.
 \item
-  Revisa el recorrido resultante sobre el mástil.
+  Elige \textbf{Forma} \textbf{Drop 2 Set 2} (cuerdas 5ª a 2ª) e \textbf{Inversión} \textbf{1ª inversión} (E en el bajo).
+\item
+  Aparece el aviso «No he encontrado voicings para este acorde con los filtros actuales».
 \end{enumerate}
 
-La ruta prioriza avanzar con lógica de guitarrista: evita retrocesos absurdos de cuerda y favorece las trayectorias diagonales naturales.
-
-\Needspace{11.5cm}
-\noindent\pandocbounded{\includegraphics[width=\linewidth,height=0.44\textheight,keepaspectratio]{../manuals/capturas/ruta.png}}
-
-\noindent\emph{Figura 3. Sección Ruta con los controles Inicio, Fin y Máx. notas.}
-
-\chapter{Construir un acorde}\label{construir-un-acorde}
-
-La sección \textbf{Acordes} parte de un acorde que defines y busca voicings reales en el mástil.
+\begin{figure}[!htbp]
+\centering
+\manualcapture{446.0pt}{../manuals/capturas/acordes-sin-voicing.png}
+\caption*{\textbf{Figura 14.} Con Dist. 4 no hay ninguna digitación: el aviso propone cambiar forma, inversión, distancia o cuerdas al aire.}
+\end{figure}
+El motivo es la distancia. Para tener E en el bajo en Drop 2, se parte del acorde cerrado en 3ª inversión (B C E G) y se baja una octava la segunda voz desde arriba, la E: queda E B C G. En el set 2 eso es \texttt{x7958x}, que va del traste 5 al 9 y abarca cinco trastes.
 
 \begin{enumerate}
 \def\labelenumi{\arabic{enumi}.}
+\setcounter{enumi}{4}
 \tightlist
 \item
-  Elige el \textbf{Tono} y la \textbf{calidad} del acorde.
-\item
-  Elige la \textbf{estructura} (por ejemplo, tríada o cuatriada), la \textbf{forma} y la \textbf{inversión}, es decir, qué nota queda en el bajo.
-\item
-  Marca las \textbf{extensiones} que quieras (6, 7, 9, 11, 13). Las opciones que no son posibles con la estructura activa se desactivan y explican el motivo; en móvil, con el icono de información.
-\item
-  Recorre los voicings con las flechas o con el desplegable. \textbf{Dist.} limita la distancia entre la nota más grave y la más aguda.
-\item
-  Para copiar la digitación activa, pulsa el icono de copiar de la cabecera.
+  Cambia \textbf{Dist.} a \texttt{5}. Aparece la digitación \texttt{x7958x}.
 \end{enumerate}
 
-Otras opciones del constructor:
+\begin{figure}[!htbp]
+\centering
+\manualcapture{446.0pt}{../manuals/capturas/acordes-drop2.png}
+\caption*{\textbf{Figura 15.} Cmaj7/E en Drop 2 Set 2: E en la 5ª cuerda, B en la 4ª, C en la 3ª y G en la 2ª.}
+\end{figure}
+\Needspace{3.5cm}
+\section{Familias Cuartal y Notas guía}\label{familias-cuartal-y-notas-guuxeda}
+
+Además de los acordes por terceras, \textbf{Familia} ofrece dos tipos de voicing con controles propios.
+
+\textbf{Cuartal} construye acordes apilando cuartas, un sonido abierto típico del jazz modal.
+
+\begin{figure}[!htbp]
+\centering
+\manualcapture{336.7pt}{../manuals/capturas/acordes-cuartal.png}
+\caption*{\textbf{Figura 16.} Controles de la familia Cuartal.}
+\end{figure}
+\begin{itemize}
+\tightlist
+\item
+  \textbf{Referencia}: \textbf{Desde raíz} apila las cuartas a partir del tono elegido; \textbf{Diatónico a escala} toma el tono como centro tonal y genera acordes cuartales sobre los grados de la escala que elijas, así que el resultado puede no empezar en la raíz.
+\item
+  \textbf{Apilado}: \textbf{Cerrado} mantiene las cuartas seguidas; \textbf{Abierto} desplaza alguna voz una octava.
+\item
+  \textbf{Voces}: número de notas del acorde.
+\item
+  \textbf{Tipo cuartal}: \textbf{Cuartal puro} usa solo cuartas justas; \textbf{Mixto} incluye al menos una cuarta aumentada.
+\end{itemize}
+
+\textbf{Notas guía} reduce el acorde a lo imprescindible: la raíz con la 3ª y la 7ª, las notas que definen su calidad. Son los clásicos \emph{shell voicings} de tres notas para acompañar.
+
+\begin{figure}[!htbp]
+\centering
+\manualcapture{446.0pt}{../manuals/capturas/acordes-notas-guia.png}
+\caption*{\textbf{Figura 17.} Cmaj7 en Notas guía: C, E y B. Los controles se reducen a Calidad, Forma e Inversión.}
+\end{figure}
+\chapter{Estudiar un acorde (Modo estudio)}\label{estudiar-un-acorde-modo-estudio}
+
+El Modo estudio analiza el acorde activo, el voicing que estás viendo y su relación con la escala del contexto tonal. Está disponible en Acordes, en Acordes cercanos (botón \textbf{Estudiar} de cada hueco) y en el modo Manual.
+
+\Needspace{3.5cm}
+\section{Abrir y cerrar el estudio}\label{abrir-y-cerrar-el-estudio}
 
 \begin{itemize}
 \tightlist
 \item
-  Las listas \textbf{Quinta} y \textbf{Novena} permiten alterar la quinta (♭5, 5, ♯5) y la novena (♭9, 9, ♯9). Elegir ♯5 sobre un acorde mayor o dominante lo muestra como \textbf{Aumentada}.
+  \textbf{Estudiar}, junto al selector de voicing, abre el análisis del acorde activo.
 \item
-  \textbf{sus2} y \textbf{sus4} sustituyen solo la tercera: conservan la quinta y la séptima, y al quitarlas vuelve el mismo acorde.
+  El panel \textbf{Modo estudio}, debajo del mástil, resume siempre la lectura estudiada, el acorde de referencia y la escala activa. Su botón \textbf{Ver análisis} abre el mismo detalle y \textbf{Ocultar} lo cierra.
 \item
-  \textbf{Cuerdas al aire} permite que los voicings incluyan cuerdas abiertas.
-\item
-  El rango de trastes sobre el mástil limita los trastes donde se buscan y se muestran los voicings. \textbf{Todo el mástil} lo restablece. En móvil no se aplica.
+  \textbf{Exportar PDF} abre una ventana con un resumen imprimible del análisis visible; desde ella puedes imprimirlo o guardarlo como PDF. Si no se abre, comprueba que el navegador no bloquea las ventanas emergentes.
 \end{itemize}
 
-\Needspace{11.5cm}
-\noindent\pandocbounded{\includegraphics[width=\linewidth,height=0.44\textheight,keepaspectratio]{../manuals/capturas/acordes.png}}
+\Needspace{3.5cm}
+\section{Los bloques del análisis}\label{los-bloques-del-anuxe1lisis}
 
-\noindent\emph{Figura 4. Sección Acordes: constructor, mástil con el voicing activo y selector de voicing.}
+\begin{figure}[!htbp]
+\centering
+\manualcapture{446.0pt}{../manuals/capturas/estudio-resumen.png}
+\caption*{\textbf{Figura 18.} Modo estudio de Cmaj7/E en Drop 2 Set 2, con Do mayor como escala activa.}
+\end{figure}
+{\def\LTcaptype{none} % do not increment counter
+\begin{longtable}[]{@{}>{\raggedright\arraybackslash}p{\dimexpr0.060000\linewidth-1.333333\tabcolsep\relax}>{\raggedright\arraybackslash}p{\dimexpr0.270000\linewidth-1.333333\tabcolsep\relax}>{\raggedright\arraybackslash}p{\dimexpr0.670000\linewidth-1.333333\tabcolsep\relax}@{}}
+\toprule\noalign{}
+Nº & Bloque & Qué contiene \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+1 & \textbf{Exportar PDF} & Resumen imprimible del análisis. \\
+2 & \textbf{Ocultar} & Cierra el detalle del estudio. \\
+3 & \textbf{Identidad} & Nombre del acorde, su relativo y la capa (tríada, cuatriada, drop\ldots). \\
+4 & \textbf{Compatibilidad con la escala} & Qué notas del acorde están en la escala activa y, si alguna no lo está, qué acorde diatónico sería el esperado. \\
+5 & \textbf{Dominantes externos} & El dominante (V7) y el \emph{backdoor} (bVII7) que resuelven en la raíz del acorde, con sus notas y si son diatónicos en la escala activa. \\
+6 & \textbf{Por qué se nombra así} & La razón de la lectura: qué intervalos definen la calidad y qué extensiones incluye. \\
+7 & \textbf{Construcción} & Fórmula, notas, bajo e inversión del acorde pedido. \\
+8 & \textbf{Voicing actual} & Tipo, digitación, distancia y rango de alturas del voicing que ves en el mástil. \\
+\end{longtable}
+}
 
-\chapter{Estudiar un acorde}\label{estudiar-un-acorde}
+\Needspace{3.5cm}
+\section{Voicing real, tensiones y reglas}\label{voicing-real-tensiones-y-reglas}
 
-Pulsa \textbf{Estudiar} junto al voicing para abrir el análisis del acorde, del voicing y de sus tensiones. El botón \textbf{Ver análisis} abre el mismo estudio y \textbf{Ocultar} lo cierra.
+\begin{figure}[!htbp]
+\centering
+\manualcapture{446.0pt}{../manuals/capturas/estudio-tensiones.png}
+\caption*{\textbf{Figura 19.} Comparación entre lo pedido y lo tocado, tensiones disponibles en Do mayor, reglas y pentagrama del voicing.}
+\end{figure}
+{\def\LTcaptype{none} % do not increment counter
+\begin{longtable}[]{@{}>{\raggedright\arraybackslash}p{\dimexpr0.060000\linewidth-1.333333\tabcolsep\relax}>{\raggedright\arraybackslash}p{\dimexpr0.270000\linewidth-1.333333\tabcolsep\relax}>{\raggedright\arraybackslash}p{\dimexpr0.670000\linewidth-1.333333\tabcolsep\relax}@{}}
+\toprule\noalign{}
+Nº & Bloque & Qué contiene \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+1 & \textbf{Selección vs voicing real} & Compara la fórmula, la forma y el bajo que pediste con lo que suena en la digitación, y señala si \textbf{falta} o \textbf{sobra} alguna nota. \\
+2 & \textbf{Tensiones según escala} & Qué séptimas y tensiones (9, 11, 13 y sus alteraciones) pertenecen a la escala activa (\textbf{Disponibles}) y cuáles no (\textbf{No disponibles}). \\
+3 & \textbf{Reglas} & Restricciones que afectan a la combinación elegida, por ejemplo que la 3ª inversión no existe en tríadas o que los drops exigen cuatro notas. \\
+4 & \textbf{Pentagrama del voicing real} & Las notas del voicing escritas en el pentagrama, a partir de las cuerdas y trastes reales. \\
+\end{longtable}
+}
 
-El análisis agrupa la información en bloques, entre ellos:
+\begin{quote}
+\textbf{Atención.} «Disponible» significa que la tensión pertenece a la escala, no que funcione en cualquier voicing. Sobre Cmaj7 en Do mayor la 11 (F) aparece como disponible, pero contra la 3ª (E) forma una novena menor y suele tratarse como nota a evitar.
+\end{quote}
+
+\Needspace{3.5cm}
+\section{Sustituciones y rearmonización}\label{sustituciones-y-rearmonizaciuxf3n}
+
+Al final del estudio, \textbf{Sustituciones y reharmonización} explica qué acordes pueden sustituir al estudiado y por qué. Se organiza en cinco pestañas: \textbf{Diatónicas}, \textbf{Cromáticas y jazz}, \textbf{Por préstamo}, \textbf{Estructura y color} y \textbf{Avanzadas y extras}.
+
+\begin{figure}[!htbp]
+\centering
+\manualcapture{446.0pt}{../manuals/capturas/estudio-sustituciones.png}
+\caption*{\textbf{Figura 20.} Pestaña Diatónicas de las sustituciones de Cmaj7 en Do mayor.}
+\end{figure}
+{\def\LTcaptype{none} % do not increment counter
+\begin{longtable}[]{@{}>{\raggedright\arraybackslash}p{\dimexpr0.060000\linewidth-1.333333\tabcolsep\relax}>{\raggedright\arraybackslash}p{\dimexpr0.270000\linewidth-1.333333\tabcolsep\relax}>{\raggedright\arraybackslash}p{\dimexpr0.670000\linewidth-1.333333\tabcolsep\relax}@{}}
+\toprule\noalign{}
+Nº & Elemento & Qué hace \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+1 & Pestañas & Cambian de familia de sustituciones. \\
+2 & Flechas & Pasan a la pestaña anterior o siguiente. \\
+3 & \textbf{Índice de la sección} & Enlaces a cada sustitución de la pestaña. \\
+\end{longtable}
+}
+
+Cada sustitución sigue el mismo esquema: \textbf{Qué es}, \textbf{Cuándo aplica}, \textbf{Cómo sale} (los cálculos concretos con la escala activa y las notas comunes) y \textbf{Ejemplos y lectura}, seguidos de un pentagrama con los acordes implicados. En la figura, por ejemplo, Am7 comparte tres notas con Cmaj7 y por eso es un sustituto natural de la tónica.
+
+\chapter{Investigar notas en el mástil (modo Manual)}\label{investigar-notas-en-el-muxe1stil-modo-manual}
+
+El modo \textbf{Manual} invierte el flujo del constructor: marcas notas en el mástil, o escribes una digitación, y la aplicación propone qué acordes pueden formar. Es la forma de averiguar el nombre de un acorde que has encontrado tocando o que aparece en una partitura.
+
+\Needspace{3.5cm}
+\section{Marcar notas}\label{marcar-notas}
+
+Pulsa \textbf{Manual} en la cabecera de Acordes. El constructor queda bloqueado y el mástil admite clics.
+
+\begin{figure}[!htbp]
+\centering
+\manualcapture{446.0pt}{../manuals/capturas/manual-seleccion.png}
+\caption*{\textbf{Figura 21.} Modo Manual con la digitación x3x253 (C, A, E, G). La aplicación la clasifica como C6 en Drop 3 Set 1.}
+\end{figure}
+{\def\LTcaptype{none} % do not increment counter
+\begin{longtable}[]{@{}>{\raggedright\arraybackslash}p{\dimexpr0.060000\linewidth-1.333333\tabcolsep\relax}>{\raggedright\arraybackslash}p{\dimexpr0.270000\linewidth-1.333333\tabcolsep\relax}>{\raggedright\arraybackslash}p{\dimexpr0.670000\linewidth-1.333333\tabcolsep\relax}@{}}
+\toprule\noalign{}
+Nº & Control & Qué hace \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+1 & \textbf{Auto / Manual} & Vuelve al constructor con \textbf{Auto}. \\
+2 & Copiar & Copia la digitación marcada; a su derecha se ve escrita. \\
+3 & Altavoz & Activa o desactiva el sonido de cada nota al pulsarla. Tachado significa apagado. \\
+4 & Reproducir & Toca la selección cuerda a cuerda, de 6ª a 1ª, resaltando cada nota. \\
+5 & Nota musical & Toca todo el voicing a la vez. \\
+6 & Limpiar & Borra todas las notas marcadas. \\
+7 & Libro & Abre el Modo estudio de la lectura activa. \\
+8 & \textbf{Mantener lectura anterior} & Conserva la lectura previa cuando el cambio de notas es pequeño (apartado 8.4). \\
+9 & \textbf{Referencia} & Indica un acorde de contexto para ordenar las lecturas (apartado 8.4). \\
+10 & Campo de digitación & Permite escribir la digitación en lugar de pulsar el mástil. \\
+11 & \textbf{Aplicar} & Marca en el mástil la digitación escrita. \\
+\end{longtable}
+}
+
+Al marcar notas:
 
 \begin{itemize}
 \tightlist
 \item
-  \textbf{Identidad} y \textbf{Por qué se nombra así}: el nombre del acorde y la razón de esa lectura.
+  Solo puede haber \textbf{una nota por cuerda}. Si pulsas otra en la misma cuerda, sustituye a la anterior.
 \item
-  \textbf{Compatibilidad con la escala}: si el acorde encaja en la escala activa.
+  Pulsa de nuevo una nota para quitarla.
 \item
-  \textbf{Dominantes externos hacia la raíz detectada}.
-\item
-  \textbf{Construcción} y \textbf{Voicing actual}: las notas y la digitación.
-\item
-  \textbf{Tensiones según escala} y \textbf{Reglas}.
-\item
-  \textbf{Pentagrama del voicing real}.
+  A la izquierda de cada cuerda se ve el nombre de la nota marcada y, sobre el mástil, su grado respecto a la lectura activa.
 \end{itemize}
 
-\textbf{Exportar PDF} genera un resumen imprimible del análisis visible.
+\Needspace{3.5cm}
+\section{Escribir una digitación}\label{escribir-una-digitaciuxf3n}
 
-\Needspace{11.5cm}
-\noindent\pandocbounded{\includegraphics[width=\linewidth,height=0.44\textheight,keepaspectratio]{../manuals/capturas/acordes-estudio.png}}
+En lugar de pulsar casilla a casilla, escribe la digitación completa en el campo de la derecha y pulsa \textbf{Aplicar}. Usa el formato del apartado 1.3: seis caracteres de la 6ª a la 1ª cuerda, con \texttt{x} para las cuerdas mudas y letras a partir del traste 10 (\texttt{x8989b}).
 
-\noindent\emph{Figura 5. Sección Acordes con el estudio del acorde abierto.}
+\Needspace{3.5cm}
+\section{Leer las lecturas posibles}\label{leer-las-lecturas-posibles}
 
-\chapter{Investigar notas en el mástil}\label{investigar-notas-en-el-muxe1stil}
+Debajo del mástil, \textbf{Posibles acordes} enumera todas las formas razonables de nombrar las notas marcadas.
 
-El modo \textbf{Manual} invierte el flujo: marcas notas en el mástil y la aplicación propone qué acorde forman. Se activa con el selector \textbf{Auto} / \textbf{Manual} de la cabecera de Acordes.
+\begin{figure}[!htbp]
+\centering
+\manualcapture{446.0pt}{../manuals/capturas/manual-lecturas.png}
+\caption*{\textbf{Figura 22.} Las notas C, A, E y G admiten varias lecturas. La principal es C6; la segunda, Am7/C.}
+\end{figure}
+{\def\LTcaptype{none} % do not increment counter
+\begin{longtable}[]{@{}>{\raggedright\arraybackslash}p{\dimexpr0.060000\linewidth-1.333333\tabcolsep\relax}>{\raggedright\arraybackslash}p{\dimexpr0.270000\linewidth-1.333333\tabcolsep\relax}>{\raggedright\arraybackslash}p{\dimexpr0.670000\linewidth-1.333333\tabcolsep\relax}@{}}
+\toprule\noalign{}
+Nº & Elemento & Qué hace \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+1 & \textbf{Principal} & Marca la lectura que la aplicación considera más probable. El botón redondo de cada lectura la convierte en la activa. \\
+2 & \textbf{Copiar en Acorde} & Pasa esa lectura al constructor y vuelve al modo Auto para seguir editándola. Está desactivado si la lectura no se puede construir. \\
+3 & \textbf{→ Cercano} 1--4 & Copia la lectura en el hueco correspondiente de Acordes cercanos. \\
+4 & \textbf{Lecturas extra del oráculo} & Despliega lecturas adicionales calculadas por otro método. Son solo informativas. \\
+\end{longtable}
+}
 
-\begin{enumerate}
-\def\labelenumi{\arabic{enumi}.}
-\tightlist
-\item
-  Pulsa \textbf{Manual}. El cuadro de acorde queda bloqueado.
-\item
-  Pulsa las notas en el mástil. Solo puede haber una nota por cuerda: si pulsas otra en la misma cuerda, sustituye a la anterior.
-\item
-  Lee las lecturas posibles que propone la aplicación y copia la que prefieras a la sección de arriba para seguir editándola.
-\item
-  Pulsa \textbf{Auto} para volver al constructor.
-\end{enumerate}
+Cada lectura muestra su nombre y, debajo, qué función tiene cada nota (\emph{1=C, 3=E, 5=G, 6=A}). Si existen, un apartado plegable \textbf{Lecturas avanzadas / contextuales} reúne lecturas cuartales, fragmentos o lecturas que solo tienen sentido en un contexto concreto.
 
-Opciones útiles:
+El ejemplo de la figura es un caso clásico: C6 y Am7 tienen exactamente las mismas notas. Con C en el bajo, la lectura natural es C6; si la armonía gira en torno a La menor, el mismo voicing funciona como Am7 en 1ª inversión (Am7/C). Ninguna de las dos es incorrecta: decide el contexto.
+
+\Needspace{3.5cm}
+\section{Mantener lectura anterior y Referencia}\label{mantener-lectura-anterior-y-referencia}
 
 \begin{itemize}
 \tightlist
 \item
-  Arriba a la derecha tienes los iconos de altavoz, \textbf{Play} y limpiar. El altavoz tachado indica que el sonido al pulsar está apagado. \textbf{Play} recorre la selección cuerda a cuerda, de 6ª a 1ª, y resalta cada nota.
+  \textbf{Mantener lectura anterior} intenta conservar la lectura funcional previa cuando cambias pocas notas. Es útil al mover una voz para ver cómo evoluciona el mismo acorde. Si está desmarcada, la lectura activa es siempre la primera que propone el motor.
 \item
-  \textbf{Mantener lectura anterior} conserva la lectura funcional previa cuando el cambio de notas es pequeño. Si está apagado, siempre se elige el primer candidato del motor.
-\item
-  \textbf{Priorizar acorde de referencia} reordena los candidatos favoreciendo la raíz y la calidad indicadas, sin eliminar ninguna lectura.
+  \textbf{Referencia} te deja indicar el acorde sobre el que estás tocando (raíz, alteración y tipo). Las lecturas compatibles con ese acorde suben en la lista, sin eliminar ninguna. Además, el Modo estudio lo muestra como \textbf{Acorde de referencia}.
 \end{itemize}
 
-\Needspace{11.5cm}
-\noindent\pandocbounded{\includegraphics[width=\linewidth,height=0.44\textheight,keepaspectratio]{../manuals/capturas/acordes-manual.png}}
+\Needspace{3.5cm}
+\section{Escuchar la selección}\label{escuchar-la-selecciuxf3n}
 
-\noindent\emph{Figura 6. Modo Manual: el cuadro de acorde queda bloqueado y el mástil admite la selección de notas.}
+Los iconos de altavoz, reproducir y nota musical permiten oír lo que has marcado. El sonido al pulsar está apagado al abrir la aplicación y vuelve a estarlo al recargar la página. Debajo de las lecturas, \textbf{Pentagrama de la selección actual} escribe las notas marcadas en cuanto las pulsas, sin esperar a elegir una lectura.
 
 \chapter{Comparar acordes cercanos}\label{comparar-acordes-cercanos}
 
-La sección \textbf{Acordes cercanos} compara hasta cuatro acordes en una misma zona del mástil, para estudiar progresiones y conducción de voces.
+\textbf{Acordes cercanos} muestra hasta cuatro acordes a la vez en la misma zona del mástil, cada uno con su color. Es la herramienta para trabajar progresiones: verás qué notas se mantienen entre acordes, cuáles se mueven por semitono y cómo enlazarlos sin saltos de mano.
+
+\Needspace{3.5cm}
+\section{La cabecera y los huecos}\label{la-cabecera-y-los-huecos}
+
+\begin{figure}[!htbp]
+\centering
+\manualcapture{446.0pt}{../manuals/capturas/cercanos-cabecera.png}
+\caption*{\textbf{Figura 23.} Cabecera de Acordes cercanos con Auto escala activado y el primer hueco desplegado.}
+\end{figure}
+{\def\LTcaptype{none} % do not increment counter
+\begin{longtable}[]{@{}>{\raggedright\arraybackslash}p{\dimexpr0.060000\linewidth-1.333333\tabcolsep\relax}>{\raggedright\arraybackslash}p{\dimexpr0.270000\linewidth-1.333333\tabcolsep\relax}>{\raggedright\arraybackslash}p{\dimexpr0.670000\linewidth-1.333333\tabcolsep\relax}@{}}
+\toprule\noalign{}
+Nº & Control & Qué hace \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+1 & \textbf{Estilo} & Filtra las progresiones por género: Pop, Rock, Jazz, Blues, Soul / R\&B, Funk, Flamenco / Andaluz, Modal\ldots{} \\
+2 & \textbf{Progresión} & Progresión que se genera con \textbf{Auto escala}, por ejemplo \emph{ii7 -- V7 -- Imaj7 · Jazz mayor}. \\
+3 & \textbf{Auto escala} & Con \textbf{ON}, los huecos se rellenan según la nota raíz, la escala y la armonización del contexto tonal. Con \textbf{OFF}, cada hueco se edita a mano. \\
+4 & Tonalidades diatónicas & Tonalidades mayores y menores en las que todos los acordes activos son diatónicos. \\
+5 & Título del hueco & Acorde del hueco y, debajo, su estructura, forma e inversión. \\
+6 & \textbf{Permitir cuerdas al aire} & Igual que en Acordes, pero solo para ese hueco. \\
+7 & \textbf{Estudiar} & Abre el Modo estudio de ese acorde. \\
+8 & \textbf{Fondo} & Color del hueco en el mástil compartido. \\
+9 & \textbf{Activo} & Incluye o excluye el hueco del mástil y de los cálculos. \\
+10 & \textbf{Voicing} & Digitación del hueco. La opción \textbf{(auto)} elige automáticamente la más cercana. \\
+\end{longtable}
+}
+
+\Needspace{3.5cm}
+\section{Auto escala, Estilo y Progresión}\label{auto-escala-estilo-y-progresiuxf3n}
+
+Con \textbf{Auto escala} activado, elige un \textbf{Estilo} para acotar la lista y una \textbf{Progresión}. Los cuatro huecos se rellenan con los acordes de esa progresión en la tonalidad del contexto tonal, y se actualizan si cambias la nota raíz o la escala. Con Do mayor e \emph{I -- ii -- IV -- V}, por ejemplo, los huecos son C, Dm, F y G.
+
+Si desactivas \textbf{Auto escala}, los acordes se quedan como están y puedes editar cada hueco libremente. Cargar acordes desde Standards (capítulo 10) o desde el modo Manual desactiva Auto escala para respetar esos acordes.
+
+\Needspace{3.5cm}
+\section{Editar los huecos}\label{editar-los-huecos}
+
+Cada hueco activo se despliega con los mismos controles que el constructor de Acordes (apartado 6.2): tono, familia, calidad, estructura, forma, inversión, extensiones, alteraciones y omisiones, además de su propio selector de voicing, el botón de copiar y \textbf{Dist.}
+
+\begin{figure}[!htbp]
+\centering
+\manualcapture{446.0pt}{../manuals/capturas/cercanos-huecos.png}
+\caption*{\textbf{Figura 24.} El hueco 2, activo, con Dm. Cada hueco tiene sus propios controles y se edita de forma independiente.}
+\end{figure}
+\Needspace{3.5cm}
+\section{El mástil compartido}\label{el-muxe1stil-compartido}
+
+\textbf{Mástil: acordes cercanos} dibuja los voicings de todos los huecos activos a la vez. Cada acorde usa el color de su hueco y cada círculo indica el grado de esa nota dentro de su acorde.
+
+\begin{figure}[!htbp]
+\centering
+\manualcapture{446.0pt}{../manuals/capturas/cercanos-mastil.png}
+\caption*{\textbf{Figura 25.} I -- ii -- IV -- V en Do mayor entre los trastes 1 y 6: C en azul, Dm en amarillo, F en verde y G en rosa.}
+\end{figure}
+\begin{itemize}
+\tightlist
+\item
+  Los voicings se buscan dentro del \textbf{Rango} indicado en la cabecera del mástil y se ordenan por cercanía al primer acorde activo. Mueve el rango con las flechas o cambia su \textbf{Tamaño} para probar otra zona.
+\item
+  Cuando dos acordes comparten una nota en el mismo traste, se ven dos círculos juntos, como en Comparar.
+\end{itemize}
+
+\Needspace{3.5cm}
+\section{Analizador de tonalidad / progresión}\label{analizador-de-tonalidad--progresiuxf3n}
+
+Encima de los huecos, el panel plegable \textbf{Analizador de tonalidad / progresión} estima la tonalidad de una serie de acordes. Es útil cuando tienes el cifrado de una canción y no sabes en qué tonalidad está.
 
 \begin{enumerate}
 \def\labelenumi{\arabic{enumi}.}
 \tightlist
 \item
-  Define los acordes de cada hueco, o activa \textbf{Auto escala} para que se generen según la raíz, la escala y la armonización activas. \textbf{Estilo} y \textbf{Progresión} controlan el tipo de armonía.
+  Despliega el panel.
 \item
-  Con \textbf{Auto escala} desactivado, cada acorde queda en edición manual.
+  Escribe los acordes separados por espacios, barras \texttt{\textbar{}}, comas o saltos de línea. Admite acordes con bajo, como \texttt{A/E}.
 \item
-  Fija el rango de trastes donde se buscan las digitaciones.
-\item
-  Revisa las digitaciones propuestas: se ordenan por cercanía al acorde de referencia.
-\item
-  Pulsa \textbf{Estudiar} en un hueco para analizar ese acorde.
+  Pulsa \textbf{Analizar} o Ctrl+Enter.
 \end{enumerate}
 
-Un flujo habitual para un ii-V-I en Do mayor: activa \textbf{Auto escala} con Do mayor y desplaza el rango de trastes hasta encontrar la posición con mejor conducción de voces.
+\begin{figure}[!htbp]
+\centering
+\manualcapture{446.0pt}{../manuals/capturas/cercanos-analizador.png}
+\caption*{\textbf{Figura 26.} Análisis de Dm7, G7, Cmaj7 y A7: tonalidad probable Do mayor, con A7 como dominante secundario de Dm.}
+\end{figure}
+El resultado muestra la \textbf{Tonalidad probable} con su grado de encaje y las alternativas. Para cada una indica los \textbf{Acordes diatónicos}, los grados de la tonalidad con los acordes introducidos resaltados, la función de cada acorde introducido, los \textbf{Acordes funcionales / no diatónicos} (dominantes secundarios, intercambio modal) y las \textbf{Escalas sugeridas}.
 
-\Needspace{11.5cm}
-\noindent\pandocbounded{\includegraphics[width=\linewidth,height=0.44\textheight,keepaspectratio]{../manuals/capturas/cercanos.png}}
+\Needspace{3.5cm}
+\section{Ejemplo: un ii-V-I en Do mayor}\label{ejemplo-un-ii-v-i-en-do-mayor}
 
-\noindent\emph{Figura 7. Sección Acordes cercanos con sus huecos de acorde y el mástil.}
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\tightlist
+\item
+  En \textbf{Contexto tonal}, elige Do mayor.
+\item
+  En \textbf{Acordes cercanos}, con \textbf{Auto escala} activado, elige \textbf{Estilo} \textbf{Jazz} y \textbf{Progresión} \emph{ii7 -- V7 -- Imaj7 · Jazz mayor}. Los huecos 1, 2 y 3 pasan a ser Dm7, G7 y Cmaj7.
+\item
+  Marca \textbf{Activo} en los huecos 2 y 3 (el 1 ya lo está) y deja sin marcar el 4.
+\item
+  Desplaza el \textbf{Rango} hasta encontrar una zona donde los tres voicings queden a uno o dos trastes entre sí.
+\item
+  Fíjate en la conducción de voces: la 7ª de Dm7 (C) baja a la 3ª de G7 (B), y la 7ª de G7 (F) baja a la 3ª de Cmaj7 (E).
+\end{enumerate}
 
 \chapter{Trabajar con Standards}\label{trabajar-con-standards}
 
-La sección \textbf{Standards} es un catálogo de más de 1400 temas.
+La sección \textbf{Standards} reúne los cifrados de más de 1400 temas de jazz, sin melodía. Para cada tema muestra su forma compás a compás y te deja enviar hasta cuatro de sus acordes a Acordes cercanos para estudiar los voicings.
+
+\Needspace{3.5cm}
+\section{Buscar en el catálogo}\label{buscar-en-el-catuxe1logo}
+
+\begin{figure}[!htbp]
+\centering
+\manualcapture{171.7pt}{../manuals/capturas/standards-catalogo.png}
+\caption*{\textbf{Figura 27.} Catálogo filtrado por la palabra «autumn» en el título.}
+\end{figure}
+{\def\LTcaptype{none} % do not increment counter
+\begin{longtable}[]{@{}>{\raggedright\arraybackslash}p{\dimexpr0.060000\linewidth-1.333333\tabcolsep\relax}>{\raggedright\arraybackslash}p{\dimexpr0.270000\linewidth-1.333333\tabcolsep\relax}>{\raggedright\arraybackslash}p{\dimexpr0.670000\linewidth-1.333333\tabcolsep\relax}@{}}
+\toprule\noalign{}
+Nº & Filtro & Qué hace \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+1 & \textbf{Título} & Busca por parte del título. \\
+2 & \textbf{Compositor} & Busca por autor. \\
+3 & \textbf{Año} & Busca por año de composición. \\
+4 & \textbf{Tono} & Busca por tonalidad, por ejemplo \texttt{Bb} o \texttt{Gm}. \\
+5 & Resultado & Pulsa un tema para abrir su ficha. \\
+\end{longtable}
+}
+
+Los filtros se combinan entre sí. \textbf{Limpiar} los borra todos.
+
+\Needspace{3.5cm}
+\section{La ficha y la forma}\label{la-ficha-y-la-forma}
+
+La ficha muestra una breve descripción del tema, sus autores, el año y la tonalidad. Debajo, \textbf{Forma} presenta el cifrado organizado por secciones (A, B, C\ldots, con primera y segunda vuelta cuando las hay) y numerado por compases.
+
+\begin{figure}[!htbp]
+\centering
+\manualcapture{446.0pt}{../manuals/capturas/standards-forma.png}
+\caption*{\textbf{Figura 28.} Primeros compases de Autumn Leaves, con sus cuatro primeros cambios seleccionados.}
+\end{figure}
+{\def\LTcaptype{none} % do not increment counter
+\begin{longtable}[]{@{}>{\raggedright\arraybackslash}p{\dimexpr0.060000\linewidth-1.333333\tabcolsep\relax}>{\raggedright\arraybackslash}p{\dimexpr0.270000\linewidth-1.333333\tabcolsep\relax}>{\raggedright\arraybackslash}p{\dimexpr0.670000\linewidth-1.333333\tabcolsep\relax}@{}}
+\toprule\noalign{}
+Nº & Elemento & Qué hace \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+1 & \textbf{Selección del chart real} & Lista los cambios seleccionados, numerados, con su sección y compás. Cada uno se puede quitar desde ahí. \\
+2 & \textbf{Cargar selección} & Envía los cambios seleccionados a Acordes cercanos. \\
+3 & \textbf{Limpiar} & Vacía la selección. \\
+4 & Cambio seleccionado & Pulsa un acorde de la forma para añadirlo o quitarlo; el número indica su posición en la selección. \\
+5 & Sección & Nombre de la sección y compases que abarca. \\
+\end{longtable}
+}
+
+Los cifrados usan la notación habitual de los \emph{real books}:
+
+{\def\LTcaptype{none} % do not increment counter
+\begin{longtable}[]{@{}>{\raggedright\arraybackslash}p{\dimexpr0.320000\linewidth-1.000000\tabcolsep\relax}>{\raggedright\arraybackslash}p{\dimexpr0.680000\linewidth-1.000000\tabcolsep\relax}@{}}
+\toprule\noalign{}
+Cifrado & Equivale a \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+C-7 & Cm7 \\
+BbΔ7 & Bbmaj7 \\
+A-7b5 & Am7(b5), también escrito Aø \\
+Ebo7 & Ebdim7 \\
+G-6 & Gm6 \\
+D7b13 & D7 con 13 bemol \\
+\end{longtable}
+}
+
+\Needspace{3.5cm}
+\section{Enviar acordes a Acordes cercanos}\label{enviar-acordes-a-acordes-cercanos}
 
 \begin{enumerate}
 \def\labelenumi{\arabic{enumi}.}
 \tightlist
 \item
-  Filtra el catálogo por título, autor, año o tonalidad y elige un tema.
+  Pulsa hasta cuatro acordes de la forma. Si intentas añadir un quinto, la aplicación te avisa del límite.
 \item
-  En la ficha, lee los datos del tema y su \textbf{Forma}, el cifrado compás a compás.
+  Pulsa \textbf{Cargar selección}. Aparece un aviso de confirmación y \textbf{Auto escala} se desactiva para respetar la armonía del tema.
 \item
-  Selecciona hasta cuatro acordes de la forma y envíalos a \textbf{Acordes cercanos} para estudiar sus voicings.
+  Abre \textbf{Acordes cercanos}: los huecos contienen los acordes seleccionados.
 \end{enumerate}
 
-Los cifrados que la aplicación aún no sabe construir se conservan en pantalla, pero no se cargan: el hueco queda desactivado y se avisa del motivo.
+\begin{figure}[!htbp]
+\centering
+\manualcapture{446.0pt}{../manuals/capturas/standards-cargado.png}
+\caption*{\textbf{Figura 29.} Cm7, F7, Bbmaj7 y Ebmaj7, el ii-V-I-IV de Autumn Leaves, en el mástil de Acordes cercanos.}
+\end{figure}
+Los cifrados que la aplicación todavía no sabe construir se conservan en la forma, pero no se cargan: el hueco correspondiente queda desactivado y el aviso explica el motivo.
 
-\Needspace{11.5cm}
-\noindent\pandocbounded{\includegraphics[width=\linewidth,height=0.44\textheight,keepaspectratio]{../manuals/capturas/standards.png}}
+\chapter{Configuración, presets y copia de seguridad}\label{configuraciuxf3n-presets-y-copia-de-seguridad}
 
-\noindent\emph{Figura 8. Catálogo de standards con sus filtros.}
+La sección \textbf{Configuración} reúne los ajustes que afectan a toda la aplicación.
 
-\Needspace{11.5cm}
-\noindent\pandocbounded{\includegraphics[width=\linewidth,height=0.44\textheight,keepaspectratio]{../manuals/capturas/standards-forma.png}}
+\Needspace{3.5cm}
+\section{El panel de Configuración}\label{el-panel-de-configuraciuxf3n}
 
-\noindent\emph{Figura 9. Ficha de un standard seleccionado, con su Forma.}
+\begin{figure}[!htbp]
+\centering
+\manualcapture{446.0pt}{../manuals/capturas/configuracion.png}
+\caption*{\textbf{Figura 30.} Panel de Configuración en ordenador.}
+\end{figure}
+{\def\LTcaptype{none} % do not increment counter
+\begin{longtable}[]{@{}>{\raggedright\arraybackslash}p{\dimexpr0.060000\linewidth-1.333333\tabcolsep\relax}>{\raggedright\arraybackslash}p{\dimexpr0.270000\linewidth-1.333333\tabcolsep\relax}>{\raggedright\arraybackslash}p{\dimexpr0.670000\linewidth-1.333333\tabcolsep\relax}@{}}
+\toprule\noalign{}
+Nº & Control & Qué hace \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+1 & \textbf{Preset rápido} & Elige uno de los tres presets rápidos. \\
+2 & \textbf{Restaurar} & Carga la configuración guardada en el preset elegido. Está desactivado si el preset está vacío. \\
+3 & \textbf{Guardar} & Guarda la configuración actual en el preset elegido. \\
+4 & \textbf{Vista} & \textbf{Notas} e \textbf{Intervalos}: qué se escribe dentro de los círculos (apartado 3.2). \\
+5 & \textbf{Trastes} & Rango de trastes de los mástiles, de 0--12 a 0--24 (apartado 3.4). \\
+6 & \textbf{Fondo} & \textbf{Ver todo} muestra las notas que no pertenecen a la escala (apartado 3.3). \\
+7 & \textbf{Debug} & Muestra detalles técnicos del cálculo de rutas. \\
+8 & \textbf{Exportar config} & Descarga toda la configuración en un archivo JSON. \\
+9 & \textbf{Importar config} & Carga un archivo exportado antes. \\
+10 & \textbf{Restablecer} & Vuelve a los valores por defecto (los presets se conservan). \\
+11 & \textbf{Tema} & Colores del fondo de la página, de los paneles, de las cabeceras y de los controles. \\
+12 & \textbf{Colores (círculos)} & Colores de la raíz, la 3ª, la 5ª, el resto de notas, las notas extra y la ruta. \\
+13 & \textbf{Colores (acordes)} & Colores de las extensiones 7, 6, 9, 11 y 13 en los acordes. \\
+\end{longtable}
+}
 
-\chapter{Guardar y recuperar la configuración}\label{guardar-y-recuperar-la-configuraciuxf3n}
+\Needspace{3.5cm}
+\section{Presets rápidos}\label{presets-ruxe1pidos}
 
-La sección \textbf{Configuración} reúne los ajustes generales.
-
-\begin{itemize}
-\tightlist
-\item
-  \textbf{Presets rápidos} guardan y recuperan configuraciones habituales.
-\item
-  \textbf{Exportar config} guarda toda la configuración en un archivo JSON.
-\item
-  \textbf{Importar config} recupera una configuración anterior.
-\item
-  \textbf{Restablecer} vuelve a los valores por defecto.
-\end{itemize}
-
-\Needspace{11.5cm}
-\noindent\pandocbounded{\includegraphics[width=\linewidth,height=0.44\textheight,keepaspectratio]{../manuals/capturas/configuracion.png}}
-
-\noindent\emph{Figura 10. Panel de Configuración.}
-
-\chapter{Instalar y usar sin conexión}\label{instalar-y-usar-sin-conexiuxf3n}
-
-Puedes instalar la página como aplicación desde el navegador. En iPhone o iPad, usa «Añadir a pantalla de inicio» desde Safari.
+Un preset guarda todo lo que la aplicación recuerda entre sesiones: contexto tonal, sección activa, acordes, huecos de Acordes cercanos, ruta, vista, tema y colores. Tienes tres.
 
 \begin{enumerate}
 \def\labelenumi{\arabic{enumi}.}
 \tightlist
 \item
-  Abre la página con conexión a Internet la primera vez.
+  Deja la aplicación como quieras recordarla.
 \item
-  Espera al aviso \textbf{Disponible sin conexión}. A partir de ahí funciona sin red, con todos los standards.
+  Elige un preset en \textbf{Preset rápido} y pulsa \textbf{Guardar}. La aplicación te pide un nombre para reconocerlo después.
 \item
-  Cuando hay una versión nueva aparece \textbf{Actualizar ahora}.
+  Para volver a ese estado más adelante, elige el preset y pulsa \textbf{Restaurar}.
 \end{enumerate}
 
-Si cambia la versión de la aplicación, la configuración actual se restablece y los presets se conservan. Antes de actualizar, guarda un preset o exporta la configuración.
+Al pasar el ratón por \textbf{Restaurar} verás el nombre del preset y cuándo se guardó. Los presets se conservan al pulsar \textbf{Restablecer} y al actualizar la aplicación.
 
-\chapter{Límites y consejos}\label{luxedmites-y-consejos}
+\Needspace{3.5cm}
+\section{Exportar e importar la configuración}\label{exportar-e-importar-la-configuraciuxf3n}
+
+\textbf{Exportar config} descarga un archivo con el nombre \texttt{mastil\_interactivo\_config\_AAAAMMDD\_HHMMSS.json}, con la fecha y la hora. Guárdalo como copia de seguridad o úsalo para llevar tu configuración a otro navegador o dispositivo con \textbf{Importar config}. Si el archivo procede de una versión anterior, la aplicación lo carga y corrige los valores que ya no existen.
+
+\Needspace{3.5cm}
+\section{Tema y colores}\label{tema-y-colores}
+
+Pulsa cualquier muestra de color para abrir el selector y elegir otro. Los cambios se aplican al momento.
+
+\textbf{Restablecer} borra la configuración guardada, incluidos los colores, y recarga la página con los valores por defecto. Antes pide confirmación. Los presets rápidos no se borran.
+
+\chapter{Móvil, ayuda e instalación}\label{muxf3vil-ayuda-e-instalaciuxf3n}
+
+\Needspace{3.5cm}
+\section{Usar la aplicación en el móvil}\label{usar-la-aplicaciuxf3n-en-el-muxf3vil}
+
+En pantallas estrechas la aplicación cambia de distribución para poder usarse con una mano.
+
+\begin{figure}[!htbp]
+\centering
+\manualcapture{446.0pt}{../manuals/capturas/movil.png}
+\caption*{\textbf{Figura 31.} En el móvil: sección Escala con el mástil en vertical, sección Acordes y menú de configuración abierto.}
+\end{figure}
+\begin{itemize}
+\tightlist
+\item
+  \textbf{Barra inferior.} Cambia de sección: Escala, Ruta, Acordes, Cercanos, Comparar y Standards. También puedes deslizar el dedo a izquierda o derecha para pasar a la sección contigua.
+\item
+  \textbf{Mástil en vertical.} Las cuerdas pasan a ser columnas, de la 6ª a la izquierda a la 1ª a la derecha, y los trastes avanzan hacia abajo.
+\item
+  \textbf{Contexto tonal plegado.} Muestra solo el resumen de la tonalidad; pulsa la flecha para desplegar sus controles.
+\item
+  \textbf{Editar acorde.} En Acordes, el botón \textbf{Editar} abre los controles del constructor en una ventana.
+\item
+  \textbf{Menú de tres rayas.} Abre la \textbf{Configuración}, con el botón \textbf{Ayuda} para abrir este manual.
+\item
+  \textbf{Iconos de información.} Púlsalos para leer la explicación de cada control, ya que en el móvil no hay cursor.
+\end{itemize}
+
+El rango de trastes de Acordes no se aplica en el móvil: se muestran las posiciones de todo el mástil.
+
+\Needspace{3.5cm}
+\section{La ayuda dentro de la aplicación}\label{la-ayuda-dentro-de-la-aplicaciuxf3n}
+
+El interrogante de la cabecera (en el móvil, \textbf{Ayuda} dentro del menú) abre un resumen rápido de cada sección. Desde ahí, \textbf{Abrir el manual en PDF} muestra este documento.
+
+\begin{figure}[!htbp]
+\centering
+\manualcapture{446.0pt}{../manuals/capturas/ayuda.png}
+\caption*{\textbf{Figura 32.} Ventana de ayuda con el botón que abre el manual completo.}
+\end{figure}
+Si tu navegador descarga el PDF en lugar de mostrarlo, ábrelo desde la carpeta de descargas.
+
+\Needspace{3.5cm}
+\section{Instalar y usar sin conexión}\label{instalar-y-usar-sin-conexiuxf3n}
+
+Puedes instalar Mástil Escalas como una aplicación más:
 
 \begin{itemize}
 \tightlist
 \item
-  El límite de notas por cuerda en Ruta es orientativo, no estricto.
+  \textbf{Ordenador (Chrome, Edge):} usa el icono de instalar de la barra de direcciones o la opción \textbf{Instalar} del menú del navegador.
 \item
-  Algunas combinaciones de estructura, inversión y extensiones no tienen voicing tocable; la aplicación lo indica en lugar de mostrar una digitación incorrecta.
+  \textbf{Android:} en el menú del navegador, elige \textbf{Instalar aplicación} o \textbf{Añadir a pantalla de inicio}.
 \item
-  El rango de trastes de Acordes no se aplica en móvil.
-\item
-  Para estudiar armonía, combina \textbf{Acordes}, \textbf{Estudiar} y \textbf{Acordes cercanos}.
-\item
-  Empieza con una escala simple, por ejemplo mayor o pentatónica menor.
+  \textbf{iPhone o iPad:} en Safari, pulsa \textbf{Compartir} y después \textbf{Añadir a pantalla de inicio}.
 \end{itemize}
+
+Para usarla sin conexión:
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\tightlist
+\item
+  Abre la aplicación con conexión a Internet la primera vez.
+\item
+  Espera al aviso \textbf{Disponible sin conexión}. A partir de ese momento funciona sin red, con todos los standards y este manual.
+\end{enumerate}
+
+\Needspace{3.5cm}
+\section{Actualizaciones y configuración}\label{actualizaciones-y-configuraciuxf3n}
+
+Cuando hay una versión nueva aparece el aviso \textbf{Actualizar ahora}. Al pulsarlo se carga la versión nueva.
+
+\begin{quote}
+\textbf{Atención.} Al cambiar de versión, la configuración actual se restablece a los valores por defecto. Los presets rápidos se conservan. Antes de actualizar, guarda tu configuración en un preset o expórtala.
+\end{quote}
+
+\chapter{Problemas frecuentes y límites}\label{problemas-frecuentes-y-luxedmites}
+
+\begin{itemize}
+\item
+  \textbf{Aparece «No he encontrado voicings para este acorde con los filtros actuales».} La combinación pedida no tiene ninguna digitación que cumpla todos los filtros. Prueba, por este orden: subir \textbf{Dist.}, elegir \textbf{Todas} en \textbf{Inversión}, cambiar de \textbf{Forma}, activar \textbf{Permitir cuerdas al aire}, pulsar \textbf{Todo el mástil} o quitar alguna extensión. El ejemplo del apartado 6.5 muestra un caso real.
+\item
+  \textbf{Una opción está desactivada.} No es compatible con el resto de la configuración: la novena no existe en una tríada, las formas drop exigen cuatriadas de cuatro notas y la 3ª inversión solo existe si hay séptima. El icono de información del control explica el motivo.
+\item
+  \textbf{La ruta pone más notas en una cuerda de las indicadas.} \textbf{Máx. notas} es orientativo: la ruta lo supera cuando respetarlo empeoraría la digitación.
+\item
+  \textbf{No puedo pulsar un traste en Ruta.} Solo se pueden elegir notas de la escala activa. Cambia la escala o elige otra posición.
+\item
+  \textbf{El modo Manual no da el nombre que esperaba.} Revisa las demás lecturas de \textbf{Posibles acordes}: un mismo grupo de notas puede tener varios nombres válidos (apartado 8.3). Si sabes sobre qué acorde estás tocando, indícalo en \textbf{Referencia}.
+\item
+  \textbf{Exportar PDF no hace nada.} El navegador está bloqueando la ventana emergente. Permite las ventanas emergentes para la aplicación y vuelve a pulsarlo.
+\item
+  \textbf{No se oye nada en el modo Manual.} El altavoz está tachado: púlsalo para activar el sonido. Vuelve a apagarse al recargar la página.
+\item
+  \textbf{En el móvil no veo el rango de trastes de Acordes.} Es intencionado: en el móvil se muestran las posiciones de todo el mástil.
+\item
+  \textbf{He perdido mi configuración al actualizar.} Es el comportamiento esperado al cambiar de versión. Restaura un preset rápido o importa la configuración exportada.
+\item
+  \textbf{Un acorde de un standard aparece desactivado.} La aplicación aún no sabe construir ese cifrado. Se conserva en la forma, pero no se carga en Acordes cercanos.
+\end{itemize}
+
+\chapter{Glosario}\label{glosario}
+
+{\def\LTcaptype{none} % do not increment counter
+\begin{longtable}[]{@{}>{\raggedright\arraybackslash}p{\dimexpr0.320000\linewidth-1.000000\tabcolsep\relax}>{\raggedright\arraybackslash}p{\dimexpr0.680000\linewidth-1.000000\tabcolsep\relax}@{}}
+\toprule\noalign{}
+Término & Significado \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+Raíz & Nota que da nombre a la escala o al acorde. \\
+Grado & Posición de una nota dentro de la escala (1, 2, 3\ldots), con alteración si difiere de la escala mayor (b3, \#4\ldots). \\
+Tríada & Acorde de tres notas: raíz, tercera y quinta. \\
+Cuatriada & Tríada con una cuarta nota, normalmente la séptima o la sexta. \\
+Extensión o tensión & Nota añadida por encima de la séptima: 9, 11 o 13, con sus alteraciones. \\
+Voicing & Forma concreta de repartir las notas de un acorde en el instrumento. \\
+Digitación & Trastes que se pisan en cada cuerda para tocar un voicing, por ejemplo \texttt{x7958x}. \\
+Inversión & Indica qué nota del acorde está en el bajo: fundamental, 1ª (3ª en el bajo), 2ª (5ª) o 3ª (7ª). \\
+Posición cerrada & Voicing con las notas lo más juntas posible. \\
+Drop 2, Drop 3, Drop 2+4 & Voicings que se obtienen bajando una octava la 2ª, la 3ª o la 2ª y la 4ª voz, contando desde arriba, de un acorde cerrado. \\
+Set & Grupo de cuerdas en que se coloca una forma drop. \\
+Notas guía & La 3ª y la 7ª de un acorde, las que definen su calidad. \\
+Acorde cuartal & Acorde construido por cuartas en lugar de terceras. \\
+Nota característica & Nota que distingue un modo de los demás, como el \#4 de Lidia. \\
+Dominante secundario & Acorde dominante que resuelve en un grado de la tonalidad distinto del I, como A7 hacia Dm en Do mayor. \\
+Backdoor & Dominante construido sobre el bVII que resuelve en el I, como Bb7 hacia C. \\
+Armonización diatónica & Acordes formados solo con notas de la escala. \\
+Acorde con bajo & Acorde con una nota distinta de la raíz en el bajo, escrito con barra: Am7/C. \\
+\end{longtable}
+}
 \end{document}
