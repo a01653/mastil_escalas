@@ -353,9 +353,10 @@ function buildPdf() {
     const texRaw = join(work, `${DOC_NAME}.raw.tex`);
 
     console.log("Pandoc…");
+    // «##» pasa a \chapter y «###» a \section, numerados como en el DTS (clase report).
     run("pandoc", [
       mdPath, "--from=gfm", "--to=latex", "--standalone", "--no-highlight",
-      "--shift-heading-level-by=-1", "--columns=10000",
+      "--shift-heading-level-by=-1", "--top-level-division=chapter", "--columns=10000",
       `--template=${TEMPLATE}`, `--output=${texRaw}`,
       `--variable=covertitle:${COVER_TITLE}`, `--variable=coversubtitle:${COVER_SUBTITLE}`,
       `--variable=headtitle:${COVER_TITLE}`, `--variable=appversion:${appVersion}`,
@@ -381,8 +382,10 @@ function buildPdf() {
       /\\includegraphics(\[[^\]]*\])?\{capturas\//g,
       "\\includegraphics[width=\\linewidth,height=0.44\\textheight,keepaspectratio]{../manuals/capturas/",
     );
-    // Cada captura reserva espacio para ella y su pie, de modo que no se separen.
-    latex = latex.replace(/^(\\pandocbounded\{)?\\includegraphics/gm, (m) => `\\Needspace{11.5cm}\n${m}`);
+    // Cada captura reserva espacio para ella y su pie, de modo que no se separen. Captura y pie
+    // no llevan la sangría de párrafo: la captura ocupa todo el ancho de la caja de texto.
+    latex = latex.replace(/^(\\pandocbounded\{)?\\includegraphics/gm, (m) => `\\Needspace{11.5cm}\n\\noindent${m}`);
+    latex = latex.replace(/^\\emph\{Figura \d+\./gm, (m) => `\\noindent${m}`);
 
     const buildDir = join(work, "docs", "latex");
     const captureDir = join(work, "docs", "manuals", "capturas");

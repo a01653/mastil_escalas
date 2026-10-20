@@ -1,58 +1,152 @@
 % !TeX program = xelatex
-\documentclass[a4paper,11pt]{article}
+% Plantilla Pandoc del manual de uso de Mástil Escalas.
+% Sigue la composición de docs/latex/DTS_Mastil_Escalas.tex: clase report, mismas
+% fuentes, márgenes, títulos numerados, cabeceras, pies e índice.
+\documentclass[a4paper,11pt,oneside]{report}
+
+% ---------------------------------------------------------------------------
+% Fuentes y unicode
+% ---------------------------------------------------------------------------
 \usepackage{fontspec}
 \IfFontExistsTF{TeX Gyre Pagella}{\setmainfont{TeX Gyre Pagella}}{\setmainfont{P052}}
 \IfFontExistsTF{TeX Gyre Heros}{\setsansfont{TeX Gyre Heros}}{\setsansfont{Nimbus Sans}}
-\IfFontExistsTF{TeX Gyre Cursor}{\setmonofont{TeX Gyre Cursor}[Scale=0.88]}{\setmonofont{Nimbus Mono PS}[Scale=0.88]}
-\usepackage{babel}
-\babelprovide[import,main]{spanish}
+\IfFontExistsTF{TeX Gyre Cursor}{\setmonofont{TeX Gyre Cursor}[Scale=0.92]}{\setmonofont{Nimbus Mono PS}[Scale=0.92]}
+
+\usepackage[spanish,es-noshorthands]{babel}
 \usepackage{microtype}
-\usepackage[a4paper,margin=2.4cm,headheight=23pt,headsep=10pt,footskip=1.1cm]{geometry}
+
+% ---------------------------------------------------------------------------
+% Geometría de página
+% ---------------------------------------------------------------------------
+\usepackage[a4paper,margin=2.6cm,headheight=23pt,headsep=10pt,footskip=1.1cm]{geometry}
 \raggedbottom
 \setlength{\emergencystretch}{3em}
 \hyphenpenalty=10000
 \exhyphenpenalty=10000
 \clubpenalty=10000
 \widowpenalty=10000
+\displaywidowpenalty=10000
+\brokenpenalty=10000
+
+% ---------------------------------------------------------------------------
+% Color
+% ---------------------------------------------------------------------------
 \usepackage{xcolor}
 \definecolor{navybg}{HTML}{0B1D2E}
+\definecolor{graphitebg}{HTML}{1B2027}
 \definecolor{navydeep}{HTML}{123049}
+\definecolor{navytext}{HTML}{123049}
+\definecolor{navylink}{HTML}{144870}
 \definecolor{lightblue}{HTML}{8FD3FE}
-\definecolor{gold}{HTML}{C9A24A}
+\definecolor{amber}{HTML}{F5A623}
+\definecolor{amberlink}{HTML}{7A4A00}
 \definecolor{softgray}{HTML}{5B6570}
+
+% ---------------------------------------------------------------------------
+% Estructura, títulos
+% ---------------------------------------------------------------------------
 \usepackage{titlesec,needspace}
-\setcounter{secnumdepth}{-1}
+\setcounter{secnumdepth}{3}
 \setcounter{tocdepth}{2}
-\titleformat{\section}{\sffamily\Large\bfseries\color{navydeep}\raggedright}{}{0pt}{}
-\titleformat{\subsection}{\sffamily\large\bfseries\color{navydeep}\raggedright}{}{0pt}{}
-\titlespacing*{\section}{0pt}{20pt}{9pt}
+
+\titleformat{\chapter}[display]
+  {\normalfont\sffamily\huge\bfseries\color{navytext}}
+  {\makebox[\textwidth][r]{\small\sffamily\color{softgray}CAPÍTULO \thechapter}}
+  {6pt}
+  {\Huge\raggedright}
+\titlespacing*{\chapter}{0pt}{0pt}{28pt}
+
+\titleformat{\section}
+  {\normalfont\sffamily\Large\bfseries\color{navytext}\raggedright}
+  {\thesection}{10pt}{}
+\titlespacing*{\section}{0pt}{18pt}{8pt}
+
+\titleformat{\subsection}
+  {\normalfont\sffamily\large\bfseries\color{navytext}\raggedright}
+  {\thesubsection}{8pt}{}
 \titlespacing*{\subsection}{0pt}{14pt}{6pt}
+
+% Índice: los capítulos llevan también puntos guía hasta el número de página.
+% Es la definición de report.cls con los puntos de \@dottedtocline; se usa \(…\)
+% porque el signo de dólar delimita las variables de la plantilla Pandoc.
+\makeatletter
+\renewcommand*\l@chapter[2]{%
+  \ifnum \c@tocdepth >\m@ne
+    \addpenalty{-\@highpenalty}%
+    \vskip 1.0em \@plus\p@
+    \setlength\@tempdima{1.5em}%
+    \begingroup
+      \parindent \z@ \rightskip \@pnumwidth
+      \parfillskip -\@pnumwidth
+      \leavevmode \bfseries
+      \advance\leftskip\@tempdima
+      \hskip -\leftskip
+      #1\nobreak
+      {\normalfont\leaders\hbox{\(\m@th\mkern \@dotsep mu\hbox{.}\mkern \@dotsep mu\)}\hfill}%
+      \nobreak\hb@xt@\@pnumwidth{\hss #2}\par
+      \penalty\@highpenalty
+    \endgroup
+  \fi}
+\makeatother
+
+% ---------------------------------------------------------------------------
+% Cabeceras y pies
+% ---------------------------------------------------------------------------
 \usepackage{fancyhdr}
 \pagestyle{fancy}
 \fancyhf{}
-\fancyhead[L]{\small\sffamily\color{softgray}Mástil Escalas}
-\fancyhead[R]{\small\sffamily\color{softgray}Manual de uso}
+\fancyhead[C]{\small\sffamily\color{softgray}Mástil Escalas --- Manual de uso}
 \fancyfoot[L]{\small\sffamily\color{softgray}Aplicación 6.0.98 · 20/10/2026}
 \fancyfoot[R]{\small\sffamily\color{softgray}\thepage}
 \renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\headrule}{\hbox to\headwidth{\color{navydeep!40!white}\leaders\hrule height \headrulewidth\hfill}}
+\renewcommand{\footrulewidth}{0pt}
+\fancypagestyle{plain}{
+  \fancyhf{}
+  \fancyfoot[L]{\small\sffamily\color{softgray}Aplicación 6.0.98 · 20/10/2026}
+  \fancyfoot[R]{\small\sffamily\color{softgray}\thepage}
+  \renewcommand{\headrulewidth}{0pt}
+}
+
+% ---------------------------------------------------------------------------
+% Tablas, listas
+% ---------------------------------------------------------------------------
 \usepackage{array,longtable,booktabs,calc}
 \newcounter{none}
-\renewcommand{\arraystretch}{1.15}
+\renewcommand{\arraystretch}{1.12}
 \usepackage{enumitem}
-\setlist[itemize]{leftmargin=1.4em,itemsep=3pt,topsep=5pt}
-\setlist[enumerate]{leftmargin=1.8em,itemsep=3pt,topsep=5pt}
+\setlist[itemize]{leftmargin=1.4em,itemsep=2pt,topsep=4pt}
+\setlist[enumerate]{leftmargin=1.6em,itemsep=2pt,topsep=4pt}
+\providecommand{\tightlist}{\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}}
+
+% ---------------------------------------------------------------------------
+% Código, rutas, texto monoespaciado
+% ---------------------------------------------------------------------------
 \usepackage{fvextra,framed,seqsplit}
-\fvset{fontsize=\small,breaklines=true,breakanywhere=true,frame=leftline,framerule=1.4pt,rulecolor=\color{gold},framesep=8pt}
+\fvset{fontsize=\small,breaklines=true,breakanywhere=true,frame=single,rulecolor=\color{navydeep!35!white},framesep=6pt}
 \RecustomVerbatimEnvironment{verbatim}{Verbatim}{breaklines,breakanywhere,samepage=true,fontsize=\small}
 \let\originaltexttt\texttt
 \renewcommand{\texttt}[1]{\originaltexttt{\seqsplit{#1}}}
-\providecommand{\tightlist}{\setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}}
+
+% ---------------------------------------------------------------------------
+% Imágenes, diagramas, símbolos
+% ---------------------------------------------------------------------------
 % Pandoc 3.2+ envuelve las imágenes en \pandocbounded; con versiones anteriores no existe y esta definición no cambia nada.
 \providecommand{\pandocbounded}[1]{#1}
 \usepackage{graphicx,xurl,tikz}
+\usetikzlibrary{calc}
 \usepackage[section]{placeins}
 \usepackage{amssymb,newunicodechar}
-\usepackage[colorlinks=true,linkcolor=navydeep,urlcolor=navydeep,pdftitle={Mástil Escalas - Manual de uso},pdfauthor={Jesús Quevedo Rodríguez}]{hyperref}
+
+% ---------------------------------------------------------------------------
+% Enlaces
+% ---------------------------------------------------------------------------
+\usepackage[colorlinks=true,linkcolor=navylink,citecolor=navylink,urlcolor=amberlink,
+  bookmarksnumbered=true,bookmarksopen=true,breaklinks=true,
+  pdftitle={Mástil Escalas - Manual de uso},
+  pdfauthor={Jesús Quevedo Rodríguez},
+  pdfsubject={Manual de uso}]{hyperref}
+\urlstyle{same}
 \usepackage{bookmark}
 \newunicodechar{♭}{\texorpdfstring{\ensuremath{\flat}}{\unichar{9837}}}
 \newunicodechar{♯}{\texorpdfstring{\ensuremath{\sharp}}{\unichar{9839}}}
@@ -60,49 +154,91 @@
 \newunicodechar{✗}{\texorpdfstring{\ensuremath{\times}}{\unichar{10007}}}
 \newunicodechar{→}{\texorpdfstring{\ensuremath{\rightarrow}}{\unichar{8594}}}
 \newunicodechar{←}{\texorpdfstring{\ensuremath{\leftarrow}}{\unichar{8592}}}
-\setlength{\parindent}{0pt}
-\setlength{\parskip}{6pt}
 \renewcommand{\topfraction}{0.95}
 \renewcommand{\bottomfraction}{0.95}
 \renewcommand{\textfraction}{0.05}
 \renewcommand{\floatpagefraction}{0.6}
 \setcounter{topnumber}{3}
 \setcounter{totalnumber}{4}
+
+% ---------------------------------------------------------------------------
 \begin{document}
+
+% =============================================================================
+% PORTADA
+% =============================================================================
 \begin{titlepage}
 \newgeometry{margin=0cm}
 \thispagestyle{empty}
-\pagecolor{navybg}
-\color{white}
-\vspace*{3cm}
-\begin{center}
-{\sffamily\bfseries\fontsize{16}{19}\selectfont\color{gold} MÁSTIL ESCALAS\par}
-\vspace{1cm}
-\begin{tikzpicture}[x=0.7cm,y=0.28cm]
-\foreach \y in {0,...,5} {\draw[gold!60,line width=0.5pt] (-3,\y)--(3,\y);}
-\foreach \x in {-3,-1,1,3} {\draw[gold!70,line width=0.6pt] (\x,0)--(\x,5);}
-\fill[gold] (-2,1) circle[x radius=0.16cm,y radius=0.16cm];
-\fill[white] (0,3) circle[x radius=0.16cm,y radius=0.16cm];
-\fill[gold] (2,4) circle[x radius=0.16cm,y radius=0.16cm];
-\end{tikzpicture}\par
-\vspace{1.4cm}
-{\sffamily\bfseries\fontsize{30}{38}\selectfont Manual de uso\par}
-\vspace{0.8cm}
-{\sffamily\fontsize{14}{20}\selectfont\color{lightblue} Escalas, rutas y acordes sobre el mástil de la guitarra\par}
-\vfill
-{\sffamily\small Autor del proyecto: Jesús Quevedo Rodríguez\par}
-{\sffamily\small Aplicación 6.0.98 · 20/10/2026\par}
-{\sffamily\small Repositorio: a01653/mastil\_escalas\par}
-\vspace{2cm}
-\end{center}
+\begin{tikzpicture}[remember picture,overlay]
+  % Fondo
+  \fill[navybg] (current page.south west) rectangle (current page.north east);
+  \shade[top color=navybg,bottom color=graphitebg]
+    ([yshift=9.5cm]current page.south west) rectangle (current page.south east);
+
+  % --- Mástil estilizado (banda inferior): cuerdas, trastes e incrustaciones ---
+  % En la plantilla Pandoc «$» produce un signo de dólar literal (sintaxis calc de TikZ).
+  \begin{scope}
+    \clip (current page.south west) rectangle ([yshift=10cm]current page.south east);
+    \begin{scope}[shift={($(current page.south west)+(-0.4,4.3)$)},rotate=-5,scale=0.75]
+      \draw[lightblue,opacity=0.35,line width=1pt] (0,0) rectangle (30,4.2);
+      \foreach \x in {2.4215,4.7057,6.8637,8.9008,10.822,12.633,14.347,15.965,17.489,18.928,20.287,21.570,22.771,23.908,25.000,26.024,26.984,27.885,28.746}{
+        \draw[white,opacity=0.22,line width=0.5pt] (\x,0) -- (\x,4.2);
+      }
+      \foreach \y in {0.35,1.05,1.75,2.45,3.15,3.85}{
+        \draw[white,opacity=0.30,line width=0.35pt] (0,\y) -- (30,\y);
+      }
+      \foreach \x in {5.785,9.861,13.490,16.727,24.454,26.504}{
+        \filldraw[lightblue,opacity=0.85] (\x,2.1) circle (0.13);
+      }
+      \filldraw[lightblue,opacity=0.85] (20.929,1.4) circle (0.12);
+      \filldraw[lightblue,opacity=0.85] (20.929,2.8) circle (0.12);
+    \end{scope}
+  \end{scope}
+
+  % --- Antetítulo -----------------------------------------------------------
+  \node[anchor=north] at ([yshift=-3.1cm]current page.north) {%
+    \sffamily\bfseries\fontsize{12}{14}\selectfont\color{amber}%
+    \MakeUppercase{Proyecto Mástil Escalas}%
+  };
+
+  % --- Título ---------------------------------------------------------------
+  \node[anchor=north,text width=17cm,align=center] at ([yshift=-4.1cm]current page.north) {%
+    \sffamily\bfseries\fontsize{29}{35}\selectfont\color{white}%
+    \hyphenpenalty=10000\exhyphenpenalty=10000\uchyph=0
+    Manual de uso%
+  };
+
+  % --- Subtítulo ------------------------------------------------------------
+  \node[anchor=north,text width=14.5cm,align=center] at ([yshift=-6.9cm]current page.north) {%
+    \sffamily\fontsize{12.5}{16}\selectfont\color{lightblue!85!white}%
+    \hyphenpenalty=10000\exhyphenpenalty=10000\uchyph=0
+    Escalas, rutas y acordes sobre el mástil de la guitarra%
+  };
+
+  % --- Ficha inferior -------------------------------------------------------
+  \node[anchor=south west,text width=13.5cm,align=left] at ([xshift=1.9cm,yshift=0.9cm]current page.south west) {%
+    \sffamily\fontsize{10.5}{15}\selectfont\color{white!92!black}
+    \textcolor{amber}{\bfseries Autor:} Jesús Quevedo Rodríguez\\[2pt]
+    \textcolor{amber}{\bfseries Aplicación:} versión 6.0.98\\[2pt]
+    \textcolor{amber}{\bfseries Fecha:} 20/10/2026\\[2pt]
+    \textcolor{amber}{\bfseries Repositorio:} \url{https://github.com/a01653/mastil_escalas}%
+  };
+\end{tikzpicture}
 \end{titlepage}
-\nopagecolor
 \restoregeometry
-\setcounter{page}{2}
+\clearpage
+
+% =============================================================================
+% ÍNDICE
+% =============================================================================
+\pagenumbering{roman}
 \tableofcontents
-\newpage
-\Needspace{3.5cm}
-\section{Empezar}\label{empezar}
+\clearpage
+\pagenumbering{arabic}
+\setcounter{page}{1}
+
+\chapter{Empezar}\label{empezar}
 
 Mástil Escalas es una página para guitarristas. Muestra escalas, compara dos escalas, calcula rutas y construye acordes con digitaciones reales sobre el mástil. Funciona en el navegador, en escritorio y en móvil, y se puede instalar para usarla sin conexión.
 
@@ -129,12 +265,11 @@ Configuración & Guardar presets, exportar e importar la configuración. \\
 El interrogante de la cabecera abre una ayuda breve con el botón \textbf{Abrir el manual en PDF}, que muestra este documento. En móvil, el menú de tres rayas abre la configuración y la barra inferior cambia de sección.
 
 \Needspace{11.5cm}
-\pandocbounded{\includegraphics[width=\linewidth,height=0.44\textheight,keepaspectratio]{../manuals/capturas/escala.png}}
+\noindent\pandocbounded{\includegraphics[width=\linewidth,height=0.44\textheight,keepaspectratio]{../manuals/capturas/escala.png}}
 
-\emph{Figura 1. Sección Escala con la barra Menu y los controles de la escala activa.}
+\noindent\emph{Figura 1. Sección Escala con la barra Menu y los controles de la escala activa.}
 
-\Needspace{3.5cm}
-\section{Elegir la tonalidad y la escala}\label{elegir-la-tonalidad-y-la-escala}
+\chapter{Elegir la tonalidad y la escala}\label{elegir-la-tonalidad-y-la-escala}
 
 Estos ajustes se aplican a todas las secciones. Cámbialos primero y el resto se actualiza solo.
 
@@ -151,8 +286,7 @@ Estos ajustes se aplican a todas las secciones. Cámbialos primero y el resto se
   Ajusta \textbf{Trastes} para ampliar o reducir el rango visible.
 \end{enumerate}
 
-\Needspace{3.5cm}
-\section{Ver una escala en el mástil}\label{ver-una-escala-en-el-muxe1stil}
+\chapter{Ver una escala en el mástil}\label{ver-una-escala-en-el-muxe1stil}
 
 La sección \textbf{Escala} resalta la raíz, la tercera, la quinta y el resto de notas de la escala activa.
 
@@ -166,8 +300,7 @@ La sección \textbf{Escala} resalta la raíz, la tercera, la quinta y el resto d
   Al pasar el ratón por una celda vacía aparece el nombre de la nota de ese traste.
 \end{itemize}
 
-\Needspace{3.5cm}
-\section{Comparar dos escalas}\label{comparar-dos-escalas}
+\chapter{Comparar dos escalas}\label{comparar-dos-escalas}
 
 La sección \textbf{Comparar} muestra hasta dos escalas a la vez, cada una con su color.
 
@@ -187,12 +320,11 @@ La sección \textbf{Comparar} muestra hasta dos escalas a la vez, cada una con s
 Sirve para comparar un modo con su escala paralela, ver el solapamiento entre tonalidades relativas o estudiar sustituciones.
 
 \Needspace{11.5cm}
-\pandocbounded{\includegraphics[width=\linewidth,height=0.44\textheight,keepaspectratio]{../manuals/capturas/comparar.png}}
+\noindent\pandocbounded{\includegraphics[width=\linewidth,height=0.44\textheight,keepaspectratio]{../manuals/capturas/comparar.png}}
 
-\emph{Figura 2. Sección Comparar: filas de escalas y mástil con las notas de cada una.}
+\noindent\emph{Figura 2. Sección Comparar: filas de escalas y mástil con las notas de cada una.}
 
-\Needspace{3.5cm}
-\section{Calcular una ruta}\label{calcular-una-ruta}
+\chapter{Calcular una ruta}\label{calcular-una-ruta}
 
 La sección \textbf{Ruta} busca un recorrido, siguiendo la escala, entre una nota inicial y una final.
 
@@ -210,12 +342,11 @@ La sección \textbf{Ruta} busca un recorrido, siguiendo la escala, entre una not
 La ruta prioriza avanzar con lógica de guitarrista: evita retrocesos absurdos de cuerda y favorece las trayectorias diagonales naturales.
 
 \Needspace{11.5cm}
-\pandocbounded{\includegraphics[width=\linewidth,height=0.44\textheight,keepaspectratio]{../manuals/capturas/ruta.png}}
+\noindent\pandocbounded{\includegraphics[width=\linewidth,height=0.44\textheight,keepaspectratio]{../manuals/capturas/ruta.png}}
 
-\emph{Figura 3. Sección Ruta con los controles Inicio, Fin y Máx. notas.}
+\noindent\emph{Figura 3. Sección Ruta con los controles Inicio, Fin y Máx. notas.}
 
-\Needspace{3.5cm}
-\section{Construir un acorde}\label{construir-un-acorde}
+\chapter{Construir un acorde}\label{construir-un-acorde}
 
 La sección \textbf{Acordes} parte de un acorde que defines y busca voicings reales en el mástil.
 
@@ -249,12 +380,11 @@ Otras opciones del constructor:
 \end{itemize}
 
 \Needspace{11.5cm}
-\pandocbounded{\includegraphics[width=\linewidth,height=0.44\textheight,keepaspectratio]{../manuals/capturas/acordes.png}}
+\noindent\pandocbounded{\includegraphics[width=\linewidth,height=0.44\textheight,keepaspectratio]{../manuals/capturas/acordes.png}}
 
-\emph{Figura 4. Sección Acordes: constructor, mástil con el voicing activo y selector de voicing.}
+\noindent\emph{Figura 4. Sección Acordes: constructor, mástil con el voicing activo y selector de voicing.}
 
-\Needspace{3.5cm}
-\section{Estudiar un acorde}\label{estudiar-un-acorde}
+\chapter{Estudiar un acorde}\label{estudiar-un-acorde}
 
 Pulsa \textbf{Estudiar} junto al voicing para abrir el análisis del acorde, del voicing y de sus tensiones. El botón \textbf{Ver análisis} abre el mismo estudio y \textbf{Ocultar} lo cierra.
 
@@ -279,12 +409,11 @@ El análisis agrupa la información en bloques, entre ellos:
 \textbf{Exportar PDF} genera un resumen imprimible del análisis visible.
 
 \Needspace{11.5cm}
-\pandocbounded{\includegraphics[width=\linewidth,height=0.44\textheight,keepaspectratio]{../manuals/capturas/acordes-estudio.png}}
+\noindent\pandocbounded{\includegraphics[width=\linewidth,height=0.44\textheight,keepaspectratio]{../manuals/capturas/acordes-estudio.png}}
 
-\emph{Figura 5. Sección Acordes con el estudio del acorde abierto.}
+\noindent\emph{Figura 5. Sección Acordes con el estudio del acorde abierto.}
 
-\Needspace{3.5cm}
-\section{Investigar notas en el mástil}\label{investigar-notas-en-el-muxe1stil}
+\chapter{Investigar notas en el mástil}\label{investigar-notas-en-el-muxe1stil}
 
 El modo \textbf{Manual} invierte el flujo: marcas notas en el mástil y la aplicación propone qué acorde forman. Se activa con el selector \textbf{Auto} / \textbf{Manual} de la cabecera de Acordes.
 
@@ -314,12 +443,11 @@ Opciones útiles:
 \end{itemize}
 
 \Needspace{11.5cm}
-\pandocbounded{\includegraphics[width=\linewidth,height=0.44\textheight,keepaspectratio]{../manuals/capturas/acordes-manual.png}}
+\noindent\pandocbounded{\includegraphics[width=\linewidth,height=0.44\textheight,keepaspectratio]{../manuals/capturas/acordes-manual.png}}
 
-\emph{Figura 6. Modo Manual: el cuadro de acorde queda bloqueado y el mástil admite la selección de notas.}
+\noindent\emph{Figura 6. Modo Manual: el cuadro de acorde queda bloqueado y el mástil admite la selección de notas.}
 
-\Needspace{3.5cm}
-\section{Comparar acordes cercanos}\label{comparar-acordes-cercanos}
+\chapter{Comparar acordes cercanos}\label{comparar-acordes-cercanos}
 
 La sección \textbf{Acordes cercanos} compara hasta cuatro acordes en una misma zona del mástil, para estudiar progresiones y conducción de voces.
 
@@ -341,12 +469,11 @@ La sección \textbf{Acordes cercanos} compara hasta cuatro acordes en una misma 
 Un flujo habitual para un ii-V-I en Do mayor: activa \textbf{Auto escala} con Do mayor y desplaza el rango de trastes hasta encontrar la posición con mejor conducción de voces.
 
 \Needspace{11.5cm}
-\pandocbounded{\includegraphics[width=\linewidth,height=0.44\textheight,keepaspectratio]{../manuals/capturas/cercanos.png}}
+\noindent\pandocbounded{\includegraphics[width=\linewidth,height=0.44\textheight,keepaspectratio]{../manuals/capturas/cercanos.png}}
 
-\emph{Figura 7. Sección Acordes cercanos con sus huecos de acorde y el mástil.}
+\noindent\emph{Figura 7. Sección Acordes cercanos con sus huecos de acorde y el mástil.}
 
-\Needspace{3.5cm}
-\section{Trabajar con Standards}\label{trabajar-con-standards}
+\chapter{Trabajar con Standards}\label{trabajar-con-standards}
 
 La sección \textbf{Standards} es un catálogo de más de 1400 temas.
 
@@ -364,17 +491,16 @@ La sección \textbf{Standards} es un catálogo de más de 1400 temas.
 Los cifrados que la aplicación aún no sabe construir se conservan en pantalla, pero no se cargan: el hueco queda desactivado y se avisa del motivo.
 
 \Needspace{11.5cm}
-\pandocbounded{\includegraphics[width=\linewidth,height=0.44\textheight,keepaspectratio]{../manuals/capturas/standards.png}}
+\noindent\pandocbounded{\includegraphics[width=\linewidth,height=0.44\textheight,keepaspectratio]{../manuals/capturas/standards.png}}
 
-\emph{Figura 8. Catálogo de standards con sus filtros.}
+\noindent\emph{Figura 8. Catálogo de standards con sus filtros.}
 
 \Needspace{11.5cm}
-\pandocbounded{\includegraphics[width=\linewidth,height=0.44\textheight,keepaspectratio]{../manuals/capturas/standards-forma.png}}
+\noindent\pandocbounded{\includegraphics[width=\linewidth,height=0.44\textheight,keepaspectratio]{../manuals/capturas/standards-forma.png}}
 
-\emph{Figura 9. Ficha de un standard seleccionado, con su Forma.}
+\noindent\emph{Figura 9. Ficha de un standard seleccionado, con su Forma.}
 
-\Needspace{3.5cm}
-\section{Guardar y recuperar la configuración}\label{guardar-y-recuperar-la-configuraciuxf3n}
+\chapter{Guardar y recuperar la configuración}\label{guardar-y-recuperar-la-configuraciuxf3n}
 
 La sección \textbf{Configuración} reúne los ajustes generales.
 
@@ -391,12 +517,11 @@ La sección \textbf{Configuración} reúne los ajustes generales.
 \end{itemize}
 
 \Needspace{11.5cm}
-\pandocbounded{\includegraphics[width=\linewidth,height=0.44\textheight,keepaspectratio]{../manuals/capturas/configuracion.png}}
+\noindent\pandocbounded{\includegraphics[width=\linewidth,height=0.44\textheight,keepaspectratio]{../manuals/capturas/configuracion.png}}
 
-\emph{Figura 10. Panel de Configuración.}
+\noindent\emph{Figura 10. Panel de Configuración.}
 
-\Needspace{3.5cm}
-\section{Instalar y usar sin conexión}\label{instalar-y-usar-sin-conexiuxf3n}
+\chapter{Instalar y usar sin conexión}\label{instalar-y-usar-sin-conexiuxf3n}
 
 Puedes instalar la página como aplicación desde el navegador. En iPhone o iPad, usa «Añadir a pantalla de inicio» desde Safari.
 
@@ -413,8 +538,7 @@ Puedes instalar la página como aplicación desde el navegador. En iPhone o iPad
 
 Si cambia la versión de la aplicación, la configuración actual se restablece y los presets se conservan. Antes de actualizar, guarda un preset o exporta la configuración.
 
-\Needspace{3.5cm}
-\section{Límites y consejos}\label{luxedmites-y-consejos}
+\chapter{Límites y consejos}\label{luxedmites-y-consejos}
 
 \begin{itemize}
 \tightlist
