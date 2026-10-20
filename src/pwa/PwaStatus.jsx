@@ -4,11 +4,15 @@ import { pwaStore } from './store.js';
 export default function PwaStatus({ store = pwaStore }) {
   const state = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getServerSnapshot);
   if (state.status === 'idle') return null;
+  const ready = state.status === 'ready';
+  if (ready && !state.updateReady && !state.error) return null;
   return (
     <section aria-label="Instalación y actualización" className="mb-3 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm">
-      <p role="status" className="text-slate-600">
-        {state.status === 'preparing' ? 'Preparando el uso sin conexión…' : state.status === 'ready' ? 'Disponible sin conexión.' : 'Uso sin conexión no disponible.'}
-      </p>
+      {ready ? null : (
+        <p role="status" className="text-slate-600">
+          {state.status === 'preparing' ? 'Preparando el uso sin conexión…' : 'Uso sin conexión no disponible.'}
+        </p>
+      )}
       {state.error ? <p role="alert" className="mt-1 text-rose-700">{state.error}</p> : null}
       {state.updateReady ? (
         <div className="mt-2 flex flex-wrap items-center gap-3">
