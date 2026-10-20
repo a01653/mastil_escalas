@@ -90,7 +90,7 @@ Este proyecto nace como herramienta de apoyo al estudio de guitarra para:
 
 Abre [Mástil Escalas](https://a01653.github.io/mastil_escalas/) y utiliza la opción de instalar aplicación del navegador. En iPhone o iPad, abre la web en Safari y selecciona «Añadir a pantalla de inicio».
 
-La primera descarga necesita Internet. Espera a que aparezca **«Disponible sin conexión.»**: se guardan la aplicación, el catálogo de acordes y todos los standards, incluidos los que todavía no has abierto. Después puedes cerrar, volver a abrir y utilizar la aplicación sin red. Si borras los datos del sitio, tendrás que repetir la descarga.
+La primera descarga necesita Internet. Durante la preparación puede aparecer el estado de carga; al terminar desaparece y la aplicación queda lista para usar sin conexión. Se guardan la aplicación, el catálogo de acordes y todos los standards, incluidos los que todavía no has abierto. Si borras los datos del sitio, tendrás que repetir la descarga.
 
 Cuando haya una versión nueva aparecerá **«Actualizar ahora»**. La aplicación no se recarga automáticamente. Se mantiene la política de configuración del proyecto: al cambiar de versión se restablece la configuración actual; los presets rápidos se conservan. Guarda un preset o exporta la configuración antes de actualizar si quieres recuperarla.
 
